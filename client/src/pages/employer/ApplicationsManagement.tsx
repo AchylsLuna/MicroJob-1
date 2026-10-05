@@ -41,7 +41,7 @@ import { safeExternalUrl } from "../../utils/safeExternalUrl";
 import { RatingDialog, type RatingTarget } from "../../components/reviews/RatingDialog";
 import { DateField } from "../../components/ui/DateField";
 import { formatCurrency, formatDateTime } from "../../lib/formatters";
-import { ConfirmDialog } from "../../components/ui/index";
+import { ConfirmDialog, Dialog } from "../../components/ui/index";
 import { OfferActions } from "../../components/job/OfferActions";
 
 // Converts between the "YYYY-MM-DD" date portion of scheduleForm.scheduledAt
@@ -150,8 +150,8 @@ const formatAppliedDate = (value?: string): string => {
 
 const statusClasses: Record<ApplicationStatus, string> = {
   Applied: "bg-[#E2E8F0] text-[#334155]",
-  Shortlisted: "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]",
-  "Interview Scheduled": "bg-[#1C4D8D]/10 text-[#1C4D8D]",
+  Shortlisted: "bg-brand/[0.08] text-brand",
+  "Interview Scheduled": "bg-brand/10 text-brand",
   Interviewed: "bg-[#FEF3C7] text-[#B45309]",
   "Offer Sent": "bg-[#FCE7F3] text-[#BE185D]",
   Hired: "bg-[#DCFCE7] text-[#15803D]",
@@ -232,7 +232,7 @@ function ApplicationCard({
 
   return (
     <div
-      className={`rounded-[16px] border p-4 shadow-sm space-y-4 ${
+      className={`rounded-card border p-4 shadow-sm space-y-4 ${
         application.employerHidden ? "border-[#E5E7EB] bg-[#F8FAFC] opacity-75 ring-1 ring-[#E5E7EB]" : "border-[#E5E7EB] bg-white"
       }`}
     >
@@ -240,7 +240,7 @@ function ApplicationCard({
         <button
           type="button"
           onClick={() => onToggleSelected(application._id)}
-          className="mt-1 text-[#64748B] hover:opacity-80"
+          className="mt-1 text-slate-500 hover:opacity-80"
           aria-label={
             selected
               ? t("applicationsManagement.card.deselectAria")
@@ -251,12 +251,12 @@ function ApplicationCard({
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-full bg-[#1C4D8D]/[0.06] text-[#1C4D8D] flex items-center justify-center font-semibold">
+            <div className="w-11 h-11 rounded-full bg-brand/[0.06] text-brand flex items-center justify-center font-semibold">
               {getApplicantInitials(application, applicantFallback)}
             </div>
             <div className="min-w-0">
               <p className="text-[15px] font-semibold text-[#111827] line-clamp-1">{getApplicantName(application, applicantFallback)}</p>
-              <p className="text-[12px] text-[#6B7280] line-clamp-1">{application.applicant?.email || t("applicationsManagement.card.noEmail")}</p>
+              <p className="text-caption text-[#6B7280] line-clamp-1">{application.applicant?.email || t("applicationsManagement.card.noEmail")}</p>
             </div>
           </div>
         </div>
@@ -283,33 +283,33 @@ function ApplicationCard({
       </div>
 
       <div>
-        <p className="text-[14px] font-medium text-[#111827]">{application.job?.title || t("applicationsManagement.card.untitledRole")}</p>
-        <p className="text-[12px] text-[#6B7280] mt-1">
+        <p className="text-body font-medium text-[#111827]">{application.job?.title || t("applicationsManagement.card.untitledRole")}</p>
+        <p className="text-caption text-[#6B7280] mt-1">
           {t("applicationsManagement.card.appliedOn", { date: formatAppliedDate(application.createdAt) })}
         </p>
       </div>
 
       {application.nextInterview ? (
-        <div className="rounded-[12px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-3 py-2 text-[12px] text-[#1C4D8D]">
+        <div className="rounded-xl border border-brand/20 bg-brand/[0.06] px-3 py-2 text-caption text-brand">
           {t("applicationsManagement.card.nextInterview", { date: formatAppliedDate(application.nextInterview.scheduledAt) })}
           {application.nextInterview.location ? ` · ${application.nextInterview.location}` : ""}
         </div>
       ) : null}
 
       {application.coverLetter ? (
-        <p className="text-[13px] text-[#475569] line-clamp-3">{application.coverLetter}</p>
+        <p className="text-body-sm text-[#475569] line-clamp-3">{application.coverLetter}</p>
       ) : null}
 
-      <div className="grid grid-cols-3 gap-2 text-center text-[12px]">
-        <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E5E7EB] px-2 py-2">
+      <div className="grid grid-cols-3 gap-2 text-center text-caption">
+        <div className="rounded-xl bg-[#F8FAFC] border border-[#E5E7EB] px-2 py-2">
           <div className="text-[#111827] font-semibold">{application.applicant?.jobsApplied || 0}</div>
           <div className="text-[#6B7280] mt-1">{t("applicationsManagement.card.stats.applied")}</div>
         </div>
-        <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E5E7EB] px-2 py-2">
+        <div className="rounded-xl bg-[#F8FAFC] border border-[#E5E7EB] px-2 py-2">
           <div className="text-[#111827] font-semibold">{application.applicant?.projectsCompleted || 0}</div>
           <div className="text-[#6B7280] mt-1">{t("applicationsManagement.card.stats.completed")}</div>
         </div>
-        <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E5E7EB] px-2 py-2">
+        <div className="rounded-xl bg-[#F8FAFC] border border-[#E5E7EB] px-2 py-2">
           <div className="text-[#111827] font-semibold">{application.applicant?.successRate || "0%"}</div>
           <div className="text-[#6B7280] mt-1">{t("applicationsManagement.card.stats.success")}</div>
         </div>
@@ -319,7 +319,7 @@ function ApplicationCard({
         <select
           value={application.status}
           onChange={(event) => onStatusChange(application._id, event.target.value as ApplicationStatus)}
-          className="w-full h-10 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+          className="w-full h-10 rounded-xl border border-[#E5E7EB] px-3 text-body-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-brand"
         >
           {/* A hired application keeps showing "Hired" as its current value, but
               it cannot be re-selected; hiring is driven by the offer flow. */}
@@ -350,7 +350,7 @@ function ApplicationCard({
           <button
             type="button"
             onClick={() => onScheduleInterview(application)}
-            className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-3 py-2 text-[12px] font-semibold text-[#1C4D8D]"
+            className="inline-flex items-center justify-center gap-2 rounded-control border border-brand/20 bg-brand/[0.06] px-3 py-2 text-caption font-semibold text-brand"
           >
             <Calendar className="w-4 h-4" />
             {application.nextInterview ? t("applicationsManagement.card.reschedule") : t("applicationsManagement.card.schedule")}
@@ -359,7 +359,7 @@ function ApplicationCard({
             <button
               type="button"
               onClick={() => onRestore(application._id)}
-              className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-3 py-2 text-[12px] font-semibold text-[#1C4D8D]"
+              className="inline-flex items-center justify-center gap-2 rounded-control border border-brand/20 bg-brand/[0.06] px-3 py-2 text-caption font-semibold text-brand"
             >
               <Eye className="w-4 h-4" />
               {t("applicationsManagement.card.restore")}
@@ -368,7 +368,7 @@ function ApplicationCard({
             <button
               type="button"
               onClick={() => onHide(application._id)}
-              className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-[12px] font-semibold text-[#B91C1C]"
+              className="inline-flex items-center justify-center gap-2 rounded-control border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-caption font-semibold text-[#B91C1C]"
             >
               <Eye className="w-4 h-4" />
               {t("applicationsManagement.card.hide")}
@@ -380,7 +380,7 @@ function ApplicationCard({
           <button
             type="button"
             onClick={() => onOpenProfile(application)}
-            className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#E5E7EB] px-3 py-2 text-[12px] font-semibold text-[#111827]"
+            className="inline-flex items-center justify-center gap-2 rounded-control border border-[#E5E7EB] px-3 py-2 text-caption font-semibold text-[#111827]"
           >
             <UserIcon className="w-4 h-4" />
             {t("applicationsManagement.card.profile")}
@@ -388,7 +388,7 @@ function ApplicationCard({
           <button
             type="button"
             onClick={() => onMessage(application)}
-            className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#E5E7EB] px-3 py-2 text-[12px] font-semibold text-[#111827]"
+            className="inline-flex items-center justify-center gap-2 rounded-control border border-[#E5E7EB] px-3 py-2 text-caption font-semibold text-[#111827]"
           >
             <MessageSquare className="w-4 h-4" />
             {t("applicationsManagement.card.message")}
@@ -400,18 +400,18 @@ function ApplicationCard({
             href={resumeUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#1C4D8D]"
+            className="inline-flex items-center gap-2 text-caption font-semibold text-brand"
           >
             <Mail className="w-4 h-4" />
             {t("applicationsManagement.card.viewResume")}
           </a>
         ) : null}
         {reviewEligibility?.canReview ? (
-          <button type="button" onClick={() => onRate(application)} className="inline-flex w-full items-center justify-center gap-2 rounded-[10px] bg-amber-500 px-3 py-2 text-[12px] font-semibold text-white">
+          <button type="button" onClick={() => onRate(application)} className="inline-flex w-full items-center justify-center gap-2 rounded-control bg-amber-500 px-3 py-2 text-caption font-semibold text-white">
             <Star className="h-4 w-4" /> {t("applicationsManagement.card.rateWorker")}
           </button>
         ) : reviewEligibility?.existingReview ? (
-          <p className="text-center text-[12px] font-semibold text-emerald-700">{t("applicationsManagement.card.reviewSubmitted")}</p>
+          <p className="text-center text-caption font-semibold text-emerald-700">{t("applicationsManagement.card.reviewSubmitted")}</p>
         ) : null}
       </div>
     </div>
@@ -747,12 +747,12 @@ export function ApplicationsManagement() {
             <h1 className="ui-page-title">{t("applicationsManagement.title")}</h1>
             <p className="ui-page-subtitle">{t("applicationsManagement.subtitle")}</p>
           </div>
-          <div className="inline-flex items-center rounded-[12px] border border-[#E5E7EB] overflow-hidden self-start">
+          <div className="inline-flex items-center rounded-xl border border-[#E5E7EB] overflow-hidden self-start">
             <button
               type="button"
               onClick={() => setViewMode("board")}
               aria-pressed={viewMode === "board"}
-              className={`inline-flex items-center gap-2 px-4 py-2 text-[13px] font-semibold ${viewMode === "board" ? "bg-[#1C4D8D]/[0.06] text-[#1C4D8D]" : "bg-white text-[#475569]"}`}
+              className={`inline-flex items-center gap-2 px-4 py-2 text-body-sm font-semibold ${viewMode === "board" ? "bg-brand/[0.06] text-brand" : "bg-white text-[#475569]"}`}
             >
               <Grid2X2 className="w-4 h-4" />
               {t("applicationsManagement.viewToggle.board")}
@@ -761,7 +761,7 @@ export function ApplicationsManagement() {
               type="button"
               onClick={() => setViewMode("table")}
               aria-pressed={viewMode === "table"}
-              className={`inline-flex items-center gap-2 px-4 py-2 text-[13px] font-semibold border-l border-[#E5E7EB] ${viewMode === "table" ? "bg-[#1C4D8D]/[0.06] text-[#1C4D8D]" : "bg-white text-[#475569]"}`}
+              className={`inline-flex items-center gap-2 px-4 py-2 text-body-sm font-semibold border-l border-[#E5E7EB] ${viewMode === "table" ? "bg-brand/[0.06] text-brand" : "bg-white text-[#475569]"}`}
             >
               <LayoutList className="w-4 h-4" />
               {t("applicationsManagement.viewToggle.table")}
@@ -778,14 +778,14 @@ export function ApplicationsManagement() {
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder={t("applicationsManagement.filters.searchPlaceholder")}
               aria-label={t("applicationsManagement.filters.searchAriaLabel")}
-              className="w-full h-11 rounded-[12px] border border-[#E5E7EB] pl-9 pr-3 text-[13px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+              className="w-full h-11 rounded-xl border border-[#E5E7EB] pl-9 pr-3 text-body-sm text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-brand"
             />
           </div>
           <select
             aria-label={t("applicationsManagement.filters.stageAriaLabel")}
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
-            className="h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+            className="h-11 rounded-xl border border-[#E5E7EB] px-3 text-body-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-brand"
           >
             <option value="all">{t("applicationsManagement.filters.allStages")}</option>
             {PIPELINE_STATUSES.map((status) => (
@@ -798,7 +798,7 @@ export function ApplicationsManagement() {
             aria-label={t("applicationsManagement.filters.jobAriaLabel")}
             value={jobFilter}
             onChange={(event) => setJobFilter(event.target.value)}
-            className="h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+            className="h-11 rounded-xl border border-[#E5E7EB] px-3 text-body-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-brand"
           >
             <option value="all">{t("applicationsManagement.filters.allJobs")}</option>
             {jobOptions.map((job) => (
@@ -809,19 +809,19 @@ export function ApplicationsManagement() {
           </select>
         </div>
 
-        <label className="flex w-fit cursor-pointer items-center gap-2 text-[13px] font-medium text-[#475569]">
+        <label className="flex w-fit cursor-pointer items-center gap-2 text-body-sm font-medium text-[#475569]">
           <input
             type="checkbox"
             checked={includeHidden}
             onChange={(event) => setIncludeHidden(event.target.checked)}
-            className="h-4 w-4 rounded border-[#CBD5E1] text-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]"
+            className="h-4 w-4 rounded border-[#CBD5E1] text-brand focus:ring-2 focus:ring-brand"
           />
           {t("applicationsManagement.filters.showHidden")}
         </label>
 
         {selectedIds.length > 0 ? (
-          <div className="rounded-[14px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div className="text-[13px] text-[#1C4D8D] font-medium">
+          <div className="rounded-card border border-brand/20 bg-brand/[0.06] px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="text-body-sm text-brand font-medium">
               {t("applicationsManagement.bulk.selectedCount", { count: selectedIds.length })}
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
@@ -829,7 +829,7 @@ export function ApplicationsManagement() {
                 aria-label={t("applicationsManagement.bulk.stageAriaLabel")}
                 value={bulkStatus}
                 onChange={(event) => setBulkStatus(event.target.value as ApplicationStatus)}
-                className="h-10 rounded-[10px] border border-[#1C4D8D]/20 px-3 text-[13px] text-[#111827]"
+                className="h-10 rounded-control border border-brand/20 px-3 text-body-sm text-[#111827]"
               >
                 {EDITABLE_STATUSES.map((status) => (
                   <option key={status} value={status}>
@@ -841,14 +841,14 @@ export function ApplicationsManagement() {
                 type="button"
                 onClick={handleBulkStatusChange}
                 disabled={isBulkUpdating}
-                className="h-10 rounded-[10px] bg-[#1C4D8D] px-4 text-[13px] font-semibold text-white disabled:opacity-60"
+                className="h-10 rounded-control bg-brand px-4 text-body-sm font-semibold text-white disabled:opacity-60"
               >
                 {isBulkUpdating ? t("applicationsManagement.bulk.updating") : t("applicationsManagement.bulk.applyBulkStatus")}
               </button>
               <button
                 type="button"
                 onClick={() => handleHideApplications(selectedIds)}
-                className="h-10 rounded-[10px] border border-[#FCA5A5] bg-white px-4 text-[13px] font-semibold text-[#B91C1C]"
+                className="h-10 rounded-control border border-[#FCA5A5] bg-white px-4 text-body-sm font-semibold text-[#B91C1C]"
               >
                 {t("applicationsManagement.bulk.hideSelected")}
               </button>
@@ -858,19 +858,19 @@ export function ApplicationsManagement() {
       </div>
 
       {loadError ? (
-        <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-[12px] text-[13px]">
+        <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-xl text-body-sm">
           {loadError}
         </div>
       ) : null}
 
       {isLoading ? (
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-10 text-center text-[#6B7280]">
+        <div className="bg-white rounded-card border border-[#E5E7EB] p-10 text-center text-[#6B7280]">
           {t("applicationsManagement.states.loading")}
         </div>
       ) : null}
 
       {!isLoading && applications.length === 0 ? (
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-10 text-center text-[#6B7280]">
+        <div className="bg-white rounded-card border border-[#E5E7EB] p-10 text-center text-[#6B7280]">
           {t("applicationsManagement.states.empty")}
         </div>
       ) : null}
@@ -882,7 +882,7 @@ export function ApplicationsManagement() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-[16px] font-semibold text-[#111827]">{getStatusLabel(t, status)}</h3>
-                  <p className="text-[12px] text-[#6B7280] mt-1">
+                  <p className="text-caption text-[#6B7280] mt-1">
                     {t("applicationsManagement.board.applicantCount", { count: groupedApplications[status].length })}
                   </p>
                 </div>
@@ -893,7 +893,7 @@ export function ApplicationsManagement() {
 
               <div className="space-y-3">
                 {groupedApplications[status].length === 0 ? (
-                  <div className="rounded-[14px] border border-dashed border-[#CBD5E1] bg-white px-4 py-8 text-center text-[13px] text-[#94A3B8]">
+                  <div className="rounded-card border border-dashed border-[#CBD5E1] bg-white px-4 py-8 text-center text-body-sm text-[#94A3B8]">
                     {t("applicationsManagement.board.emptyColumn")}
                   </div>
                 ) : (
@@ -934,12 +934,12 @@ export function ApplicationsManagement() {
       ) : null}
 
       {!isLoading && applications.length > 0 && viewMode === "table" ? (
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 overflow-x-auto">
-          <table className="w-full text-left text-[13px]">
+        <div className="bg-white rounded-card border border-[#E5E7EB] p-6 overflow-x-auto">
+          <table className="w-full min-w-[940px] text-left text-body-sm">
             <thead>
               <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
                 <th className="py-3 pr-4 font-medium">
-                  <button type="button" onClick={handleToggleSelectAll} className="text-[#64748B] hover:opacity-80">
+                  <button type="button" onClick={handleToggleSelectAll} className="text-slate-500 hover:opacity-80">
                     {visibleApplications.length > 0 && visibleApplications.every((application) => selectedSet.has(application._id)) ? (
                       <CheckSquare className="w-5 h-5" />
                     ) : (
@@ -969,20 +969,20 @@ export function ApplicationsManagement() {
                     transition={{ delay: Math.min(index, 8) * 0.03, duration: seconds(motionTokens.duration.enter) }}
                   >
                     <td className="py-3 pr-4">
-                      <button type="button" onClick={() => handleToggleSelected(application._id)} className="text-[#64748B] hover:opacity-80">
+                      <button type="button" onClick={() => handleToggleSelected(application._id)} className="text-slate-500 hover:opacity-80">
                         {selectedSet.has(application._id) ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
                       </button>
                     </td>
                     <td className="py-3 pr-4 text-[#111827]">
                       <div className="font-medium">{getApplicantName(application, applicantFallback)}</div>
-                      <div className="text-[12px] text-[#6B7280] mt-1">{application.applicant?.email || "—"}</div>
+                      <div className="text-caption text-[#6B7280] mt-1">{application.applicant?.email || "—"}</div>
                     </td>
                     <td className="py-3 pr-4 text-[#6B7280]">{application.job?.title || "—"}</td>
                     <td className="py-3 pr-4">
                       <select
                         value={application.status}
                         onChange={(event) => handleStatusChange(application._id, event.target.value as ApplicationStatus)}
-                        className="h-10 rounded-[10px] border border-[#E5E7EB] px-3 text-[12px] text-[#111827]"
+                        className="h-10 rounded-control border border-[#E5E7EB] px-3 text-caption text-[#111827]"
                       >
                         {application.status === "Hired" ? (
                           <option value="Hired" disabled>
@@ -1004,7 +1004,7 @@ export function ApplicationsManagement() {
                     <td className="py-3 pr-4 text-[#6B7280]">{formatAppliedDate(application.createdAt)}</td>
                     <td className="py-3 pr-4">
                       {resumeUrl ? (
-                        <a href={resumeUrl} target="_blank" rel="noreferrer" className="text-[#1C4D8D] font-semibold">
+                        <a href={resumeUrl} target="_blank" rel="noreferrer" className="text-brand font-semibold">
                           {t("applicationsManagement.card.viewResume")}
                         </a>
                       ) : (
@@ -1016,26 +1016,26 @@ export function ApplicationsManagement() {
                         <button
                           type="button"
                           onClick={() => handleOpenSchedule(application)}
-                          className="px-3 py-2 rounded-[10px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] text-[#1C4D8D] font-semibold"
+                          className="px-3 py-2 rounded-control border border-brand/20 bg-brand/[0.06] text-brand font-semibold"
                         >
                           {t("applicationsManagement.table.actions.interview")}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleOpenProfile(application)}
-                          className="px-3 py-2 rounded-[10px] border border-[#E5E7EB] text-[#111827] font-semibold"
+                          className="px-3 py-2 rounded-control border border-[#E5E7EB] text-[#111827] font-semibold"
                         >
                           {t("applicationsManagement.card.profile")}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleHideApplications([application._id])}
-                          className="px-3 py-2 rounded-[10px] border border-[#FECACA] text-[#B91C1C] font-semibold"
+                          className="px-3 py-2 rounded-control border border-[#FECACA] text-[#B91C1C] font-semibold"
                         >
                           {t("applicationsManagement.card.hide")}
                         </button>
                         {reviewEligibility[application._id]?.canReview ? (
-                          <button type="button" onClick={() => handleRateWorker(application)} className="inline-flex items-center gap-1 rounded-[10px] bg-amber-500 px-3 py-2 font-semibold text-white">
+                          <button type="button" onClick={() => handleRateWorker(application)} className="inline-flex items-center gap-1 rounded-control bg-amber-500 px-3 py-2 font-semibold text-white">
                             <Star className="h-4 w-4" /> {t("applicationsManagement.table.actions.rate")}
                           </button>
                         ) : null}
@@ -1062,22 +1062,26 @@ export function ApplicationsManagement() {
       />
 
       {scheduleTarget ? (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-xl bg-white rounded-[18px] p-6 shadow-xl space-y-5">
-            <div>
-              <h3 className="text-[20px] font-semibold text-[#111827]">
-                {scheduleTarget.nextInterview
-                  ? t("applicationsManagement.scheduleModal.updateTitle")
-                  : t("applicationsManagement.scheduleModal.scheduleTitle")}
-              </h3>
-              <p className="text-[13px] text-[#6B7280] mt-1">
-                {t("applicationsManagement.scheduleModal.subtitle", {
-                  name: getApplicantName(scheduleTarget, t("applicationsManagement.card.applicantFallback")),
-                  job: scheduleTarget.job?.title || t("applicationsManagement.scheduleModal.roleFallback"),
-                })}
-              </p>
-            </div>
-
+        // On `ui`'s Dialog. This was the tallest hand-rolled modal in the app
+        // -- date, time, mode, location and a four-row notes field -- with no
+        // height cap and no scroll, so on a short or landscape phone the
+        // Schedule button sat below the fold with no way to reach it.
+        <Dialog
+          open
+          size="lg"
+          title={
+            scheduleTarget.nextInterview
+              ? t("applicationsManagement.scheduleModal.updateTitle")
+              : t("applicationsManagement.scheduleModal.scheduleTitle")
+          }
+          description={t("applicationsManagement.scheduleModal.subtitle", {
+            name: getApplicantName(scheduleTarget, t("applicationsManagement.card.applicantFallback")),
+            job: scheduleTarget.job?.title || t("applicationsManagement.scheduleModal.roleFallback"),
+          })}
+          onClose={() => setScheduleTarget(null)}
+          closeDisabled={isScheduling}
+        >
+          <div className="space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1095,7 +1099,7 @@ export function ApplicationsManagement() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="interview-time" className="block text-[13px] text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.timeLabel")}</label>
+                  <label htmlFor="interview-time" className="block text-body-sm text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.timeLabel")}</label>
                   <input
                     id="interview-time"
                     type="time"
@@ -1106,17 +1110,17 @@ export function ApplicationsManagement() {
                         scheduledAt: `${current.scheduledAt.slice(0, 10) || formatDateOnly(new Date())}T${event.target.value}`,
                       }))
                     }
-                    className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827]"
+                    className="w-full h-11 rounded-xl border border-[#E5E7EB] px-3 text-body-sm text-[#111827]"
                   />
                 </div>
               </div>
               <div>
-                <label htmlFor="interview-mode" className="block text-[13px] text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.modeLabel")}</label>
+                <label htmlFor="interview-mode" className="block text-body-sm text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.modeLabel")}</label>
                 <select
                   id="interview-mode"
                   value={scheduleForm.mode}
                   onChange={(event) => setScheduleForm((current) => ({ ...current, mode: event.target.value }))}
-                  className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827]"
+                  className="w-full h-11 rounded-xl border border-[#E5E7EB] px-3 text-body-sm text-[#111827]"
                 >
                   <option value="virtual">{t("applicationsManagement.scheduleModal.mode.virtual")}</option>
                   <option value="onsite">{t("applicationsManagement.scheduleModal.mode.onsite")}</option>
@@ -1127,34 +1131,34 @@ export function ApplicationsManagement() {
             </div>
 
             <div>
-              <label htmlFor="interview-location" className="block text-[13px] text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.locationLabel")}</label>
+              <label htmlFor="interview-location" className="block text-body-sm text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.locationLabel")}</label>
               <input
                 id="interview-location"
                 type="text"
                 value={scheduleForm.location}
                 onChange={(event) => setScheduleForm((current) => ({ ...current, location: event.target.value }))}
-                className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827]"
+                className="w-full h-11 rounded-xl border border-[#E5E7EB] px-3 text-body-sm text-[#111827]"
                 placeholder={t("applicationsManagement.scheduleModal.locationPlaceholder")}
               />
             </div>
 
             <div>
-              <label htmlFor="interview-notes" className="block text-[13px] text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.notesLabel")}</label>
+              <label htmlFor="interview-notes" className="block text-body-sm text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.notesLabel")}</label>
               <textarea
                 id="interview-notes"
                 rows={4}
                 value={scheduleForm.notes}
                 onChange={(event) => setScheduleForm((current) => ({ ...current, notes: event.target.value }))}
-                className="w-full rounded-[12px] border border-[#E5E7EB] px-3 py-2 text-[13px] text-[#111827]"
+                className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-body-sm text-[#111827]"
                 placeholder={t("applicationsManagement.scheduleModal.notesPlaceholder")}
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex flex-col-reverse items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
               <button
                 type="button"
                 onClick={() => setScheduleTarget(null)}
-                className="px-4 py-2 rounded-[10px] border border-[#D1D5DB] text-[14px]"
+                className="min-h-11 px-4 rounded-control border border-[#D1D5DB] text-body"
                 disabled={isScheduling}
               >
                 {t("applicationsManagement.scheduleModal.cancel")}
@@ -1162,7 +1166,7 @@ export function ApplicationsManagement() {
               <button
                 type="button"
                 onClick={handleScheduleSubmit}
-                className="px-4 py-2 rounded-[10px] bg-[#1C4D8D] text-white text-[14px] font-medium disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center px-4 rounded-control bg-brand text-white text-body font-medium transition hover:opacity-90 disabled:opacity-60"
                 disabled={isScheduling}
               >
                 {isScheduling
@@ -1173,7 +1177,7 @@ export function ApplicationsManagement() {
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       ) : null}
     </div>
   );

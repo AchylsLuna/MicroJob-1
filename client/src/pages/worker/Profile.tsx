@@ -341,7 +341,7 @@ export function Profile() {
   return (
     <div className="ui-page">
       {profileError && (
-        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-[#FECACA] bg-[#FEF2F2] px-5 py-4 text-[14px] text-[#991B1B]">
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-[#FECACA] bg-[#FEF2F2] px-5 py-4 text-body text-[#991B1B]">
           <span>{profileError}</span>
           <button type="button" onClick={() => setProfileReloadKey((value) => value + 1)} className="flex items-center gap-2 font-semibold">
             <RefreshCw className="h-4 w-4" /> {t("profile.retry")}
@@ -368,7 +368,7 @@ export function Profile() {
             {profileUserId ? (
               <Button
                 onClick={() => navigate(`${ROUTES.publicProfile(profileUserId)}?viewAs=worker`)}
-                className="!bg-white !text-[#1C4D8D] ring-1 ring-[#1C4D8D]/30 hover:!bg-[#1C4D8D]/[0.06]"
+                className="!bg-white !text-brand ring-1 ring-brand/30 hover:!bg-brand/[0.06]"
               >
                 <Eye className="h-4 w-4" aria-hidden="true" />
                 {t("profile.publicView")}
@@ -387,50 +387,50 @@ export function Profile() {
         <StatTile label={t("profile.overviewTab.successRate")} value={successRate} />
       </div>
 
-      <section className="rounded-[14px] border border-[#BFDBFE] bg-[#EFF6FF] p-5" aria-labelledby="worker-profile-completeness-title">
+      <section className="rounded-card border border-[#BFDBFE] bg-[#EFF6FF] p-5" aria-labelledby="worker-profile-completeness-title">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 id="worker-profile-completeness-title" className="text-[15px] font-semibold text-[#1E3A8A]">{t("profile.completeness.title")}</h2>
-            <p className="mt-1 text-[13px] text-[#475569]">
+            <p className="mt-1 text-body-sm text-[#475569]">
               {profileCompletionPercent === 100 ? t("profile.completeness.ready") : t("profile.completeness.incomplete")}
             </p>
           </div>
-          <span className="text-[22px] font-bold text-[#1C4D8D]">{profileCompletionPercent}%</span>
+          <span className="text-[22px] font-bold text-brand">{profileCompletionPercent}%</span>
         </div>
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-white" role="progressbar" aria-label={t("profile.completeness.ariaLabel")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={profileCompletionPercent}>
-          <div className="h-full rounded-full bg-[#1C4D8D] transition-all" style={{ width: `${profileCompletionPercent}%` }} />
+          <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${profileCompletionPercent}%` }} />
         </div>
       </section>
 
-      <section className="rounded-[14px] border border-[#BFDBFE] bg-[#EFF6FF] p-5" aria-labelledby="worker-identity-verification-title">
+      <section className="rounded-card border border-[#BFDBFE] bg-[#EFF6FF] p-5" aria-labelledby="worker-identity-verification-title">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 id="worker-identity-verification-title" className="text-[15px] font-semibold text-[#1E3A8A]">{t("profile.identityVerification.title")}</h2>
-            <p className="mt-1 text-[13px] text-[#475569]">
+            <p className="mt-1 text-body-sm text-[#475569]">
               {hasFullyVerifiedProfile ? t("profile.identityVerification.verifiedDescription") : t("profile.identityVerification.description")}
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {isVerificationLoading ? <RefreshCw className="h-4 w-4 animate-spin text-[#1C4D8D]" aria-label={t("profile.identityVerification.refreshingAria")} /> : null}
-            <span className="text-[22px] font-bold text-[#1C4D8D]">{isVerificationLoading ? "—" : `${verificationCompletionPercent}%`}</span>
+            {isVerificationLoading ? <RefreshCw className="h-4 w-4 animate-spin text-brand" aria-label={t("profile.identityVerification.refreshingAria")} /> : null}
+            <span className="text-[22px] font-bold text-brand">{isVerificationLoading ? "—" : `${verificationCompletionPercent}%`}</span>
           </div>
         </div>
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-white" role="progressbar" aria-label={t("profile.identityVerification.ariaLabel")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={verificationCompletionPercent} aria-valuetext={t("profile.identityVerification.progressText", { completed: completedVerificationSteps, total: verificationSteps.length })}>
-          <div className="h-full rounded-full bg-[#1C4D8D] transition-all" style={{ width: `${verificationCompletionPercent}%` }} />
+          <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${verificationCompletionPercent}%` }} />
         </div>
         {!isVerificationLoading && remainingVerificationSteps.length > 0 ? (
           <div className="mt-4 border-t border-[#BFDBFE] pt-4">
-            <p className="text-[13px] font-semibold text-[#1E3A8A]">{t("profile.identityVerification.requirementsTitle")}</p>
+            <p className="text-body-sm font-semibold text-[#1E3A8A]">{t("profile.identityVerification.requirementsTitle")}</p>
             <ul className="mt-2 space-y-2">
               {remainingVerificationSteps.map((step) => (
-                <li key={step.id} className="flex flex-wrap items-center justify-between gap-2 text-[13px]">
+                <li key={step.id} className="flex flex-wrap items-center justify-between gap-2 text-body-sm">
                   <div>
                     <p className="font-medium text-slate-800">{step.title}</p>
                     <p className="text-slate-600">{step.description}</p>
                   </div>
                   <Link
                     to={verificationLinkFor(step)}
-                    className="shrink-0 font-semibold text-[#1C4D8D] underline underline-offset-2 hover:text-[#163F73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                    className="shrink-0 font-semibold text-brand underline underline-offset-2 hover:text-[#163F73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                   >
                     {verificationActionFor(step)}
                   </Link>
@@ -442,7 +442,7 @@ export function Profile() {
       </section>
 
       {/* Tabs */}
-      <div className="rounded-[14px] border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-card border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 px-6">
           <SettingsTabList
             variant="underline"
@@ -472,7 +472,7 @@ export function Profile() {
                   {/* About Section */}
                   <div>
                     <h2 className="mb-3 text-[17px] font-bold text-[#0F172A]">{t("profile.overviewTab.aboutMe")}</h2>
-                    <p className="text-[14px] leading-6 text-slate-600">{profileData.about}</p>
+                    <p className="text-body leading-6 text-slate-600">{profileData.about}</p>
                   </div>
 
                   {/* Contact Information */}
@@ -483,49 +483,49 @@ export function Profile() {
                         visual weight. */}
                     <dl className="divide-y divide-slate-100 border-y border-slate-100">
                       <div className="flex items-baseline justify-between gap-4 py-2.5">
-                        <dt className="flex shrink-0 items-center gap-2 text-[13px] text-slate-500">
+                        <dt className="flex shrink-0 items-center gap-2 text-body-sm text-slate-500">
                           <Mail className="h-4 w-4 text-slate-400" aria-hidden="true" />
                           {t("profile.overviewTab.email")}
                         </dt>
-                        <dd className="min-w-0 text-right text-[14px] font-medium text-[#0F172A]">
+                        <dd className="min-w-0 text-right text-body font-medium text-[#0F172A]">
                           {profileUser?.email
-                            ? <a href={`mailto:${profileUser.email}`} className="break-all hover:text-[#1C4D8D]">{profileData.email}</a>
+                            ? <a href={`mailto:${profileUser.email}`} className="break-all hover:text-brand">{profileData.email}</a>
                             : <span className="text-slate-400">{t("profile.overviewTab.notSet")}</span>}
                         </dd>
                       </div>
 
                       <div className="flex items-baseline justify-between gap-4 py-2.5">
-                        <dt className="flex shrink-0 items-center gap-2 text-[13px] text-slate-500">
+                        <dt className="flex shrink-0 items-center gap-2 text-body-sm text-slate-500">
                           <Phone className="h-4 w-4 text-slate-400" aria-hidden="true" />
                           {t("profile.overviewTab.phone")}
                         </dt>
-                        <dd className="min-w-0 text-right text-[14px] font-medium text-[#0F172A]">
+                        <dd className="min-w-0 text-right text-body font-medium text-[#0F172A]">
                           {profileUser?.phoneNumber
-                            ? <a href={`tel:${profileUser.phoneNumber}`} className="hover:text-[#1C4D8D]">{profileData.phone}</a>
+                            ? <a href={`tel:${profileUser.phoneNumber}`} className="hover:text-brand">{profileData.phone}</a>
                             : <span className="text-slate-400">{t("profile.overviewTab.notSet")}</span>}
                         </dd>
                       </div>
 
                       <div className="flex items-baseline justify-between gap-4 py-2.5">
-                        <dt className="flex shrink-0 items-center gap-2 text-[13px] text-slate-500">
+                        <dt className="flex shrink-0 items-center gap-2 text-body-sm text-slate-500">
                           <Linkedin className="h-4 w-4 text-slate-400" aria-hidden="true" />
                           {t("profile.overviewTab.linkedin")}
                         </dt>
-                        <dd className="min-w-0 text-right text-[14px] font-medium text-[#0F172A]">
+                        <dd className="min-w-0 text-right text-body font-medium text-[#0F172A]">
                           {safeLinkedinUrl
-                            ? <a href={safeLinkedinUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-[#1C4D8D]">{t("profile.overviewTab.openProfile")} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></a>
+                            ? <a href={safeLinkedinUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-brand">{t("profile.overviewTab.openProfile")} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></a>
                             : <span className="text-slate-400">{t("profile.overviewTab.notSet")}</span>}
                         </dd>
                       </div>
 
                       <div className="flex items-baseline justify-between gap-4 py-2.5">
-                        <dt className="flex shrink-0 items-center gap-2 text-[13px] text-slate-500">
+                        <dt className="flex shrink-0 items-center gap-2 text-body-sm text-slate-500">
                           <Globe className="h-4 w-4 text-slate-400" aria-hidden="true" />
                           {t("profile.overviewTab.website")}
                         </dt>
-                        <dd className="min-w-0 text-right text-[14px] font-medium text-[#0F172A]">
+                        <dd className="min-w-0 text-right text-body font-medium text-[#0F172A]">
                           {safeWebsiteUrl
-                            ? <a href={safeWebsiteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-[#1C4D8D]">{t("profile.overviewTab.visitWebsite")} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></a>
+                            ? <a href={safeWebsiteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-brand">{t("profile.overviewTab.visitWebsite")} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></a>
                             : <span className="text-slate-400">{t("profile.overviewTab.notSet")}</span>}
                         </dd>
                       </div>
@@ -536,18 +536,18 @@ export function Profile() {
                 {/* Right Column - CV/Resume */}
                 <div className="space-y-6">
                   {/* CV/Resume Card */}
-                  <div className="bg-[#1C4D8D]/[0.08] border border-[#1C4D8D]/20 rounded-[16px] p-6">
+                  <div className="bg-brand/[0.08] border border-brand/20 rounded-card p-6">
                     <h3 className="text-[18px] font-semibold text-[#1e293b] mb-4">{t("profile.overviewTab.cvResume")}</h3>
                     {safeResumeUrl ? (
                       <div className="space-y-4">
-                        <div className="bg-white rounded-[12px] p-4 border border-[#1C4D8D]/20">
+                        <div className="bg-white rounded-xl p-4 border border-brand/20">
                           <div className="flex items-center gap-3 mb-3">
-                            <div className="w-12 h-12 rounded-[10px] bg-[#1C4D8D] flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-control bg-brand flex items-center justify-center">
                               <FileText className="w-6 h-6 text-white" />
                             </div>
                             <div className="flex-1">
-                              <h4 className="text-[14px] font-semibold text-[#1e293b]">{t("profile.overviewTab.resumeName", { name: profileData.name })}</h4>
-                              <p className="text-[12px] text-[#64748b]">{t("profile.overviewTab.resumeUploaded")}</p>
+                              <h4 className="text-body font-semibold text-[#1e293b]">{t("profile.overviewTab.resumeName", { name: profileData.name })}</h4>
+                              <p className="text-caption text-slate-500">{t("profile.overviewTab.resumeUploaded")}</p>
                             </div>
                           </div>
                           <a
@@ -555,26 +555,26 @@ export function Profile() {
                             download
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="w-full bg-[#1C4D8D] text-white font-semibold py-2.5 px-4 rounded-[10px] hover:opacity-90 transition-all flex items-center justify-center gap-2 block text-center no-underline"
+                            className="w-full bg-brand text-white font-semibold py-2.5 px-4 rounded-control hover:opacity-90 transition-all flex items-center justify-center gap-2 block text-center no-underline"
                           >
                             <Download className="w-4 h-4" />
                             {t("profile.overviewTab.downloadResume")}
                           </a>
                         </div>
-                        <p className="text-[12px] text-[#475569] text-center">
+                        <p className="text-caption text-[#475569] text-center">
                           {t("profile.overviewTab.viewResumeHint")}
                         </p>
-                        <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=resume`)} className="w-full text-[13px] font-semibold text-[#1C4D8D] hover:underline">
+                        <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=resume`)} className="w-full text-body-sm font-semibold text-brand hover:underline">
                           {t("profile.overviewTab.replaceResume")}
                         </button>
                       </div>
                     ) : (
                       <div className="text-center py-6">
                         <FileText className="w-12 h-12 text-[#94a3b8] mx-auto mb-3" />
-                        <p className="text-[14px] text-[#64748b] mb-3">{t("profile.overviewTab.noResumeUploaded")}</p>
+                        <p className="text-body text-slate-500 mb-3">{t("profile.overviewTab.noResumeUploaded")}</p>
                         <button
                           onClick={() => navigate(`${ROUTES.worker.settings}?tab=resume`)}
-                          className="bg-[#1C4D8D] text-white font-semibold py-2 px-4 rounded-[10px] hover:opacity-90 transition-all text-[13px]"
+                          className="bg-brand text-white font-semibold py-2 px-4 rounded-control hover:opacity-90 transition-all text-body-sm"
                         >
                           {t("profile.overviewTab.uploadResume")}
                         </button>
@@ -586,11 +586,11 @@ export function Profile() {
                       Experience / Jobs Completed / Success Rate verbatim from
                       the stat row above it. Removed rather than restyled --
                       one source for a number beats two that can disagree. */}
-                  <div className="rounded-[14px] border border-slate-200 p-5">
+                  <div className="rounded-card border border-slate-200 p-5">
                     <h3 className="mb-3 text-[15px] font-bold text-[#0F172A]">{t("profile.overviewTab.jobsApplied")}</h3>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-[24px] font-bold text-[#1C4D8D]">{jobsApplied}</span>
-                      <span className="text-[13px] text-slate-500">
+                      <span className="text-[24px] font-bold text-brand">{jobsApplied}</span>
+                      <span className="text-body-sm text-slate-500">
                         {t("profile.overviewTab.jobsCompletedInline", { count: projectsCompleted })}
                       </span>
                     </div>
@@ -609,26 +609,26 @@ export function Profile() {
                 <div className="mb-4 flex items-center justify-between gap-4">
                   <h2 className="text-[17px] font-bold text-[#0F172A]">
                     {t("profile.skillsTab.workHistory")}
-                    <span className="ml-2 text-[13px] font-medium text-slate-400">
+                    <span className="ml-2 text-body-sm font-medium text-slate-400">
                       {t("profile.skillsTab.entry", { count: workExperiences.length })}
                     </span>
                   </h2>
-                  <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)} className="min-h-11 shrink-0 text-[13px] font-semibold text-[#1C4D8D] hover:underline">
+                  <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)} className="min-h-11 shrink-0 text-body-sm font-semibold text-brand hover:underline">
                     {t("profile.addMore")}
                   </button>
                 </div>
                 {workExperiences.length ? (
                   <div className="space-y-3">
                     {workExperiences.map((item, index) => (
-                      <div key={item._id || item.id || `${item.title}-${index}`} className="flex gap-4 rounded-[14px] border border-slate-200 p-5">
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#1C4D8D] text-[13px] font-bold text-white">
+                      <div key={item._id || item.id || `${item.title}-${index}`} className="flex gap-4 rounded-card border border-slate-200 p-5">
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-brand text-body-sm font-bold text-white">
                           {initialsOf(item.company, "?")}
                         </div>
                         <div className="min-w-0">
                           <p className="text-[15px] font-semibold text-[#0F172A]">{item.title}</p>
-                          <p className="text-[13px] text-slate-600">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
-                          <p className="mt-1 text-[12px] text-slate-400">{formatExperienceDate(item.startDate)} – {item.current ? t("profile.skillsTab.present") : formatExperienceDate(item.endDate)}</p>
-                          {item.description ? <p className="mt-3 whitespace-pre-line text-[13px] leading-6 text-slate-600">{item.description}</p> : null}
+                          <p className="text-body-sm text-slate-600">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
+                          <p className="mt-1 text-caption text-slate-400">{formatExperienceDate(item.startDate)} – {item.current ? t("profile.skillsTab.present") : formatExperienceDate(item.endDate)}</p>
+                          {item.description ? <p className="mt-3 whitespace-pre-line text-body-sm leading-6 text-slate-600">{item.description}</p> : null}
                           {item.media?.length ? (
                             <div className="mt-3 flex flex-wrap gap-2">
                               {item.media.map((media) => {
@@ -640,7 +640,7 @@ export function Profile() {
                                     href={mediaUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="block h-16 w-16 overflow-hidden rounded-lg border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                                    className="block h-16 w-16 overflow-hidden rounded-lg border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                                   >
                                     <img src={mediaUrl} alt={media.originalName || item.title} className="h-full w-full object-cover" />
                                   </a>
@@ -653,9 +653,9 @@ export function Profile() {
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-[14px] border border-dashed border-slate-300 py-8 text-center">
+                  <div className="rounded-card border border-dashed border-slate-300 py-8 text-center">
                     <Briefcase className="mx-auto mb-2 h-8 w-8 text-slate-300" aria-hidden="true" />
-                    <p className="text-[13px] text-slate-500">{t("profile.skillsTab.noWorkHistory")}</p>
+                    <p className="text-body-sm text-slate-500">{t("profile.skillsTab.noWorkHistory")}</p>
                   </div>
                 )}
               </section>
@@ -664,33 +664,33 @@ export function Profile() {
                 <div className="mb-4 flex items-center justify-between gap-4">
                   <h2 className="text-[17px] font-bold text-[#0F172A]">
                     {t("profile.internships.heading")}
-                    <span className="ml-2 text-[13px] font-medium text-slate-400">
+                    <span className="ml-2 text-body-sm font-medium text-slate-400">
                       {t("profile.skillsTab.entry", { count: internships.length })}
                     </span>
                   </h2>
-                  <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)} className="min-h-11 shrink-0 text-[13px] font-semibold text-[#1C4D8D] hover:underline">
+                  <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)} className="min-h-11 shrink-0 text-body-sm font-semibold text-brand hover:underline">
                     {t("profile.addMore")}
                   </button>
                 </div>
                 {internships.length ? (
                   <div className="space-y-3">
                     {internships.map((item, index) => (
-                      <div key={item._id || item.id || `${item.title}-${index}`} className="flex gap-4 rounded-[14px] border border-slate-200 p-5">
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#4988C4] text-[13px] font-bold text-white">
+                      <div key={item._id || item.id || `${item.title}-${index}`} className="flex gap-4 rounded-card border border-slate-200 p-5">
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#4988C4] text-body-sm font-bold text-white">
                           {initialsOf(item.company, "?")}
                         </div>
                         <div className="min-w-0">
                           <p className="text-[15px] font-semibold text-[#0F172A]">{item.title}</p>
-                          <p className="text-[13px] text-slate-600">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
-                          <p className="mt-1 text-[12px] text-slate-400">{formatExperienceDate(item.startDate)} – {item.current ? t("profile.skillsTab.present") : formatExperienceDate(item.endDate)}</p>
-                          {item.description ? <p className="mt-3 whitespace-pre-line text-[13px] leading-6 text-slate-600">{item.description}</p> : null}
+                          <p className="text-body-sm text-slate-600">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
+                          <p className="mt-1 text-caption text-slate-400">{formatExperienceDate(item.startDate)} – {item.current ? t("profile.skillsTab.present") : formatExperienceDate(item.endDate)}</p>
+                          {item.description ? <p className="mt-3 whitespace-pre-line text-body-sm leading-6 text-slate-600">{item.description}</p> : null}
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-[14px] border border-dashed border-slate-300 py-8 text-center">
-                    <p className="text-[13px] text-slate-500">{t("profile.internships.empty")}</p>
+                  <div className="rounded-card border border-dashed border-slate-300 py-8 text-center">
+                    <p className="text-body-sm text-slate-500">{t("profile.internships.empty")}</p>
                   </div>
                 )}
               </section>
@@ -699,11 +699,11 @@ export function Profile() {
                 <div className="mb-4 flex items-center justify-between gap-4">
                   <h2 className="text-[17px] font-bold text-[#0F172A]">
                     {t("profile.certificates.heading")}
-                    <span className="ml-2 text-[13px] font-medium text-slate-400">
+                    <span className="ml-2 text-body-sm font-medium text-slate-400">
                       {t("profile.skillsTab.entry", { count: certificates.length })}
                     </span>
                   </h2>
-                  <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)} className="min-h-11 shrink-0 text-[13px] font-semibold text-[#1C4D8D] hover:underline">
+                  <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)} className="min-h-11 shrink-0 text-body-sm font-semibold text-brand hover:underline">
                     {t("profile.addMore")}
                   </button>
                 </div>
@@ -712,17 +712,17 @@ export function Profile() {
                     {certificates.map((item, index) => {
                       const safeCredentialUrl = safeExternalUrl(item.credentialUrl || "", { purpose: "external" });
                       return (
-                        <div key={item._id || item.id || `${item.name}-${index}`} className="rounded-[14px] border border-slate-200 p-5">
+                        <div key={item._id || item.id || `${item.name}-${index}`} className="rounded-card border border-slate-200 p-5">
                           <p className="text-[15px] font-semibold text-[#0F172A]">{item.name}</p>
-                          <p className="text-[13px] text-slate-600">{item.issuer}</p>
-                          <p className="mt-1 text-[12px] text-slate-400">
+                          <p className="text-body-sm text-slate-600">{item.issuer}</p>
+                          <p className="mt-1 text-caption text-slate-400">
                             {formatExperienceDate(item.issueDate)}
                             {item.expiryDate
                               ? ` – ${formatExperienceDate(item.expiryDate)}`
                               : ` · ${t("profile.certificates.noExpiry")}`}
                           </p>
                           {item.credentialId ? (
-                            <p className="mt-2 text-[12px] text-slate-500">
+                            <p className="mt-2 text-caption text-slate-500">
                               {t("profile.certificates.credentialId", { id: item.credentialId })}
                             </p>
                           ) : null}
@@ -731,7 +731,7 @@ export function Profile() {
                               href={safeCredentialUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="mt-2 inline-flex min-h-11 items-center gap-1 text-[13px] font-semibold text-[#1C4D8D] hover:underline"
+                              className="mt-2 inline-flex min-h-11 items-center gap-1 text-body-sm font-semibold text-brand hover:underline"
                             >
                               {t("profile.certificates.verify")} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                             </a>
@@ -741,8 +741,8 @@ export function Profile() {
                     })}
                   </div>
                 ) : (
-                  <div className="rounded-[14px] border border-dashed border-slate-300 py-8 text-center">
-                    <p className="text-[13px] text-slate-500">{t("profile.certificates.empty")}</p>
+                  <div className="rounded-card border border-dashed border-slate-300 py-8 text-center">
+                    <p className="text-body-sm text-slate-500">{t("profile.certificates.empty")}</p>
                   </div>
                 )}
               </section>
@@ -755,24 +755,24 @@ export function Profile() {
               <div className="flex items-center justify-between gap-4">
                 <h2 className="text-[17px] font-bold text-[#0F172A]">
                   {t("profile.skillsTab.skillsHeading")}
-                  <span className="ml-2 text-[13px] font-medium text-slate-400">
+                  <span className="ml-2 text-body-sm font-medium text-slate-400">
                     {t("profile.skillsTab.skill", { count: skills.length })}
                   </span>
                 </h2>
-                <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)} className="min-h-11 shrink-0 text-[13px] font-semibold text-[#1C4D8D] hover:underline">
+                <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)} className="min-h-11 shrink-0 text-body-sm font-semibold text-brand hover:underline">
                   {t("profile.skillsTab.manage")}
                 </button>
               </div>
               {skills.length > 0 ? (
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   {skills.map((skill) => (
-                    <div key={skill.id} className="rounded-[14px] border border-slate-200 p-5">
+                    <div key={skill.id} className="rounded-card border border-slate-200 p-5">
                       <h3 className="text-[15px] font-semibold text-[#0F172A]">{skill.name}</h3>
-                      <p className="mt-1 text-[13px] leading-6 text-slate-600">
+                      <p className="mt-1 text-body-sm leading-6 text-slate-600">
                         {skill.description?.trim() || t("profile.overviewTab.noDescriptionAdded")}
                       </p>
                       {skill.endorsements ? (
-                        <span className="mt-2 flex items-center gap-1 text-[12px] text-slate-400">
+                        <span className="mt-2 flex items-center gap-1 text-caption text-slate-400">
                           <Award className="h-3 w-3" aria-hidden="true" />
                           {t("profile.skillsTab.endorsements", { count: skill.endorsements })}
                         </span>
@@ -781,10 +781,10 @@ export function Profile() {
                   ))}
                 </div>
               ) : (
-                <div className="rounded-[14px] border border-dashed border-slate-300 py-12 text-center">
+                <div className="rounded-card border border-dashed border-slate-300 py-12 text-center">
                   <Award className="mx-auto mb-3 h-10 w-10 text-slate-300" aria-hidden="true" />
-                  <p className="text-[14px] text-slate-500">{t("profile.skillsTab.noSkillsTitle")}</p>
-                  <p className="mt-1 text-[12px] text-slate-400">{t("profile.skillsTab.noSkillsHint")}</p>
+                  <p className="text-body text-slate-500">{t("profile.skillsTab.noSkillsTitle")}</p>
+                  <p className="mt-1 text-caption text-slate-400">{t("profile.skillsTab.noSkillsHint")}</p>
                 </div>
               )}
             </div>
@@ -795,7 +795,7 @@ export function Profile() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-[20px] font-semibold text-[#1e293b]">{t("profile.portfolioTab.heading")}</h2>
-                <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)} className="text-[13px] font-semibold text-[#1C4D8D] hover:underline">
+                <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)} className="text-body-sm font-semibold text-brand hover:underline">
                   {t("profile.skillsTab.manage")}
                 </button>
               </div>
@@ -807,27 +807,27 @@ export function Profile() {
                       href={item.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group block overflow-hidden rounded-[12px] border border-[#E2E8F0] bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                      className="group block overflow-hidden rounded-xl border border-[#E2E8F0] bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                     >
                       <div className="aspect-square overflow-hidden bg-[#F1F5F9]">
                         <img src={item.url} alt={item.alt} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
                       </div>
                       <div className="p-2">
-                        <p className="truncate text-[12px] font-semibold text-[#1E293B]">{item.title}</p>
-                        <p className="truncate text-[11px] text-[#64748B]">{item.company}</p>
+                        <p className="truncate text-caption font-semibold text-[#1E293B]">{item.title}</p>
+                        <p className="truncate text-[11px] text-slate-500">{item.company}</p>
                       </div>
                     </a>
                   ))}
                 </div>
               ) : (
-                <div className="rounded-[16px] border border-dashed border-[#CBD5E1] bg-[#F8FAFC] py-12 text-center">
+                <div className="rounded-card border border-dashed border-[#CBD5E1] bg-[#F8FAFC] py-12 text-center">
                   <Images className="mx-auto mb-3 h-10 w-10 text-[#94A3B8]" />
-                  <p className="text-[14px] text-[#64748b] mb-3">{t("profile.portfolioTab.empty")}</p>
-                  <p className="mb-4 text-[12px] text-[#94a3b8]">{t("profile.portfolioTab.emptyHint")}</p>
+                  <p className="text-body text-slate-500 mb-3">{t("profile.portfolioTab.empty")}</p>
+                  <p className="mb-4 text-caption text-[#94a3b8]">{t("profile.portfolioTab.emptyHint")}</p>
                   <button
                     type="button"
                     onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)}
-                    className="bg-[#1C4D8D] text-white font-semibold py-2 px-4 rounded-[10px] hover:opacity-90 transition-all text-[13px]"
+                    className="bg-brand text-white font-semibold py-2 px-4 rounded-control hover:opacity-90 transition-all text-body-sm"
                   >
                     {t("profile.portfolioTab.manage")}
                   </button>
@@ -845,19 +845,19 @@ export function Profile() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {!acceptedWorksLoading && !acceptedWorksError && acceptedWorks.map((work) => (
-                  <div key={work.id} className="bg-white border border-[#e2e8f0] rounded-[16px] p-6 hover:shadow-lg transition-all">
+                  <div key={work.id} className="bg-white border border-[#e2e8f0] rounded-card p-6 hover:shadow-lg transition-all">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-start gap-3">
-                        <div className="w-12 h-12 rounded-[12px] bg-[#1C4D8D] flex items-center justify-center text-white font-bold text-[16px] shadow-md flex-shrink-0">
+                        <div className="w-12 h-12 rounded-xl bg-brand flex items-center justify-center text-white font-bold text-[16px] shadow-md flex-shrink-0">
                           {work.companyLogo}
                         </div>
                         <div>
                           <h3 className="text-[16px] font-bold text-[#1e293b] mb-1">{work.title}</h3>
-                          <p className="text-[13px] text-[#64748b]">{work.company}</p>
+                          <p className="text-body-sm text-slate-500">{work.company}</p>
                         </div>
                       </div>
                       <span
-                        className={`px-3 py-1 rounded-[8px] text-[12px] font-semibold ${
+                        className={`px-3 py-1 rounded-[8px] text-caption font-semibold ${
                           work.status === "Completed"
                             ? "bg-[#dcfce7] text-[#16a34a]"
                             : "bg-[#fef3c7] text-[#92400e]"
@@ -867,7 +867,7 @@ export function Profile() {
                       </span>
                     </div>
 
-                    <p className="text-[13px] text-[#475569] mb-4">{work.description}</p>
+                    <p className="text-body-sm text-[#475569] mb-4">{work.description}</p>
 
                     <div className="flex items-center gap-2 mb-4">
                       <DollarSign className="w-4 h-4 text-[#10b981]" />
@@ -885,27 +885,27 @@ export function Profile() {
                       ))}
                     </div>
 
-                    <div className="flex items-center gap-2 text-[12px] text-[#64748b] pt-3 border-t border-[#e2e8f0]">
+                    <div className="flex items-center gap-2 text-caption text-slate-500 pt-3 border-t border-[#e2e8f0]">
                       <Calendar className="w-3.5 h-3.5" />
                       {work.completedDate}
                     </div>
                   </div>
                 ))}
                 {acceptedWorksLoading && (
-                  <div className="col-span-1 md:col-span-2 text-center py-12 text-[14px] text-[#64748b]">
+                  <div className="col-span-1 md:col-span-2 text-center py-12 text-body text-slate-500">
                     {t("profile.acceptedTab.loading")}
                   </div>
                 )}
                 {!acceptedWorksLoading && acceptedWorksError && (
-                  <div className="col-span-1 md:col-span-2 text-center py-12 bg-[#fff7ed] rounded-[16px] border border-[#fed7aa]">
-                    <p className="text-[14px] text-[#9a3412]">{acceptedWorksError}</p>
+                  <div className="col-span-1 md:col-span-2 text-center py-12 bg-[#fff7ed] rounded-card border border-[#fed7aa]">
+                    <p className="text-body text-[#9a3412]">{acceptedWorksError}</p>
                   </div>
                 )}
                 {!acceptedWorksLoading && !acceptedWorksError && acceptedWorks.length === 0 && (
-                  <div className="col-span-1 md:col-span-2 text-center py-12 bg-[#f8fafc] rounded-[16px] border border-[#e2e8f0]">
+                  <div className="col-span-1 md:col-span-2 text-center py-12 bg-[#f8fafc] rounded-card border border-[#e2e8f0]">
                     <Award className="w-12 h-12 text-[#94a3b8] mx-auto mb-3" />
-                    <p className="text-[14px] text-[#64748b] mb-2">{t("profile.acceptedTab.noneTitle")}</p>
-                    <p className="text-[12px] text-[#94a3b8]">{t("profile.acceptedTab.noneHint")}</p>
+                    <p className="text-body text-slate-500 mb-2">{t("profile.acceptedTab.noneTitle")}</p>
+                    <p className="text-caption text-[#94a3b8]">{t("profile.acceptedTab.noneHint")}</p>
                   </div>
                 )}
               </div>

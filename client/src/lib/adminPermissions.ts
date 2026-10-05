@@ -137,7 +137,7 @@ export const ADMIN_STAFF_ROLES: readonly AdminStaffRole[] = [
  */
 export const ROLE_BADGE_STYLE: Record<AdminStaffRole, string> = {
   superadmin: "bg-violet-100 text-violet-800",
-  admin_team: "bg-blue-100 text-blue-800",
+  admin_team: "bg-brand-100 text-brand-800",
   moderator: "bg-amber-100 text-amber-800",
   finance_team: "bg-emerald-100 text-emerald-800",
   analytics_team: "bg-sky-100 text-sky-800",

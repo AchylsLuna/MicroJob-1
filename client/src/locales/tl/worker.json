@@ -361,7 +361,8 @@
       "employerInfoMissing": "Hindi available ang impormasyon ng employer para sa trabahong ito.",
       "startConversationFailed": "Hindi ma-simulan ang usapan sa employer na ito.",
       "employerProfileMissing": "Hindi available ang profile ng employer para sa trabahong ito.",
-      "profileIncomplete": "Idagdag ang larawan sa profile sa Settings bago mag-apply sa trabaho."
+      "profileIncomplete": "Idagdag ang larawan sa profile sa Settings bago mag-apply sa trabaho.",
+      "applicationRejected": "Tinanggihan ang aplikasyon. Hindi ka na maaaring mag-apply muli para sa trabahong ito."
     }
   },
   "eWallet": {
@@ -425,7 +426,13 @@
       "moneyInHelper": "Nakumpletong top-up, payout, at refund na natanggap",
       "moneyOut": "Palabas na Pera",
       "moneyOutHelper": "Nakumpletong escrow ng trabaho at mga withdrawal sa wallet",
-      "withdrawals": "Mga Withdrawal"
+      "withdrawals": "Mga Withdrawal",
+      "withdrawalsHelper": "Mga hiniling, naaprubahan, at nabayarang withdrawal"
+    },
+    "pager": {
+      "ariaLabel": "Mga seksyon ng wallet",
+      "previous": "Nakaraang seksyon",
+      "next": "Susunod na seksyon"
     },
     "history": {
       "title": "Kasaysayan ng Withdrawal",
@@ -433,6 +440,7 @@
       "workerOnly": "Para sa wallet ng manggagawa lamang",
       "loading": "Naglo-load ng mga withdrawal...",
       "empty": "Wala pang withdrawal.",
+      "emptyDescription": "Lilitaw dito ang mga withdrawal na hihilingin mo kasama ang status ng pagsusuri.",
       "requested": "Hiniling",
       "reviewed": "Nasuri",
       "paid": "Nabayaran",

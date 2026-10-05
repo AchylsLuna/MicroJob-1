@@ -27,7 +27,7 @@ const localesRoot = path.join(repoRoot, "client", "src", "locales");
 const BASE_LOCALE = "en";
 
 // Untranslated keys as of 2026-09-21. This number must never rise.
-const MISSING_KEY_BUDGET = 90;
+const MISSING_KEY_BUDGET = 87;
 
 const failures = [];
 

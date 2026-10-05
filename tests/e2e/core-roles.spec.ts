@@ -91,13 +91,24 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
     const headerBounds = await page.locator("header").boundingBox();
     expect(headerBounds?.height).toBe(80);
     if (width >= 1024) {
-      await expect(page.getByRole("complementary", { name: "Primary navigation" })).toHaveCount(0);
-      const navigation = page.getByRole("navigation", { name: "Worker primary navigation" });
-      await expect(navigation).toBeVisible();
-      await expect(page.getByRole("button", { name: "MicroJobs home" })).toBeVisible();
+      // The dashboard shell gives every role the desktop sidebar (there is no
+      // role gate on it), so the worker gets one too and `main` starts after it
+      // rather than at the viewport edge. This block used to assert the
+      // opposite -- a worker shell with no sidebar and a full-width header --
+      // which is not what the app builds.
+      await expect(page.getByRole("complementary", { name: "Primary navigation" })).toHaveCount(1);
       const mainBounds = await page.locator("main").boundingBox();
-      expect(mainBounds?.x).toBe(0);
-      expect(await navigation.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      expect(mainBounds?.x).toBeGreaterThan(0);
+
+      // Exactly one navigation landmark at every desktop width. The header
+      // used to carry a second `<nav>` from `xl` upward listing the same
+      // destinations as the sidebar, so above 1280px a screen reader announced
+      // the same menu twice. That nav has been removed; the sidebar is the
+      // worker's desktop navigation at every width from `lg` up.
+      await expect(page.getByRole("navigation", { name: "Worker primary navigation" })).toHaveCount(0);
+      // The page title stays in the header at all widths now. It was
+      // `xl:hidden` for workers only so the removed nav could take its place.
+      await expect(page.locator("header").getByRole("heading", { level: 1 })).toBeVisible();
     } else {
       const bottomNavigation = page.getByRole("navigation", { name: "Worker mobile navigation" });
       await expect(bottomNavigation).toBeVisible();
@@ -207,7 +218,9 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(page.getByRole("complementary", { name: "Primary navigation" })).toBeVisible();
-  expect((await page.getByRole("complementary", { name: "Primary navigation" }).boundingBox())?.width).toBe(280);
+  // 304px is what the shell sets (`w-[304px]` in DashboardLayout.tsx, against
+  // `w-[108px]` collapsed). The old 280 predates the sidebar being widened.
+  expect((await page.getByRole("complementary", { name: "Primary navigation" }).boundingBox())?.width).toBe(304);
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
 });
@@ -227,9 +240,21 @@ test("profile settings support keyboard tabs and accessible validation", async (
   await page.setViewportSize({ width: 375, height: 900 });
   await page.goto("/worker/settings?tab=personal");
   const mainTabs = page.getByRole("tablist", { name: "Settings sections" });
-  const accountTab = mainTabs.getByRole("tab", { name: "Account" });
+  // `exact` because the accessible-name match is a substring by default, and
+  // this tablist also contains "Account Verification" -- without it the locator
+  // resolves to two elements and fails Playwright's strict-mode check.
+  const accountTab = mainTabs.getByRole("tab", { name: "Account", exact: true });
   await expect(accountTab).toHaveAttribute("aria-selected", "true");
   await accountTab.focus();
+  // The tab order is Account, Account Verification, Security & Privacy,
+  // Payments. This used to expect one ArrowRight to land on Security & Privacy,
+  // which stopped being true when the Verification tab was added between them
+  // -- the roving tabindex was doing the right thing and the assertion had gone
+  // stale. Step through both so the ordering itself is covered.
+  await page.keyboard.press("ArrowRight");
+  const verificationTab = mainTabs.getByRole("tab", { name: "Account Verification" });
+  await expect(verificationTab).toBeFocused();
+  await expect(verificationTab).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press("ArrowRight");
   const privacyTab = mainTabs.getByRole("tab", { name: "Security & Privacy" });
   await expect(privacyTab).toBeFocused();
@@ -245,15 +270,23 @@ test("profile settings support keyboard tabs and accessible validation", async (
   await page.keyboard.press("Home");
   await expect(personalTab).toBeFocused();
 
+  // The name fields are read-only now (they mirror ID-verified data), so the
+  // name-format rule this used to trip can no longer be reached through the
+  // form. LinkedIn is the nearest still-editable field with a client-side rule,
+  // and it exercises the same contract: the message is announced, focus moves
+  // to the offending field, and that field is marked aria-invalid.
   const firstName = page.getByLabel("First name");
   await expect(firstName).not.toHaveValue("");
-  await firstName.fill("123");
+  const linkedin = page.getByLabel("LinkedIn URL");
+  await linkedin.fill("ftp://example.com");
   await page.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByRole("alert")).toContainText(
-    "Name must only contain letters, apostrophes, hyphens, and periods.",
+  // Scoped by id: the settings page can have a second `role="alert"` on screen
+  // (the toast region), which makes a bare role query ambiguous.
+  await expect(page.locator("#settings-profile-error")).toContainText(
+    "LinkedIn must be a valid HTTPS URL.",
   );
-  await expect(firstName).toBeFocused();
-  await expect(firstName).toHaveAttribute("aria-invalid", "true");
+  await expect(linkedin).toBeFocused();
+  await expect(linkedin).toHaveAttribute("aria-invalid", "true");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 
   const results = await new AxeBuilder({ page }).analyze();

@@ -11,22 +11,24 @@ import {
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Pressable, type PressableBaseProps } from "./Pressable";
+import { ALERT_LAYER_Z, LAYER_Z } from "./layers";
 
 const join = (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" ");
 
 export const Button = forwardRef<HTMLButtonElement, PressableBaseProps>(
   ({ className, type = "button", ...props }, ref) => (
     // Hover is expressed through opacity, not a darker blue: tailwind.config.js
-    // flattens blue-500 through blue-950 to the same value, so the previous
-    // `hover:bg-blue-800` on a `bg-blue-700` base rendered no change at all.
+    // flattens brand-500 through brand-950 to the same value, so the previous
+    // `hover:bg-brand-800` on a `bg-brand-700` base rendered no change at all.
     <Pressable
       ref={ref}
       type={type}
       className={join(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
         className,
       )}
       {...props}
@@ -43,7 +45,7 @@ export const IconButton = forwardRef<HTMLButtonElement, PressableBaseProps & { l
       aria-label={label}
       title={label}
       className={join(
-        "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
         className,
       )}
       {...props}
@@ -68,7 +70,7 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
           aria-describedby={descriptionId}
           className={join(
             "min-h-11 w-full rounded-xl border bg-white px-3 py-2.5 text-sm font-normal text-slate-900 outline-none transition focus:ring-2",
-            error ? "border-red-400 focus:border-red-500 focus:ring-red-200" : "border-slate-300 focus:border-blue-600 focus:ring-blue-100",
+            error ? "border-red-400 focus:border-red-500 focus:ring-red-200" : "border-slate-300 focus:border-brand-600 focus:ring-brand-100",
             className,
           )}
           {...props}
@@ -88,7 +90,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
     return (
       <label htmlFor={fieldId} className="block space-y-1.5 text-sm font-semibold text-slate-700">
         <span>{label}</span>
-        <select ref={ref} id={fieldId} aria-invalid={Boolean(error)} aria-describedby={descriptionId} className={join("min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-normal text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100", className)} {...props}>{children}</select>
+        <select ref={ref} id={fieldId} aria-invalid={Boolean(error)} aria-describedby={descriptionId} className={join("min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-normal text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-100", className)} {...props}>{children}</select>
         {error ? <span id={descriptionId} className="block text-xs font-medium text-red-700">{error}</span> : null}
         {!error && hint ? <span id={descriptionId} className="block text-xs font-normal text-slate-500">{hint}</span> : null}
       </label>
@@ -104,7 +106,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
     return (
       <label htmlFor={fieldId} className="block space-y-1.5 text-sm font-semibold text-slate-700">
         <span>{label}</span>
-        <textarea ref={ref} id={fieldId} aria-invalid={Boolean(error)} aria-describedby={descriptionId} className={join("min-h-28 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100", className)} {...props} />
+        <textarea ref={ref} id={fieldId} aria-invalid={Boolean(error)} aria-describedby={descriptionId} className={join("min-h-28 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-100", className)} {...props} />
         {error ? <span id={descriptionId} className="block text-xs font-medium text-red-700">{error}</span> : null}
         {!error && hint ? <span id={descriptionId} className="block text-xs font-normal text-slate-500">{hint}</span> : null}
       </label>
@@ -114,7 +116,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
 Textarea.displayName = "Textarea";
 
 export function Card({ className, ...props }: ComponentPropsWithRef<"div">) {
-  return <div className={join("rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6", className)} {...props} />;
+  return <div className={join("rounded-card border border-slate-200 bg-white p-5 shadow-sm sm:p-6", className)} {...props} />;
 }
 
 export function Badge({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
@@ -144,7 +146,7 @@ export function StatTile({
   className?: string;
 }) {
   return (
-    <div className={join("rounded-[14px] border border-slate-200 bg-white px-4 py-3", className)}>
+    <div className={join("rounded-card border border-slate-200 bg-white px-4 py-3", className)}>
       <p className="truncate text-xs font-semibold text-slate-500">{label}</p>
       <div className="mt-0.5 flex items-center gap-1.5">
         {icon}
@@ -158,8 +160,8 @@ export function StatTile({
 export function StatusState({ title, description, action, tone = "neutral" }: { title: string; description?: string; action?: ReactNode; tone?: "neutral" | "error" | "loading" }) {
   const colors = tone === "error" ? "border-red-200 bg-red-50 text-red-900" : "border-slate-200 bg-white text-slate-700";
   return (
-    <div className={join("rounded-2xl border p-8 text-center", colors)} role={tone === "error" ? "alert" : "status"} aria-live="polite">
-      {tone === "loading" ? <span className="mx-auto mb-3 block h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-700" aria-hidden="true" /> : null}
+    <div className={join("rounded-card border p-8 text-center", colors)} role={tone === "error" ? "alert" : "status"} aria-live="polite">
+      {tone === "loading" ? <span className="mx-auto mb-3 block h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-700" aria-hidden="true" /> : null}
       <p className="font-semibold">{title}</p>
       {description ? <p className="mt-1 text-sm opacity-80">{description}</p> : null}
       {action ? <div className="mt-4">{action}</div> : null}
@@ -167,12 +169,48 @@ export function StatusState({ title, description, action, tone = "neutral" }: { 
   );
 }
 
-export function Dialog({ open, title, description, children, onClose, initialFocusRef, restoreFocusRef, closeDisabled = false }: { open: boolean; title: string; description?: string; children: ReactNode; onClose: () => void; initialFocusRef?: RefObject<HTMLElement | null>; restoreFocusRef?: RefObject<HTMLElement | null>; closeDisabled?: boolean }) {
-  const { t } = useTranslation("common");
-  const closeRef = useRef<HTMLButtonElement>(null);
+/**
+ * Width steps. `md` is the default and is exactly what every existing call
+ * site already rendered, so adding this prop changed none of them. The wider
+ * steps exist so the hand-rolled modals being migrated onto this component can
+ * keep their own widths instead of being squeezed into `max-w-lg`.
+ */
+const DIALOG_WIDTHS = {
+  md: "max-w-lg",
+  lg: "max-w-2xl",
+  xl: "max-w-3xl",
+  full: "max-w-5xl",
+} as const;
+
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Focus capture, focus restore, Escape-to-close and a tab trap for one modal
+ * surface. Shared by `Dialog` and `AlertLayer` so the two cannot drift: this
+ * logic used to live inline in `Dialog`, and every hand-rolled modal in the app
+ * reimplemented whichever parts its author remembered.
+ *
+ * `containerRef` must point at the element that holds the focusable content --
+ * the trap enumerates its descendants, so a ref on the backdrop would let Tab
+ * escape through anything else the backdrop renders.
+ */
+function useDialogBehavior({
+  open,
+  containerRef,
+  initialFocusRef,
+  restoreFocusRef,
+  closeDisabled = false,
+  onClose,
+}: {
+  open: boolean;
+  containerRef: RefObject<HTMLElement | null>;
+  initialFocusRef?: RefObject<HTMLElement | null>;
+  restoreFocusRef?: RefObject<HTMLElement | null>;
+  closeDisabled?: boolean;
+  onClose: () => void;
+}) {
   const onCloseRef = useRef(onClose);
-  const titleId = useId();
-  const descriptionId = useId();
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
@@ -180,34 +218,60 @@ export function Dialog({ open, title, description, children, onClose, initialFoc
     if (!open) return;
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const restoreTarget = restoreFocusRef?.current || previouslyFocused;
-    (initialFocusRef?.current || closeRef.current)?.focus();
+    const focusables = () =>
+      Array.from(containerRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) || []);
+    (initialFocusRef?.current || focusables()[0])?.focus();
     const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !closeDisabled) onCloseRef.current();
+      if (event.key === "Escape") {
+        if (closeDisabled) return;
+        event.preventDefault();
+        // Stopped here rather than allowed to bubble: a surface underneath this
+        // one may have its own Escape handler, and closing both at once -- the
+        // alert *and* the modal that raised it -- would discard work the user
+        // has not been told about.
+        event.stopPropagation();
+        onCloseRef.current();
+        return;
+      }
       if (event.key !== "Tab") return;
-      const dialog = closeRef.current?.closest('[role="dialog"]');
-      const focusable = Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') || []);
+      const focusable = focusables();
       if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
       if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
-    document.addEventListener("keydown", handleKey);
+    document.addEventListener("keydown", handleKey, true);
     return () => {
-      document.removeEventListener("keydown", handleKey);
+      document.removeEventListener("keydown", handleKey, true);
       restoreTarget?.focus();
     };
-  }, [closeDisabled, initialFocusRef, open, restoreFocusRef]);
+  }, [closeDisabled, containerRef, initialFocusRef, open, restoreFocusRef]);
+}
+
+export function Dialog({ open, title, description, children, onClose, initialFocusRef, restoreFocusRef, closeDisabled = false, size = "md" }: { open: boolean; title: string; description?: string; children: ReactNode; onClose: () => void; initialFocusRef?: RefObject<HTMLElement | null>; restoreFocusRef?: RefObject<HTMLElement | null>; closeDisabled?: boolean; size?: keyof typeof DIALOG_WIDTHS }) {
+  const { t } = useTranslation("common");
+  const panelRef = useRef<HTMLElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+  useDialogBehavior({ open, containerRef: panelRef, initialFocusRef, restoreFocusRef, closeDisabled, onClose });
   if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !closeDisabled && onClose()}>
-      <section role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} className="relative max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
-        <IconButton ref={closeRef} label={t("dialog.closeLabel")} onClick={onClose} disabled={closeDisabled} className="absolute right-3 top-3"><X className="h-5 w-5" /></IconButton>
+  // Portalled to <body>. `position: fixed` is only viewport-relative while no
+  // ancestor establishes a containing block for it, and a `transform`,
+  // `filter`, `contain` or `will-change` anywhere up the tree silently does --
+  // `.page-transition` wrapped every dashboard route and confined this backdrop
+  // to the <main> box. Rendering outside the app tree makes that structurally
+  // impossible rather than something the next ancestor can break again.
+  return createPortal(
+    <div className={join("fixed inset-0 flex items-center justify-center bg-slate-950/55 p-4", LAYER_Z.modal)} role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !closeDisabled && onClose()}>
+      <section ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} className={join("relative max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-card bg-white p-6 shadow-2xl", DIALOG_WIDTHS[size])}>
+        <IconButton label={t("dialog.closeLabel")} onClick={onClose} disabled={closeDisabled} className="absolute right-3 top-3"><X className="h-5 w-5" /></IconButton>
         <h2 id={titleId} className="pr-12 text-xl font-bold text-slate-900">{title}</h2>
         {description ? <p id={descriptionId} className="mt-2 text-sm text-slate-600">{description}</p> : null}
         <div className="mt-6">{children}</div>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -223,5 +287,67 @@ export function ConfirmDialog({ open, title, description, confirmLabel, cancelLa
         <Button className={destructive ? "!bg-red-700 hover:!bg-red-800" : undefined} onClick={() => void onConfirm()} disabled={pending} aria-busy={pending}>{pending ? t("confirmDialog.pending") : resolvedConfirmLabel}</Button>
       </div>
     </Dialog>
+  );
+}
+
+/**
+ * Backdrop and modal behaviour for an alert, with no opinion on its contents.
+ *
+ * Split from `AlertCard` because one backdrop has to be able to hold several
+ * stacked alerts: the global error layer shows every unacknowledged error at
+ * once, and a scrim per error would compound the dimming until the page went
+ * black. Callers that show exactly one alert pass a single `AlertCard`.
+ *
+ * An `alertdialog` must have an accessible name, so pass `labelledBy` (the id
+ * of a heading inside) or `label`.
+ */
+export function AlertLayer({ open, label, labelledBy, describedBy, z = ALERT_LAYER_Z.overModal, onDismiss, children }: { open: boolean; label?: string; labelledBy?: string; describedBy?: string; z?: string; onDismiss: () => void; children: ReactNode }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialogBehavior({ open, containerRef: panelRef, onClose: onDismiss });
+  if (!open) return null;
+  // Portalled for the reason spelled out on `Dialog` above: an ancestor with a
+  // transform silently turns `position: fixed` into something else.
+  return createPortal(
+    <div
+      className={join("fixed inset-0 flex items-start justify-center overflow-y-auto overscroll-contain bg-slate-950/55 p-4 sm:items-center", z)}
+      role="presentation"
+      onMouseDown={(event) => event.target === event.currentTarget && onDismiss()}
+    >
+      <div
+        ref={panelRef}
+        role="alertdialog"
+        aria-modal="true"
+        aria-label={labelledBy ? undefined : label}
+        aria-labelledby={labelledBy}
+        aria-describedby={describedBy}
+        className="my-auto flex w-full max-w-md flex-col gap-3"
+      >
+        {children}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * The alert itself. Deliberately not wrapped in its own backdrop -- see
+ * `AlertLayer`. `actions` replaces the default single dismiss button for alerts
+ * that offer a way forward as well as a way out.
+ */
+export function AlertCard({ title, titleId, message, messageId, dismissLabel, actions, onDismiss }: { title: string; titleId?: string; message?: string | null; messageId?: string; dismissLabel?: string; actions?: ReactNode; onDismiss?: () => void }) {
+  const { t } = useTranslation("common");
+  return (
+    <div className="w-full rounded-3xl border border-red-100 bg-white p-6 text-center shadow-2xl">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-2xl font-bold text-red-600" aria-hidden="true">
+        !
+      </div>
+      <h2 id={titleId} className="mt-4 text-xl font-bold text-slate-900">{title}</h2>
+      {message ? <p id={messageId} className="mt-2 text-sm leading-6 text-slate-600">{message}</p> : null}
+      <div className="mt-6">
+        {actions ?? (
+          <Button className="w-full" onClick={onDismiss}>{dismissLabel ?? t("alert.dismiss")}</Button>
+        )}
+      </div>
+    </div>
   );
 }

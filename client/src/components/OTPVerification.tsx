@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
+import { LAYER_Z } from "./ui/layers";
 
 interface OTPVerificationProps {
   onClose: () => void;
@@ -14,7 +16,7 @@ interface OTPVerificationProps {
 
 export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerificationProps) {
   const { t } = useTranslation("auth");
-  const { verifyOTP, resendOTP, verifyLoginOtpCode, resendLoginOtpCode } = useAuth();
+  const { verifyOTP, resendOTP, verifyLoginOtpCode, resendLoginOtpCode, devVerificationCode } = useAuth();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [isVerifying, setIsVerifying] = useState(false);
   const verifyInFlightRef = useRef(false);
@@ -210,9 +212,24 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-[24px] max-w-[480px] w-full p-8 relative animate-in fade-in zoom-in duration-200">
+  // Portalled to <body> and on the modal rung, for the reasons spelled out on
+  // `ui/index.tsx`'s Dialog: `position: fixed` is only viewport-relative while
+  // no ancestor establishes a containing block, and at `z-50` this sat under
+  // the navbar (60) and the cookie banner (90) -- so a first-time visitor
+  // signing in got the banner painted across the code entry.
+  //
+  // The panel caps its own height and scrolls internally. Centring a flex
+  // child taller than its container overflows in *both* directions, and this
+  // dialog is tall enough to do that on a 375px-high landscape phone: the
+  // close button left the top edge with nothing to scroll it back.
+  return createPortal(
+    <div className={`fixed inset-0 ${LAYER_Z.modal} flex items-center justify-center bg-black/50 p-4`}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="otp-verification-title"
+        className="relative max-h-[calc(100dvh-2rem)] w-full max-w-[480px] overflow-y-auto rounded-[24px] bg-white p-5 animate-in fade-in zoom-in duration-200 sm:p-8"
+      >
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -222,16 +239,44 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
         </button>
 
         {/* Header */}
-        <h2 className="text-[28px] font-bold text-[#111827] text-center mt-2 mb-3">
+        <h2 id="otp-verification-title" className="text-[28px] font-bold text-[#111827] text-center mt-2 mb-3">
           {t("otpVerification.title")}
         </h2>
-        <p className="text-[14px] text-[#6B7280] text-center mb-8">
+        <p className="text-body text-[#6B7280] text-center mb-8">
           {t("otpVerification.description")}<br />
           <span className="font-semibold text-[#111827]">{email}</span>
         </p>
 
+        {/* Development only. `UserController.sendOtp` returns the code in the
+            response on every non-production request, whether or not SMTP is
+            configured -- and the client used to drop it, which made sign-up
+            impossible to finish locally the moment mail stopped arriving.
+            Nothing renders here in production because the server sends no
+            code to render. */}
+        {devVerificationCode ? (
+          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
+            <p className="text-caption font-semibold uppercase tracking-wide text-amber-800">
+              {t("otpVerification.devCode.label")}
+            </p>
+            <p className="mt-1 text-[22px] font-bold tracking-[0.3em] text-amber-900">{devVerificationCode}</p>
+            <button
+              type="button"
+              onClick={() => {
+                const digits = devVerificationCode.replace(/\D/g, "").slice(0, 6).split("");
+                if (digits.length === 6) {
+                  setOtp(digits);
+                  inputRefs.current[5]?.focus();
+                }
+              }}
+              className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-amber-300 bg-white px-4 text-body-sm font-semibold text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+            >
+              {t("otpVerification.devCode.fill")}
+            </button>
+          </div>
+        ) : null}
+
         {/* OTP Inputs */}
-        <div className="flex justify-center gap-3 mb-8">
+        <div className="mb-8 flex justify-center gap-2 sm:gap-3">
           {otp.map((digit, index) => (
             <input
               key={index}
@@ -248,7 +293,13 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
               onKeyDown={(e) => handleKeyDown(index, e)}
               onPaste={handlePaste}
               disabled={isVerifying}
-              className="w-[56px] h-[64px] text-center text-[24px] font-bold border-2 border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all disabled:bg-gray-50"
+              // Six 56px boxes plus gaps need 396px, but a 375px phone leaves
+              // only 279px inside this modal's padding -- the boxes shrank to
+              // ~36px there and ~20px on a 280px foldable while the digit
+              // stayed at 24px, so it no longer fit its own box and the targets
+              // fell well under the 44px minimum. Scale the boxes and the type
+              // together, and only take the full size once there is room.
+              className="h-12 w-10 shrink-0 rounded-xl border-2 border-[#E5E7EB] text-center text-lg font-bold transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand disabled:bg-gray-50 sm:h-[64px] sm:w-[56px] sm:text-[24px]"
             />
           ))}
         </div>
@@ -264,9 +315,9 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
               checked={rememberDevice}
               onChange={(e) => setRememberDevice(e.target.checked)}
               disabled={isVerifying}
-              className="h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 text-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]"
+              className="h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 text-brand focus:ring-2 focus:ring-brand"
             />
-            <span className="text-[14px] text-[#374151]">
+            <span className="text-body text-[#374151]">
               {t("otpVerification.trustDevice")}
             </span>
           </label>
@@ -276,7 +327,7 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
         <button
           onClick={handleSubmit}
           disabled={otp.some(d => !d) || isVerifying}
-          className="brand-primary-interactive mb-6 w-full rounded-[12px] py-4 font-semibold hover:shadow-lg"
+          className="brand-primary-interactive mb-6 w-full rounded-xl py-4 font-semibold hover:shadow-lg"
         >
           {isVerifying ? t("otpVerification.submitLoading") : t("otpVerification.submit")}
         </button>
@@ -287,13 +338,13 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
             <button
               onClick={handleResend}
               disabled={isResending}
-              className="mx-auto flex items-center justify-center gap-2 text-[14px] font-semibold text-[#1C4D8D] hover:opacity-80"
+              className="mx-auto flex items-center justify-center gap-2 text-body font-semibold text-brand hover:opacity-80"
             >
               <RefreshCw className="w-4 h-4" />
               {t("otpVerification.resend")}
             </button>
           ) : (
-            <p className="text-[14px] text-[#6B7280]">
+            <p className="text-body text-[#6B7280]">
               {t("otpVerification.resendPrompt")}{" "}
               <span className="font-semibold text-[#111827]">
                 {t("otpVerification.resendCountdown", { count: countdown })}
@@ -302,12 +353,13 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
           )}
         </div>
 
-        <div className="mt-6 p-4 bg-[#F9FAFB] rounded-[12px] border border-[#E5E7EB]">
-          <p className="text-[12px] text-[#6B7280] text-center">
+        <div className="mt-6 p-4 bg-[#F9FAFB] rounded-xl border border-[#E5E7EB]">
+          <p className="text-caption text-[#6B7280] text-center">
             {t("otpVerification.footerHint")}
           </p>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

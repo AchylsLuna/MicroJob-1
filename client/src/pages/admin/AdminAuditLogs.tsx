@@ -20,7 +20,7 @@ interface AuditLogEntry {
 }
 
 const categoryStyle: Record<AuditLogEntry["category"], string> = {
-  system: "bg-blue-100 text-blue-900",
+  system: "bg-brand-100 text-brand-900",
   error: "bg-red-100 text-red-900",
 };
 
@@ -65,14 +65,14 @@ function AdminAuditLogsContent() {
   return (
     <div className="mx-auto max-w-[1341px] space-y-6">
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-800">
+        <article className="rounded-card border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-800">
             <ShieldCheck className="h-5 w-5" aria-hidden="true" />
           </div>
           <p className="mt-4 text-sm font-medium text-slate-500">{t("auditLogs.cards.total")}</p>
           <p className="mt-1 text-2xl font-bold text-slate-950">{counts.total}</p>
         </article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <article className="rounded-card border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50 text-red-800">
             <AlertTriangle className="h-5 w-5" aria-hidden="true" />
           </div>
@@ -81,7 +81,7 @@ function AdminAuditLogsContent() {
         </article>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <section className="rounded-card border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="text-xl font-bold text-slate-950">{t("auditLogs.title")}</h1>
@@ -93,7 +93,7 @@ function AdminAuditLogsContent() {
               <select
                 value={categoryFilter}
                 onChange={(event) => setCategoryFilter(event.target.value as typeof categoryFilter)}
-                className="mt-1 block min-h-11 rounded-xl border border-slate-300 bg-white px-3 font-normal outline-none focus:ring-2 focus:ring-blue-600"
+                className="mt-1 block min-h-11 rounded-xl border border-slate-300 bg-white px-3 font-normal outline-none focus:ring-2 focus:ring-brand-600"
               >
                 <option value="all">{t("auditLogs.filters.allCategories")}</option>
                 <option value="system">{t("auditLogs.filters.system")}</option>
@@ -108,7 +108,7 @@ function AdminAuditLogsContent() {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder={t("auditLogs.filters.searchPlaceholder")}
-                  className="min-h-11 w-full rounded-xl border border-slate-300 pl-9 pr-3 font-normal outline-none focus:ring-2 focus:ring-blue-600 sm:w-64"
+                  className="min-h-11 w-full rounded-xl border border-slate-300 pl-9 pr-3 font-normal outline-none focus:ring-2 focus:ring-brand-600 sm:w-64"
                 />
               </span>
             </label>

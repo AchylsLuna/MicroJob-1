@@ -11,6 +11,7 @@ import { toast } from "../../lib/toast";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../utils/routes";
 import { Button, ConfirmDialog, Dialog, Input, Select } from "../../components/ui";
+import { LAYER_Z } from "../../components/ui/layers";
 import { useAuth } from "../../hooks/useAuth";
 import { useAdminPermissions } from "../../hooks/useAdminPermissions";
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../../lib/passwordPolicy";
@@ -71,7 +72,7 @@ function RowActionsMenu({
     <div
       ref={menuRef}
       role="menu"
-      className="fixed z-[80] w-44 rounded-[12px] border border-[#E5E7EB] bg-white text-left shadow-lg"
+      className={`fixed ${LAYER_Z.furniture} w-44 rounded-xl border border-[#E5E7EB] bg-white text-left shadow-lg`}
       style={{
         top: position?.top ?? 0,
         left: position?.left ?? 0,
@@ -349,7 +350,7 @@ function AdminUserManagementContent() {
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
       {loadError && (
-        <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-[12px] text-[13px]">
+        <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-xl text-body-sm">
           {loadError}
         </div>
       )}
@@ -357,7 +358,7 @@ function AdminUserManagementContent() {
       <section className="space-y-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            { label: t("userManagement.stats.totalAccounts.label"), value: totalUsers, detail: t("userManagement.stats.totalAccounts.detail", { count: newThisWeek }), icon: Users, tone: "bg-blue-50 text-blue-700" },
+            { label: t("userManagement.stats.totalAccounts.label"), value: totalUsers, detail: t("userManagement.stats.totalAccounts.detail", { count: newThisWeek }), icon: Users, tone: "bg-brand-50 text-brand-700" },
             { label: t("userManagement.stats.administrators.label"), value: adminCount, detail: t("userManagement.stats.administrators.detail"), icon: ShieldCheck, tone: "bg-violet-50 text-violet-700" },
             { label: t("userManagement.stats.activeAccounts.label"), value: activeToday, detail: t("userManagement.stats.activeAccounts.detail"), icon: UserCheck, tone: "bg-emerald-50 text-emerald-700" },
             { label: t("userManagement.stats.pendingReview.label"), value: pendingCount, detail: t("userManagement.stats.pendingReview.detail"), icon: UserPlus, tone: "bg-amber-50 text-amber-700" },
@@ -366,7 +367,7 @@ function AdminUserManagementContent() {
             return (
               <motion.article
                 key={card.label}
-                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                className="rounded-card border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                 initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05, duration: seconds(motionTokens.duration.standard) }}
@@ -380,7 +381,7 @@ function AdminUserManagementContent() {
           })}
         </div>
 
-        <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <div className="space-y-6 rounded-card border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-slate-950">{t("userManagement.manage.title")}</h2>
@@ -393,7 +394,9 @@ function AdminUserManagementContent() {
                   {t("userManagement.manage.addAccount")}
                 </Button>
               ) : null}
-              <div className="relative min-w-[240px]">
+              {/* Below `sm` the parent is `flex-col`, so this is already full
+                  width and the floor only served to overflow a 280px viewport. */}
+              <div className="relative sm:min-w-[240px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
                 <input
                   type="text"
@@ -401,7 +404,7 @@ function AdminUserManagementContent() {
                   onChange={(event) => setSearchTerm(event.target.value)}
                   aria-label={t("userManagement.manage.searchAriaLabel")}
                   placeholder={t("userManagement.manage.searchPlaceholder")}
-                  className="w-full h-10 rounded-[12px] border border-[#E5E7EB] pl-9 pr-3 text-[13px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+                  className="w-full h-10 rounded-xl border border-[#E5E7EB] pl-9 pr-3 text-body-sm text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-brand"
                 />
               </div>
               <label className="sr-only" htmlFor="admin-role-filter">{t("userManagement.manage.roleFilterLabel")}</label>
@@ -409,7 +412,7 @@ function AdminUserManagementContent() {
                 id="admin-role-filter"
                 value={roleFilter}
                 onChange={(event) => setRoleFilter(event.target.value as typeof roleFilter)}
-                className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-600"
+                className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-brand-600"
               >
                 <option value="all">{t("userManagement.manage.roleFilterOptions.all")}</option>
                 <option value="privileged">{t("userManagement.manage.roleFilterOptions.privileged")}</option>
@@ -425,7 +428,7 @@ function AdminUserManagementContent() {
             {!isLoading && paginatedUsers.map((user, index) => (
               <motion.article
                 key={user._id}
-                className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                className="rounded-card border border-slate-200 bg-slate-50 p-4"
                 initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.04, duration: seconds(motionTokens.duration.standard) }}
@@ -450,7 +453,7 @@ function AdminUserManagementContent() {
             {!isLoading && paginatedUsers.length === 0 && <p className="py-6 text-center text-sm text-slate-500">{t("userManagement.mobileList.empty")}</p>}
           </div>
           <div className="hidden overflow-x-auto md:block">
-            <table className="w-full text-left text-[13px]">
+            <table className="w-full text-left text-body-sm">
               <thead>
                 <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
                   <th className="py-3 pr-4 font-medium">{t("userManagement.table.headers.user")}</th>
@@ -488,19 +491,19 @@ function AdminUserManagementContent() {
                     >
                       <td className="py-3 pr-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-[#1C4D8D]/[0.06] text-[#1C4D8D] flex items-center justify-center font-semibold">
+                          <div className="w-10 h-10 rounded-full bg-brand/[0.06] text-brand flex items-center justify-center font-semibold">
                             {getInitials(user)}
                           </div>
                           <div>
                             <div className="text-[#111827] font-medium">{getUserName(user)}</div>
-                            <div className="text-[12px] text-[#6B7280]">
+                            <div className="text-caption text-[#6B7280]">
                               {user.email || getShortId(user._id)}
                             </div>
                           </div>
                         </div>
                       </td>
                       <td className="py-3 pr-4">
-                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${user.role === "superadmin" ? "bg-violet-100 text-violet-800" : user.role === "admin" ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-700"}`}>
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${user.role === "superadmin" ? "bg-violet-100 text-violet-800" : user.role === "admin" ? "bg-brand-100 text-brand-800" : "bg-slate-100 text-slate-700"}`}>
                           {getRoleLabel(user.role, t)}
                         </span>
                       </td>
@@ -527,7 +530,7 @@ function AdminUserManagementContent() {
                                 return next;
                               });
                             }}
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-[#64748B] hover:bg-[#F3F4F6]"
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:bg-[#F3F4F6]"
                             aria-label={t("userManagement.table.openActionsAriaLabel")}
                           >
                             <MoreHorizontal className="w-4 h-4" />
@@ -540,7 +543,7 @@ function AdminUserManagementContent() {
                                   setSelectedUserId(user._id);
                                   setOpenMenuId(null);
                                 }}
-                                className="w-full px-3 py-2 text-[13px] text-[#111827] hover:bg-[#F8FAFC]"
+                                className="w-full px-3 py-2 text-body-sm text-[#111827] hover:bg-[#F8FAFC]"
                               >
                                 {t("userManagement.table.menu.viewProfile")}
                               </button>}
@@ -556,7 +559,7 @@ function AdminUserManagementContent() {
                                   openEdit(user);
                                   setOpenMenuId(null);
                                 }}
-                                className="w-full px-3 py-2 text-[13px] text-[#111827] hover:bg-[#F8FAFC]"
+                                className="w-full px-3 py-2 text-body-sm text-[#111827] hover:bg-[#F8FAFC]"
                               >
                                 {t("userManagement.table.menu.editUser")}
                               </button>}
@@ -568,7 +571,7 @@ function AdminUserManagementContent() {
                                   });
                                   setOpenMenuId(null);
                                 }}
-                                className="w-full px-3 py-2 text-[13px] text-[#111827] hover:bg-[#F8FAFC]"
+                                className="w-full px-3 py-2 text-body-sm text-[#111827] hover:bg-[#F8FAFC]"
                               >
                                 {t("userManagement.table.menu.messageUser")}
                               </button>
@@ -579,7 +582,7 @@ function AdminUserManagementContent() {
                                     handleApproveUser(user);
                                     setOpenMenuId(null);
                                   }}
-                                  className="w-full px-3 py-2 text-[13px] text-[#111827] hover:bg-[#F8FAFC]"
+                                  className="w-full px-3 py-2 text-body-sm text-[#111827] hover:bg-[#F8FAFC]"
                                 >
                                   {t("userManagement.table.menu.approveUser")}
                                 </button>
@@ -590,7 +593,7 @@ function AdminUserManagementContent() {
                                   handleToggleUserStatus(user);
                                   setOpenMenuId(null);
                                 }}
-                                className={`w-full px-3 py-2 text-[13px] ${
+                                className={`w-full px-3 py-2 text-body-sm ${
                                   user.status === "disabled" ? "text-[#111827]" : "text-[#DC2626]"
                                 } hover:bg-[#FEF2F2]`}
                               >
@@ -603,7 +606,7 @@ function AdminUserManagementContent() {
                                   setDeleteTargetId(user._id);
                                   setOpenMenuId(null);
                                 }}
-                                className="w-full px-3 py-2 text-[13px] font-semibold text-red-700 hover:bg-red-50"
+                                className="w-full px-3 py-2 text-body-sm font-semibold text-red-700 hover:bg-red-50"
                               >
                                 {t("userManagement.table.menu.deleteUser")}
                               </button>}
@@ -618,7 +621,7 @@ function AdminUserManagementContent() {
           </div>
 
           {!isLoading && filteredUsers.length > 0 && (
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-[#E5E7EB] text-[13px] text-[#6B7280]">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-[#E5E7EB] text-body-sm text-[#6B7280]">
               <span>
                 {t("userManagement.table.pagination.showing", { start: pageStart + 1, end: pageEnd, total: filteredUsers.length })}
               </span>
@@ -627,7 +630,7 @@ function AdminUserManagementContent() {
                   type="button"
                   onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                   disabled={safePage === 1}
-                  className="px-3 py-1.5 rounded-[10px] border border-[#E5E7EB] text-[#111827] disabled:text-[#9CA3AF] disabled:bg-[#F9FAFB]"
+                  className="px-3 py-1.5 rounded-control border border-[#E5E7EB] text-[#111827] disabled:text-[#9CA3AF] disabled:bg-[#F9FAFB]"
                 >
                   {t("userManagement.table.pagination.previous")}
                 </button>
@@ -637,9 +640,9 @@ function AdminUserManagementContent() {
                       key={page}
                       type="button"
                       onClick={() => setCurrentPage(page)}
-                      className={`w-8 h-8 rounded-[8px] text-[13px] ${
+                      className={`w-8 h-8 rounded-[8px] text-body-sm ${
                         page === safePage
-                          ? "bg-[#1C4D8D] text-white"
+                          ? "bg-brand text-white"
                           : "border border-[#E5E7EB] text-[#111827] hover:bg-[#F9FAFB]"
                       }`}
                     >
@@ -651,7 +654,7 @@ function AdminUserManagementContent() {
                   type="button"
                   onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                   disabled={safePage === totalPages}
-                  className="px-3 py-1.5 rounded-[10px] border border-[#E5E7EB] text-[#111827] disabled:text-[#9CA3AF] disabled:bg-[#F9FAFB]"
+                  className="px-3 py-1.5 rounded-control border border-[#E5E7EB] text-[#111827] disabled:text-[#9CA3AF] disabled:bg-[#F9FAFB]"
                 >
                   {t("userManagement.table.pagination.next")}
                 </button>
@@ -663,7 +666,7 @@ function AdminUserManagementContent() {
 
       {selectedUser && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4"
+          className={`fixed inset-0 ${LAYER_Z.modal} flex items-center justify-center bg-black/30 p-4`}
           role="presentation"
           onClick={(event) => event.target === event.currentTarget && setSelectedUserId(null)}
         >
@@ -671,12 +674,12 @@ function AdminUserManagementContent() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="admin-user-details-title"
-            className="max-h-[90vh] w-full max-w-[520px] overflow-y-auto bg-white rounded-[20px] border border-[#E5E7EB] p-6 shadow-xl"
+            className="max-h-[90dvh] w-full max-w-[520px] overflow-y-auto bg-white rounded-[20px] border border-[#E5E7EB] p-6 shadow-xl"
           >
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h4 id="admin-user-details-title" className="text-[18px] font-semibold text-[#111827]">{t("userManagement.details.title")}</h4>
-                <p className="text-[13px] text-[#6B7280] mt-1">{t("userManagement.details.subtitle")}</p>
+                <p className="text-body-sm text-[#6B7280] mt-1">{t("userManagement.details.subtitle")}</p>
               </div>
               <button
                 type="button"
@@ -689,30 +692,30 @@ function AdminUserManagementContent() {
             </div>
 
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-14 h-14 rounded-full bg-[#1C4D8D]/[0.06] text-[#1C4D8D] flex items-center justify-center font-semibold text-[18px]">
+              <div className="w-14 h-14 rounded-full bg-brand/[0.06] text-brand flex items-center justify-center font-semibold text-[18px]">
                 {getInitials(selectedUser)}
               </div>
               <div>
                 <div className="text-[16px] font-semibold text-[#111827]">{getUserName(selectedUser)}</div>
-                <div className="text-[13px] text-[#6B7280]">{selectedUser.email}</div>
+                <div className="text-body-sm text-[#6B7280]">{selectedUser.email}</div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-[13px] text-[#6B7280]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-body-sm text-[#6B7280]">
               <div>
-                <p className="text-[12px] uppercase tracking-wide text-[#9CA3AF]">{t("userManagement.details.statusLabel")}</p>
+                <p className="text-caption uppercase tracking-wide text-[#9CA3AF]">{t("userManagement.details.statusLabel")}</p>
                 <p className="mt-1 text-[#111827] capitalize">{getStatusLabel(selectedUser.status, t)}</p>
               </div>
               <div>
-                <p className="text-[12px] uppercase tracking-wide text-[#9CA3AF]">{t("userManagement.details.roleLabel")}</p>
+                <p className="text-caption uppercase tracking-wide text-[#9CA3AF]">{t("userManagement.details.roleLabel")}</p>
                 <p className="mt-1 text-[#111827] capitalize">{getRoleLabel(selectedUser.role, t)}</p>
               </div>
               <div>
-                <p className="text-[12px] uppercase tracking-wide text-[#9CA3AF]">{t("userManagement.details.phoneLabel")}</p>
+                <p className="text-caption uppercase tracking-wide text-[#9CA3AF]">{t("userManagement.details.phoneLabel")}</p>
                 <p className="mt-1 text-[#111827]">{selectedUser.phoneNumber || "—"}</p>
               </div>
               <div>
-                <p className="text-[12px] uppercase tracking-wide text-[#9CA3AF]">{t("userManagement.details.joinedLabel")}</p>
+                <p className="text-caption uppercase tracking-wide text-[#9CA3AF]">{t("userManagement.details.joinedLabel")}</p>
                 <p className="mt-1 text-[#111827]">{formatJoinedDate(selectedUser._id)}</p>
               </div>
             </div>
@@ -735,7 +738,7 @@ function AdminUserManagementContent() {
                             href={toAdminAssetUrl(document.documentUrl)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs font-semibold text-blue-700 hover:underline"
+                            className="text-xs font-semibold text-brand-700 hover:underline"
                           >
                             {t("userManagement.details.verification.viewDocument")}
                           </a>
@@ -771,7 +774,7 @@ function AdminUserManagementContent() {
               <button
                 type="button"
                 onClick={() => setSelectedUserId(null)}
-                className="px-4 py-2 rounded-[12px] border border-[#E5E7EB] text-[13px] text-[#111827] hover:bg-[#F9FAFB]"
+                className="px-4 py-2 rounded-xl border border-[#E5E7EB] text-body-sm text-[#111827] hover:bg-[#F9FAFB]"
               >
                 {t("userManagement.details.close")}
               </button>
@@ -831,7 +834,7 @@ function AdminUserManagementContent() {
           onChange={(event) => setRejectionReason(event.target.value)}
           maxLength={500}
           rows={4}
-          className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-700"
+          className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-700"
           placeholder={t("userManagement.rejectDialog.reasonPlaceholder")}
         />
         <div className="mt-5 flex justify-end gap-3">

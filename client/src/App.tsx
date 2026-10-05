@@ -9,6 +9,7 @@ import {
   useParams,
 } from "react-router-dom";
 import SidebarLayout from "./components/layout/SidebarLayout";
+import { RouteSkeleton } from "./components/ui/PageSkeletons";
 import { RoleRoute } from "./components/routing/RoleRoute";
 import { useAuth } from "./hooks/useAuth";
 import { logoutUser } from "./services/api";
@@ -16,6 +17,7 @@ import { Toaster } from "./lib/toast";
 import { ACTIVITY_EVENT, markActivity } from "./utils/activityTracker";
 import { getDefaultDashboardPath, isAdmin, isEmployer } from "./utils/dashboardRoutes";
 import { ROUTES } from "./utils/routes";
+import { AlertLayer, Button } from "./components/ui";
 import { CookieConsent } from "./components/CookieConsent";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -73,18 +75,36 @@ const AdminModerationQueue = lazy(() => import("./pages/admin/AdminModerationQue
 const AdminVerificationReview = lazy(() => import("./pages/admin/AdminVerificationReview").then((module) => ({ default: module.AdminVerificationReview })));
 const AdminFinancialDisputes = lazy(() => import("./pages/admin/AdminFinancialDisputes").then((module) => ({ default: module.AdminFinancialDisputes })));
 
-const RouteLoading = () => <div role="status" aria-live="polite" className="flex min-h-[40vh] items-center justify-center text-sm font-medium text-slate-600"><span className="mr-3 h-6 w-6 animate-spin rounded-full border-4 border-blue-200 border-t-blue-700" aria-hidden="true" />Loading page…</div>;
+/**
+ * Suspense fallback for every lazily-loaded route.
+ *
+ * A skeleton rather than the spinner this used to be, and a route-aware one:
+ * this single boundary covers every route (see the `<Suspense>` below), so a
+ * fixed placeholder would be the wrong shape for most of them. `RouteSkeleton`
+ * reads the pathname and renders the matching frame -- dashboard shell, auth
+ * card, or marketing page -- so the layout the user is waiting for is already
+ * standing when its chunk lands.
+ *
+ * The announcement is unchanged in substance: `Skeleton` is `aria-hidden`, so
+ * the live region below carries the label the spinner used to show as text.
+ */
+const RouteLoading = () => (
+  <>
+    <p role="status" aria-live="polite" className="sr-only">
+      Loading page…
+    </p>
+    <RouteSkeleton />
+  </>
+);
 
 const InactivityHandler: React.FC = () => {
   const navigate = useNavigate();
   const [showWarning, setShowWarning] = useState(false);
   const warningTimerRef = useRef<number | null>(null);
   const logoutTimerRef = useRef<number | null>(null);
-  const continueButtonRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    if (showWarning) continueButtonRef.current?.focus();
-  }, [showWarning]);
+  // No focus effect here any more: `AlertLayer` focuses the first focusable in
+  // the dialog -- which is "Continue working" -- and restores focus on close.
 
   const clearTimers = useCallback(() => {
     if (warningTimerRef.current) {
@@ -167,33 +187,39 @@ const InactivityHandler: React.FC = () => {
     };
   }, [clearTimers, handleActivity, scheduleTimers]);
 
-  if (!showWarning) {
-    return null;
-  }
+  const continueWorking = useCallback(() => {
+    markActivity();
+    handleActivity(true);
+  }, [handleActivity]);
 
+  // On `AlertLayer` rather than its own backdrop. This was the last modal in
+  // the app still hand-rolling one, and it had drifted on every axis that
+  // matters: `bg-black/50` instead of the slate scrim every other surface uses,
+  // and `z-50` -- under the navbar (60), the cookie banner (90) and every
+  // modal (100). The dim stopped at the page content while the chrome stayed
+  // lit, which is the one thing a session-ending warning cannot afford.
+  //
+  // Escape and a backdrop click both mean "continue working": either one is
+  // the user demonstrating they are still here, which is what the dialog is
+  // asking. Signing out stays an explicit button.
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" role="presentation">
-      <div role="alertdialog" aria-modal="true" aria-labelledby="session-timeout-title" aria-describedby="session-timeout-description" className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-        <h3 id="session-timeout-title" className="text-lg font-bold text-gray-900 mb-2">Session ending soon</h3>
-        <p id="session-timeout-description" className="text-sm text-gray-700 mb-6">
+    <AlertLayer
+      open={showWarning}
+      labelledBy="session-timeout-title"
+      describedBy="session-timeout-description"
+      onDismiss={continueWorking}
+    >
+      <div className="w-full rounded-card bg-white p-6 shadow-2xl">
+        <h2 id="session-timeout-title" className="mb-2 text-lg font-bold text-slate-900">Session ending soon</h2>
+        <p id="session-timeout-description" className="mb-6 text-sm text-slate-700">
           Your session will end in about 30 seconds because of inactivity. Continue working to keep your session active.
         </p>
         <div className="flex gap-3">
-          <button
-            ref={continueButtonRef}
-            type="button"
-            onClick={() => {
-              markActivity();
-              handleActivity(true);
-            }}
-            className="flex-1 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
-          >
-            Continue working
-          </button>
-          <button type="button" onClick={performLogout} className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">Sign out</button>
+          <Button className="flex-1" onClick={continueWorking}>Continue working</Button>
+          <Button className="flex-1 !bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50" onClick={performLogout}>Sign out</Button>
         </div>
       </div>
-    </div>
+    </AlertLayer>
   );
 };
 

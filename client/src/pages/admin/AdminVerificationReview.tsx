@@ -103,8 +103,8 @@ function AdminVerificationReviewContent() {
   return (
     <div className="mx-auto max-w-[1341px] space-y-6">
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-800">
+        <article className="rounded-card border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-800">
             <FileCheck2 className="h-5 w-5" aria-hidden="true" />
           </div>
           <p className="mt-4 text-sm font-medium text-slate-500">{t("verificationReview.cards.pending")}</p>
@@ -112,7 +112,7 @@ function AdminVerificationReviewContent() {
         </article>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <section className="rounded-card border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div>
           <h1 className="text-xl font-bold text-slate-950">{t("verificationReview.title")}</h1>
           <p className="mt-1 text-sm text-slate-600">{t("verificationReview.subtitle")}</p>
@@ -156,7 +156,7 @@ function AdminVerificationReviewContent() {
                           {submission.documentType === "identity" ? t("verificationReview.identityLabel") : t("verificationReview.addressLabel")}
                         </div>
                         {submission.documentUrl ? (
-                          <a href={toAdminAssetUrl(submission.documentUrl)} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs font-semibold text-blue-700 hover:underline">
+                          <a href={toAdminAssetUrl(submission.documentUrl)} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs font-semibold text-brand-700 hover:underline">
                             {t("verificationReview.viewDocument")}
                           </a>
                         ) : null}

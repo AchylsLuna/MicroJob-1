@@ -66,12 +66,12 @@ export default function NotificationsPage() {
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-gray-200">
-        <div className="flex gap-2">
+        <div className="-mb-px flex min-w-0 gap-2 overflow-x-auto">
           <button
             onClick={() => setFilterType('all')}
-            className={`-mb-px px-4 py-2 border-b-2 font-medium text-sm ${
+            className={`shrink-0 whitespace-nowrap px-4 py-2 border-b-2 font-medium text-sm min-h-11 ${
               filterType === 'all'
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-brand-600 text-brand-600'
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -79,9 +79,9 @@ export default function NotificationsPage() {
           </button>
           <button
             onClick={() => setFilterType('application')}
-            className={`-mb-px px-4 py-2 border-b-2 font-medium text-sm inline-flex items-center gap-1 ${
+            className={`shrink-0 whitespace-nowrap px-4 py-2 border-b-2 font-medium text-sm min-h-11 inline-flex items-center gap-1 ${
               filterType === 'application'
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-brand-600 text-brand-600'
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -90,9 +90,9 @@ export default function NotificationsPage() {
           </button>
           <button
             onClick={() => setFilterType('message')}
-            className={`-mb-px px-4 py-2 border-b-2 font-medium text-sm inline-flex items-center gap-1 ${
+            className={`shrink-0 whitespace-nowrap px-4 py-2 border-b-2 font-medium text-sm min-h-11 inline-flex items-center gap-1 ${
               filterType === 'message'
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-brand-600 text-brand-600'
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -101,9 +101,9 @@ export default function NotificationsPage() {
           </button>
           <button
             onClick={() => setFilterType('payment')}
-            className={`-mb-px px-4 py-2 border-b-2 font-medium text-sm inline-flex items-center gap-1 ${
+            className={`shrink-0 whitespace-nowrap px-4 py-2 border-b-2 font-medium text-sm min-h-11 inline-flex items-center gap-1 ${
               filterType === 'payment'
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-brand-600 text-brand-600'
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -112,9 +112,9 @@ export default function NotificationsPage() {
           </button>
           <button
             onClick={() => setFilterType('update')}
-            className={`-mb-px px-4 py-2 border-b-2 font-medium text-sm inline-flex items-center gap-1 ${
+            className={`shrink-0 whitespace-nowrap px-4 py-2 border-b-2 font-medium text-sm min-h-11 inline-flex items-center gap-1 ${
               filterType === 'update'
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-brand-600 text-brand-600'
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -126,7 +126,7 @@ export default function NotificationsPage() {
         <div className="flex items-center gap-2 pb-2">
           <button
             onClick={markAll}
-            className="inline-flex h-10 items-center rounded-lg px-2 text-sm font-semibold text-blue-600 hover:underline"
+            className="inline-flex h-10 items-center rounded-lg px-2 text-sm font-semibold text-brand-600 hover:underline"
           >
             {t("notifications.actions.markAllRead")}
           </button>
@@ -152,7 +152,7 @@ export default function NotificationsPage() {
           .map((n, index) => (
           <motion.div
             key={n.id}
-            className={`rounded-xl p-4 shadow-sm border transition-colors hover:shadow-md ${!n.read ? 'bg-blue-50 border-blue-100' : 'bg-white border-gray-100 hover:bg-gray-50'}`}
+            className={`rounded-xl p-4 shadow-sm border transition-colors hover:shadow-md ${!n.read ? 'bg-brand-50 border-brand-100' : 'bg-white border-gray-100 hover:bg-gray-50'}`}
             initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: Math.min(index, 8) * 0.04, duration: seconds(motionTokens.duration.standard) }}
@@ -161,7 +161,7 @@ export default function NotificationsPage() {
               <div className="flex items-start gap-3 flex-1">
                 {/* Icon based on notification type */}
                 <div className={`mt-1 p-2 rounded-lg ${
-                  n.type === 'application' ? 'bg-blue-100 text-blue-600' :
+                  n.type === 'application' ? 'bg-brand-100 text-brand-600' :
                   n.type === 'message' ? 'bg-indigo-100 text-indigo-600' :
                   n.type === 'payment' ? 'bg-emerald-100 text-emerald-600' :
                   'bg-amber-100 text-amber-700'
@@ -176,7 +176,7 @@ export default function NotificationsPage() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold text-gray-900">{n.title}</h3>
-                    {!n.read && <span className="inline-block w-2 h-2 bg-blue-600 rounded-full" />}
+                    {!n.read && <span className="inline-block w-2 h-2 bg-brand-600 rounded-full" />}
                   </div>
                   <p className="text-sm text-gray-600 mt-1">{n.message}</p>
                   <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
@@ -190,7 +190,7 @@ export default function NotificationsPage() {
               <div className="flex flex-col items-end gap-2 ml-4">
                 <button
                   onClick={() => removeNotification(n.id)}
-                  className="text-gray-400 hover:text-red-600 transition-colors"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-400 transition-colors hover:text-red-600"
                   title={t("notifications.actions.removeNotification")}
                 >
                   <X className="w-5 h-5" />
@@ -198,7 +198,7 @@ export default function NotificationsPage() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => navigate(n.link)}
-                    className="text-sm text-blue-600 font-semibold hover:underline"
+                    className="text-sm text-brand-600 font-semibold hover:underline"
                   >
                     {n.type === 'application'
                       ? isEmployerView

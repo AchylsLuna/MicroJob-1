@@ -24,7 +24,7 @@ type ResolveOutcome = "resolved" | "rejected";
 
 const statusStyle: Record<FinancialDispute["status"], string> = {
   open: "bg-amber-100 text-amber-900",
-  investigating: "bg-blue-100 text-blue-900",
+  investigating: "bg-brand-100 text-brand-900",
   resolved: "bg-emerald-100 text-emerald-900",
   rejected: "bg-red-100 text-red-900",
 };
@@ -107,15 +107,15 @@ function AdminFinancialDisputesContent() {
   return (
     <div className="mx-auto max-w-[1341px] space-y-6">
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <article className="rounded-card border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-800">
             <AlertCircle className="h-5 w-5" aria-hidden="true" />
           </div>
           <p className="mt-4 text-sm font-medium text-slate-500">{t("disputes.cards.open")}</p>
           <p className="mt-1 text-2xl font-bold text-slate-950">{counts.open}</p>
         </article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-800">
+        <article className="rounded-card border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-800">
             <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
           </div>
           <p className="mt-4 text-sm font-medium text-slate-500">{t("disputes.cards.investigating")}</p>
@@ -123,7 +123,7 @@ function AdminFinancialDisputesContent() {
         </article>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <section className="rounded-card border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="text-xl font-bold text-slate-950">{t("disputes.title")}</h1>
@@ -135,7 +135,7 @@ function AdminFinancialDisputesContent() {
               <select
                 value={statusFilter}
                 onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
-                className="mt-1 block min-h-11 rounded-xl border border-slate-300 bg-white px-3 font-normal outline-none focus:ring-2 focus:ring-blue-600"
+                className="mt-1 block min-h-11 rounded-xl border border-slate-300 bg-white px-3 font-normal outline-none focus:ring-2 focus:ring-brand-600"
               >
                 <option value="all">{t("disputes.filters.all")}</option>
                 <option value="open">{t("disputes.statuses.open")}</option>
@@ -152,7 +152,7 @@ function AdminFinancialDisputesContent() {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder={t("disputes.filters.searchPlaceholder")}
-                  className="min-h-11 w-full rounded-xl border border-slate-300 pl-9 pr-3 font-normal outline-none focus:ring-2 focus:ring-blue-600 sm:w-64"
+                  className="min-h-11 w-full rounded-xl border border-slate-300 pl-9 pr-3 font-normal outline-none focus:ring-2 focus:ring-brand-600 sm:w-64"
                 />
               </span>
             </label>

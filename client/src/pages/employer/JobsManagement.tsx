@@ -16,7 +16,8 @@ import { changeJobStatus, deleteJob as apiDeleteJob, getMyJobs, reopenJob as api
 import { toast } from "../../lib/toast";
 import { ROUTES } from "../../utils/routes";
 import { formatCurrency, formatDate } from "../../lib/formatters";
-import { Badge } from "../../components/ui";
+import { Badge, Dialog } from "../../components/ui";
+import { LAYER_Z } from "../../components/ui/layers";
 
 interface JobPosting {
   id: string;
@@ -280,7 +281,7 @@ export function JobsManagement() {
   };
 
   const getMatchColor = (percentage: number) => {
-    if (percentage >= 80) return "text-blue-600";
+    if (percentage >= 80) return "text-brand-600";
     if (percentage >= 50) return "text-purple-600";
     return "text-orange-600";
   };
@@ -292,7 +293,7 @@ export function JobsManagement() {
   };
 
   return (
-    <div className="ui-page px-4 md:px-0 pb-16">
+    <div className="ui-page pb-16">
       <div className="ui-page-header">
         <div>
           <h1 className="ui-page-title">{t("jobsManagement.header.title")}</h1>
@@ -449,7 +450,7 @@ export function JobsManagement() {
               <button
                 type="button"
                 onClick={() => setViewingJob(job)}
-                className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#1C4D8D] px-4 text-sm font-semibold text-white transition hover:bg-[#163f75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
               >
                 {t("jobsManagement.card.viewDetails")}
               </button>
@@ -459,7 +460,7 @@ export function JobsManagement() {
                   onClick={() => navigate(ROUTES.employer.postJob, {
                     state: { job: job.source, returnTo: ROUTES.employer.jobs },
                   })}
-                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                   title={t("jobsManagement.card.editTooltip")}
                 >
                   {t("jobsManagement.card.editDetails")}
@@ -483,7 +484,7 @@ export function JobsManagement() {
                   type="button"
                   onClick={() => void handleMarkJobDone(job)}
                   disabled={!canMarkDone}
-                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-3 text-xs font-semibold text-[#1C4D8D] transition hover:bg-[#1C4D8D]/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 disabled:opacity-60"
+                  className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-brand/20 bg-brand/[0.06] px-3 text-xs font-semibold text-brand transition hover:bg-brand/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-60"
                   title={!job.hasHired ? t("jobsManagement.card.markDoneTooltipBlocked") : t("jobsManagement.card.markDoneTooltip")}
                 >
                   {isMarkingDone ? (
@@ -526,8 +527,13 @@ export function JobsManagement() {
       </div>
 
       {viewingJob ? (
+        /* On the modal rung, not `z-50`. The three confirms below were brought
+           onto `ui`'s Dialog for exactly this reason -- at z-50 they sat under
+           the navbar (60) and the cookie banner (90) -- and this one was left
+           behind. The panel already caps its height and scrolls internally,
+           which is what makes centring safe. */
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4"
+          className={`fixed inset-0 ${LAYER_Z.modal} flex items-center justify-center bg-slate-900/55 p-4`}
           role="dialog"
           aria-modal="true"
           aria-labelledby="job-details-title"
@@ -539,7 +545,7 @@ export function JobsManagement() {
                   <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(viewingJob.status)}`}>
                     {getPipelineStatusLabel(t, viewingJob.status)}
                   </span>
-                  <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                  <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
                     {viewingJob.department || t("jobsManagement.card.departmentFallback")}
                   </span>
                 </div>
@@ -563,27 +569,27 @@ export function JobsManagement() {
 
             <div className="flex-1 overflow-y-auto px-5 py-5 md:px-7 md:py-6">
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="rounded-card border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("jobsManagement.modal.minimumPayLabel")}</p>
                   <p className="mt-2 text-base font-bold text-slate-900">{formatSalaryAmount(t, viewingJob.salaryAmount)}</p>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="rounded-card border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("jobsManagement.modal.opportunityLabel")}</p>
                   <p className="mt-2 text-base font-bold text-slate-900">{getWorkTypeLabel(t, viewingJob.workType)}</p>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="rounded-card border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("jobsManagement.modal.positionsLabel")}</p>
                   <p className="mt-2 text-base font-bold text-slate-900">{t("jobsManagement.card.positionsCount", { count: viewingJob.positionsNeeded })}</p>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="rounded-card border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("jobsManagement.modal.deadlineLabel")}</p>
                   <p className="mt-2 text-base font-bold text-slate-900">{formatJobDate(viewingJob.source?.deadline)}</p>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="rounded-card border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("jobsManagement.modal.applicationsLabel")}</p>
                   <p className="mt-2 text-base font-bold text-slate-900">{viewingJob.candidatesApplied}</p>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="rounded-card border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("jobsManagement.modal.postedLabel")}</p>
                   <p className="mt-2 text-base font-bold text-slate-900">{formatJobDate(viewingJob.createdAt)}</p>
                 </div>
@@ -603,7 +609,7 @@ export function JobsManagement() {
                     <ul className="mt-2 space-y-2 text-sm text-slate-700">
                       {viewingJob.source.responsibilities.map((item: string, index: number) => (
                         <li key={`${item}-${index}`} className="flex gap-2">
-                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" />
+                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-600" />
                           <span>{item}</span>
                         </li>
                       ))}
@@ -617,7 +623,7 @@ export function JobsManagement() {
                     <ul className="mt-2 space-y-2 text-sm text-slate-700">
                       {viewingJob.source.requirements.map((item: string, index: number) => (
                         <li key={`${item}-${index}`} className="flex gap-2">
-                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" />
+                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-600" />
                           <span>{item}</span>
                         </li>
                       ))}
@@ -632,7 +638,7 @@ export function JobsManagement() {
                   {Array.isArray(viewingJob.source?.skills) && viewingJob.source.skills.length > 0 ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {viewingJob.source.skills.map((skill: string, index: number) => (
-                        <span key={`${skill}-${index}`} className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700">
+                        <span key={`${skill}-${index}`} className="rounded-full bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700">
                           {skill}
                         </span>
                       ))}
@@ -657,7 +663,7 @@ export function JobsManagement() {
                 onClick={() => navigate(ROUTES.employer.postJob, {
                   state: { job: viewingJob.source, returnTo: ROUTES.employer.jobs },
                 })}
-                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#1C4D8D] px-4 text-sm font-semibold text-white transition hover:bg-[#163f75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
               >
                 <Pencil className="h-4 w-4" />
                 {t("jobsManagement.card.editDetails")}
@@ -667,129 +673,142 @@ export function JobsManagement() {
         </div>
       ) : null}
 
+      {/* These three confirms are on `ui`'s Dialog rather than hand-rolled
+          `fixed inset-0` wrappers. They were three byte-similar copies of the
+          same shell, each at z-50 -- below the navbar's z-60 and the cookie
+          banner's z-90 -- with no height cap, no scroll, no focus trap and no
+          Escape. They stay on Dialog rather than ConfirmDialog because that
+          takes a plain-string description and these carry a <Trans> body, a
+          coloured callout and a button with a spinner. */}
       {confirmDoneJob ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
-            <h3 className="text-lg font-semibold text-slate-900">{t("jobsManagement.confirmDone.title")}</h3>
-            <p className="mt-2 text-sm text-slate-600">
-              <Trans
-                t={t}
-                i18nKey="jobsManagement.confirmDone.body"
-                values={{ title: confirmDoneJob.title }}
-                components={{ b: <span className="font-semibold text-slate-900" /> }}
-              />
-            </p>
-            <p className="mt-3 rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-700 border border-blue-100">
-              {t("jobsManagement.confirmDone.info")}
-            </p>
-            <div className="mt-6 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmDoneJob(null)}
-                disabled={markingDoneJobId === confirmDoneJob.id}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
-              >
-                {t("jobsManagement.actions.cancel")}
-              </button>
-              <button
-                type="button"
-                onClick={() => void confirmMarkJobDone()}
-                disabled={markingDoneJobId === confirmDoneJob.id || !(confirmDoneJob as any).hasHired}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#1C4D8D] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                {markingDoneJobId === confirmDoneJob.id ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" />{t("jobsManagement.card.marking")}</>
-                ) : (
-                  <><CheckCircle2 className="h-4 w-4" />{t("jobsManagement.confirmDone.confirm")}</>
-                )}
-              </button>
-            </div>
+        <Dialog
+          open
+          title={t("jobsManagement.confirmDone.title")}
+          onClose={() => setConfirmDoneJob(null)}
+          closeDisabled={markingDoneJobId === confirmDoneJob.id}
+        >
+          <p className="text-sm text-slate-600">
+            <Trans
+              t={t}
+              i18nKey="jobsManagement.confirmDone.body"
+              values={{ title: confirmDoneJob.title }}
+              components={{ b: <span className="font-semibold text-slate-900" /> }}
+            />
+          </p>
+          <p className="mt-3 rounded-xl bg-brand-50 px-3 py-2 text-sm text-brand-700 border border-brand-100">
+            {t("jobsManagement.confirmDone.info")}
+          </p>
+          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setConfirmDoneJob(null)}
+              disabled={markingDoneJobId === confirmDoneJob.id}
+              className="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 disabled:opacity-60"
+            >
+              {t("jobsManagement.actions.cancel")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void confirmMarkJobDone()}
+              disabled={markingDoneJobId === confirmDoneJob.id || !(confirmDoneJob as any).hasHired}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+            >
+              {markingDoneJobId === confirmDoneJob.id ? (
+                <><Loader2 className="h-4 w-4 animate-spin" />{t("jobsManagement.card.marking")}</>
+              ) : (
+                <><CheckCircle2 className="h-4 w-4" />{t("jobsManagement.confirmDone.confirm")}</>
+              )}
+            </button>
           </div>
-        </div>
+        </Dialog>
       ) : null}
 
       {confirmReopenJob ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
-            <h3 className="text-lg font-semibold text-slate-900">{t("jobsManagement.confirmReopen.title")}</h3>
-            <p className="mt-2 text-sm text-slate-600">
-              <Trans
-                t={t}
-                i18nKey="jobsManagement.confirmReopen.body"
-                values={{ title: confirmReopenJob.title }}
-                components={{ b: <span className="font-semibold text-slate-900" /> }}
-              />
-            </p>
-            <p className="mt-3 rounded-xl bg-green-50 px-3 py-2 text-sm text-green-700 border border-green-100">
-              {confirmReopenJob.backendStatus === "Completed" || confirmReopenJob.backendStatus === "Cancelled"
-                ? t("jobsManagement.confirmReopen.infoRecollect")
-                : t("jobsManagement.confirmReopen.infoSimple")}
-            </p>
-            <div className="mt-6 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmReopenJob(null)}
-                disabled={reopeningJobId === confirmReopenJob.id}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
-              >
-                {t("jobsManagement.actions.cancel")}
-              </button>
-              <button
-                type="button"
-                onClick={() => void confirmReopenJobFn()}
-                disabled={reopeningJobId === confirmReopenJob.id}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#15803D] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                {reopeningJobId === confirmReopenJob.id ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" />{t("jobsManagement.card.reopening")}</>
-                ) : (
-                  <><RefreshCw className="h-4 w-4" />{t("jobsManagement.confirmReopen.confirm")}</>
-                )}
-              </button>
-            </div>
+        <Dialog
+          open
+          title={t("jobsManagement.confirmReopen.title")}
+          onClose={() => setConfirmReopenJob(null)}
+          closeDisabled={reopeningJobId === confirmReopenJob.id}
+        >
+          <p className="text-sm text-slate-600">
+            <Trans
+              t={t}
+              i18nKey="jobsManagement.confirmReopen.body"
+              values={{ title: confirmReopenJob.title }}
+              components={{ b: <span className="font-semibold text-slate-900" /> }}
+            />
+          </p>
+          <p className="mt-3 rounded-xl bg-green-50 px-3 py-2 text-sm text-green-700 border border-green-100">
+            {confirmReopenJob.backendStatus === "Completed" || confirmReopenJob.backendStatus === "Cancelled"
+              ? t("jobsManagement.confirmReopen.infoRecollect")
+              : t("jobsManagement.confirmReopen.infoSimple")}
+          </p>
+          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setConfirmReopenJob(null)}
+              disabled={reopeningJobId === confirmReopenJob.id}
+              className="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 disabled:opacity-60"
+            >
+              {t("jobsManagement.actions.cancel")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void confirmReopenJobFn()}
+              disabled={reopeningJobId === confirmReopenJob.id}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#15803D] px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+            >
+              {reopeningJobId === confirmReopenJob.id ? (
+                <><Loader2 className="h-4 w-4 animate-spin" />{t("jobsManagement.card.reopening")}</>
+              ) : (
+                <><RefreshCw className="h-4 w-4" />{t("jobsManagement.confirmReopen.confirm")}</>
+              )}
+            </button>
           </div>
-        </div>
+        </Dialog>
       ) : null}
 
       {confirmDeleteJob ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
-            <h3 className="text-lg font-semibold text-slate-900">{t("jobsManagement.confirmDelete.title")}</h3>
-            <p className="mt-2 text-sm text-slate-600">
-              <Trans
-                t={t}
-                i18nKey="jobsManagement.confirmDelete.body"
-                values={{ title: confirmDeleteJob.title }}
-                components={{ b: <span className="font-semibold text-slate-900" /> }}
-              />
-            </p>
-            <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 border border-red-100">
-              {t("jobsManagement.confirmDelete.info")}
-            </p>
-            <div className="mt-6 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmDeleteJob(null)}
-                disabled={deletingJobId === confirmDeleteJob.id}
-                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
-              >
-                {t("jobsManagement.actions.cancel")}
-              </button>
-              <button
-                type="button"
-                onClick={() => void confirmDeleteJobFn()}
-                disabled={deletingJobId === confirmDeleteJob.id}
-                className="inline-flex items-center gap-2 rounded-lg bg-[#B91C1C] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                {deletingJobId === confirmDeleteJob.id ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" />{t("jobsManagement.card.deleting")}</>
-                ) : (
-                  <><Trash2 className="h-4 w-4" />{t("jobsManagement.confirmDelete.confirm")}</>
-                )}
-              </button>
-            </div>
+        <Dialog
+          open
+          title={t("jobsManagement.confirmDelete.title")}
+          onClose={() => setConfirmDeleteJob(null)}
+          closeDisabled={deletingJobId === confirmDeleteJob.id}
+        >
+          <p className="text-sm text-slate-600">
+            <Trans
+              t={t}
+              i18nKey="jobsManagement.confirmDelete.body"
+              values={{ title: confirmDeleteJob.title }}
+              components={{ b: <span className="font-semibold text-slate-900" /> }}
+            />
+          </p>
+          <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 border border-red-100">
+            {t("jobsManagement.confirmDelete.info")}
+          </p>
+          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setConfirmDeleteJob(null)}
+              disabled={deletingJobId === confirmDeleteJob.id}
+              className="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700 disabled:opacity-60"
+            >
+              {t("jobsManagement.actions.cancel")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void confirmDeleteJobFn()}
+              disabled={deletingJobId === confirmDeleteJob.id}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#B91C1C] px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+            >
+              {deletingJobId === confirmDeleteJob.id ? (
+                <><Loader2 className="h-4 w-4 animate-spin" />{t("jobsManagement.card.deleting")}</>
+              ) : (
+                <><Trash2 className="h-4 w-4" />{t("jobsManagement.confirmDelete.confirm")}</>
+              )}
+            </button>
           </div>
-        </div>
+        </Dialog>
       ) : null}
     </div>
   );

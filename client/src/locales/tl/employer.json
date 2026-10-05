@@ -36,6 +36,8 @@
     },
     "errors": {
       "loadFailed": "Hindi na-load ang mga job posting.",
+      "popupTitle": "Pakisuri ang iyong mga detalye",
+      "popupDismiss": "Naintindihan ko",
       "missingFields": "Pakikumpleto: {{fields}}.",
       "invalidPositions": "Maglagay ng buong bilang ng mga manggagawang kailangan (minimum 1).",
       "invalidDeadline": "Maglagay ng valid na petsa ng deadline.",

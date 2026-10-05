@@ -38,17 +38,19 @@
     "check:mobile-motion": "npm run check:performance --prefix Mobile",
     "check:token-drift": "node scripts/check-token-drift.mjs",
     "check:ui-security": "node scripts/check-ui-security.mjs",
+    "check:overlay-centering": "node scripts/check-overlay-centering.mjs",
     "check:security": "node scripts/check-security.mjs",
     "lint": "eslint client/src Mobile server scripts *.config.*",
     "lint:all": "eslint client/src Mobile server scripts *.config.*",
     "test:server": "npm test --prefix server",
     "test:e2e": "playwright test",
-    "verify": "npm run check:security && npm run check:token-drift && npm run check:mobile-theme && npm run check:mobile-locales && npm run check:web-locales && npm run check:mobile-auth-accessibility && npm run check:mobile-motion && npm run lint && npm run typecheck:web && npm run typecheck:mobile && npm run test:server && npm run build",
+    "verify": "npm run check:security && npm run check:ui-security && npm run check:overlay-centering && npm run check:token-drift && npm run check:mobile-theme && npm run check:mobile-locales && npm run check:web-locales && npm run check:mobile-auth-accessibility && npm run check:mobile-motion && npm run lint && npm run typecheck:web && npm run typecheck:mobile && npm run test:server && npm run build",
     "verify:full": "npm run verify && npm run test:e2e",
     "preview": "node scripts/run-with-node.cjs node node_modules/vite/bin/vite.js preview --config client/vite.config.ts",
     "seed:superadmin": "node server/scripts/seedSuperAdmin.js",
     "seed:demo-user": "node server/scripts/seedDemoUser.js",
-    "seed:alerts": "node server/scripts/seedAlerts.js"
+    "seed:alerts": "node server/scripts/seedAlerts.js",
+    "seed:demo-jobs": "node scripts/seed-demo-jobs.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.103.1",
@@ -69,6 +71,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@eslint/js": "^9.39.5",
+    "@fontsource-variable/inter": "^5.3.0",
     "@playwright/test": "^1.62.0",
     "@types/node": "^20.0.0",
     "@types/react": "~19.1.10",

@@ -136,7 +136,7 @@ const EmailVerification: React.FC = () => {
 
   if (!email) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#1C4D8D] p-4 page-transition">
+      <div className="min-h-dvh flex items-center justify-center bg-brand p-4 page-transition">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-3xl shadow-2xl p-8">
             <h2 className="text-2xl font-bold text-center text-gray-800 mb-3">{t("emailVerification.missingEmail.title")}</h2>
@@ -157,7 +157,7 @@ const EmailVerification: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#1C4D8D] p-4 page-transition">
+    <div className="min-h-dvh flex items-center justify-center bg-brand p-4 page-transition">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-3xl shadow-2xl p-8">
           <button
@@ -170,7 +170,7 @@ const EmailVerification: React.FC = () => {
           </button>
 
           <div className="flex justify-center mb-6">
-            <div className="w-16 h-16 rounded-full bg-[#1C4D8D] flex items-center justify-center">
+            <div className="w-16 h-16 rounded-full bg-brand flex items-center justify-center">
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -202,7 +202,13 @@ const EmailVerification: React.FC = () => {
                   value={digit}
                   onChange={(e) => handleOtpChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
-                  className="w-12 h-12 text-center text-xl font-semibold border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
+                  // Six 48px boxes plus gaps need ~328px, but a 375px phone
+                  // leaves far less inside this card's padding, so the row
+                  // forced the whole page to scroll sideways. Same fix already
+                  // applied in components/OTPVerification.tsx: scale the box
+                  // and the digit together, and only take the full size once
+                  // there is room for it.
+                  className="h-12 w-10 shrink-0 text-center text-lg font-semibold border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent sm:h-[52px] sm:w-12 sm:text-xl"
                 />
               ))}
             </div>
@@ -227,7 +233,7 @@ const EmailVerification: React.FC = () => {
                 type="button"
                 onClick={handleResendCode}
                 disabled={isLoading}
-                className="text-[#1C4D8D] font-medium hover:underline disabled:opacity-50"
+                className="text-brand font-medium hover:underline disabled:opacity-50"
               >
                 {t("emailVerification.resend")}
               </button>

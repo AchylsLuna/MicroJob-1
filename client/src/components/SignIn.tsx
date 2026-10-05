@@ -10,10 +10,12 @@ import { isValidEmail, normalizeEmail } from "../lib/authValidation";
 import { ROUTES } from "../utils/routes";
 import { OTPVerification } from "./OTPVerification";
 import { MfaLoginForm } from "./auth/MfaLoginForm";
+import { LAYER_Z } from "./ui/layers";
 import {
   AuthDivider,
   AuthShell,
   authFieldClass,
+  authFieldErrorClass,
   authLabelClass,
   authPrimaryButtonClass,
 } from "./auth/AuthShell";
@@ -44,6 +46,7 @@ export function SignIn() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showOTP, setShowOTP] = useState(false);
+  const [signInErrors, setSignInErrors] = useState<{ email?: string; password?: string; form?: string }>({});
   const successMessage = (location.state as { message?: string } | null)?.message;
   const rawFrom = (location.state as { from?: unknown } | null)?.from;
   const redirectPath = getPostSignInPath(rawFrom, landingPath);
@@ -52,26 +55,42 @@ export function SignIn() {
   // be distinguishable from "the default dashboard" rather than defaulting to it.
   const validatedFrom = getPostSignInPath(rawFrom, "");
 
-  const getSignInFailureMessage = (error: unknown) => {
+  /**
+   * Which field a sign-in failure belongs to, and what to say about it.
+   *
+   * Sign-in errors used to go through `toast.error`, which routes to
+   * `AlertLayer` -- a blocking `alertdialog` the user has to dismiss before
+   * they can correct the typo it is complaining about. A mistyped password is
+   * the most ordinary thing that happens on this screen and does not warrant
+   * interrupting the page; the message belongs on the field that is wrong.
+   *
+   * `form` is for failures that belong to no single field. An ambiguous
+   * credential rejection is deliberately one of them: the server does not say
+   * which half was wrong, so neither do we -- both inputs are marked invalid
+   * and the message sits above the submit button.
+   */
+  type SignInFailure = { field: "email" | "password" | "form"; message: string };
+
+  const getSignInFailure = (error: unknown): SignInFailure => {
     const message = String((error as { message?: unknown } | null)?.message || "").trim();
     const normalizedMessage = message.toLowerCase();
 
     if (/invalid email|email.*invalid|valid email/.test(normalizedMessage)) {
-      return t("signIn.toast.emailInvalid");
+      return { field: "email", message: t("signIn.toast.emailInvalid") };
     }
     if (/(?:no account|account.*not found|email.*not found|does not exist)/.test(normalizedMessage)) {
-      return t("signIn.toast.accountNotFound");
+      return { field: "email", message: t("signIn.toast.accountNotFound") };
     }
     if (/incorrect password|password.*incorrect/.test(normalizedMessage)) {
-      return t("signIn.toast.incorrectPassword");
+      return { field: "password", message: t("signIn.toast.incorrectPassword") };
     }
     if (isCredentialLoginError(message)) {
-      return t("signIn.toast.credentialsIncorrect");
+      return { field: "form", message: t("signIn.toast.credentialsIncorrect") };
     }
     if (/network|failed to fetch|unable to connect|connection|timeout/.test(normalizedMessage)) {
-      return t("signIn.toast.networkError");
+      return { field: "form", message: t("signIn.toast.networkError") };
     }
-    return t("signIn.toast.signInFailed");
+    return { field: "form", message: t("signIn.toast.signInFailed") };
   };
 
   if (!isLoading && isAuthenticated && user?.role) {
@@ -81,6 +100,7 @@ export function SignIn() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     const password = passwordInputRef.current?.value || "";
+    setSignInErrors({});
 
     const isLocalhost =
       window.location.hostname === "localhost" ||
@@ -90,18 +110,24 @@ export function SignIn() {
       window.isSecureContext || window.location.protocol === "https:" || isLocalhost;
 
     if (!isSecureContext) {
-      toast.error(t("signIn.toast.secureConnectionRequired"));
+      setSignInErrors({ form: t("signIn.toast.secureConnectionRequired") });
       return;
     }
 
     const normalizedEmail = normalizeEmail(email);
+    // Empty fields are reported on the fields themselves rather than as one
+    // "fill all fields" message, so the user can see at a glance which of the
+    // two they missed.
     if (!normalizedEmail || !password) {
-      toast.error(t("signIn.toast.fillAllFields"));
+      setSignInErrors({
+        email: normalizedEmail ? undefined : t("signIn.toast.fillAllFields"),
+        password: password ? undefined : t("signIn.toast.fillAllFields"),
+      });
       return;
     }
 
     if (!isValidEmail(normalizedEmail)) {
-      toast.error(t("signIn.toast.emailInvalid"));
+      setSignInErrors({ email: t("signIn.toast.emailInvalid") });
       return;
     }
 
@@ -126,7 +152,8 @@ export function SignIn() {
         toast.success(t("signIn.toast.otpSent"));
       }
     } catch (error: any) {
-      toast.error(getSignInFailureMessage(error));
+      const failure = getSignInFailure(error);
+      setSignInErrors({ [failure.field]: failure.message });
     } finally {
       if (passwordInputRef.current) {
         passwordInputRef.current.value = "";
@@ -179,9 +206,9 @@ export function SignIn() {
         backLabel={t("signIn.backToHome")}
         banner={
           successMessage ? (
-            <div className="rounded-[12px] border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
               <p className="font-semibold">{t("signIn.successBanner.title")}</p>
-              <p className="text-[14px]">{successMessage}</p>
+              <p className="text-body">{successMessage}</p>
             </div>
           ) : null
         }
@@ -191,7 +218,7 @@ export function SignIn() {
             <button
               type="button"
               onClick={() => navigate(ROUTES.signUp)}
-              className="font-semibold text-[#1C4D8D] hover:opacity-80"
+              className="font-semibold text-brand hover:opacity-80"
             >
               {t("signIn.signUpPrompt.action")}
             </button>
@@ -212,30 +239,51 @@ export function SignIn() {
             <label htmlFor="signin-email" className={authLabelClass}>
               {t("signIn.form.emailLabel")}
             </label>
+            {signInErrors.email ? (
+              <p id="signin-email-error" role="alert" className="mb-2 text-body-sm font-medium text-red-600">
+                {signInErrors.email}
+              </p>
+            ) : null}
             <input
               id="signin-email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                // Clear on edit: the message described the previous value, and
+                // leaving it up while the user retypes reads as a live
+                // verdict on what they are currently entering.
+                if (signInErrors.email || signInErrors.form) setSignInErrors({});
+              }}
               placeholder={t("signIn.form.emailPlaceholder")}
               autoComplete="username"
               autoCapitalize="none"
               spellCheck={false}
-              className={authFieldClass}
+              aria-invalid={Boolean(signInErrors.email || signInErrors.form) || undefined}
+              aria-describedby={signInErrors.email ? "signin-email-error" : undefined}
+              className={`${authFieldClass} ${signInErrors.email || signInErrors.form ? authFieldErrorClass : ""}`}
             />
           </div>
 
-          <PasswordField
-            id="signin-password"
-            label={t("signIn.form.passwordLabel")}
-            placeholder={t("signIn.form.passwordPlaceholder")}
-            autoComplete="current-password"
-            inputRef={passwordInputRef}
-            visible={showPassword}
-            onToggle={() => setShowPassword((current) => !current)}
-            showLabel={t("signIn.form.showPassword")}
-            hideLabel={t("signIn.form.hidePassword")}
-          />
+          <div>
+            {signInErrors.password ? (
+              <p id="signin-password-error" role="alert" className="mb-2 text-body-sm font-medium text-red-600">
+                {signInErrors.password}
+              </p>
+            ) : null}
+            <PasswordField
+              id="signin-password"
+              label={t("signIn.form.passwordLabel")}
+              placeholder={t("signIn.form.passwordPlaceholder")}
+              autoComplete="current-password"
+              inputRef={passwordInputRef}
+              visible={showPassword}
+              onToggle={() => setShowPassword((current) => !current)}
+              showLabel={t("signIn.form.showPassword")}
+              hideLabel={t("signIn.form.hidePassword")}
+              invalid={Boolean(signInErrors.password || signInErrors.form)}
+            />
+          </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <label className="flex cursor-pointer items-center gap-2.5">
@@ -243,18 +291,24 @@ export function SignIn() {
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                className="h-5 w-5 cursor-pointer rounded border-slate-300 text-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]"
+                className="h-5 w-5 cursor-pointer rounded border-slate-300 text-brand focus:ring-2 focus:ring-brand"
               />
-              <span className="text-[14px] text-slate-600">{t("signIn.form.rememberMe")}</span>
+              <span className="text-body text-slate-600">{t("signIn.form.rememberMe")}</span>
             </label>
             <button
               type="button"
               onClick={handleForgotPassword}
-              className="text-[14px] font-semibold text-[#1C4D8D] hover:opacity-80"
+              className="text-body font-semibold text-brand hover:opacity-80"
             >
               {t("signIn.form.forgotPassword")}
             </button>
           </div>
+
+          {signInErrors.form ? (
+            <p role="alert" className="rounded-control border border-red-200 bg-red-50 px-4 py-3 text-body-sm font-medium text-red-700">
+              {signInErrors.form}
+            </p>
+          ) : null}
 
           <button type="submit" className={authPrimaryButtonClass}>
             {isLoading ? t("signIn.form.submitLoading") : t("signIn.form.submit")}
@@ -274,8 +328,8 @@ export function SignIn() {
       )}
 
       {mfaChallenge && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-label={t("signIn.mfaModal.ariaLabel")}>
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
+        <div className={`fixed inset-0 ${LAYER_Z.modal} flex items-center justify-center bg-slate-950/50 p-4`} role="dialog" aria-modal="true" aria-label={t("signIn.mfaModal.ariaLabel")}>
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
             <MfaLoginForm
               email={mfaChallenge.email}
               method={mfaChallenge.method}
@@ -291,8 +345,8 @@ export function SignIn() {
       )}
 
       {loginMethodSelection && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
+        <div className={`fixed inset-0 ${LAYER_Z.modal} flex items-center justify-center bg-slate-950/50 p-4`} role="dialog" aria-modal="true">
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
             <h2 className="text-xl font-bold text-slate-950">{t("signIn.methodSelection.title")}</h2>
             <p className="mt-2 text-sm leading-5 text-slate-600">{t("signIn.methodSelection.description")}</p>
             <div className="mt-6 grid gap-3">
@@ -300,7 +354,7 @@ export function SignIn() {
                 type="button"
                 disabled={isLoading}
                 onClick={() => void handleMethodSelection("mfa")}
-                className="min-h-12 rounded-xl border border-blue-200 bg-blue-50 px-4 text-left font-semibold text-blue-900 hover:bg-blue-100 disabled:opacity-60"
+                className="min-h-12 rounded-xl border border-brand-200 bg-brand-50 px-4 text-left font-semibold text-brand-900 hover:bg-brand-100 disabled:opacity-60"
               >
                 {t("signIn.methodSelection.mfa")}
               </button>

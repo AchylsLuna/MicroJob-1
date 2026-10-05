@@ -163,8 +163,8 @@ export function ForgotPassword() {
             <input id="password-reset-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} disabled={isLoading} placeholder={t("forgotPassword.codeStep.placeholder")} className={`${authFieldClass} min-h-[56px] text-center text-xl font-bold tracking-[0.4em]`} />
           </div>
           <button type="submit" disabled={isLoading || code.length !== 6} className={authPrimaryButtonClass}>{isLoading ? t("forgotPassword.codeStep.submitLoading") : t("forgotPassword.codeStep.submit")}</button>
-          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[14px]">
-            <button type="button" disabled={isLoading} onClick={() => sendCode()} className="min-h-11 px-2 font-semibold text-[#1C4D8D] hover:underline disabled:opacity-60">{t("forgotPassword.codeStep.resend")}</button>
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-body">
+            <button type="button" disabled={isLoading} onClick={() => sendCode()} className="min-h-11 px-2 font-semibold text-brand hover:underline disabled:opacity-60">{t("forgotPassword.codeStep.resend")}</button>
             <button type="button" onClick={() => { setStep("email"); setCode(""); }} className="min-h-11 px-2 font-semibold text-slate-600 hover:text-slate-950">{t("forgotPassword.codeStep.changeEmail")}</button>
           </div>
         </form>
@@ -197,15 +197,15 @@ export function ForgotPassword() {
             showLabel={t("forgotPassword.passwordStep.showConfirmPassword")}
             hideLabel={t("forgotPassword.passwordStep.hideConfirmPassword")}
           />
-          <div className="rounded-[12px] border border-slate-200 bg-slate-50 p-4">
-            <div className="flex items-center justify-between gap-4 text-[13px] font-bold text-slate-900"><span>{t("forgotPassword.passwordStep.strengthLabel")}</span><span className={passwordStrength.isStrong ? "text-emerald-700" : "text-[#1C4D8D]"}>{passwordStrength.label}</span></div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between gap-4 text-body-sm font-bold text-slate-900"><span>{t("forgotPassword.passwordStep.strengthLabel")}</span><span className={passwordStrength.isStrong ? "text-emerald-700" : "text-brand"}>{passwordStrength.label}</span></div>
             <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-label={t("forgotPassword.passwordStep.strengthLabel")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={passwordStrength.percent}>
-              <div className={`h-full rounded-full transition-[width] ${passwordStrength.isStrong ? "bg-emerald-600" : "bg-[#1C4D8D]"}`} style={{ width: `${passwordStrength.percent}%` }} />
+              <div className={`h-full rounded-full transition-[width] ${passwordStrength.isStrong ? "bg-emerald-600" : "bg-brand"}`} style={{ width: `${passwordStrength.percent}%` }} />
             </div>
-            <ul className="mt-3.5 grid gap-x-5 gap-y-2 text-[13px] text-slate-600 sm:grid-cols-2">
+            <ul className="mt-3.5 grid gap-x-5 gap-y-2 text-body-sm text-slate-600 sm:grid-cols-2">
               {PASSWORD_RULES.map((rule) => <li key={rule.key} className={`flex min-w-0 items-start gap-2 ${passwordStrength.checks[rule.key] ? "font-medium text-emerald-700" : ""}`}><span className="mt-px shrink-0" aria-hidden="true">{passwordStrength.checks[rule.key] ? "✓" : "○"}</span><span>{rule.label}</span></li>)}
             </ul>
-            {passwordsMismatch && <p role="alert" className="mt-3 text-[13px] font-medium text-red-700">{t("forgotPassword.passwordStep.mismatchError")}</p>}
+            {passwordsMismatch && <p role="alert" className="mt-3 text-body-sm font-medium text-red-700">{t("forgotPassword.passwordStep.mismatchError")}</p>}
           </div>
           <button type="submit" disabled={isLoading || !passwordStrength.isStrong || newPassword !== confirmPassword} className={authPrimaryButtonClass}>{isLoading ? t("forgotPassword.passwordStep.submitLoading") : t("forgotPassword.passwordStep.submit")}</button>
         </form>
@@ -218,7 +218,7 @@ export function ForgotPassword() {
           <button
             type="button"
             onClick={() => navigate(ROUTES.signIn)}
-            className="brand-primary-interactive group inline-flex min-h-[52px] w-full items-center justify-center gap-2.5 rounded-[10px] px-6 text-[15px] font-semibold sm:w-auto sm:min-w-[220px]"
+            className="brand-primary-interactive group inline-flex min-h-[52px] w-full items-center justify-center gap-2.5 rounded-control px-6 text-[15px] font-semibold sm:w-auto sm:min-w-[220px]"
           >
             {t("forgotPassword.backToSignIn")}
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />

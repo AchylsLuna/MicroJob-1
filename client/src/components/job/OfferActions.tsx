@@ -17,13 +17,13 @@ export type OfferActionsApplication = {
 };
 
 const inputClass =
-  "h-10 flex-1 min-w-0 rounded-[10px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]";
+  "h-10 flex-1 min-w-0 rounded-control border border-[#E5E7EB] px-3 text-body-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-brand";
 const primaryButtonClass =
-  "inline-flex h-10 items-center justify-center rounded-[10px] bg-[#1C4D8D] px-4 text-[12px] font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex h-10 items-center justify-center rounded-control bg-brand px-4 text-caption font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
 const secondaryButtonClass =
-  "inline-flex h-10 items-center justify-center rounded-[10px] border border-[#1C4D8D]/30 bg-[#1C4D8D]/[0.06] px-4 text-[12px] font-semibold text-[#1C4D8D] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex h-10 items-center justify-center rounded-control border border-brand/30 bg-brand/[0.06] px-4 text-caption font-semibold text-brand transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
 const dangerOutlineButtonClass =
-  "inline-flex h-10 items-center justify-center rounded-[10px] border border-[#FECACA] px-4 text-[12px] font-semibold text-[#B91C1C] transition hover:bg-[#FEF2F2] disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex h-10 items-center justify-center rounded-control border border-[#FECACA] px-4 text-caption font-semibold text-[#B91C1C] transition hover:bg-[#FEF2F2] disabled:cursor-not-allowed disabled:opacity-50";
 
 export function OfferActions({
   application,
@@ -58,8 +58,8 @@ export function OfferActions({
   return (
     <div className="space-y-2">
       {!excludedFromOfferPanel && !offerActive ? (
-        <div className="rounded-[12px] border border-[#E5E7EB] bg-[#F8FAFC] p-3 space-y-2">
-          <p className="text-[12px] font-semibold text-[#111827]">{t("applicationsManagement.offerPanel.title")}</p>
+        <div className="rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-3 space-y-2">
+          <p className="text-caption font-semibold text-[#111827]">{t("applicationsManagement.offerPanel.title")}</p>
           <p className="text-[11px] text-[#6B7280]">
             {t("applicationsManagement.offerPanel.guaranteedMinimum", { amount: formatCurrency(minimumSalary) })}
           </p>
@@ -89,8 +89,8 @@ export function OfferActions({
       ) : null}
 
       {offerActive ? (
-        <div className="rounded-[12px] border border-[#E5E7EB] bg-[#F8FAFC] p-3 space-y-2">
-          <p className="text-[12px] font-semibold text-[#111827]">
+        <div className="rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-3 space-y-2">
+          <p className="text-caption font-semibold text-[#111827]">
             {offer?.status === "accepted"
               ? t("applicationsManagement.offerActive.accepted")
               : t("applicationsManagement.offerActive.awaiting")}
@@ -117,8 +117,8 @@ export function OfferActions({
           const workStatus = application.workStatus || "In Progress";
           const canRequestChanges = workStatus === "Submitted" && paymentStatus !== "Paid";
           return (
-            <div className="rounded-[12px] border border-[#E5E7EB] bg-[#F8FAFC] p-3 space-y-2">
-              <p className="text-[12px] font-semibold text-[#111827]">{t("applicationsManagement.hiredPanel.title")}</p>
+            <div className="rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-3 space-y-2">
+              <p className="text-caption font-semibold text-[#111827]">{t("applicationsManagement.hiredPanel.title")}</p>
               <p className="text-[11px] text-[#6B7280]">
                 {t("applicationsManagement.hiredPanel.summary", {
                   amount: formatCurrency(application.agreedAmount || minimumSalary),

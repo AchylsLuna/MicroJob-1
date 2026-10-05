@@ -60,11 +60,11 @@ const formatDate = (value?: string) => {
 const getStatusClasses = (status: SupportTicket["status"]) => {
   switch (status) {
     case "open":
-      return "bg-[#1C4D8D]/10 text-[#1C4D8D]";
+      return "bg-brand/10 text-brand";
     case "in_progress":
       return "bg-[#FEF3C7] text-[#B45309]";
     case "waiting_user":
-      return "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]";
+      return "bg-brand/[0.08] text-brand";
     case "resolved":
       return "bg-[#D1FAE5] text-[#047857]";
     case "closed":
@@ -81,7 +81,7 @@ const getPriorityClasses = (priority?: SupportTicket["priority"]) => {
     case "high":
       return "bg-[#FFEDD5] text-[#C2410C]";
     case "medium":
-      return "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]";
+      return "bg-brand/[0.08] text-brand";
     default:
       return "bg-[#ECFDF5] text-[#047857]";
   }
@@ -327,71 +327,71 @@ export function Support() {
     <div className="max-w-[1341px] mx-auto space-y-6">
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,1fr)] gap-6">
         <div className="space-y-6">
-          <div className="bg-[#1C4D8D] rounded-[20px] p-8 text-white shadow-xl relative overflow-hidden">
+          <div className="bg-brand rounded-[20px] p-5 sm:p-8 text-white shadow-xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-72 h-72 bg-white/10 rounded-full -mr-36 -mt-36" />
             <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h1 className="text-[32px] font-semibold mb-2">{t("support.header.title")}</h1>
+                <h1 className="text-[24px] sm:text-[32px] font-semibold mb-2">{t("support.header.title")}</h1>
                 <p className="text-[15px] text-white/85 max-w-[620px]">
                   {t("support.header.subtitle")}
                 </p>
               </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-[16px] px-5 py-4 min-w-[240px]">
-                <p className="text-[12px] uppercase tracking-[0.18em] text-white/65">{t("support.header.signedInAs")}</p>
+              <div className="bg-white/10 backdrop-blur-sm rounded-card px-5 py-4 sm:min-w-[240px]">
+                <p className="text-caption uppercase tracking-[0.18em] text-white/65">{t("support.header.signedInAs")}</p>
                 <p className="text-[18px] font-semibold mt-1">
                   {`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.email || t("support.header.userFallback")}
                 </p>
-                <p className="text-[13px] text-white/75 mt-1">{user?.email || t("support.header.emailFallback")}</p>
+                <p className="text-body-sm text-white/75 mt-1">{user?.email || t("support.header.emailFallback")}</p>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-              <div className="w-12 h-12 rounded-[12px] bg-[#1C4D8D]/[0.08] flex items-center justify-center mb-4">
-                <MessageSquare className="w-6 h-6 text-[#1C4D8D]" />
+            <div className="bg-white rounded-card border border-[#E5E7EB] p-6">
+              <div className="w-12 h-12 rounded-xl bg-brand/[0.08] flex items-center justify-center mb-4">
+                <MessageSquare className="w-6 h-6 text-brand" />
               </div>
               <h3 className="text-[18px] font-semibold text-[#111827] mb-2">{t("support.cards.messageSupport.title")}</h3>
-              <p className="text-[14px] text-[#6B7280] mb-4">{t("support.cards.messageSupport.description")}</p>
+              <p className="text-body text-[#6B7280] mb-4">{t("support.cards.messageSupport.description")}</p>
               <button
                 onClick={() => void handleOpenSupportMessages()}
                 disabled={isOpeningMessages}
-                className="w-full bg-[#1C4D8D] text-white font-medium py-2 rounded-[8px] hover:opacity-90 transition-all text-[14px] disabled:opacity-60"
+                className="w-full bg-brand text-white font-medium py-2 rounded-[8px] hover:opacity-90 transition-all text-body disabled:opacity-60"
               >
                 {isOpeningMessages ? t("support.cards.messageSupport.opening") : t("support.cards.messageSupport.open")}
               </button>
             </div>
 
-            <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-              <div className="w-12 h-12 rounded-[12px] bg-[#DCFCE7] flex items-center justify-center mb-4">
+            <div className="bg-white rounded-card border border-[#E5E7EB] p-6">
+              <div className="w-12 h-12 rounded-xl bg-[#DCFCE7] flex items-center justify-center mb-4">
                 <Mail className="w-6 h-6 text-[#15803D]" />
               </div>
               <h3 className="text-[18px] font-semibold text-[#111827] mb-2">{t("support.cards.emailSupport.title")}</h3>
-              <p className="text-[14px] text-[#6B7280] mb-4">support@microjobs.ph</p>
+              <p className="text-body text-[#6B7280] mb-4">support@microjobs.ph</p>
               <button
                 type="button"
                 onClick={prepareEmailSupport}
-                className="w-full block text-center bg-white border border-[#E5E7EB] text-[#1C4D8D] font-medium py-2 rounded-[8px] hover:bg-gray-50 transition-all text-[14px]"
+                className="w-full block text-center bg-white border border-[#E5E7EB] text-brand font-medium py-2 rounded-[8px] hover:bg-gray-50 transition-all text-body"
               >
                 {t("support.cards.emailSupport.sendEmail")}
               </button>
             </div>
 
-            <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-              <div className="w-12 h-12 rounded-[12px] bg-[#FEF3C7] flex items-center justify-center mb-4">
+            <div className="bg-white rounded-card border border-[#E5E7EB] p-6">
+              <div className="w-12 h-12 rounded-xl bg-[#FEF3C7] flex items-center justify-center mb-4">
                 <Phone className="w-6 h-6 text-[#B45309]" />
               </div>
               <h3 className="text-[18px] font-semibold text-[#111827] mb-2">{t("support.cards.securityEscalation.title")}</h3>
-              <p className="text-[14px] text-[#6B7280] mb-4">{t("support.cards.securityEscalation.description")}</p>
-              <button type="button" onClick={prepareSecurityEscalation} className="min-h-11 w-full border border-[#E5E7EB] text-[#1C4D8D] font-medium py-2 rounded-[8px] hover:bg-gray-50 transition-all text-[14px]">
+              <p className="text-body text-[#6B7280] mb-4">{t("support.cards.securityEscalation.description")}</p>
+              <button type="button" onClick={prepareSecurityEscalation} className="min-h-11 w-full border border-[#E5E7EB] text-brand font-medium py-2 rounded-[8px] hover:bg-gray-50 transition-all text-body">
                 {t("support.cards.securityEscalation.escalate")}
               </button>
             </div>
           </div>
 
-          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+          <div className="bg-white rounded-card border border-[#E5E7EB] p-6">
             <div className="flex items-center gap-3 mb-6">
-              <HelpCircle className="w-6 h-6 text-[#1C4D8D]" />
+              <HelpCircle className="w-6 h-6 text-brand" />
               <h2 className="text-[24px] font-semibold text-[#111827]">{t("support.faqSection.title")}</h2>
             </div>
 
@@ -406,7 +406,7 @@ export function Support() {
                     setSearchParams(value ? { q: value } : {});
                   }}
                   placeholder={t("support.faqSection.searchPlaceholder")}
-                  className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
+                  className="w-full px-4 py-3 border border-[#E5E7EB] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
                 />
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -414,9 +414,9 @@ export function Support() {
                   <button
                     key={item}
                     onClick={() => setCategoryFilter(item)}
-                    className={`px-4 py-2 rounded-[8px] font-medium text-[14px] whitespace-nowrap transition-all ${
+                    className={`px-4 py-2 rounded-[8px] font-medium text-body whitespace-nowrap transition-all ${
                       categoryFilter === item
-                        ? "bg-[#1C4D8D] text-white"
+                        ? "bg-brand text-white"
                         : "bg-gray-100 text-[#6B7280] hover:bg-gray-200"
                     }`}
                   >
@@ -430,7 +430,7 @@ export function Support() {
               {filteredFAQs.map((faq, index) => (
                 <motion.div
                   key={faq.id}
-                  className="border border-[#E5E7EB] rounded-[12px] overflow-hidden"
+                  className="border border-[#E5E7EB] rounded-xl overflow-hidden"
                   initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(index, 8) * 0.04, duration: seconds(motionTokens.duration.standard) }}
@@ -456,7 +456,7 @@ export function Support() {
                         style={{ overflow: "hidden" }}
                       >
                         <div className="px-4 pb-4 pt-0">
-                          <p className="text-[14px] text-[#6B7280] leading-relaxed">{faq.answer}</p>
+                          <p className="text-body text-[#6B7280] leading-relaxed">{faq.answer}</p>
                         </div>
                       </motion.div>
                     )}
@@ -466,32 +466,32 @@ export function Support() {
             </div>
           </div>
 
-          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+          <div className="bg-white rounded-card border border-[#E5E7EB] p-6">
             <h2 className="text-[24px] font-semibold text-[#111827] mb-2">{t("support.ticketForm.title")}</h2>
-            <p className="text-[14px] text-[#6B7280] mb-6">
+            <p className="text-body text-[#6B7280] mb-6">
               {t("support.ticketForm.subtitle")}
             </p>
 
             <form ref={supportFormRef} onSubmit={handleSubmitTicket} className="space-y-4" aria-label={t("support.ticketForm.title")}>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-2">
-                  <label htmlFor="support-subject" className="block text-[14px] font-medium text-[#111827] mb-2">{t("support.ticketForm.subjectLabel")}</label>
+                  <label htmlFor="support-subject" className="block text-body font-medium text-[#111827] mb-2">{t("support.ticketForm.subjectLabel")}</label>
                   <input
                     id="support-subject"
                     type="text"
                     value={supportForm.subject}
                     onChange={(event) => setSupportForm((current) => ({ ...current, subject: event.target.value }))}
                     placeholder={t("support.ticketForm.subjectPlaceholder")}
-                    className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
+                    className="w-full px-4 py-3 border border-[#E5E7EB] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
                   />
                 </div>
                 <div>
-                  <label htmlFor="support-category" className="block text-[14px] font-medium text-[#111827] mb-2">{t("support.ticketForm.categoryLabel")}</label>
+                  <label htmlFor="support-category" className="block text-body font-medium text-[#111827] mb-2">{t("support.ticketForm.categoryLabel")}</label>
                   <select
                     id="support-category"
                     value={supportForm.category}
                     onChange={(event) => setSupportForm((current) => ({ ...current, category: event.target.value }))}
-                    className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
+                    className="w-full px-4 py-3 border border-[#E5E7EB] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
                   >
                     <option value="general">{t("support.ticketForm.categories.general")}</option>
                     <option value="payments">{t("support.ticketForm.categories.payments")}</option>
@@ -504,7 +504,7 @@ export function Support() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="support-priority" className="block text-[14px] font-medium text-[#111827] mb-2">{t("support.ticketForm.priorityLabel")}</label>
+                  <label htmlFor="support-priority" className="block text-body font-medium text-[#111827] mb-2">{t("support.ticketForm.priorityLabel")}</label>
                   <select
                     id="support-priority"
                     value={supportForm.priority}
@@ -514,7 +514,7 @@ export function Support() {
                         priority: event.target.value as NonNullable<SupportTicket["priority"]>,
                       }))
                     }
-                    className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
+                    className="w-full px-4 py-3 border border-[#E5E7EB] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
                   >
                     <option value="low">{t("support.priorityLabels.low")}</option>
                     <option value="medium">{t("support.priorityLabels.medium")}</option>
@@ -522,28 +522,28 @@ export function Support() {
                     <option value="urgent">{t("support.priorityLabels.urgent")}</option>
                   </select>
                 </div>
-                <div className="bg-[#F8FAFC] rounded-[12px] border border-[#E5E7EB] px-4 py-3">
-                  <p className="text-[12px] uppercase tracking-[0.14em] text-[#6B7280]">{t("support.ticketForm.replyDestinationLabel")}</p>
+                <div className="bg-[#F8FAFC] rounded-xl border border-[#E5E7EB] px-4 py-3">
+                  <p className="text-caption uppercase tracking-[0.14em] text-[#6B7280]">{t("support.ticketForm.replyDestinationLabel")}</p>
                   <p className="text-[15px] font-semibold text-[#111827] mt-1">{user?.email || t("support.ticketForm.signedInEmailFallback")}</p>
                 </div>
               </div>
 
               <div>
-                <label htmlFor="support-message" className="block text-[14px] font-medium text-[#111827] mb-2">{t("support.ticketForm.messageLabel")}</label>
+                <label htmlFor="support-message" className="block text-body font-medium text-[#111827] mb-2">{t("support.ticketForm.messageLabel")}</label>
                 <textarea
                   id="support-message"
                   value={supportForm.message}
                   onChange={(event) => setSupportForm((current) => ({ ...current, message: event.target.value }))}
                   placeholder={t("support.ticketForm.messagePlaceholder")}
                   rows={6}
-                  className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent resize-none"
+                  className="w-full px-4 py-3 border border-[#E5E7EB] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent resize-none"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full md:w-auto bg-[#1C4D8D] text-white font-semibold py-3 px-8 rounded-[12px] hover:opacity-90 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full md:w-auto bg-brand text-white font-semibold py-3 px-8 rounded-xl hover:opacity-90 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 <Send className="w-4 h-4" />
                 {isSubmitting ? t("support.ticketForm.submitting") : t("support.ticketForm.submit")}
@@ -553,19 +553,19 @@ export function Support() {
         </div>
 
         <aside className="space-y-6">
-          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+          <div className="bg-white rounded-card border border-[#E5E7EB] p-6">
             <div className="flex items-center gap-3 mb-4">
-              <Ticket className="w-5 h-5 text-[#1C4D8D]" />
+              <Ticket className="w-5 h-5 text-brand" />
               <h2 className="text-[20px] font-semibold text-[#111827]">{t("support.sidebar.yourTickets")}</h2>
             </div>
 
             {isLoadingTickets ? (
-              <div className="py-8 text-center text-[14px] text-[#6B7280]">{t("support.sidebar.loadingHistory")}</div>
+              <div className="py-8 text-center text-body text-[#6B7280]">{t("support.sidebar.loadingHistory")}</div>
             ) : tickets.length === 0 ? (
               <div className="py-8 text-center">
                 <LifeBuoy className="w-12 h-12 text-[#D1D5DB] mx-auto mb-3" />
                 <p className="text-[15px] font-medium text-[#111827]">{t("support.sidebar.emptyTitle")}</p>
-                <p className="text-[13px] text-[#6B7280] mt-1">{t("support.sidebar.emptyHint")}</p>
+                <p className="text-body-sm text-[#6B7280] mt-1">{t("support.sidebar.emptyHint")}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -575,9 +575,9 @@ export function Support() {
                     <motion.button
                       key={ticket._id}
                       onClick={() => setSelectedTicketId(ticket._id)}
-                      className={`w-full text-left rounded-[12px] border p-4 transition-colors ${
+                      className={`w-full text-left rounded-xl border p-4 transition-colors ${
                         selectedTicketId === ticket._id
-                          ? "border-[#1C4D8D] bg-[#1C4D8D]/[0.06]"
+                          ? "border-brand bg-brand/[0.06]"
                           : "border-[#E5E7EB] hover:bg-[#F9FAFB]"
                       }`}
                       initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
@@ -587,7 +587,7 @@ export function Support() {
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="min-w-0">
                           <p className="text-[15px] font-semibold text-[#111827] line-clamp-1">{ticket.subject}</p>
-                          <p className="text-[12px] text-[#6B7280] mt-1">{formatDate(ticket.updatedAt || ticket.createdAt)}</p>
+                          <p className="text-caption text-[#6B7280] mt-1">{formatDate(ticket.updatedAt || ticket.createdAt)}</p>
                         </div>
                         <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${getStatusClasses(ticket.status)}`}>
                           {t(`support.statusLabels.${ticket.status}`)}
@@ -597,12 +597,12 @@ export function Support() {
                         <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${getPriorityClasses(ticket.priority)}`}>
                           {t(`support.priorityLabels.${ticket.priority || "low"}`)}
                         </span>
-                        <span className="text-[12px] text-[#6B7280] inline-flex items-center gap-1">
+                        <span className="text-caption text-[#6B7280] inline-flex items-center gap-1">
                           <Clock3 className="w-3.5 h-3.5" />
                           {t("support.sidebar.messagesCount", { count: ticket.messageCount || ticket.messages?.length || 0 })}
                         </span>
                       </div>
-                      <p className="text-[13px] text-[#6B7280] line-clamp-2">{latestMessage?.body || t("support.sidebar.noMessagesYet")}</p>
+                      <p className="text-body-sm text-[#6B7280] line-clamp-2">{latestMessage?.body || t("support.sidebar.noMessagesYet")}</p>
                     </motion.button>
                   );
                 })}
@@ -610,21 +610,21 @@ export function Support() {
             )}
           </div>
 
-          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+          <div className="bg-white rounded-card border border-[#E5E7EB] p-6">
             <div className="flex items-center gap-3 mb-4">
-              <Book className="w-5 h-5 text-[#1C4D8D]" />
+              <Book className="w-5 h-5 text-brand" />
               <h2 className="text-[20px] font-semibold text-[#111827]">{t("support.sidebar.ticketThread")}</h2>
             </div>
 
             {!selectedTicket ? (
-              <div className="py-8 text-center text-[14px] text-[#6B7280]">{t("support.sidebar.selectTicket")}</div>
+              <div className="py-8 text-center text-body text-[#6B7280]">{t("support.sidebar.selectTicket")}</div>
             ) : (
               <div className="space-y-4">
-                <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E5E7EB] p-4">
+                <div className="rounded-xl bg-[#F8FAFC] border border-[#E5E7EB] p-4">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div>
                       <p className="text-[17px] font-semibold text-[#111827]">{selectedTicket.subject}</p>
-                      <p className="text-[13px] text-[#6B7280] mt-1">{t("support.sidebar.opened", { date: formatDate(selectedTicket.createdAt) })}</p>
+                      <p className="text-body-sm text-[#6B7280] mt-1">{t("support.sidebar.opened", { date: formatDate(selectedTicket.createdAt) })}</p>
                     </div>
                     <span className={`px-3 py-1.5 rounded-full text-[11px] font-semibold ${getStatusClasses(selectedTicket.status)}`}>
                       {t(`support.statusLabels.${selectedTicket.status}`)}
@@ -638,33 +638,33 @@ export function Support() {
                     return (
                       <div
                         key={message._id}
-                        className={`rounded-[12px] p-4 border ${
+                        className={`rounded-xl p-4 border ${
                           isAdmin
-                            ? "bg-[#1C4D8D]/[0.06] border-[#1C4D8D]/20"
+                            ? "bg-brand/[0.06] border-brand/20"
                             : "bg-[#F9FAFB] border-[#E5E7EB]"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-3 mb-2">
                           <div className="flex items-center gap-2">
                             {isAdmin ? (
-                              <ShieldCheck className="w-4 h-4 text-[#1C4D8D]" />
+                              <ShieldCheck className="w-4 h-4 text-brand" />
                             ) : (
                               <MessageSquare className="w-4 h-4 text-[#6B7280]" />
                             )}
-                            <p className="text-[13px] font-semibold text-[#111827]">
+                            <p className="text-body-sm font-semibold text-[#111827]">
                               {isAdmin ? t("support.sidebar.supportTeam") : t("support.sidebar.you")}
                             </p>
                           </div>
-                          <p className="text-[12px] text-[#6B7280]">{formatDate(message.createdAt)}</p>
+                          <p className="text-caption text-[#6B7280]">{formatDate(message.createdAt)}</p>
                         </div>
-                        <p className="text-[14px] leading-relaxed text-[#374151]">{message.body}</p>
+                        <p className="text-body leading-relaxed text-[#374151]">{message.body}</p>
                       </div>
                     );
                   })}
                 </div>
 
                 {selectedTicket.status === "closed" ? (
-                  <div className="rounded-[12px] border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] text-[#6B7280]">
+                  <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-body-sm text-[#6B7280]">
                     {t("support.sidebar.closedNotice")}
                   </div>
                 ) : (
@@ -674,13 +674,13 @@ export function Support() {
                       onChange={(event) => setReplyDraft(event.target.value)}
                       rows={4}
                       placeholder={t("support.sidebar.replyPlaceholder")}
-                      className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent resize-none"
+                      className="w-full px-4 py-3 border border-[#E5E7EB] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent resize-none"
                     />
                     <button
                       type="button"
                       onClick={handleReply}
                       disabled={isReplying || !replyDraft.trim()}
-                      className="w-full bg-[#1C4D8D] text-white font-semibold py-3 px-4 rounded-[12px] hover:opacity-90 transition-all disabled:opacity-60"
+                      className="w-full bg-brand text-white font-semibold py-3 px-4 rounded-xl hover:opacity-90 transition-all disabled:opacity-60"
                     >
                       {isReplying ? t("support.sidebar.sendingReply") : t("support.sidebar.replyToTicket")}
                     </button>

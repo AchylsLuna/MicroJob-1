@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { LAYER_Z } from "../../components/ui/layers";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { BriefcaseBusiness, Filter, Plus, Search, X } from "lucide-react";
 import { categoriesAPI, jobsAPI } from "../../services/jobs";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../lib/toast";
-import { ConfirmDialog } from "../../components/ui";
+import { AlertCard, AlertLayer, Button, ConfirmDialog } from "../../components/ui";
 import { ROUTES } from "../../utils/routes";
 import { formatMinimumPay } from "../../lib/jobCompensation";
 import PostJobWizard from "../../components/job/PostJobWizard";
@@ -35,7 +35,6 @@ const PostJob: React.FC = () => {
   const location = useLocation();
   const locationState = location.state as { job?: JobEdit; returnTo?: string } | null;
   const incomingJobToEdit = locationState?.job;
-  const prefersReducedMotion = useReducedMotion();
   const jobTypeOptions = useMemo(() => getJobTypeOptions(t), [t]);
   const requiredFieldLabels = useMemo(() => getRequiredFieldLabels(t), [t]);
   const statusLabels: Record<string, string> = useMemo(
@@ -432,7 +431,7 @@ const PostJob: React.FC = () => {
   };
 
   return (
-    <div className="ui-page px-4 md:px-0 pb-16">
+    <div className="ui-page pb-16">
       <div className="ui-page-header">
         <div>
           <h1 className="ui-page-title">{t("postJob.header.title")}</h1>
@@ -441,7 +440,7 @@ const PostJob: React.FC = () => {
         <button
           type="button"
           onClick={openCreateModal}
-          className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#1C4D8D] px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163f75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+          className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-brand px-6 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           <Plus size={20} />
           {t("postJob.actions.postJob")}
@@ -471,7 +470,7 @@ const PostJob: React.FC = () => {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
               >
                 <option value="all">{t("postJob.filters.allStatuses")}</option>
                 <option value="Available">{t("postJob.status.available")}</option>
@@ -486,7 +485,7 @@ const PostJob: React.FC = () => {
               <select
                 value={jobTypeFilter}
                 onChange={(e) => setJobTypeFilter(e.target.value)}
-                className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-200"
+                className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200"
               >
                 <option value="all">{t("postJob.filters.allJobs")}</option>
                 {jobTypeOptions.map((option) => (
@@ -505,7 +504,7 @@ const PostJob: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t("postJob.filters.searchPlaceholder")}
-                className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
               />
             </div>
           </div>
@@ -519,20 +518,20 @@ const PostJob: React.FC = () => {
       )}
 
       {jobsError && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">{jobsError}</div>
+        <div className="rounded-card border border-red-200 bg-red-50 p-4 text-red-700">{jobsError}</div>
       )}
 
       {!loadingJobs && jobs.length === 0 && (
         <div className="ui-card px-6 py-14 text-center">
-          <div className="mx-auto w-fit rounded-full bg-blue-50 p-4">
-            <BriefcaseBusiness size={32} className="text-[#1C4D8D]" />
+          <div className="mx-auto w-fit rounded-full bg-brand-50 p-4">
+            <BriefcaseBusiness size={32} className="text-brand" />
           </div>
           <h3 className="mt-5 text-xl font-semibold text-slate-900">{t("postJob.emptyState.title")}</h3>
           <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500">{t("postJob.emptyState.subtitle")}</p>
           <button
             type="button"
             onClick={openCreateModal}
-            className="mt-6 inline-flex h-11 items-center gap-2 rounded-xl bg-[#1C4D8D] px-6 text-sm font-semibold text-white transition hover:bg-[#163f75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+            className="mt-6 inline-flex h-11 items-center gap-2 rounded-xl bg-brand px-6 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             <Plus size={20} />
             {t("postJob.actions.postJob")}
@@ -570,7 +569,7 @@ const PostJob: React.FC = () => {
                     >
                       {statusLabels[job.status || "Available"] || job.status || t("postJob.status.available")}
                     </span>
-                    <span className="rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700">
+                    <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-semibold text-brand-700">
                       {formatMinimumPay(job.salary, t("postJob.card.payNotSet"))}
                     </span>
                   </div>
@@ -580,14 +579,14 @@ const PostJob: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => openEditModal(job)}
-                    className="inline-flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                    className="inline-flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                   >
                     {t("postJob.card.edit")}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleToggleStatus(job)}
-                    className="inline-flex min-h-11 items-center rounded-lg border border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                    className="inline-flex min-h-11 items-center rounded-lg border border-brand-200 bg-brand-50 px-4 text-sm font-semibold text-brand-700 transition hover:bg-brand-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                   >
                     {isClosed ? t("postJob.card.reopen") : t("postJob.card.close")}
                   </button>
@@ -625,24 +624,49 @@ const PostJob: React.FC = () => {
         </div>
       )}
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/55 p-3 md:p-8">
-          <div className="flex min-h-full items-start justify-center">
-            <div className="flex w-full max-w-5xl max-h-[calc(100vh-1.5rem)] md:max-h-[calc(100vh-4rem)] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
-              <div className="shrink-0 border-b border-slate-200 bg-white px-5 py-5 md:px-7">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 sm:flex">
-                      <BriefcaseBusiness size={24} />
+      {showModal && typeof document !== "undefined" && createPortal(
+        /* Portalled to <body>, for the same reason `ui/index.tsx`'s Dialog is:
+           `position: fixed` is only viewport-relative while no ancestor
+           establishes a containing block for it, and `.page-transition` -- which
+           wraps every dashboard route -- does exactly that whenever its
+           transform animation is live. Confined to the <main> box the backdrop
+           stops short of the shell's chrome and leaves the sidebar's header row
+           bright. Rendering outside the app tree makes that structurally
+           impossible instead of something the next ancestor can break again.
+
+           The rung comes from `components/ui/layers.ts`, which owns the whole
+           ladder: at z-50 this tied the mobile tab bar and sat under the
+           cookie banner. Centred rather than top-aligned so the
+           dialog lands in front of the reader; the panel below already caps
+           its own height and scrolls internally, which is what makes centring
+           safe -- a flex child taller than its container overflows in both
+           directions, so centring without that cap would push the header and
+           its close button off the top edge. The cap is 82dvh rather than the
+           full viewport so the dialog reads as a layer over the page instead of
+           swallowing it: centred, that leaves a 9dvh gutter, which clears the
+           64px navbar on any viewport taller than ~710px. */
+        <div className={`fixed inset-0 ${LAYER_Z.modal} bg-slate-900/55 p-3 md:p-8`}>
+          <div className="flex min-h-full items-center justify-center">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="post-job-modal-title"
+              className="flex w-full max-w-3xl max-h-[calc(100dvh-1.5rem)] md:max-h-[82dvh] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+            >
+              <div className="shrink-0 border-b border-slate-200 bg-white px-5 py-4 md:px-6">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="hidden h-10 w-10 items-center justify-center rounded-card bg-brand-50 text-brand-600 sm:flex">
+                      <BriefcaseBusiness size={20} />
                     </div>
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-600">
                         {t("postJob.modal.employerWorkspace")}
                       </p>
-                      <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+                      <h2 id="post-job-modal-title" className="text-xl font-bold tracking-tight text-slate-900 md:text-2xl">
                         {editingJob ? t("postJob.modal.editTitle") : t("postJob.modal.createTitle")}
                       </h2>
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="mt-0.5 text-sm text-slate-500">
                         {t("postJob.modal.subtitle")}
                       </p>
                     </div>
@@ -650,15 +674,15 @@ const PostJob: React.FC = () => {
                   <button
                     type="button"
                     onClick={closeModal}
-                    className="ml-3 rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-slate-200 hover:bg-slate-50 hover:text-slate-700"
+                    className="shrink-0 rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-slate-200 hover:bg-slate-50 hover:text-slate-700"
                     aria-label={t("postJob.modal.closeAria")}
                   >
-                    <X size={24} />
+                    <X size={22} />
                   </button>
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5">
+              <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-5 md:px-6">
                 <PostJobWizard
                   formData={formData}
                   setFormData={setFormData}
@@ -674,64 +698,44 @@ const PostJob: React.FC = () => {
                   hasInsufficientBalanceError={hasInsufficientBalanceError}
                   onSubmit={handleSubmit}
                   onCancel={closeModal}
+                  onDismissError={() => setFormError(null)}
                 />
               </div>
             </div>
           </div>
-        </div>
-      )}
-      {typeof document !== "undefined" && createPortal(
-        <AnimatePresence>
-          {hasInsufficientBalanceError && (
-            <motion.div
-              className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/50 p-4"
-              initial={prefersReducedMotion ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={prefersReducedMotion ? undefined : { opacity: 0 }}
-              transition={{ duration: prefersReducedMotion ? 0 : 0.18 }}
-            >
-              <motion.div
-                role="alertdialog"
-                aria-modal="true"
-                aria-labelledby="insufficient-balance-title"
-                aria-describedby="insufficient-balance-description"
-                className="w-full max-w-md rounded-3xl border border-red-100 bg-white p-6 text-center shadow-2xl"
-                initial={prefersReducedMotion ? false : { opacity: 0, y: 8, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={prefersReducedMotion ? undefined : { opacity: 0, y: 8, scale: 0.98 }}
-                transition={{ duration: prefersReducedMotion ? 0 : 0.2 }}
-              >
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-2xl font-bold text-red-600">
-                  !
-                </div>
-                <h3 id="insufficient-balance-title" className="mt-4 text-xl font-bold text-slate-900">
-                  {t("postJob.insufficientBalance.title")}
-                </h3>
-                <p id="insufficient-balance-description" className="mt-2 text-sm leading-6 text-slate-600">
-                  {formError}
-                </p>
-                <div className="mt-6 grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setFormError(null)}
-                    className="h-11 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                  >
-                    {t("postJob.insufficientBalance.notNow")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigate(ROUTES.employer.eWallet)}
-                    className="h-11 rounded-xl bg-[#1C4D8D] text-sm font-semibold text-white transition hover:bg-[#163f75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
-                  >
-                    {t("postJob.insufficientBalance.topUp")}
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>,
+        </div>,
         document.body,
       )}
+      {/* At z-70 this was painted behind the post-a-job modal (z-100) that
+          raises it, so the one error the employer most needs to act on was the
+          one they could not see. `AlertLayer` defaults to the rung above the
+          modal. */}
+      <AlertLayer
+        open={hasInsufficientBalanceError}
+        labelledBy="insufficient-balance-title"
+        describedBy="insufficient-balance-description"
+        onDismiss={() => setFormError(null)}
+      >
+        <AlertCard
+          title={t("postJob.insufficientBalance.title")}
+          titleId="insufficient-balance-title"
+          message={formError}
+          messageId="insufficient-balance-description"
+          actions={
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50"
+                onClick={() => setFormError(null)}
+              >
+                {t("postJob.insufficientBalance.notNow")}
+              </Button>
+              <Button onClick={() => navigate(ROUTES.employer.eWallet)}>
+                {t("postJob.insufficientBalance.topUp")}
+              </Button>
+            </div>
+          }
+        />
+      </AlertLayer>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title={t("postJob.deleteDialog.title")}

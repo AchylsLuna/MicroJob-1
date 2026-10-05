@@ -19,7 +19,7 @@ type Props = {
  * The pulse is dropped entirely under reduced motion rather than slowed, and
  * the element is hidden from assistive tech — the surrounding region owns the
  * loading announcement.
- * `slate-100` / `rounded-[10px]` mirror the mobile skeleton's
+ * `slate-100` / `rounded-control` mirror the mobile skeleton's
  * `tokens.colors.contentMuted` (#F1F5F9) and `tokens.radius.sm` (10), so a
  * loading state reads the same on both platforms. This component previously
  * used `slate-200` and `rounded-md`, which made it the odd one out against
@@ -32,7 +32,7 @@ export function Skeleton({ className = "", style }: Props) {
     <div
       aria-hidden="true"
       style={style}
-      className={`animate-pulse rounded-[10px] bg-slate-100 motion-reduce:animate-none ${className}`}
+      className={`animate-pulse rounded-control bg-slate-100 motion-reduce:animate-none ${className}`}
     />
   );
 }

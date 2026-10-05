@@ -31,9 +31,9 @@ export function MfaLoginForm({
         void onSubmit(code);
       }}
     >
-      <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+      <div className="rounded-card border border-brand-100 bg-brand-50 p-4">
         <div className="flex items-start gap-3">
-          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-blue-700" aria-hidden="true" />
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" aria-hidden="true" />
           <div>
             <h2 className="font-semibold text-slate-950">{t("mfaLoginForm.title")}</h2>
             <p id="mfa-login-help" className="mt-1 text-sm leading-5 text-slate-600">
@@ -59,7 +59,7 @@ export function MfaLoginForm({
           aria-describedby="mfa-login-help"
           placeholder={method === "authenticator" ? t("mfaLoginForm.placeholderAuthenticator") : t("mfaLoginForm.placeholderOther")}
           disabled={isLoading}
-          className="min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-950 outline-none focus:border-transparent focus:ring-2 focus:ring-blue-700 disabled:bg-slate-100"
+          className="min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-950 outline-none focus:border-transparent focus:ring-2 focus:ring-brand-700 disabled:bg-slate-100"
         />
       </div>
 

@@ -51,7 +51,7 @@ export function DeleteAccountCard() {
   return (
     <Card>
       <h3 className="text-base font-semibold text-slate-900">{t("settings.deleteAccount.title")}</h3>
-      <p className="mt-1 text-[13px] text-slate-500">
+      <p className="mt-1 text-body-sm text-slate-500">
         {t("settings.deleteAccount.description")}
       </p>
 
@@ -59,33 +59,33 @@ export function DeleteAccountCard() {
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="mt-4 rounded-full border border-[#FCA5A5] px-6 py-3 text-[14px] font-semibold text-[#B91C1C] hover:bg-[#FEF2F2]"
+          className="mt-4 rounded-full border border-[#FCA5A5] px-6 py-3 text-body font-semibold text-[#B91C1C] hover:bg-[#FEF2F2]"
         >
           {t("settings.deleteAccount.deleteButton")}
         </button>
       ) : (
-        <div className="mt-5 max-w-lg space-y-4 rounded-[12px] border border-[#FECACA] bg-[#FEF2F2] p-4">
-          <p className="text-[13px] font-semibold text-[#991B1B]">
+        <div className="mt-5 max-w-lg space-y-4 rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-4">
+          <p className="text-body-sm font-semibold text-[#991B1B]">
             {t("settings.deleteAccount.confirmWarning")}
           </p>
-          <label className="block text-[13px] font-medium text-slate-700">
+          <label className="block text-body-sm font-medium text-slate-700">
             {t("settings.deleteAccount.currentPasswordLabel")}
             <input
               type="password"
               value={currentPassword}
               onChange={(event) => setCurrentPassword(event.target.value)}
               autoComplete="current-password"
-              className="mt-2 w-full rounded-[10px] border border-[#FCA5A5] bg-white px-4 py-3 text-[14px]"
+              className="mt-2 w-full rounded-control border border-[#FCA5A5] bg-white px-4 py-3 text-body"
             />
           </label>
-          <label className="block text-[13px] font-medium text-slate-700">
+          <label className="block text-body-sm font-medium text-slate-700">
             {t("settings.deleteAccount.typeDeleteLabel")}
             <input
               type="text"
               value={confirmation}
               onChange={(event) => setConfirmation(event.target.value)}
               autoComplete="off"
-              className="mt-2 w-full rounded-[10px] border border-[#FCA5A5] bg-white px-4 py-3 text-[14px]"
+              className="mt-2 w-full rounded-control border border-[#FCA5A5] bg-white px-4 py-3 text-body"
             />
           </label>
           <div className="flex flex-wrap gap-3">
@@ -97,7 +97,7 @@ export function DeleteAccountCard() {
                 setConfirmation("");
               }}
               disabled={isDeleting}
-              className="rounded-[10px] border border-slate-300 bg-white px-4 py-2 text-[13px] font-semibold text-slate-600"
+              className="rounded-control border border-slate-300 bg-white px-4 py-2 text-body-sm font-semibold text-slate-600"
             >
               {t("settings.deleteAccount.cancelButton")}
             </button>
@@ -105,7 +105,7 @@ export function DeleteAccountCard() {
               type="button"
               onClick={handleDelete}
               disabled={isDeleting || confirmation.trim().toUpperCase() !== "DELETE"}
-              className="rounded-[10px] bg-[#B91C1C] px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
+              className="rounded-control bg-[#B91C1C] px-4 py-2 text-body-sm font-semibold text-white disabled:opacity-60"
             >
               {isDeleting ? t("settings.deleteAccount.deletingButton") : t("settings.deleteAccount.confirmButton")}
             </button>

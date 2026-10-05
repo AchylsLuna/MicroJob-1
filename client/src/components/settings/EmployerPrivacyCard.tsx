@@ -31,16 +31,16 @@ export function EmployerPrivacyCard({ initialValue }: { initialValue: boolean })
   return (
     <Card>
       <h3 className="text-base font-semibold text-slate-900">{t("employerPrivacy.title")}</h3>
-      <p className="mt-1 text-[13px] text-slate-500">
+      <p className="mt-1 text-body-sm text-slate-500">
         {t("employerPrivacy.subtitle")}
       </p>
-      <div className="mt-4 flex items-center justify-between gap-4 rounded-[12px] border border-slate-200 px-4 py-4">
+      <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-slate-200 px-4 py-4">
         <div>
           <p className="text-[15px] font-semibold text-slate-900">{t("employerPrivacy.hideHiredCandidates.label")}</p>
-          <p className="text-[12px] text-slate-500">{t("employerPrivacy.hideHiredCandidates.description")}</p>
+          <p className="text-caption text-slate-500">{t("employerPrivacy.hideHiredCandidates.description")}</p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-[12px] text-slate-500">
+          <span className="text-caption text-slate-500">
             {isSaving ? t("employerPrivacy.status.saving") : hideHiredCandidates ? t("employerPrivacy.status.enabled") : t("employerPrivacy.status.disabled")}
           </span>
           <button

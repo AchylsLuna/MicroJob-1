@@ -37,29 +37,33 @@ export function RoleChooser({ onSelect }: { onSelect: (role: SignUpRole) => void
             key={role}
             type="button"
             onClick={() => onSelect(role)}
-            className="group flex flex-col items-center rounded-[16px] border border-slate-200 bg-white p-6 text-center transition-colors hover:border-[#1C4D8D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+            className="group flex flex-col items-center rounded-card border border-slate-200 bg-white p-6 text-center transition-colors hover:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             <span
               aria-hidden="true"
-              className="flex h-20 w-20 items-center justify-center rounded-[16px] bg-blue-100 text-[#1C4D8D]"
+              className="flex h-20 w-20 items-center justify-center rounded-card bg-brand-100 text-brand"
             >
               <Icon className="h-11 w-11" />
             </span>
             <span className="mt-5 text-[17px] font-bold text-slate-950">{title}</span>
-            <span className="mt-1 text-[14px] leading-6 text-slate-600">{description}</span>
+            <span className="mt-1 text-body leading-6 text-slate-600">{description}</span>
           </button>
         ))}
       </div>
 
-      <div className="mt-6 text-center">
-        <button
-          type="button"
-          onClick={() => onSelect("both")}
-          className="inline-flex min-h-11 items-center rounded-[10px] px-3 text-[14px] font-semibold text-[#1C4D8D] transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
-        >
-          {t("signUp.roleChooser.both")}
-        </button>
-      </div>
+      {/* A third choice, so it has to look like one. As bare brand-coloured
+          text under two bordered cards it read as a footnote or a link rather
+          than the option it is -- the only selectable thing on the step with
+          no visible edge. It takes the cards' border, hover and focus
+          treatment; it stays a full-width bar rather than a third card
+          because it applies to both of the roles above it. */}
+      <button
+        type="button"
+        onClick={() => onSelect("both")}
+        className="mt-4 flex min-h-11 w-full items-center justify-center rounded-card border border-slate-200 bg-white px-4 py-3 text-body font-semibold text-brand transition-colors hover:border-brand hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+      >
+        {t("signUp.roleChooser.both")}
+      </button>
     </div>
   );
 }

@@ -80,7 +80,7 @@ export function ProfileHeader({
   return (
     <div className="overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-sm">
       {/* Flat brand band — no gradient, per the standing design rule. */}
-      <div className="h-[92px] bg-[#1C4D8D]" />
+      <div className="h-[92px] bg-brand" />
 
       <div className="px-6 pb-6 sm:px-8">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
@@ -92,7 +92,7 @@ export function ProfileHeader({
                 className="-mt-12 h-28 w-28 shrink-0 rounded-full border-4 border-white object-cover shadow-md"
               />
             ) : (
-              <div className="-mt-12 flex h-28 w-28 shrink-0 items-center justify-center rounded-full border-4 border-white bg-[#1C4D8D] shadow-md">
+              <div className="-mt-12 flex h-28 w-28 shrink-0 items-center justify-center rounded-full border-4 border-white bg-brand shadow-md">
                 <span className="text-[36px] font-bold text-white">{initials}</span>
               </div>
             )}
@@ -103,7 +103,7 @@ export function ProfileHeader({
                 {isVerified ? (
                   <button
                     type="button"
-                    className="group relative inline-flex shrink-0 cursor-help rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                    className="group relative inline-flex shrink-0 cursor-help rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                     aria-label="Fully verified person"
                     aria-describedby="profile-verified-tooltip"
                   >
@@ -116,7 +116,7 @@ export function ProfileHeader({
               </h1>
               {title ? <p className="mt-0.5 truncate text-[15px] text-slate-500">{title}</p> : null}
 
-              <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[13px] text-slate-500">
+              <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-body-sm text-slate-500">
                 <span className="flex items-center gap-1.5">
                   <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
                   <span className="truncate">{location}</span>
@@ -136,7 +136,7 @@ export function ProfileHeader({
 
         {trimmedBio ? (
           <div className="mt-5 max-w-3xl">
-            <p ref={bioRef} className={`text-[14px] leading-6 text-slate-600 ${bioExpanded ? "" : "line-clamp-3"}`}>
+            <p ref={bioRef} className={`text-body leading-6 text-slate-600 ${bioExpanded ? "" : "line-clamp-3"}`}>
               {trimmedBio}
             </p>
             {bioNeedsToggle ? (
@@ -144,7 +144,7 @@ export function ProfileHeader({
                 type="button"
                 onClick={() => setBioExpanded((open) => !open)}
                 aria-expanded={bioExpanded}
-                className="mt-1 min-h-11 text-[13px] font-semibold text-[#1C4D8D] transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                className="mt-1 min-h-11 text-body-sm font-semibold text-brand transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
               >
                 {bioExpanded ? lessLabel : moreLabel}
               </button>

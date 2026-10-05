@@ -182,6 +182,18 @@ interface AuthContextType {
   verifyPasswordResetCode: (code: string) => Promise<void>;
   resetPassword: (code: string, newPassword: string) => Promise<void>;
   pendingVerification: { email: string; name: string; flow?: "signup" | "signin" } | null;
+  /**
+   * The verification code, when the API hands it back instead of only
+   * emailing it. `UserController.sendOtp` returns `code` on every
+   * non-production response (`:1003` with no SMTP configured, `:1031`
+   * even when the mail is sent), so a developer can finish sign-up
+   * without a working inbox. It was being discarded, which left the
+   * OTP step impossible to pass locally whenever mail did not arrive.
+   *
+   * Kept in memory only, never persisted, and absent in production
+   * because the server does not send it there.
+   */
+  devVerificationCode: string | null;
   updateProfile: (updates: Partial<User>) => void;
 }
 
@@ -344,6 +356,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const userRef = useRef<User | null>(user);
   userRef.current = user;
   const [isLoading, setIsLoading] = useState(true);
+  const [devVerificationCode, setDevVerificationCode] = useState<string | null>(null);
   const [pendingVerification, setPendingVerification] = useState<{
     email: string;
     name: string;
@@ -535,7 +548,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(PENDING_VERIFICATION_FLOW_KEY, "signup");
       localStorage.setItem("pending_account_preference", accountPreference);
 
-      await sendOtp({ email: normalizedEmail });
+      const challenge = await sendOtp({ email: normalizedEmail });
+      setDevVerificationCode(typeof challenge?.code === "string" ? challenge.code : null);
       toast.success("Verification code sent to your email.");
     } catch (error: any) {
       setPendingVerification(null);
@@ -657,7 +671,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      await sendOtp({ email: verificationEmail });
+      const challenge = await sendOtp({ email: verificationEmail });
+      setDevVerificationCode(typeof challenge?.code === "string" ? challenge.code : null);
       toast.success("New OTP sent!");
     } catch (error: any) {
       toast.error(error?.message || "Failed to resend OTP");
@@ -984,6 +999,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         verifyPasswordResetCode,
         resetPassword,
         pendingVerification,
+        devVerificationCode,
         updateProfile,
       }}
     >

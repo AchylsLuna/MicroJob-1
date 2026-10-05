@@ -11,7 +11,7 @@ export default function NotFound() {
   const attemptedPath = `${location.pathname}${location.search}${location.hash}`;
 
   return (
-    <main className="flex min-h-[70vh] items-center justify-center p-6">
+    <main className="flex min-h-[70dvh] items-center justify-center p-6">
       <StatusState
         tone="error"
         title="Page not found"

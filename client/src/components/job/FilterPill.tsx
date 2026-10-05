@@ -13,8 +13,8 @@ type ToggleProps = CommonProps & { mode: "toggle"; value: boolean; onApply: (val
 type Props = RadioProps | CheckboxProps | ToggleProps;
 
 const pillClass = (isActive: boolean, className?: string) =>
-  `inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition ${
-    isActive ? "border-[#1C4D8D] bg-[#EAF2FC] text-[#1C4D8D]" : "border-slate-300 text-slate-700 hover:border-slate-400"
+  `inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-body-sm font-semibold transition ${
+    isActive ? "border-brand bg-[#EAF2FC] text-brand" : "border-slate-300 text-slate-700 hover:border-slate-400"
   } ${className || ""}`;
 
 /**
@@ -123,7 +123,7 @@ function PopoverFilterPill(props: RadioProps | CheckboxProps) {
         <div
           role="menu"
           aria-label={label}
-          className="absolute left-0 right-0 top-full z-50 mt-2 w-auto overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_18px_48px_rgba(15,23,42,0.16)] sm:right-auto sm:w-72"
+          className="absolute left-0 right-0 top-full z-50 mt-2 w-auto overflow-hidden rounded-card border border-slate-200 bg-white shadow-[0_18px_48px_rgba(15,23,42,0.16)] sm:right-auto sm:w-72"
         >
           <div className="max-h-72 overflow-y-auto p-2">
             {options.map((option) => {
@@ -135,12 +135,12 @@ function PopoverFilterPill(props: RadioProps | CheckboxProps) {
                   onClick={() => toggleDraftOption(option.value)}
                   role={props.mode === "radio" ? "menuitemradio" : "menuitemcheckbox"}
                   aria-checked={checked}
-                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] text-slate-700 transition hover:bg-slate-50"
+                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-body text-slate-700 transition hover:bg-slate-50"
                 >
                   <span
                     className={`flex h-4 w-4 shrink-0 items-center justify-center border ${
                       props.mode === "radio" ? "rounded-full" : "rounded"
-                    } ${checked ? "border-[#1C4D8D] bg-[#1C4D8D]" : "border-slate-300"}`}
+                    } ${checked ? "border-brand bg-brand" : "border-slate-300"}`}
                     aria-hidden="true"
                   >
                     {checked ? (
@@ -157,14 +157,14 @@ function PopoverFilterPill(props: RadioProps | CheckboxProps) {
               type="button"
               onClick={handleReset}
               disabled={draftIsEmpty}
-              className="min-h-9 rounded-lg px-3 text-[13px] font-semibold text-slate-500 transition hover:bg-slate-50 disabled:opacity-40"
+              className="min-h-9 rounded-lg px-3 text-body-sm font-semibold text-slate-500 transition hover:bg-slate-50 disabled:opacity-40"
             >
               {t("findJobs.filters.reset")}
             </button>
             <button
               type="button"
               onClick={handleShowResults}
-              className="min-h-9 rounded-full bg-[#1C4D8D] px-4 text-[13px] font-bold text-white transition hover:bg-[#163F75]"
+              className="min-h-9 rounded-full bg-brand px-4 text-body-sm font-bold text-white transition hover:opacity-90"
             >
               {t("findJobs.filters.showResults")}
             </button>

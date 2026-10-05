@@ -19,7 +19,7 @@ import { ROUTES } from "../../utils/routes";
 import type { AdminPermission } from "../../lib/adminPermissions";
 import { formatDate } from "../../lib/formatters";
 
-const panelClass = "rounded-2xl border border-slate-200 bg-white shadow-sm";
+const panelClass = "rounded-card border border-slate-200 bg-white shadow-sm";
 
 const getPosterName = (job: AdminJob, t: TFunction<"admin">) => {
   if (!job.jobPoster || typeof job.jobPoster === "string") return t("dashboard.recentJobs.unassignedEmployer");
@@ -61,7 +61,7 @@ function AdminDashboardContent() {
       value: stats.totalJobs,
       detail: t("dashboard.metrics.totalJobs.detail", { count: stats.availableJobs }),
       icon: BriefcaseBusiness,
-      iconClass: "bg-blue-50 text-blue-700",
+      iconClass: "bg-brand-50 text-brand-700",
     },
     {
       label: t("dashboard.metrics.applications.label"),
@@ -98,7 +98,7 @@ function AdminDashboardContent() {
 
   return (
     <div className="mx-auto max-w-[1341px] space-y-6">
-      <section className="flex flex-col gap-4 rounded-2xl border border-[#1C4D8D]/20 bg-[#1C4D8D] p-5 text-white shadow-lg shadow-[#1C4D8D]/10 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+      <section className="flex flex-col gap-4 rounded-card border border-brand/20 bg-brand p-5 text-white shadow-lg shadow-brand/10 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white">
             <ShieldCheck className="h-4 w-4" aria-hidden="true" />
@@ -111,7 +111,7 @@ function AdminDashboardContent() {
         </div>
         <Link
           to={ROUTES.admin.reports}
-          className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-blue-800 transition hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-brand-800 transition hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
         >
           {t("dashboard.header.reportsLink")}
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -119,7 +119,7 @@ function AdminDashboardContent() {
       </section>
 
       {loadError && (
-        <section role="alert" className="flex flex-col gap-4 rounded-2xl border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <section role="alert" className="flex flex-col gap-4 rounded-card border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 gap-3">
             <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-700" aria-hidden="true" />
             <div>
@@ -140,7 +140,7 @@ function AdminDashboardContent() {
       )}
 
       {(stats.pendingUsers > 0 || stats.pendingPayouts > 0 || stats.openSupportTickets > 0) && !loadError && (
-        <section className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <section className="flex flex-col gap-3 rounded-card border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex gap-3">
             <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" aria-hidden="true" />
             <div>
@@ -198,9 +198,9 @@ function AdminDashboardContent() {
               <Link
                 key={action.label}
                 to={action.to}
-                className={`${panelClass} group flex min-h-28 items-start gap-3 p-4 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600`}
+                className={`${panelClass} group flex min-h-28 items-start gap-3 p-4 transition hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600`}
               >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 group-hover:bg-blue-50 group-hover:text-blue-700">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 group-hover:bg-brand-50 group-hover:text-brand-700">
                   <Icon className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <span className="min-w-0">
@@ -220,7 +220,7 @@ function AdminDashboardContent() {
               <h2 id="recent-jobs-title" className="font-bold text-slate-950">{t("dashboard.recentJobs.title")}</h2>
               <p className="mt-1 text-sm text-slate-500">{t("dashboard.recentJobs.subtitle")}</p>
             </div>
-            <Link to={ROUTES.admin.jobs} className="text-sm font-semibold text-blue-700 hover:underline">{t("dashboard.recentJobs.viewAll")}</Link>
+            <Link to={ROUTES.admin.jobs} className="text-sm font-semibold text-brand-700 hover:underline">{t("dashboard.recentJobs.viewAll")}</Link>
           </div>
           <div className="divide-y divide-slate-100">
             {isLoading && <p role="status" className="p-6 text-center text-sm text-slate-500">{t("dashboard.recentJobs.loading")}</p>}
@@ -245,7 +245,7 @@ function AdminDashboardContent() {
               <h2 id="recent-payouts-title" className="font-bold text-slate-950">{t("dashboard.recentPayouts.title")}</h2>
               <p className="mt-1 text-sm text-slate-500">{t("dashboard.recentPayouts.subtitle")}</p>
             </div>
-            <Link to={ROUTES.admin.eWallet} className="text-sm font-semibold text-blue-700 hover:underline">{t("dashboard.recentPayouts.viewWallet")}</Link>
+            <Link to={ROUTES.admin.eWallet} className="text-sm font-semibold text-brand-700 hover:underline">{t("dashboard.recentPayouts.viewWallet")}</Link>
           </div>
           <div className="divide-y divide-slate-100">
             {isLoading && <p role="status" className="p-6 text-center text-sm text-slate-500">{t("dashboard.recentPayouts.loading")}</p>}

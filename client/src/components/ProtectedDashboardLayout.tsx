@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { getSignInRouteForPath } from "../utils/authRedirects";
 import { DashboardLayout } from "./DashboardLayout";
+import { DashboardShellSkeleton } from "./ui/PageSkeletons";
+import { Skeleton } from "./ui/Skeleton";
 
 export function ProtectedDashboardLayout() {
   const { t } = useTranslation("common");
@@ -23,15 +25,28 @@ export function ProtectedDashboardLayout() {
   const storedUser = getStoredUser();
   const hasAuthenticatedSession = Boolean(user || storedUser);
 
-  // Show loading state while checking authentication
+  // The same frame the route fallback uses (`ui/PageSkeletons.tsx`), so the
+  // shell does not change shape between "checking your session" and "loading
+  // this page" -- two waits that can happen back to back on a cold load.
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-[#1C4D8D] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">{t("loading")}</p>
-        </div>
-      </div>
+      <>
+        <p role="status" aria-live="polite" className="sr-only">
+          {t("loading")}
+        </p>
+        <DashboardShellSkeleton>
+          <Skeleton className="h-8 w-56" />
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((tile) => (
+              <Skeleton key={tile} className="h-28 w-full rounded-card" />
+            ))}
+          </div>
+          <div className="mt-6 grid gap-4 lg:grid-cols-3">
+            <Skeleton className="h-72 w-full rounded-card lg:col-span-2" />
+            <Skeleton className="h-72 w-full rounded-card" />
+          </div>
+        </DashboardShellSkeleton>
+      </>
     );
   }
 

@@ -145,12 +145,12 @@ export function EmployerPaymentMethodsSection() {
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">{t("paymentMethods.title")}</h2>
-            <p className="text-[13px] text-slate-500">{t("paymentMethods.subtitle")}</p>
+            <p className="text-body-sm text-slate-500">{t("paymentMethods.subtitle")}</p>
           </div>
           <button
             type="button"
             onClick={openForm}
-            className="self-start rounded-[10px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-4 py-2 text-[14px] font-semibold text-[#1C4D8D] hover:opacity-90/10 sm:self-auto"
+            className="self-start rounded-control border border-brand/20 bg-brand/[0.06] px-4 py-2 text-body font-semibold text-brand hover:opacity-90/10 sm:self-auto"
           >
             {t("paymentMethods.addNewCard")}
           </button>
@@ -158,20 +158,20 @@ export function EmployerPaymentMethodsSection() {
 
         <div className="space-y-4">
           {isLoading ? (
-            <div className="rounded-[14px] border border-slate-200 p-5 text-[14px] text-slate-500">
+            <div className="rounded-card border border-slate-200 p-5 text-body text-slate-500">
               {t("paymentMethods.loading")}
             </div>
           ) : paymentMethods.length === 0 ? (
-            <div className="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+            <div className="rounded-card border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-200 text-slate-600">
                 <CreditCard className="h-6 w-6" />
               </div>
               <p className="text-[15px] font-semibold text-slate-900">{t("paymentMethods.emptyState.title")}</p>
-              <p className="mt-1 text-[13px] text-slate-500">{t("paymentMethods.emptyState.subtitle")}</p>
+              <p className="mt-1 text-body-sm text-slate-500">{t("paymentMethods.emptyState.subtitle")}</p>
               <button
                 type="button"
                 onClick={openForm}
-                className="mt-4 rounded-[10px] bg-[#1C4D8D] px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90"
+                className="mt-4 rounded-control bg-brand px-4 py-2 text-body-sm font-semibold text-white hover:opacity-90"
               >
                 {t("paymentMethods.emptyState.addFirstCard")}
               </button>
@@ -180,17 +180,17 @@ export function EmployerPaymentMethodsSection() {
             paymentMethods.map((method) => (
               <div
                 key={method.id}
-                className="flex flex-col gap-4 rounded-[14px] border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-4 rounded-card border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex min-w-0 items-center gap-4">
-                  <div className="flex h-10 w-14 shrink-0 items-center justify-center rounded-[10px] border border-slate-200 text-[12px] font-semibold">
+                  <div className="flex h-10 w-14 shrink-0 items-center justify-center rounded-control border border-slate-200 text-caption font-semibold">
                     {method.brand}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[14px] font-semibold text-slate-900">
+                    <p className="text-body font-semibold text-slate-900">
                       {t("paymentMethods.card.endingIn", { brand: method.brand, last4: method.last4 })}
                     </p>
-                    <p className="truncate text-[12px] text-slate-500">
+                    <p className="truncate text-caption text-slate-500">
                       {t("paymentMethods.card.holderExpiry", { name: method.cardholderName, expiry: method.expiry })}
                     </p>
                   </div>
@@ -211,7 +211,7 @@ export function EmployerPaymentMethodsSection() {
                       type="button"
                       onClick={() => handleSetDefault(method.id)}
                       disabled={actionId === method.id}
-                      className="text-[13px] text-[#1C4D8D] disabled:opacity-50"
+                      className="text-body-sm text-brand disabled:opacity-50"
                     >
                       {actionId === method.id ? t("paymentMethods.card.saving") : t("paymentMethods.card.setDefault")}
                     </button>
@@ -237,14 +237,14 @@ export function EmployerPaymentMethodsSection() {
           <div className="mb-4 flex items-start justify-between gap-4">
             <div>
               <h3 className="text-base font-semibold text-slate-900">{t("paymentMethods.form.title")}</h3>
-              <p className="mt-1 text-[12px] text-slate-500">
+              <p className="mt-1 text-caption text-slate-500">
                 {t("paymentMethods.form.subtitle")}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setIsFormOpen(false)}
-              className="text-[13px] font-medium text-slate-500"
+              className="text-body-sm font-medium text-slate-500"
             >
               {t("paymentMethods.form.cancel")}
             </button>
@@ -259,7 +259,7 @@ export function EmployerPaymentMethodsSection() {
               error={cardErrors.name}
               autoComplete="cc-name"
               maxLength={80}
-              className="w-full rounded-[12px] border border-slate-200 bg-white px-4 py-3 text-[14px]"
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-body"
             />
             <Input
               label={t("paymentMethods.form.expiryLabel")}
@@ -271,7 +271,7 @@ export function EmployerPaymentMethodsSection() {
               autoComplete="cc-exp"
               inputMode="numeric"
               maxLength={7}
-              className="w-full rounded-[12px] border border-slate-200 bg-white px-4 py-3 text-[14px]"
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-body"
             />
             <Input
               label={t("paymentMethods.form.numberLabel")}
@@ -286,7 +286,7 @@ export function EmployerPaymentMethodsSection() {
               autoComplete="cc-number"
               inputMode="numeric"
               maxLength={23}
-              className="w-full rounded-[12px] border border-slate-200 bg-white px-4 py-3 text-[14px]"
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-body"
             />
             <Input
               label={t("paymentMethods.form.cvvLabel")}
@@ -300,14 +300,14 @@ export function EmployerPaymentMethodsSection() {
               autoComplete="cc-csc"
               inputMode="numeric"
               maxLength={4}
-              className="w-full rounded-[12px] border border-slate-200 bg-white px-4 py-3 text-[14px]"
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-body"
             />
           </div>
           <button
             type="button"
             onClick={handleAdd}
             disabled={isSaving}
-            className="mt-4 rounded-[12px] bg-[#1C4D8D] px-6 py-3 font-semibold text-white disabled:opacity-60"
+            className="mt-4 rounded-xl bg-brand px-6 py-3 font-semibold text-white disabled:opacity-60"
           >
             {isSaving ? t("paymentMethods.form.saving") : t("paymentMethods.form.saveCard")}
           </button>

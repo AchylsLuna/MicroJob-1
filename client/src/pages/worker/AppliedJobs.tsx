@@ -182,10 +182,10 @@ const AppliedJobs: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Applied": return "bg-slate-100 text-slate-700";
-      case "Shortlisted": return "bg-blue-100 text-blue-700";
+      case "Shortlisted": return "bg-brand-100 text-brand-700";
       case "Interview Scheduled": return "bg-cyan-100 text-cyan-700";
       case "Interviewed": return "bg-sky-100 text-sky-700";
-      case "Offer Sent": return "bg-[#EAF2FC] text-[#1C4D8D]";
+      case "Offer Sent": return "bg-[#EAF2FC] text-brand";
       case "Hired": return "bg-green-100 text-green-700";
       case "Rejected": return "bg-red-100 text-red-700";
       case "Withdrawn": return "bg-gray-100 text-gray-600";
@@ -208,24 +208,24 @@ const AppliedJobs: React.FC = () => {
       : t("appliedJobs.emptyState.descriptionFiltered", { stage: getStatusLabel(t, selectedFilter) });
 
   return (
-    <div className="ui-page px-4 pb-16 md:px-0">
+    <div className="ui-page pb-16">
       <div className="ui-page-header">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1C4D8D]">{t("appliedJobs.eyebrow")}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">{t("appliedJobs.eyebrow")}</p>
           <h1 className="ui-page-title mt-1">{t("appliedJobs.title")}</h1>
           <p className="ui-page-subtitle">{t("appliedJobs.subtitle")}</p>
         </div>
         <button
           type="button"
           onClick={() => navigate(ROUTES.worker.findJobs)}
-          className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#1C4D8D] px-5 text-sm font-semibold text-white transition hover:bg-[#163F75]"
+          className="inline-flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white transition hover:opacity-90"
         >
           <BriefcaseBusiness className="h-4 w-4" />
           {t("appliedJobs.findJobsButton")}
         </button>
       </div>
 
-      <div className="ui-card flex flex-col gap-3 rounded-2xl border-slate-200 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <div className="ui-card flex flex-col gap-3 rounded-card border-slate-200 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-base font-bold text-slate-900">
             {loading ? t("appliedJobs.summary.loading") : t("appliedJobs.summary.count", { count: applications.length })}
@@ -237,7 +237,7 @@ const AppliedJobs: React.FC = () => {
           <select
             value={selectedFilter}
             onChange={(event) => updateFilter(event.target.value as "All" | ApplicationStatus)}
-            className="h-11 min-w-48 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#1C4D8D] focus:ring-2 focus:ring-blue-100"
+            className="h-11 min-w-48 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-brand focus:ring-2 focus:ring-brand-100"
           >
             {FILTER_OPTIONS.map((filter) => <option key={filter} value={filter}>{getStatusLabel(t, filter)}</option>)}
           </select>
@@ -247,13 +247,13 @@ const AppliedJobs: React.FC = () => {
       <div>
           {/* Job Cards */}
           {loading && (
-            <div className="bg-white rounded-2xl p-8 shadow-sm text-center text-gray-600">
+            <div className="bg-white rounded-card p-8 shadow-sm text-center text-gray-600">
               {t("appliedJobs.summary.loading")}
             </div>
           )}
 
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-red-700 mb-6">
+            <div className="bg-red-50 border border-red-200 rounded-card p-6 text-red-700 mb-6">
               {error}
             </div>
           )}
@@ -262,10 +262,10 @@ const AppliedJobs: React.FC = () => {
             {filteredApplications.map((application) => (
               <article
                 key={application._id}
-                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#B8CBE5] hover:shadow-md"
+                className="rounded-card border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#B8CBE5] hover:shadow-md"
               >
                 <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#1C4D8D] text-lg font-bold text-white">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand text-lg font-bold text-white">
                     {application.job?.title?.charAt(0) || "J"}
                   </div>
 
@@ -285,7 +285,7 @@ const AppliedJobs: React.FC = () => {
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-[#EAF2FC] px-3 py-1 text-xs font-semibold text-[#1C4D8D]">
+                      <span className="rounded-full bg-[#EAF2FC] px-3 py-1 text-xs font-semibold text-brand">
                         {application.job?.jobType || t("appliedJobs.card.jobTypeFallback")}
                       </span>
                       <span className="text-sm font-bold text-emerald-700">
@@ -304,7 +304,7 @@ const AppliedJobs: React.FC = () => {
 
                     {application.status === "Offer Sent" && application.offer?.status === "pending" ? (
                       <div className="mt-4 rounded-xl border border-[#B8CBE5] bg-[#EAF2FC] p-3">
-                        <p className="text-sm font-semibold text-[#1C4D8D]">
+                        <p className="text-sm font-semibold text-brand">
                           {t("appliedJobs.offerPanel.title", { amount: formatCurrency(application.offer.amount) })}
                         </p>
                         <div className="mt-2 flex flex-wrap gap-2">
@@ -312,7 +312,7 @@ const AppliedJobs: React.FC = () => {
                             type="button"
                             disabled={actionBusyId === application._id}
                             onClick={() => handleAcceptOffer(application)}
-                            className="inline-flex h-10 items-center justify-center rounded-xl bg-[#1C4D8D] px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="inline-flex h-10 items-center justify-center rounded-xl bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {t("appliedJobs.offerPanel.accept", { amount: formatCurrency(application.offer.amount) })}
                           </button>
@@ -383,7 +383,7 @@ const AppliedJobs: React.FC = () => {
                             state: { isApplied: true, status: application.status }
                           });
                         }}
-                        className="h-10 rounded-xl bg-[#1C4D8D] px-5 text-sm font-semibold text-white transition hover:bg-[#163F75]"
+                        className="h-10 rounded-xl bg-brand px-5 text-sm font-semibold text-white transition hover:opacity-90"
                       >
                         {t("appliedJobs.card.viewDetails")}
                       </button>
@@ -397,13 +397,13 @@ const AppliedJobs: React.FC = () => {
 
           {/* Empty State */}
           {!loading && filteredApplications.length === 0 && (
-            <div className="rounded-[20px] border border-[#E5E7EB] bg-white px-8 py-12 text-center shadow-sm sm:px-12">
+            <div className="rounded-[20px] border border-[#E5E7EB] bg-white px-5 py-8 text-center shadow-sm sm:px-12 sm:py-12">
               <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
-                <div className="mb-4 inline-flex items-center rounded-full bg-[#F8FAFC] px-3 py-1 text-[12px] font-medium text-[#64748B]">
+                <div className="mb-4 inline-flex items-center rounded-full bg-[#F8FAFC] px-3 py-1 text-caption font-medium text-slate-500">
                   {emptyStateLabel}
                 </div>
 
-                <h3 className="max-w-xl text-[28px] font-bold tracking-[-0.02em] text-[#111827] sm:text-[32px]">
+                <h3 className="max-w-xl text-[22px] sm:text-[28px] font-bold tracking-[-0.02em] text-[#111827] sm:text-[32px]">
                   {emptyStateTitle}
                 </h3>
 
@@ -414,7 +414,7 @@ const AppliedJobs: React.FC = () => {
                 <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
                   <button
                     onClick={() => navigate(ROUTES.worker.findJobs)}
-                    className="inline-flex items-center justify-center rounded-[14px] bg-[#1C4D8D] px-5 py-3 text-[15px] font-semibold text-white transition hover:opacity-90"
+                    className="inline-flex items-center justify-center rounded-card bg-brand px-5 py-3 text-[15px] font-semibold text-white transition hover:opacity-90"
                   >
                     {t("appliedJobs.emptyState.browseJobs")}
                   </button>
@@ -422,7 +422,7 @@ const AppliedJobs: React.FC = () => {
                   {selectedFilter !== "All" ? (
                     <button
                       onClick={() => updateFilter("All")}
-                      className="inline-flex items-center gap-2 rounded-[14px] border border-[#E5E7EB] bg-white px-5 py-3 text-[15px] font-semibold text-[#334155] transition hover:bg-[#F8FAFC]"
+                      className="inline-flex items-center gap-2 rounded-card border border-[#E5E7EB] bg-white px-5 py-3 text-[15px] font-semibold text-[#334155] transition hover:bg-[#F8FAFC]"
                     >
                       {t("appliedJobs.emptyState.showAll")}
                     </button>

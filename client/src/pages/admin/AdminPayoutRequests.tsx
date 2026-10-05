@@ -17,7 +17,7 @@ type ReviewStatus = "approved" | "rejected" | "paid";
 
 const statusStyle: Record<PayoutRequest["status"], string> = {
   requested: "bg-amber-100 text-amber-900",
-  approved: "bg-blue-100 text-blue-900",
+  approved: "bg-brand-100 text-brand-900",
   rejected: "bg-red-100 text-red-900",
   paid: "bg-emerald-100 text-emerald-900",
   cancelled: "bg-slate-200 text-slate-700",
@@ -132,10 +132,10 @@ function AdminPayoutRequestsContent() {
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {[
           { label: t("payoutRequests.cards.awaitingReview"), value: counts.requested, icon: Clock3, tone: "bg-amber-50 text-amber-800" },
-          { label: t("payoutRequests.cards.approvedForPayment"), value: counts.approved, icon: CheckCircle2, tone: "bg-blue-50 text-blue-800" },
+          { label: t("payoutRequests.cards.approvedForPayment"), value: counts.approved, icon: CheckCircle2, tone: "bg-brand-50 text-brand-800" },
           { label: t("payoutRequests.cards.paidInView"), value: counts.paid, icon: WalletCards, tone: "bg-emerald-50 text-emerald-800" },
         ].map(({ label, value, icon: Icon, tone }) => (
-          <article key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <article key={label} className="rounded-card border border-slate-200 bg-white p-5 shadow-sm">
             <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${tone}`}><Icon className="h-5 w-5" aria-hidden="true" /></div>
             <p className="mt-4 text-sm font-medium text-slate-500">{label}</p>
             <p className="mt-1 text-2xl font-bold text-slate-950">{isLoading ? "—" : value}</p>
@@ -143,7 +143,7 @@ function AdminPayoutRequestsContent() {
         ))}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <section className="rounded-card border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="text-xl font-bold text-slate-950">{t("payoutRequests.title")}</h1>
@@ -152,7 +152,7 @@ function AdminPayoutRequestsContent() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <label className="block text-sm font-semibold text-slate-700">
               {t("payoutRequests.filters.statusLabel")}
-              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className="mt-1 block min-h-11 rounded-xl border border-slate-300 bg-white px-3 font-normal outline-none focus:ring-2 focus:ring-blue-600">
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className="mt-1 block min-h-11 rounded-xl border border-slate-300 bg-white px-3 font-normal outline-none focus:ring-2 focus:ring-brand-600">
                 <option value="all">{t("payoutRequests.filters.statusOptions.all")}</option>
                 <option value="requested">{t("payoutRequests.filters.statusOptions.requested")}</option>
                 <option value="approved">{t("payoutRequests.filters.statusOptions.approved")}</option>
@@ -165,7 +165,7 @@ function AdminPayoutRequestsContent() {
               {t("payoutRequests.filters.searchLabel")}
               <span className="relative mt-1 block">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
-                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("payoutRequests.filters.searchPlaceholder")} className="min-h-11 w-full rounded-xl border border-slate-300 pl-9 pr-3 font-normal outline-none focus:ring-2 focus:ring-blue-600 sm:w-64" />
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("payoutRequests.filters.searchPlaceholder")} className="min-h-11 w-full rounded-xl border border-slate-300 pl-9 pr-3 font-normal outline-none focus:ring-2 focus:ring-brand-600 sm:w-64" />
               </span>
             </label>
             <Button onClick={() => void loadRequests()} disabled={isLoading} className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50">
