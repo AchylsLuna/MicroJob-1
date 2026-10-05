@@ -1,11 +1,18 @@
 import { runDataBackfills } from './backfills.js';
 import { checkObjectIdValidators } from './dataIntegrity.js';
+import RateLimitBucket from '../models/RateLimitBucket.js';
+import PendingIdScan from '../models/PendingIdScan.js';
 
 let runtimeDataReady;
 
 export function ensureRuntimeData() {
   if (!runtimeDataReady) {
-    runtimeDataReady = runDataBackfills()
+    runtimeDataReady = Promise.all([
+      // These unique indexes make concurrent increments an atomic global
+      // ceiling, including across serverless instances.
+      RateLimitBucket.init(),
+      PendingIdScan.init(),
+    ]).then(() => runDataBackfills())
       .then(() =>
         // Advisory only: a missing validator means the database is open to the
         // string-_id corruption again, but it is not a reason to refuse traffic.

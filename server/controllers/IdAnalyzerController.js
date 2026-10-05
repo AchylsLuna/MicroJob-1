@@ -119,7 +119,7 @@ export const verifyIdDocument = async (req, res) => {
       return res.status(200).json({ ...payload.response, extracted });
     }
 
-    savePendingScan(userId, {
+    await savePendingScan(userId, {
       decision,
       profileMatch,
       accepted,
@@ -164,18 +164,18 @@ export const confirmIdVerification = async (req, res) => {
     const userId = String(getUserId(req) || '');
     if (!userId) return res.status(401).json({ message: 'Unauthorized.' });
 
-    const pending = getPendingScan(userId);
+    const pending = await getPendingScan(userId);
     if (!pending) {
       return res.status(400).json({ message: 'No pending scan found. Please scan your document again.' });
     }
     if (pending.expiresAt <= Date.now()) {
-      deletePendingScan(userId);
+      await deletePendingScan(userId);
       return res.status(400).json({ message: 'Your pending scan expired. Please scan your document again.' });
     }
 
     const payload = buildVerificationPayload(pending);
     await User.findByIdAndUpdate(userId, payload.update);
-    deletePendingScan(userId);
+    await deletePendingScan(userId);
     return res.status(200).json({ ...payload.response, extracted: pending.extracted });
   } catch (error) {
     console.error('KYC confirm error:', error?.message || error);
@@ -186,7 +186,7 @@ export const confirmIdVerification = async (req, res) => {
 export const discardIdVerification = async (req, res) => {
   const userId = String(getUserId(req) || '');
   if (!userId) return res.status(401).json({ message: 'Unauthorized.' });
-  deletePendingScan(userId);
+  await deletePendingScan(userId);
   return res.status(200).json({ cleared: true });
 };
 

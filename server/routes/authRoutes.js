@@ -44,7 +44,9 @@ import {
 import { uploadVerificationFile } from '../middleware/uploadConfig.js';
 import {
   registerLimiter,
+  registerIpLimiter,
   otpSendLimiter,
+  otpSendIpLimiter,
   otpVerifyLimiter,
   passwordResetRequestLimiter,
   passwordResetConfirmLimiter,
@@ -74,8 +76,8 @@ const protectRefresh = (req, res, next) => {
   return csrfProtection(req, res, next);
 };
 
-router.post('/register', registerLimiter, registerUser);
-router.post('/otp/send', otpSendLimiter, sendOtp);
+router.post('/register', registerIpLimiter, registerLimiter, registerUser);
+router.post('/otp/send', otpSendIpLimiter, otpSendLimiter, sendOtp);
 router.post('/otp/verify', otpVerifyLimiter, verifyOtp);
 router.post('/password-reset/request', passwordResetRequestLimiter, requestPasswordResetOtp);
 router.post('/password-reset/verify', passwordResetConfirmLimiter, verifyPasswordResetOtp);

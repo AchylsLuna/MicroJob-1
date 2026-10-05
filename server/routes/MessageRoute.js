@@ -1,22 +1,21 @@
 import express from 'express';
 import auth from '../middleware/auth.js';
 import MessageController from '../controllers/MessageController.js';
-import rateLimit from 'express-rate-limit';
+import { createRateLimiter, buildUserRateLimitKey } from '../lib/rateLimiters.js';
 
 const router = express.Router();
-const messageWriteLimiter = rateLimit({
+const messageWriteLimiter = createRateLimiter({
   windowMs: Math.max(1000, Number(process.env.MESSAGE_RATE_WINDOW_MS) || 60_000),
   limit: Math.max(1, Number(process.env.MESSAGE_RATE_LIMIT) || 30),
-  standardHeaders: true,
-  legacyHeaders: false,
   message: { message: 'Too many message requests. Please wait and try again.' },
+  keyGenerator: buildUserRateLimitKey('message-write'),
 });
 // Send a message
-router.post('/', messageWriteLimiter, auth, MessageController.sendMessage);
+router.post('/', auth, messageWriteLimiter, MessageController.sendMessage);
 // Backward-compatible alias for older deployed clients; new clients use POST /api/messages.
-router.post('/send', messageWriteLimiter, auth, MessageController.sendMessage);
+router.post('/send', auth, messageWriteLimiter, MessageController.sendMessage);
 // Open a job inquiry thread with the employer who posted the job.
-router.post('/inquiries/:jobId', messageWriteLimiter, auth, MessageController.startJobInquiry);
+router.post('/inquiries/:jobId', auth, messageWriteLimiter, MessageController.startJobInquiry);
 
 // Get all conversations for logged-in user
 router.get('/conversations', auth, MessageController.getConversations);
@@ -27,7 +26,7 @@ router.get('/conversation/:otherUserId', auth, MessageController.getConversation
 // Mark messages as read
 router.patch('/read', auth, MessageController.markAsRead);
 // Edit a sent message (30-second window)
-router.patch('/edit/:messageId', messageWriteLimiter, auth, MessageController.editMessage);
+router.patch('/edit/:messageId', auth, messageWriteLimiter, MessageController.editMessage);
 
 // Block a user (current user blocks otherUserId)
 router.post('/block', auth, MessageController.blockUser);

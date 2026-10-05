@@ -1,144 +1,122 @@
-import rateLimit, * as rateLimitModule from 'express-rate-limit';
+import mongoose from 'mongoose';
+import RateLimitBucket from '../models/RateLimitBucket.js';
 
-const ipKeyGenerator = rateLimitModule.ipKeyGenerator || ((value) => String(value || 'unknown'));
+const memoryBuckets = new Map();
+
+export const clientIp = (req) => String(req.ip || req.connection?.remoteAddress || req.socket?.remoteAddress || 'unknown');
+
+const normalizedIdentifier = (req) => {
+  const body = req.body || {};
+  return String(body.emailOrUsername || body.email || body.username || body.phoneNumber || '').trim().toLowerCase();
+};
 
 export const buildAuthRateLimitKey = (req) => {
-  const body = req.body || {};
-  const identifier = String(
-    body.emailOrUsername || body.email || body.username || body.phoneNumber || ''
-  ).trim().toLowerCase();
-
-  const ip = ipKeyGenerator(req.ip || req.connection?.remoteAddress || 'unknown');
+  const identifier = normalizedIdentifier(req);
   const account = identifier || String(req.user?.id || req.user?.userId || 'anonymous');
-  return `auth:${ip}:${account}`;
+  return `auth:${clientIp(req)}:${account}`;
 };
 
-/**
- * Keys on the target account alone, deliberately omitting the IP that
- * buildAuthRateLimitKey folds in. That IP component means one address gets a
- * fresh bucket for every account it names -- fine against a single account
- * hammered from one machine, useless against password spraying across many
- * accounts, and useless against a botnet spreading attempts on one account.
- * Chain this alongside the per-IP limiter so both ceilings apply.
- *
- * Falls back to the IP when no identifier is supplied, so malformed requests
- * get their own bucket instead of sharing one global key that any caller could
- * exhaust for everyone.
- */
 export const buildAccountRateLimitKey = (req) => {
-  const body = req.body || {};
-  const identifier = String(
-    body.emailOrUsername || body.email || body.username || body.phoneNumber || ''
-  ).trim().toLowerCase();
-
-  if (identifier) {
-    return `account:${identifier}`;
-  }
-  return `account-ip:${ipKeyGenerator(req.ip || req.connection?.remoteAddress || 'unknown')}`;
+  const identifier = normalizedIdentifier(req);
+  return identifier ? `account:${identifier}` : `account-ip:${clientIp(req)}`;
 };
 
-export const registerLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: { message: 'Too many registration attempts. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: buildAuthRateLimitKey,
-});
+export const buildIpRateLimitKey = (scope) => (req) => `${scope}:${clientIp(req)}`;
+export const buildUserRateLimitKey = (scope) => (req) =>
+  `${scope}:${String(req.user?.id || req.user?.userId || clientIp(req))}`;
 
-export const otpSendLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 5,
-  message: { message: 'Too many OTP requests. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: buildAuthRateLimitKey,
-});
+const windowFor = (windowMs, now = Date.now()) => {
+  const start = Math.floor(now / windowMs) * windowMs;
+  return { start: new Date(start), resetAt: new Date(start + windowMs) };
+};
 
-export const otpVerifyLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 20,
-  message: { message: 'Too many OTP verification attempts. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: buildAuthRateLimitKey,
-});
+const consumeInMemory = (key, limit, windowMs) => {
+  const { start, resetAt } = windowFor(windowMs);
+  const compoundKey = `${key}:${start.getTime()}`;
+  const current = memoryBuckets.get(compoundKey) || 0;
+  if (current >= limit) return { allowed: false, remaining: 0, resetAt };
+  memoryBuckets.set(compoundKey, current + 1);
+  return { allowed: true, remaining: limit - current - 1, resetAt };
+};
 
-export const passwordResetRequestLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  message: { message: 'Too many password reset requests. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: buildAuthRateLimitKey,
-});
+const consumeMongoBucket = async (key, limit, windowMs) => {
+  const { start, resetAt } = windowFor(windowMs);
+  const filter = { key, windowStart: start, count: { $lt: limit } };
+  const update = {
+    $setOnInsert: { key, windowStart: start, expiresAt: resetAt },
+    $inc: { count: 1 },
+  };
 
-export const passwordResetConfirmLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 15,
-  message: { message: 'Too many password reset attempts. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: buildAuthRateLimitKey,
-});
+  try {
+    const bucket = await RateLimitBucket.findOneAndUpdate(filter, update, {
+      upsert: true,
+      new: true,
+    }).lean();
+    return bucket ? { allowed: true, remaining: Math.max(0, limit - bucket.count), resetAt } : { allowed: false, remaining: 0, resetAt };
+  } catch (error) {
+    // An exhausted bucket causes an upsert duplicate-key race. Retry without
+    // upsert once: success means a concurrent first request created room;
+    // no match means the bucket really is exhausted.
+    if (error?.code !== 11000) throw error;
+    const bucket = await RateLimitBucket.findOneAndUpdate(filter, { $inc: { count: 1 } }, { new: true }).lean();
+    return bucket ? { allowed: true, remaining: Math.max(0, limit - bucket.count), resetAt } : { allowed: false, remaining: 0, resetAt };
+  }
+};
 
-export const passwordChangeLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { message: 'Too many password change attempts. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: buildAuthRateLimitKey,
-});
-
-export const verificationPhoneSendLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 5,
-  message: { message: 'Too many phone verification requests. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: buildAuthRateLimitKey,
-});
-
-export const verificationPhoneConfirmLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 20,
-  message: { message: 'Too many verification code attempts. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: buildAuthRateLimitKey,
-});
-
-export const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: { message: 'Too many login attempts. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: buildAuthRateLimitKey,
-});
+const writeRateLimitHeaders = (res, { limit, remaining, resetAt }) => {
+  const resetSeconds = Math.max(1, Math.ceil((resetAt.getTime() - Date.now()) / 1000));
+  res.set('RateLimit-Policy', `${limit};w=${resetSeconds}`);
+  res.set('RateLimit', `limit=${limit}, remaining=${remaining}, reset=${resetSeconds}`);
+  res.set('X-RateLimit-Limit', String(limit));
+  res.set('X-RateLimit-Remaining', String(remaining));
+  res.set('X-RateLimit-Reset', String(Math.ceil(resetAt.getTime() / 1000)));
+  return resetSeconds;
+};
 
 /**
- * Per-account ceiling for the login entry points, chained after loginLimiter.
- * Lower than the per-IP allowance because it is scoped to one account: a real
- * person signing in does not need ten tries per quarter hour, while an attacker
- * spraying a stolen credential list is stopped at the account no matter how
- * many addresses they come from.
+ * Production limiter backed by Mongo. Development/test fallback keeps route
+ * unit tests independent of a database; production fails closed if Mongo is
+ * unavailable instead of silently reverting to a per-instance limiter.
  */
-export const accountLoginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { message: 'Too many login attempts. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: buildAccountRateLimitKey,
-});
+export const createRateLimiter = ({ windowMs, limit, keyGenerator, message }) => async (req, res, next) => {
+  const key = keyGenerator(req);
+  try {
+    const result = mongoose.connection.readyState === 1
+      ? await consumeMongoBucket(key, limit, windowMs)
+      : process.env.NODE_ENV === 'production'
+        ? null
+        : consumeInMemory(key, limit, windowMs);
 
-export const qrSettlementLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 30,
-  message: { message: 'Too many QR payment attempts. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req) => `qr:${String(req.user?.id || req.user?.userId || ipKeyGenerator(req.ip || 'unknown'))}`,
-});
+    if (!result) return res.status(503).json({ message: 'Request protection is temporarily unavailable. Please try again shortly.' });
+
+    const retryAfter = writeRateLimitHeaders(res, { limit, ...result });
+    if (!result.allowed) {
+      res.set('Retry-After', String(retryAfter));
+      return res.status(429).json({
+        message: typeof message === 'string' ? message : message?.message || 'Too many requests. Please try again later.',
+        retryAfter,
+      });
+    }
+    return next();
+  } catch (error) {
+    console.error('Rate limiter failed:', error?.message || error);
+    return res.status(503).json({ message: 'Request protection is temporarily unavailable. Please try again shortly.' });
+  }
+};
+
+const authLimiter = (windowMs, limit, message) => createRateLimiter({ windowMs, limit, message, keyGenerator: buildAuthRateLimitKey });
+const ipLimiter = (scope, windowMs, limit, message) => createRateLimiter({ windowMs, limit, message, keyGenerator: buildIpRateLimitKey(scope) });
+
+export const registerLimiter = authLimiter(15 * 60 * 1000, 20, 'Too many registration attempts. Please try again later.');
+export const registerIpLimiter = ipLimiter('register-ip', 15 * 60 * 1000, 20, 'Too many registration attempts. Please try again later.');
+export const otpSendLimiter = authLimiter(10 * 60 * 1000, 5, 'Too many OTP requests. Please try again later.');
+export const otpSendIpLimiter = ipLimiter('otp-send-ip', 10 * 60 * 1000, 10, 'Too many OTP requests. Please try again later.');
+export const otpVerifyLimiter = authLimiter(10 * 60 * 1000, 20, 'Too many OTP verification attempts. Please try again later.');
+export const passwordResetRequestLimiter = authLimiter(15 * 60 * 1000, 5, 'Too many password reset requests. Please try again later.');
+export const passwordResetConfirmLimiter = authLimiter(15 * 60 * 1000, 15, 'Too many password reset attempts. Please try again later.');
+export const passwordChangeLimiter = authLimiter(15 * 60 * 1000, 10, 'Too many password change attempts. Please try again later.');
+export const verificationPhoneSendLimiter = authLimiter(10 * 60 * 1000, 5, 'Too many phone verification requests. Please try again later.');
+export const verificationPhoneConfirmLimiter = authLimiter(10 * 60 * 1000, 20, 'Too many verification code attempts. Please try again later.');
+export const loginLimiter = authLimiter(15 * 60 * 1000, 20, 'Too many login attempts. Please try again later.');
+export const accountLoginLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, limit: 10, message: 'Too many login attempts. Please try again later.', keyGenerator: buildAccountRateLimitKey });
+export const qrSettlementLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, limit: 30, message: 'Too many QR payment attempts. Please try again later.', keyGenerator: buildUserRateLimitKey('qr') });

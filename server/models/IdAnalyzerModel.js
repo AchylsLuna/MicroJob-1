@@ -1,5 +1,6 @@
 import multer from 'multer';
-import rateLimit from 'express-rate-limit';
+import PendingIdScan from './PendingIdScan.js';
+import { buildUserRateLimitKey, createRateLimiter } from '../lib/rateLimiters.js';
 
 export const ALLOWED_DOCUMENT_TYPES = new Set([
   'PhilSys National ID',
@@ -21,14 +22,12 @@ export const memoryUpload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-export const scanLimiter = rateLimit({
+export const scanLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
+  limit: 5,
+  message: 'Too many ID scan attempts. Please try again later.',
+  keyGenerator: buildUserRateLimitKey('id-scan'),
 });
-
-const pendingScans = new Map();
 
 export const textValue = (value) =>
   typeof value === 'string' || typeof value === 'number' ? String(value) : '';
@@ -91,15 +90,12 @@ export const buildVerificationPayload = ({ accepted, decision, profileMatch }) =
   };
 };
 
-export const savePendingScan = (userId, pending) => {
-  pendingScans.set(String(userId), {
-    ...pending,
-    expiresAt: Date.now() + PENDING_SCAN_TTL_MS,
-  });
-};
+export const savePendingScan = (userId, pending) => PendingIdScan.findOneAndUpdate(
+  { user: userId },
+  { $set: { ...pending, expiresAt: new Date(Date.now() + PENDING_SCAN_TTL_MS) } },
+  { upsert: true, new: true, setDefaultsOnInsert: true },
+).lean();
 
-export const getPendingScan = (userId) => pendingScans.get(String(userId));
+export const getPendingScan = (userId) => PendingIdScan.findOne({ user: userId }).lean();
 
-export const deletePendingScan = (userId) => {
-  pendingScans.delete(String(userId));
-};
+export const deletePendingScan = (userId) => PendingIdScan.deleteOne({ user: userId });

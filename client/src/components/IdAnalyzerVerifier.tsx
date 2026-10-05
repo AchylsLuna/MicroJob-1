@@ -56,7 +56,13 @@ export default function IdAnalyzerVerifier({ profileId, onComplete }: Props) {
         headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
       });
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body?.message || "ID scan failed.");
+      if (!response.ok) {
+        const retryAfter = Number(response.headers.get("retry-after") || body?.retryAfter);
+        const retryMessage = response.status === 429 && Number.isFinite(retryAfter) && retryAfter > 0
+          ? `Too many scan attempts. Try again in ${Math.ceil(retryAfter / 60)} minute${Math.ceil(retryAfter / 60) === 1 ? "" : "s"}.`
+          : body?.message;
+        throw new Error(retryMessage || "ID scan failed.");
+      }
       const source = body?.extracted || {};
       setFields({
         firstName: typeof source.firstName === "string" ? source.firstName : "",
