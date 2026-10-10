@@ -15,6 +15,16 @@ import { Skeleton } from "./ui/Skeleton";
 
 type LandingCategory = { _id: string; name: string };
 type HeroIntent = "work" | "hire";
+const HERO_PHOTOS = {
+  work: {
+    src: "/media/local-jobs-work.jpg",
+    alt: "Five people collaborating on a video project in a café",
+  },
+  hire: {
+    src: "/media/local-jobs-hire.jpg",
+    alt: "Five professionals discussing work together at a meeting table",
+  },
+};
 
 /**
  * Retries a job fetch a couple of times before giving up.
@@ -175,10 +185,6 @@ export function LandingPageBlue() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const navMenuRef = useRef<HTMLDivElement>(null);
 
-  // Hero image slot. Null renders the blank placeholder; set it to a path
-  // under /media/ (e.g. "/media/hero-team.webp") to show a real photo.
-  const heroPhoto: string | null = null;
-
   // "How it works" keeps its own intent so reading about hiring doesn't
   // silently retarget the hero's search box, and vice versa.
   const [howItWorksIntent, setHowItWorksIntent] = useState<HeroIntent>("hire");
@@ -292,6 +298,7 @@ export function LandingPageBlue() {
           },
     [heroIntent],
   );
+  const heroPhoto = HERO_PHOTOS[heroIntent];
 
   const chipCategories = useMemo(() => categories.slice(0, 4), [categories]);
   const chipCategoriesFull = useMemo(() => categories.slice(0, 8), [categories]);
@@ -651,7 +658,7 @@ export function LandingPageBlue() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8 }}
             >
-              {/* Intent toggle — flips the hero copy and where search sends you. */}
+              {/* Intent toggle — flips the hero copy, photo, and search destination. */}
               <div className="mb-6 inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm" role="group" aria-label="What do you want to do?">
                 {(["work", "hire"] as const).map((intent) => (
                   <button
@@ -731,7 +738,7 @@ export function LandingPageBlue() {
               </p>
             </motion.div>
 
-            {/* Right Content - Illustration */}
+            {/* Right Content - Local work */}
             <motion.div 
               initial={false}
               animate={{ opacity: 1, x: 0 }}
@@ -739,34 +746,24 @@ export function LandingPageBlue() {
               className="relative"
               style={{ scale }}
             >
-              {/* PLACEHOLDER HERO IMAGE — deliberately blank.
-                  Set `heroPhoto` to a path under /media/ to fill the slot; the
-                  grey block swaps to the image with no other change needed. No
-                  real person's photo should go in here until it is cleared with
-                  them, and note that client/public is served to anyone. */}
               <div className="relative w-full overflow-hidden rounded-[32px] border border-slate-200 bg-[#EAF1FB] p-4 shadow-[0_28px_70px_rgba(15,41,84,0.18)] sm:p-6 lg:p-7">
-                {heroPhoto ? (
-                  <img
-                    src={heroPhoto}
-                    alt=""
-                    className="aspect-[4/3] w-full rounded-[20px] object-cover"
-                  />
-                ) : (
-                  <div
-                    aria-hidden="true"
-                    className="aspect-[4/3] w-full rounded-[20px] border border-slate-200 bg-slate-100"
-                  />
-                )}
+                <img
+                  src={heroPhoto.src}
+                  alt={heroPhoto.alt}
+                  width={1280}
+                  height={853}
+                  fetchPriority="high"
+                  decoding="async"
+                  className="aspect-[4/3] w-full rounded-[20px] object-cover"
+                />
 
-                {/* Attribution is a stand-in too — replace with that person's
-                    details once the photo above is filled in. */}
                 <figure className="mt-4 rounded-[20px] border border-slate-200 bg-white p-4 shadow-[0_8px_20px_rgba(15,41,84,0.08)] sm:mt-5 sm:p-5">
                   <blockquote className="text-body-sm font-semibold leading-snug text-[#0F2954] sm:text-[15px]">
                     &ldquo;We built MicroJobs so finding real work near you doesn&rsquo;t depend on
                     who you already know.&rdquo;
                   </blockquote>
                   <p className="mt-1.5 text-[11px] text-slate-500 sm:text-caption">
-                    Team member &middot; Micro Jobs
+                    Our mission &middot; Micro Jobs
                   </p>
                 </figure>
               </div>
