@@ -85,7 +85,7 @@ interface ApiJob {
   jobType?: string;
   createdAt?: string;
   category?: { _id?: string; name?: string } | string;
-  applicants?: string[];
+  applicantCount?: number;
   requirements?: string[];
   skills?: string[];
   urgent?: boolean;
@@ -269,7 +269,7 @@ export function FindJobs() {
       id: job._id,
       title: job.title,
       company: companyName,
-      applicants: job.applicants?.length || 0,
+      applicants: job.applicantCount || 0,
       type: getJobTypeLabel(job.jobType),
       location: job.location || t("findJobs.card.locationFallback"),
       salary: salaryLabel,

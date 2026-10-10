@@ -6,18 +6,24 @@ import { createNotification } from '../lib/notificationService.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { isValidObjectId, validateMessageContent } from '../lib/messageSecurity.js';
 import { isStaffRole } from '../lib/staffProfileVisibility.js';
+import { resolvePublicId } from '../lib/publicId.js';
 import {
   buildConversationKey,
   buildInquiryMessage,
   describeInquiryConversation,
   evaluateJobInquiry,
   isJobConversationParticipant,
-  normalizeOptionalJobId,
+  normalizeOptionalJobId as normalizeJobId,
   parseConversationKey,
   toIdString,
 } from '../lib/jobInquiry.js';
 
 const getAuthUserId = (req) => req.user?.id || req.user?._id || req.user?.userId || null;
+// Keep stored conversation keys unchanged while accepting public job links.
+const normalizeOptionalJobId = (value) => {
+  const id = normalizeJobId(value);
+  return resolvePublicId(id) || id;
+};
 
 
 const getDisplayName = (user) => {
@@ -139,7 +145,7 @@ const getConversationWithUser = async (req, res) => {
 
   try {
     const userId = getAuthUserId(req);
-    const { otherUserId } = req.params;
+    const otherUserId = resolvePublicId(req.params.otherUserId);
     const jobId = normalizeOptionalJobId(req.query?.jobId);
     if (!userId) return sendError(res, 401, 'Authentication required.');
     if (!otherUserId) return sendError(res, 400, 'otherUserId required');
@@ -163,7 +169,8 @@ const MessageController = {
   // Send a message from employer to worker or vice versa
   sendMessage: async (req, res) => {
     try {
-      const { receiverId, content, jobId, clientMessageId } = req.body;
+      const { content, jobId, clientMessageId } = req.body;
+      const receiverId = resolvePublicId(req.body.receiverId);
       const senderId = getAuthUserId(req);
       const { content: trimmedContent, error: contentError } = validateMessageContent(content);
       const normalizedJobId = normalizeOptionalJobId(jobId);
@@ -243,7 +250,7 @@ const MessageController = {
   startJobInquiry: async (req, res) => {
     try {
       const senderId = getAuthUserId(req);
-      const jobId = normalizeOptionalJobId(req.params?.jobId || req.body?.jobId);
+      const jobId = resolvePublicId(req.params?.jobId || req.body?.jobId);
       if (!senderId) return sendError(res, 401, 'Authentication required.');
       if (!jobId || !isValidObjectId(jobId)) return sendError(res, 400, 'A valid jobId is required.');
 
@@ -417,7 +424,8 @@ const MessageController = {
   getMessages: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
-      const { otherUserId, jobId } = req.query;
+      const { jobId } = req.query;
+      const otherUserId = resolvePublicId(req.query.otherUserId);
       const normalizedJobId = normalizeOptionalJobId(jobId);
       if (!userId) return sendError(res, 401, 'Authentication required.');
       if (!otherUserId) return sendError(res, 400, 'otherUserId required');
@@ -439,7 +447,8 @@ const MessageController = {
   markAsRead: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
-      const { otherUserId, jobId, read } = req.body;
+      const { jobId, read } = req.body;
+      const otherUserId = resolvePublicId(req.body.otherUserId);
       const normalizedJobId = normalizeOptionalJobId(jobId);
       if (!userId) return sendError(res, 401, 'Authentication required.');
       if (!otherUserId) return sendError(res, 400, 'otherUserId required');
@@ -473,7 +482,8 @@ const MessageController = {
   blockUser: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
-      const { otherUserId, jobId } = req.body;
+      const { jobId } = req.body;
+      const otherUserId = resolvePublicId(req.body.otherUserId);
       if (!userId) return sendError(res, 401, 'Authentication required.');
       if (!otherUserId || !isValidObjectId(otherUserId)) return sendError(res, 400, 'A valid otherUserId is required.');
       const normalizedJobId = normalizeOptionalJobId(jobId);
@@ -500,7 +510,7 @@ const MessageController = {
   unblockUser: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
-      const { otherUserId } = req.body;
+      const otherUserId = resolvePublicId(req.body.otherUserId);
       if (!userId) return sendError(res, 401, 'Authentication required.');
       if (!otherUserId || !isValidObjectId(otherUserId)) return sendError(res, 400, 'A valid otherUserId is required.');
       await User.updateOne({ _id: userId }, { $pull: { blockedUsers: otherUserId } });
@@ -517,7 +527,8 @@ const MessageController = {
   archiveConversation: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
-      const { otherUserId, jobId, archive } = req.body;
+      const { jobId, archive } = req.body;
+      const otherUserId = resolvePublicId(req.body.otherUserId);
       if (!userId) return sendError(res, 401, 'Authentication required.');
       if (!otherUserId) return sendError(res, 400, 'otherUserId required');
       const normalizedJobId = normalizeOptionalJobId(jobId);
@@ -595,7 +606,8 @@ const MessageController = {
   deleteConversationForBoth: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
-      const { otherUserId, jobId } = req.body;
+      const { jobId } = req.body;
+      const otherUserId = resolvePublicId(req.body.otherUserId);
       if (!userId) return sendError(res, 401, 'Authentication required.');
       if (!otherUserId || !isValidObjectId(otherUserId)) return sendError(res, 400, 'A valid otherUserId is required');
       const normalizedJobId = normalizeOptionalJobId(jobId);

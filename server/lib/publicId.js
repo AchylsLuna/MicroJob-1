@@ -90,3 +90,11 @@ export function decodePublicId(token) {
   }
   return block.subarray(0, OBJECT_ID_BYTES).toString('hex');
 }
+
+/** Decode an external identifier, accepting legacy ObjectId links as well. */
+export function resolvePublicId(value) {
+  if (!value) return null;
+  const raw = String(value);
+  if (/^[0-9a-f]{24}$/i.test(raw)) return raw;
+  return decodePublicId(raw);
+}

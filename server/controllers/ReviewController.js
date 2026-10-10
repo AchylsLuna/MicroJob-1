@@ -4,6 +4,7 @@ import JobApplication from '../models/JobApplication.js';
 import { createNotification } from '../lib/notificationService.js';
 import { getReviewSummary } from '../lib/reviewSummary.js';
 import { serializeReview } from '../lib/reviewPresentation.js';
+import { resolvePublicId } from '../lib/publicId.js';
 
 const getUserId = (req) => req.user?.id || req.user?.userId || null;
 const HIRED_STATUSES = new Set(['Hired', 'Accepted']);
@@ -116,7 +117,7 @@ export async function createReview(req, res) {
 
 export async function getUserReviews(req, res) {
   try {
-    const { userId } = req.params;
+    const userId = resolvePublicId(req.params.userId);
     const revieweeRole = req.query?.as === 'employer' ? 'employer' : 'worker';
     const sort = ['recent', 'highest', 'lowest', 'helpful'].includes(req.query?.sort)
       ? req.query.sort

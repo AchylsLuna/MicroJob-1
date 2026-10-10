@@ -29,6 +29,7 @@ export type Job = {
   category?: { _id: string; name: string } | string;
   jobPoster?: { _id?: string; id?: string; firstName?: string; lastName?: string; email?: string };
   applicationStatus?: string | null;
+  isOwnJob?: boolean;
   /**
    * Only present on results from /jobs/recommended. The ordinary jobs list
    * leaves this undefined, which is what keeps the match pill off those cards.
@@ -568,10 +569,7 @@ export default function Jobs(props: JobsProps) {
             const canMessageEmployer = Boolean(
               job.jobPoster &&
                 currentUserId &&
-                !(
-                  (typeof job.jobPoster === 'string' && job.jobPoster === currentUserId) ||
-                  (typeof job.jobPoster === 'object' && (job.jobPoster._id === currentUserId || job.jobPoster.id === currentUserId))
-                ),
+                !job.isOwnJob,
             );
             return (
               <JobCard

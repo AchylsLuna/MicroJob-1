@@ -8,6 +8,8 @@ import { scoreJobForWorker } from '../lib/jobMatching.js';
 import { getWorkerProfileRequirementError } from '../lib/profileCompleteness.js';
 import { getReviewSummaries } from '../lib/reviewSummary.js';
 import JobOffer from '../models/JobOffer.js';
+import { encodePublicId, resolvePublicId } from '../lib/publicId.js';
+import { serializePublicJob } from '../lib/jobDiscovery.js';
 import {
   APPLICATION_STATUSES,
   getApplicationTimelineLabel,
@@ -66,6 +68,7 @@ const serializeApplication = (application) => {
   if (!obj) return null;
   return {
     ...obj,
+    job: obj.job?.title !== undefined ? serializePublicJob(obj.job) : encodePublicId(obj.job),
     nextInterview: getNextInterview(obj),
   };
 };
@@ -275,10 +278,11 @@ async function notifyApplicantStatusChange(application, actorId, title, message)
 
 export const applyForJob = async (req, res) => {
   try {
-    const { jobId } = req.params;
+    const jobId = resolvePublicId(req.params.jobId);
     const { resume, coverLetter } = req.body || {};
     const userId = getUserId(req);
     if (!userId) return sendError(res, 401, 'Authentication required');
+    if (!jobId) return sendError(res, 400, 'A valid job id is required.');
 
     const job = await Job.findById(jobId);
     if (!job) {
@@ -565,7 +569,12 @@ export const getEmployerApplications = async (req, res) => {
       filter.status = canonicalStatus;
     }
     if (jobId && jobId !== 'All') {
-      filter.job = jobId;
+      const resolvedJobId = resolvePublicId(jobId);
+      if (!resolvedJobId) return sendError(res, 400, 'A valid job id is required.');
+      if (!jobIds.some((id) => String(id) === resolvedJobId)) {
+        return sendError(res, 403, 'Not authorized to view applicants for this job.');
+      }
+      filter.job = resolvedJobId;
     }
 
     let applications = await populateEmployerApplicationQuery(

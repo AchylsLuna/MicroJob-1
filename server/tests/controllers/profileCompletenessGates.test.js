@@ -10,6 +10,7 @@ import JobApplication from '../../models/JobApplication.js';
 import Transaction from '../../models/Transaction.js';
 import { createJob, deleteJob } from '../../controllers/JobController.js';
 import { applyForJob } from '../../controllers/JobApplicationController.js';
+import { resolvePublicId } from '../../lib/publicId.js';
 
 let mongoServer;
 
@@ -102,17 +103,19 @@ test('posting and highlight fees are charged separately and are not returned whe
   assert.equal(createRes.payload.job.highlighted, true);
   assert.equal(createRes.payload.job.postingFee, 20);
   assert.equal(createRes.payload.job.highlightFee, 50);
+  const storedJobId = resolvePublicId(createRes.payload.job._id);
+  assert.ok(storedJobId);
   assert.equal((await User.findById(employer._id)).employerBalance, 430);
   assert.deepEqual(
-    (await Transaction.find({ jobReference: createRes.payload.job._id }).sort({ amount: 1 })).map((tx) => [tx.type, tx.amount]),
+    (await Transaction.find({ jobReference: storedJobId }).sort({ amount: 1 })).map((tx) => [tx.type, tx.amount]),
     [['POSTING_FEE', 20], ['POSTING_FEE', 50], ['ESCROW', 500]],
   );
   assert.deepEqual(
-    (await Transaction.find({ jobReference: createRes.payload.job._id }).sort({ reference: 1 })).map((tx) => tx.reference),
+    (await Transaction.find({ jobReference: storedJobId }).sort({ reference: 1 })).map((tx) => tx.reference),
     [
-      `job-escrow:${createRes.payload.job._id}`,
-      `job-highlight-fee:${createRes.payload.job._id}`,
-      `job-posting-fee:${createRes.payload.job._id}`,
+      `job-escrow:${storedJobId}`,
+      `job-highlight-fee:${storedJobId}`,
+      `job-posting-fee:${storedJobId}`,
     ].sort(),
     'every job-posting ledger entry has its own stable reference',
   );
@@ -144,9 +147,11 @@ test('an administrator can delete a job and returns its remaining escrow to the 
   );
 
   assert.equal(deleteRes.statusCode, 200);
-  assert.equal(await Job.exists({ _id: createRes.payload.job._id }), null);
+  const storedJobId = resolvePublicId(createRes.payload.job._id);
+  assert.ok(storedJobId);
+  assert.equal(await Job.exists({ _id: storedJobId }), null);
   assert.equal((await User.findById(employer._id)).employerBalance, 980);
-  const refunds = await Transaction.find({ jobReference: createRes.payload.job._id, type: 'REFUND' });
+  const refunds = await Transaction.find({ jobReference: storedJobId, type: 'REFUND' });
   assert.equal(refunds.length, 1);
   assert.equal(refunds[0].amount, 500);
   assert.match(refunds[0].reference, /^job-delete-refund:/);

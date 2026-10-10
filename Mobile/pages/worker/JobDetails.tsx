@@ -76,19 +76,6 @@ export default function JobDetails({
   const toast = useToast();
   const { t } = useTranslation('worker');
 
-  const getCurrentUserId = async () => {
-    const raw = await AsyncStorage.getItem('auth_user');
-    if (!raw) return '';
-    const parsed = JSON.parse(raw);
-    return String(parsed?.id || parsed?._id || parsed?.userId || '').trim();
-  };
-
-  const resolveApplicantId = (value: any) => {
-    if (!value) return '';
-    if (typeof value === 'string') return value;
-    return String(value?._id || value?.id || value?.userId || '').trim();
-  };
-
   const handleTabPress = (tab: string) => {
     onTabPress?.(tab);
   };
@@ -287,15 +274,8 @@ export default function JobDetails({
       const data = asObject<any>(result.data) || asObject<any>(result.raw) || {};
       setJobDetails(data);
 
-      const userId = await getCurrentUserId();
-        setApplicationStatus(data?.applicationStatus || null);
-        if (userId) {
-        const applicants = Array.isArray(data?.applicants) ? data.applicants : [];
-        const alreadyApplied = applicants.some((applicant: any) => resolveApplicantId(applicant) === userId);
-        setHasApplied(Boolean(data?.applicationStatus) || alreadyApplied);
-      } else {
-        setHasApplied(false);
-      }
+      setApplicationStatus(data?.applicationStatus || null);
+      setHasApplied(Boolean(data?.applicationStatus));
     } catch (error: any) {
       setErrorMessage(error?.message || t('jobDetails.apiFallback.loadJobFailed'));
     } finally {

@@ -7,6 +7,7 @@ import PushDevice from "../models/PushDevice.js";
 import SavedJob from "../models/SavedJob.js";
 import Notification from "../models/Notification.js";
 import { getPublicProfileAccessError } from "../lib/staffProfileVisibility.js";
+import { resolvePublicId } from "../lib/publicId.js";
 import { getEmailTransporter, getMailFrom } from "../lib/emailTransporter.js";
 import { disconnectSession } from "../lib/socket.js";
 import { deleteStoredUpload } from "../lib/uploadStore.js";
@@ -860,7 +861,7 @@ const isProfileFullyVerified = (verification) => (
 export async function getPublicProfile(req, res) {
     try {
         const requesterId = req.user?.id || req.user?.userId;
-        const { userId } = req.params || {};
+        const userId = resolvePublicId(req.params?.userId);
         const viewer = normalizeViewerRole(String(req.query?.viewAs || "").toLowerCase());
 
         if (!requesterId) {

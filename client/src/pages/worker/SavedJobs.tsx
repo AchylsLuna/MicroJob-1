@@ -112,7 +112,7 @@ const mapSavedJob = (t: TFunction, record: SavedJobRecord): SavedJobView | null 
     location: String(job.location || t("savedJobs.card.remoteLocation")),
     workMode: getWorkMode(job),
     postedLabel: formatPostedLabel(t, job.createdAt || record.savedAt || record.createdAt),
-    applicants: Array.isArray(job.applicants) ? job.applicants.length : 0,
+    applicants: job.applicantCount || 0,
     logo: company.charAt(0).toUpperCase() || "M",
     deadline: formatDeadline(t, job.deadline),
     requirements,

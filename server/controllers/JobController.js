@@ -24,12 +24,10 @@ import {
     sortByProximity,
     serializeApplicant,
     serializePublicJob,
+    serializeOwnedJob,
 } from '../lib/jobDiscovery.js';
-import {
-    resolveCategoryId,
-    withPublicCategories,
-    withPublicCategory,
-} from '../lib/categoryPresentation.js';
+import { resolveCategoryId } from '../lib/categoryPresentation.js';
+import { resolvePublicId } from '../lib/publicId.js';
 
 const getRequesterId = (req) => req.user?.id || req.user?.userId || null;
 const getRequesterRole = (req) => String(req.user?.role || '').toLowerCase();
@@ -49,7 +47,7 @@ const getDiscoveryCity = (req) => resolveDiscoveryCity({
 /** Attaches the proximity tag the client uses to group "nearest in your city". */
 const withProximity = (jobs, locality, rankingOptions = {}) =>
     jobs.map((job) => ({
-        ...serializePublicJob(job),
+        ...serializePublicJob(job, { viewerId: rankingOptions.viewerId }),
         discoveryPriority: getDiscoveryPriority(job, rankingOptions),
         proximity: proximityOf(job, locality),
     }));
@@ -119,7 +117,7 @@ export async function getJobList(req, res) {
         res.status(200).json(withProximity(
             sortByProximity(jobsWithApplicationStatus, discovery, { prioritizeVerifiedEmployers }),
             discovery,
-            { prioritizeVerifiedEmployers },
+            { prioritizeVerifiedEmployers, viewerId: getRequesterId(req) },
         ));
     } catch (error) {
         console.error('Get jobs error:', error);
@@ -134,7 +132,8 @@ export async function getAvailableJobs(req, res){
             .populate('category', 'name')
             .populate('jobPoster', PUBLIC_JOB_POSTER_SELECT)
             .lean();
-        res.status(200).json(withProximity(sortByProximity(jobs, discovery), discovery));
+        const jobsWithStatus = await withApplicationStatus(jobs, getRequesterId(req));
+        res.status(200).json(withProximity(sortByProximity(jobsWithStatus, discovery), discovery, { viewerId: getRequesterId(req) }));
     } catch (error) {
         res.status(500).json({message: "Failed to get available jobs."})
     }
@@ -154,7 +153,8 @@ export async function getJobByCategory(req, res) {
         if(!jobs || jobs.length === 0) {
             return res.status(404).json({message: "No jobs were found for this category."});
         }
-        res.status(200).json(withProximity(sortByProximity(jobs, discovery), discovery));
+        const jobsWithStatus = await withApplicationStatus(jobs, getRequesterId(req));
+        res.status(200).json(withProximity(sortByProximity(jobsWithStatus, discovery), discovery, { viewerId: getRequesterId(req) }));
     } catch (error) {
         res.status(500).json({message: "Failed to get jobs."});
     }
@@ -162,14 +162,15 @@ export async function getJobByCategory(req, res) {
 
 export async function getJobDetails(req, res){
     try {
-        const {id} = req.params;
+        const id = resolvePublicId(req.params.id);
+        if (!id) return res.status(400).json({ message: 'A valid job id is required.' });
         const job = await Job.findById(id)
             .populate('category', 'name')
             .populate('jobPoster', `${PUBLIC_JOB_POSTER_SELECT} verification`);
         if(!job) {
             return res.status(404).json({message: "Job not found."});
         }
-        const serializedJob = serializePublicJob(job);
+        const serializedJob = serializePublicJob(job, { viewerId: getRequesterId(req) });
         if (getRequesterId(req)) {
             const application = await JobApplication.findOne({
                 job: job._id,
@@ -193,7 +194,8 @@ export async function getJobDetails(req, res){
 
 export async function getApplicantsList(req, res){
     try {
-        const {jobId} = req.params;
+        const jobId = resolvePublicId(req.params.jobId);
+        if (!jobId) return res.status(400).json({ message: 'A valid job id is required.' });
         const requesterId = getRequesterId(req);
         const requesterRole = getRequesterRole(req);
         const job = await Job.findById(jobId)
@@ -410,7 +412,7 @@ export async function createJob(req, res){
         }
         try { const monitor = await import('../lib/monitor.js'); await monitor.default.audit({ actor: poster._id, action: 'job_escrow', ip: req.ip || null, userAgent: req.get('user-agent'), amount: totalEscrow, status: 'success', meta: { job: newJob._id } }); } catch (e) {}
 
-        res.status(201).json({message: "Job created and funds secured.", job: newJob});
+        res.status(201).json({message: "Job created and funds secured.", job: serializeOwnedJob(newJob)});
     } catch (error) {
         console.error('Create job error:', error);
         res.status(500).json({message: "Failed to create job.", error: error.message});
@@ -419,7 +421,8 @@ export async function createJob(req, res){
 
 export async function changeJobStatus(req, res){
     try {
-        const {id} = req.params;
+        const id = resolvePublicId(req.params.id);
+        if (!id) return res.status(400).json({ message: 'A valid job id is required.' });
         const {status} = req.body;
         const requesterId = getRequesterId(req);
         const requesterRole = getRequesterRole(req);
@@ -696,7 +699,7 @@ export async function changeJobStatus(req, res){
             );
         }
 
-        res.status(200).json({message: "Job status updated.", job});
+        res.status(200).json({message: "Job status updated.", job: serializeOwnedJob(job)});
     } catch (error) {
         res.status(500).json({message: "Failed to change job status."});
     }
@@ -704,8 +707,10 @@ export async function changeJobStatus(req, res){
 
 export async function selectApplicant(req, res){
     try {
-        const {jobId, applicantId} = req.params,
-        job = await Job.findById(jobId);
+        const jobId = resolvePublicId(req.params.jobId);
+        if (!jobId) return res.status(400).json({ message: 'A valid job id is required.' });
+        const { applicantId } = req.params;
+        const job = await Job.findById(jobId);
         const requesterId = getRequesterId(req);
         const requesterRole = getRequesterRole(req);
         if(!job) {
@@ -724,7 +729,7 @@ export async function selectApplicant(req, res){
             { job: job._id, applicant: applicantId },
             { $set: { status: 'Hired', applicantReadAt: null } }
         );
-        res.status(200).json({message: "Applicant selected successfully.", job});
+        res.status(200).json({message: "Applicant selected successfully.", job: serializeOwnedJob(job)});
     } catch (error) {
         res.status(500).json({message: "Failed to select an applicant."});
     }
@@ -733,10 +738,12 @@ export async function selectApplicant(req, res){
 export async function getMyJobs(req, res) {
     try {
         const userId = req.user.id;
+        // The owner response keeps hiring fields but uses the same public job id.
         const jobs = await Job.find({ jobPoster: userId })
             .populate('category', 'name')
-            .sort({ createdAt: -1 });
-        res.status(200).json(jobs);
+            .sort({ createdAt: -1 })
+            .lean();
+        res.status(200).json(jobs.map(serializeOwnedJob));
     } catch (error) {
         console.error('Get my jobs error:', error);
         res.status(500).json({ message: 'Failed to get my jobs.', error: error.message });
@@ -745,7 +752,8 @@ export async function getMyJobs(req, res) {
 
 export async function updateJob(req, res) {
     try {
-        const { id } = req.params;
+        const id = resolvePublicId(req.params.id);
+        if (!id) return res.status(400).json({ message: 'A valid job id is required.' });
         const userId = req.user?.id;
 
         const job = await Job.findById(id);
@@ -913,7 +921,7 @@ export async function updateJob(req, res) {
             .populate('jobPoster', 'firstName lastName email')
             .lean();
 
-        return res.status(200).json({ message: "Job updated successfully.", job: withPublicCategory(updated) });
+        return res.status(200).json({ message: "Job updated successfully.", job: serializeOwnedJob(updated) });
     } catch (error) {
         console.error('Update job error:', error);
         return res.status(500).json({ message: "Failed to update job.", error: error.message });
@@ -922,7 +930,8 @@ export async function updateJob(req, res) {
 
 export async function deleteJob(req, res) {
     try {
-        const { id } = req.params;
+        const id = resolvePublicId(req.params.id);
+        if (!id) return res.status(400).json({ message: 'A valid job id is required.' });
         const userId = getRequesterId(req);
         const requesterRole = getRequesterRole(req);
 
@@ -1026,7 +1035,8 @@ export async function deleteJob(req, res) {
 
 export async function reopenJob(req, res) {
     try {
-        const { id } = req.params;
+        const id = resolvePublicId(req.params.id);
+        if (!id) return res.status(400).json({ message: 'A valid job id is required.' });
         const userId = req.user?.id;
         const requesterRole = getRequesterRole(req);
 
@@ -1110,7 +1120,7 @@ export async function reopenJob(req, res) {
             console.warn('Failed to remove old applications on reopen', e);
         }
 
-        return res.status(200).json({ message: 'Job reopened successfully.', job });
+        return res.status(200).json({ message: 'Job reopened successfully.', job: serializeOwnedJob(job) });
     } catch (error) {
         console.error('Reopen job error:', error);
         return res.status(500).json({ message: 'Failed to reopen job.', error: error.message });

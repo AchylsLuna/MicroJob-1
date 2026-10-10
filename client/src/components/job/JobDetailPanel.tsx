@@ -34,7 +34,8 @@ type ApiJob = {
   responsibilities?: string[];
   requirements?: string[];
   skills?: string[];
-  applicants?: string[];
+  applicantCount?: number;
+  applicationStatus?: string | null;
   employerVerified?: boolean;
   jobPoster?: { _id?: string; firstName?: string; lastName?: string; email?: string };
 };
@@ -182,11 +183,7 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
         if (!isMounted) return;
         const jobData = data as ApiJob;
         setJob(jobData);
-        // Check if the current user has already applied by inspecting the applicants array
-        if (user?.id && Array.isArray(jobData.applicants)) {
-          const alreadyApplied = jobData.applicants.map(String).includes(String(user.id));
-          if (alreadyApplied) setHasApplied(true);
-        }
+        setHasApplied(Boolean(jobData.applicationStatus));
       } catch (error: any) {
         if (!isMounted) return;
         setLoadError(error?.message || t("jobDetails.loadError"));
@@ -521,7 +518,7 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
                   </div>
                   <div>
                     <p className="text-body text-[#6B7280]">{t("jobDetails.overview.totalApplicants")}</p>
-                    <p className="text-[16px] font-semibold text-[#111827]">{t("jobDetails.overview.applicantsCount", { count: job.applicants?.length || 0 })}</p>
+                    <p className="text-[16px] font-semibold text-[#111827]">{t("jobDetails.overview.applicantsCount", { count: job.applicantCount || 0 })}</p>
                   </div>
                 </div>
 
