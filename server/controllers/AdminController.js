@@ -6,6 +6,11 @@ import Category from '../models/Category.js';
 import PayoutRequest from '../models/PayoutRequest.js';
 import SupportTicket from '../models/SupportTicket.js';
 import AuditLog from '../models/AuditLog.js';
+import {
+  CATEGORY_PUBLIC_FIELDS,
+  serializeCategories,
+  withPublicCategories,
+} from '../lib/categoryPresentation.js';
 
 export async function getAdminStats(req, res) {
   try {
@@ -171,7 +176,7 @@ export async function getAdminJobs(req, res) {
       })
     );
 
-    res.status(200).json(jobsWithCounts);
+    res.status(200).json(withPublicCategories(jobsWithCounts));
   } catch (error) {
     console.error('Get admin jobs error:', error);
     res.status(500).json({ message: 'Failed to fetch jobs', error: error.message });
@@ -180,8 +185,8 @@ export async function getAdminJobs(req, res) {
 
 export async function getAdminCategories(req, res) {
   try {
-    const categories = await Category.find({}).lean();
-    res.status(200).json(categories);
+    const categories = await Category.find({}, CATEGORY_PUBLIC_FIELDS).lean();
+    res.status(200).json(serializeCategories(categories));
   } catch (error) {
     console.error('Get categories error:', error);
     res.status(500).json({ message: 'Failed to fetch categories', error: error.message });

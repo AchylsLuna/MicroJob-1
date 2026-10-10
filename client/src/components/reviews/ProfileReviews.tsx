@@ -8,6 +8,7 @@ import {
   type ReviewSort,
   type ReviewSummary,
 } from '../../services/api';
+import { Avatar } from '../ui/Avatar';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from '../../lib/toast';
 import { ROUTES } from '../../utils/routes';
@@ -193,7 +194,12 @@ export function ProfileReviews({
               <article key={review._id} className="rounded-card border border-slate-200 p-4 md:p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-100 font-bold text-brand-800">{reviewerName.charAt(0).toUpperCase()}</div>
+                    <Avatar
+                      name={reviewerName}
+                      userId={review.reviewer?._id}
+                      avatarUrl={review.reviewer?.avatarUrl}
+                      size={44}
+                    />
                     <div className="min-w-0">
                       {review.reviewer?._id ? (
                         <button type="button" onClick={() => navigate(`${ROUTES.publicProfile(review.reviewer!._id!)}?viewAs=${review.reviewerRole}`)} className="truncate text-left text-sm font-bold text-slate-950 hover:text-brand-700 hover:underline">{reviewerName}</button>

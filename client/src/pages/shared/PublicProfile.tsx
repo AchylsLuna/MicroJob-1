@@ -8,6 +8,7 @@ import { safeExternalUrl } from "../../utils/safeExternalUrl";
 import { toAbsoluteAssetUrl } from "../../lib/assetUrl";
 import { ProfileReviewsLoader } from "../../components/reviews/ProfileReviewsLoader";
 import { StatTile } from "../../components/ui";
+import { Avatar } from "../../components/ui/Avatar";
 import verifiedBadgeUrl from "../../assets/verified-badge.svg";
 
 type PublicProfileResponse = {
@@ -155,17 +156,17 @@ export function PublicProfile() {
         {!isLoading && !error && data?.profile ? (
           <div className="space-y-6">
             <div className="flex items-start gap-4">
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={fullName}
-                  className="w-20 h-20 rounded-card object-cover border border-[#E2E8F0]"
-                />
-              ) : (
-                <div className="w-20 h-20 rounded-card bg-brand/10 text-brand font-bold text-2xl flex items-center justify-center">
-                  {fullName.charAt(0).toUpperCase()}
-                </div>
-              )}
+              {/* Already-resolved URL is safe to pass: toAbsoluteAssetUrl is
+                  idempotent on absolute URLs, and Avatar needs to own the
+                  resolve/onError pair so a 404 degrades to the monogram. */}
+              <Avatar
+                name={fullName}
+                userId={data.profile.id}
+                avatarUrl={avatarUrl}
+                size={80}
+                shape="card"
+                className="border border-[#E2E8F0]"
+              />
 
               <div className="flex-1">
                 <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold text-[#0F172A]">

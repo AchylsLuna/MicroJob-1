@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Mail, MapPin } from "lucide-react";
 import verifiedBadgeUrl from "../../assets/verified-badge.svg";
+import { Avatar } from "../ui/Avatar";
 
 /**
  * The header shared by the worker and employer Profile pages.
@@ -85,17 +86,16 @@ export function ProfileHeader({
       <div className="px-6 pb-6 sm:px-8">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 flex-col items-start gap-4 sm:flex-row sm:gap-6">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={name}
-                className="-mt-12 h-28 w-28 shrink-0 rounded-full border-4 border-white object-cover shadow-md"
-              />
-            ) : (
-              <div className="-mt-12 flex h-28 w-28 shrink-0 items-center justify-center rounded-full border-4 border-white bg-brand shadow-md">
-                <span className="text-[36px] font-bold text-white">{initials}</span>
-              </div>
-            )}
+            {/* Avatar owns the resolve/onError pair, so a stored upload path
+                that has stopped resolving falls back to the monogram instead
+                of leaving a broken-image box in the cover band. */}
+            <Avatar
+              name={name}
+              initials={initials}
+              avatarUrl={avatarUrl}
+              size={112}
+              className="-mt-12 border-4 border-white shadow-md"
+            />
 
             <div className="min-w-0 pt-1 sm:pt-4">
               <h1 className="flex min-w-0 items-center gap-2 text-[26px] font-bold text-[#0F172A]">

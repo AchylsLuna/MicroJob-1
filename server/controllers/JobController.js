@@ -25,6 +25,11 @@ import {
     serializeApplicant,
     serializePublicJob,
 } from '../lib/jobDiscovery.js';
+import {
+    resolveCategoryId,
+    withPublicCategories,
+    withPublicCategory,
+} from '../lib/categoryPresentation.js';
 
 const getRequesterId = (req) => req.user?.id || req.user?.userId || null;
 const getRequesterRole = (req) => String(req.user?.role || '').toLowerCase();
@@ -70,9 +75,15 @@ export async function getJobList(req, res) {
 
         let filter = {};
         
-        // Filter by category
+        // Filter by category. The client sends the opaque public id, so it is
+        // decoded here; an unresolvable one must not fall through to an
+        // unfiltered list, which would silently show every job instead.
         if (category && category !== 'All') {
-            filter.category = category;
+            const categoryId = resolveCategoryId(category);
+            if (!categoryId) {
+                return res.status(400).json({ message: 'Please select a valid job category.' });
+            }
+            filter.category = categoryId;
         }
         
         // Filter by job type
@@ -131,8 +142,12 @@ export async function getAvailableJobs(req, res){
 export async function getJobByCategory(req, res) {
     try {
         const {categoryId} = req.params;
+        const resolvedCategoryId = resolveCategoryId(categoryId);
+        if (!resolvedCategoryId) {
+            return res.status(400).json({message: "Please select a valid job category."});
+        }
         const discovery = await getDiscoveryCity(req);
-        const jobs = await Job.find({ category: categoryId })
+        const jobs = await Job.find({ category: resolvedCategoryId })
             .populate('category', 'name')
             .populate('jobPoster', PUBLIC_JOB_POSTER_SELECT)
             .lean();
@@ -253,10 +268,14 @@ export async function createJob(req, res){
             });
         }
 
-        if (!mongoose.Types.ObjectId.isValid(String(category))) {
+        // The client submits the opaque public id, so decode before validating.
+        // resolveCategoryId returns null for a malformed or foreign-key token,
+        // which the ObjectId check below then rejects.
+        const resolvedCategory = resolveCategoryId(category);
+        if (!resolvedCategory || !mongoose.Types.ObjectId.isValid(String(resolvedCategory))) {
             return res.status(400).json({ message: 'Please select a valid job category.' });
         }
-        const categoryExists = await Category.exists({ _id: category });
+        const categoryExists = await Category.exists({ _id: resolvedCategory });
         if (!categoryExists) {
             return res.status(400).json({ message: 'Selected job category was not found.' });
         }
@@ -326,7 +345,8 @@ export async function createJob(req, res){
             skills: skills || [],
             responsibilities: responsibilities || [],
             requirements: requirements || [],
-            category,
+            // The decoded ObjectId, never the public token the client sent.
+            category: resolvedCategory,
             image,
             jobPoster: jobPosterId,
             urgent: Boolean(urgent),
@@ -771,9 +791,13 @@ export async function updateJob(req, res) {
                     value = parsed;
                 }
                 if (key === "category") {
-                    if (!mongoose.Types.ObjectId.isValid(String(value)) || !(await Category.exists({ _id: value }))) {
+                    // Decode the public token and write the real ObjectId back
+                    // onto `value`, which is what gets persisted below.
+                    const resolved = resolveCategoryId(value);
+                    if (!resolved || !mongoose.Types.ObjectId.isValid(String(resolved)) || !(await Category.exists({ _id: resolved }))) {
                         return res.status(400).json({ message: "Please select a valid job category." });
                     }
+                    value = resolved;
                 }
                 if (key === "salary") {
                     const amount = parseMinimumPay(value);
@@ -886,9 +910,10 @@ export async function updateJob(req, res) {
 
         const updated = await Job.findByIdAndUpdate(id, updates, { returnDocument: 'after' })
             .populate('category', 'name')
-            .populate('jobPoster', 'firstName lastName email');
+            .populate('jobPoster', 'firstName lastName email')
+            .lean();
 
-        return res.status(200).json({ message: "Job updated successfully.", job: updated });
+        return res.status(200).json({ message: "Job updated successfully.", job: withPublicCategory(updated) });
     } catch (error) {
         console.error('Update job error:', error);
         return res.status(500).json({ message: "Failed to update job.", error: error.message });

@@ -66,6 +66,16 @@ app.use((req, res, next) => {
 });
 
 app.use(morgan(isProduction ? ':method :status :response-time ms' : 'dev'));
+
+// CORS runs ahead of body parsing, sanitising and CSRF because those can all
+// end a request on their own. Mounted after them (as it was), a 403 from
+// csrfForCookieSession or a 400 from a malformed JSON body was written without
+// Access-Control-Allow-Origin, so the browser discarded the response and
+// reported a CORS failure -- hiding the real status and message from the
+// client, and sending anyone debugging it to the CORS config instead of the
+// actual cause. Preflight itself was never affected: csrf.js short-circuits
+// OPTIONS. Keep this above the parsers.
+app.use(buildCorsMiddleware({ isProduction, allowedOrigins }));
 // The raw buffer is kept because PaymentController's PayMongo webhook must
 // verify an HMAC over the exact bytes that were signed. req.body is parsed and
 // then rewritten by the sanitize middleware below, so it cannot stand in.
@@ -77,8 +87,6 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(sanitize);
 app.use(csrfForCookieSession);
-
-app.use(buildCorsMiddleware({ isProduction, allowedOrigins }));
 
 app.get('/api/health', (req, res) => {
 	res.json({

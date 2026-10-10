@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { Avatar } from "./ui/Avatar";
 import {
   ArchiveRestore,
   BadgeDollarSign,
@@ -505,17 +506,19 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
         <button onClick={() => navigate(effectiveRole === "user" ? ROUTES.worker.profile : dashboardPath)} className="flex min-h-16 w-full items-center justify-between gap-3 rounded-card border border-slate-200 bg-slate-50 p-3 text-slate-900 transition hover:border-brand-200 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand [@media(max-height:700px)]:min-h-11 [@media(max-height:700px)]:p-1">
           <div className="flex items-center gap-3">
-            {authUser?.avatarUrl ? (
-              <img
-                src={authUser.avatarUrl}
-                alt="Profile"
-                className="h-10 w-10 flex-shrink-0 rounded-full object-cover [@media(max-height:700px)]:h-8 [@media(max-height:700px)]:w-8"
-              />
-            ) : (
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-brand-700 text-sm font-bold text-white [@media(max-height:700px)]:h-8 [@media(max-height:700px)]:w-8">
-                {displayUserName.slice(0, 2).toUpperCase()}
-              </div>
-            )}
+            {/* This was the one avatar in the app rendering `avatarUrl` raw:
+                without toAbsoluteAssetUrl a stored "/uploads/..." path resolves
+                against the web origin, so a split-origin VITE_API_BASE 404s,
+                and with no onError it showed a broken-image icon rather than
+                the initials beside it. Avatar owns both halves.
+                `size={null}` because this box shrinks on short viewports and an
+                inline width would beat the max-height utilities. */}
+            <Avatar
+              name={displayUserName}
+              avatarUrl={authUser?.avatarUrl}
+              size={null}
+              className="h-10 w-10 flex-shrink-0 text-sm [@media(max-height:700px)]:h-8 [@media(max-height:700px)]:w-8"
+            />
             {(mobile || !isCollapsed) && (
               <div className="text-left">
                 <p className="text-xs text-slate-500">Welcome back</p>

@@ -1,4 +1,5 @@
 import User from '../models/User.js';
+import { withPublicCategory } from './categoryPresentation.js';
 
 export const PUBLIC_JOB_POSTER_SELECT = '_id firstName lastName companyName avatarUrl';
 export const APPLICANT_SELECT = [
@@ -93,7 +94,10 @@ export function sortByProximity(jobs, locality, { prioritizeVerifiedEmployers = 
 }
 
 export function serializePublicJob(job) {
-  const value = job?.toObject ? job.toObject() : { ...job };
+  // withPublicCategory swaps the embedded category ObjectId for its opaque
+  // public id. It is idempotent, so the callers that also apply it directly to
+  // responses this function never sees cannot double-encode.
+  const value = withPublicCategory(job?.toObject ? job.toObject() : { ...job });
   const poster = value?.jobPoster;
   // Expose only the final verification outcome for search presentation. The
   // source records remain on the populated job object and are stripped below.
