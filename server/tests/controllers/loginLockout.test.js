@@ -108,6 +108,13 @@ test('a locked account is refused even with the correct password', async () => {
   assert.equal(res.statusCode, 401);
 });
 
+test('a banned account is refused even with the correct password', async () => {
+  await User.updateOne({ email: EMAIL }, { $set: { status: 'banned' } });
+  const res = await attempt(PASSWORD);
+  assert.equal(res.statusCode, 401);
+  assert.equal(res.payload.message, 'Account is banned. Contact support.');
+});
+
 test('the lock lifts on its own once it expires', async () => {
   for (let i = 0; i < MAX_FAILED_ATTEMPTS; i += 1) {
     await attempt(`WrongPassword${i}!`);

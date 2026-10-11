@@ -34,8 +34,12 @@ export type AdminPermission =
   | "staff.toggleStatus"
   // System activity
   | "audit.view"
+  | "backups.manage"
   // Marketplace users
   | "users.view"
+  | "users.staff.view"
+  | "users.flags.view"
+  | "users.flag"
   | "users.suspend"
   | "users.ban"
   | "users.resetPassword"
@@ -45,6 +49,7 @@ export type AdminPermission =
   | "moderation.review"
   | "moderation.enforce"
   | "jobs.view"
+  | "jobs.manage"
   // Finance
   | "finance.transactions.view"
   | "finance.reconciliation.view"
@@ -76,8 +81,12 @@ export const ROLE_PERMISSIONS: Record<AdminStaffRole, readonly AdminPermission[]
     "staff.toggleStatus",
     "audit.view",
     "users.view",
+    "users.staff.view",
+    "users.flags.view",
+    "users.flag",
     "users.suspend",
     "jobs.view",
+    "jobs.manage",
     "analytics.view",
     "analytics.export",
     "support.tickets.handle",
@@ -85,15 +94,22 @@ export const ROLE_PERMISSIONS: Record<AdminStaffRole, readonly AdminPermission[]
 
   moderator: [
     "users.view",
+    "users.staff.view",
+    "users.flags.view",
+    "users.flag",
     "users.suspend",
     "users.ban",
     "verification.review",
     "moderation.review",
     "moderation.enforce",
     "jobs.view",
+    "jobs.manage",
   ],
 
   finance_team: [
+    "users.view",
+    "users.flags.view",
+    "users.flag",
     "finance.transactions.view",
     "finance.reconciliation.view",
     "finance.flag",
@@ -114,6 +130,7 @@ export const ROLE_PERMISSIONS: Record<AdminStaffRole, readonly AdminPermission[]
   // resets, and unlocks — anything heavier gets escalated.
   support_staff: [
     "users.view",
+    "users.flag",
     "users.resetPassword",
     "users.unlock",
     "jobs.view",

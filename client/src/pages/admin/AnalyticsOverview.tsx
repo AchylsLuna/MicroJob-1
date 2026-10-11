@@ -54,6 +54,7 @@ type AnalyticsOverviewProps = {
   users: AdminUser[];
   transactions: PaymentTransaction[];
   totalUsers: number;
+  uniqueApplicants: number;
   formatCurrency: (value: number) => string;
 };
 
@@ -63,6 +64,7 @@ export function AnalyticsOverview({
   users,
   transactions,
   totalUsers,
+  uniqueApplicants,
   formatCurrency,
 }: AnalyticsOverviewProps) {
   const { t } = useTranslation("admin");
@@ -106,9 +108,7 @@ export function AnalyticsOverview({
   const totalPayoutVolume = monthlyPayoutVolume.reduce((sum, value) => sum + value, 0);
   const activeJobs = jobs.filter((job) => job.status === "Available" || job.status === "In Progress").length;
 
-  const applicantIds = new Set<string>();
-  jobs.forEach((job) => job.applicants?.forEach((id) => applicantIds.add(id)));
-  const conversionRate = users.length ? (applicantIds.size / users.length) * 100 : 0;
+  const conversionRate = totalUsers ? (uniqueApplicants / totalUsers) * 100 : 0;
 
   /** `null` when there is no prior month to divide by — shown as a dash rather
    * than a fabricated "+0.0%", which read as real data on a brand-new platform. */

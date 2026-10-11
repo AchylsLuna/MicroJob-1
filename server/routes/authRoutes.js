@@ -2,6 +2,7 @@ import express from 'express';
 import csrfProtection from '../middleware/csrf.js';
 import { isBearerAuthRequest, isNativeAuthRequest } from '../lib/authSession.js';
 import verifyToken from '../middleware/auth.js';
+import requireAdmin, { requirePermission } from '../middleware/admin.js';
 import {
   sendOtp,
   verifyOtp,
@@ -110,7 +111,7 @@ router.delete('/sessions', verifyToken, revokeAllSessions);
 router.post('/sessions/cleanup', verifyToken, cleanupSessions);
 router.get('/trusted-devices', verifyToken, listTrustedDevices);
 router.delete('/trusted-devices/:id', verifyToken, revokeTrustedDevice);
-router.get('/admin/sessions/:userId', verifyToken, adminListSessions);
+router.get('/admin/sessions/:userId', verifyToken, requireAdmin, requirePermission('audit.view'), adminListSessions);
 
 router.get('/mfa/status', verifyToken, getMfaStatus);
 router.post('/mfa/setup', verifyToken, setupMfa);

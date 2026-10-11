@@ -56,6 +56,7 @@
     "actions": {
       "suspended": "I-suspend",
       "banned": "I-ban",
+      "closed_job": "Isara ang listing",
       "dismiss": "Ibasura"
     },
     "states": {
@@ -65,6 +66,7 @@
     "enforceDialog": {
       "titleSuspend": "I-suspend ang account",
       "titleBan": "I-ban ang account",
+      "titleCloseJob": "Isara ang job listing",
       "description": "Ang aksyong ito ay ilalapat kay {{name}} at itatala kasama ang iyong dahilan.",
       "reasonLabel": "Dahilan",
       "reasonRequired": "Kinakailangan ang dahilan para sa aksyong ito.",
@@ -77,6 +79,7 @@
     "toast": {
       "suspended": "Na-suspend si {{name}}.",
       "banned": "Na-ban si {{name}}.",
+      "closedJob": "Isinara ang {{name}}.",
       "dismissed": "Naibasura ang report kay {{name}}."
     }
   },
@@ -333,6 +336,13 @@
     }
   },
   "userManagement": {
+    "tabs": {
+      "label": "Mga seksyon ng pamamahala ng user",
+      "users": "Mga User",
+      "admins": "Mga Admin",
+      "flagged": "Na-flag"
+    },
+    "flaggedBadge": "Na-flag bilang kahina-hinala",
     "stats": {
       "totalAccounts": {
         "label": "Kabuuang Account",
@@ -340,7 +350,7 @@
       },
       "administrators": {
         "label": "Mga Administrator",
-        "detail": "Mga admin at superadmin"
+        "detail": "Mga staff account sa view na ito"
       },
       "activeAccounts": {
         "label": "Mga Aktibong Account",
@@ -369,6 +379,11 @@
     "roles": {
       "superadmin": "Superadmin",
       "admin": "Admin",
+      "adminTeam": "Admin",
+      "moderator": "Moderator",
+      "finance": "Finance",
+      "analytics": "Analytics",
+      "support": "Support",
       "employer": "Employer",
       "both": "Pareho",
       "worker": "Manggagawa"
@@ -376,7 +391,8 @@
     "statuses": {
       "active": "Aktibo",
       "pending": "Nakabinbin",
-      "disabled": "Naka-disable"
+      "disabled": "Naka-disable",
+      "banned": "Na-ban"
     },
     "mobileList": {
       "loading": "Naglo-load ng mga user…",
@@ -401,11 +417,16 @@
       "openActionsAriaLabel": "Buksan ang mga aksyon ng user",
       "menu": {
         "viewProfile": "Tingnan ang Profile",
+        "viewFullProfile": "Tingnan ang Buong Profile",
         "editUser": "I-edit ang User",
         "messageUser": "Mensahean ang User",
+        "flagSuspicious": "I-flag bilang Kahina-hinala",
+        "clearFlag": "Alisin ang Suspicious Flag",
         "approveUser": "Aprubahan ang User",
         "activateUser": "I-activate ang User",
         "suspendUser": "I-suspend ang User",
+        "resetPassword": "Magpadala ng Password Reset",
+        "unlockAccount": "I-unlock ang Account",
         "deleteUser": "Tanggalin ang User"
       },
       "pagination": {
@@ -422,6 +443,8 @@
       "roleLabel": "Tungkulin",
       "phoneLabel": "Telepono",
       "joinedLabel": "Sumali",
+      "suspiciousTitle": "Na-flag bilang kahina-hinala",
+      "suspiciousNoReason": "Walang naitalang dahilan.",
       "close": "Isara",
       "activate": "I-activate",
       "suspend": "I-suspend",
@@ -439,12 +462,31 @@
         "reject": "Tanggihan"
       }
     },
+    "flagDialog": {
+      "flagTitle": "I-flag ang user bilang kahina-hinala?",
+      "flagDescription": "Idagdag si {{name}} sa pila ng suspicious-user review.",
+      "clearTitle": "Alisin ang suspicious flag?",
+      "clearDescription": "Alisin si {{name}} sa pila ng suspicious-user review.",
+      "reasonLabel": "Dahilan",
+      "reasonPlaceholder": "Ilarawan ang aktibidad na kailangang suriin.",
+      "reasonRequired": "Maglagay ng dahilan bago i-flag ang user.",
+      "cancel": "Kanselahin",
+      "flagConfirm": "I-flag ang user",
+      "clearConfirm": "Alisin ang flag",
+      "saving": "Sine-save…"
+    },
     "deleteDialog": {
       "title": "Tanggalin ang user",
       "description": "Tanggalin si {{name}}? Ia-anonymize ang kanilang account at mawawalan sila ng access. Hindi matatanggal ang mga account na may aktibong balanse, payout, trabaho, o aplikasyon.",
       "fallbackName": "user na ito",
       "confirmLabel": "Tanggalin ang user",
       "blockedPrefix": "Hindi pa matatanggal ang account na ito:"
+    },
+    "supportActionDialog": {
+      "resetTitle": "Magpadala ng password reset?",
+      "resetDescription": "Padalhan si {{name}} ng secure na password-reset code sa rehistradong email address.",
+      "unlockTitle": "I-unlock ang account?",
+      "unlockDescription": "I-clear ang sign-in lock ni {{name}} upang makapagsubok silang mag-sign in muli."
     },
     "rejectDialog": {
       "title": "Tanggihan ang verification document",
@@ -492,7 +534,13 @@
       "accountCreated": "Nagawa ang account. Kailangang palitan ng user ang pansamantalang password sa unang pag-sign in.",
       "saveFailed": "Hindi ma-save ang user.",
       "userDeleted": "Matagumpay na natanggal si {{name}}.",
-      "deleteFailed": "Hindi matanggal ang user na ito."
+      "deleteFailed": "Hindi matanggal ang user na ito.",
+      "passwordResetSent": "Naipadala kay {{name}} ang mga tagubilin sa password reset.",
+      "accountUnlocked": "Makakapag-sign in muli si {{name}}.",
+      "supportActionFailed": "Hindi makumpleto ang aksyong ito para sa account."
+      ,"userFlagged": "Na-flag si {{name}} bilang kahina-hinala."
+      ,"flagCleared": "Naalis ang suspicious flag ni {{name}}."
+      ,"flagFailed": "Hindi ma-update ang suspicious-user flag."
     },
     "formErrors": {
       "firstNameRequired": "Kailangan ang pangalan.",
@@ -780,6 +828,12 @@
     "loading": "Naglo-load ng mga job posting...",
     "empty": "Walang available na job posting.",
     "viewAction": "Tingnan",
+    "details": {
+      "description": "Paglalarawan",
+      "noDescription": "Walang ibinigay na paglalarawan.",
+      "requirements": "Mga Kinakailangan",
+      "skills": "Mga Kasanayan"
+    },
     "deleteAction": "Tanggalin",
     "deletingAction": "Tinatanggal...",
     "pagination": {

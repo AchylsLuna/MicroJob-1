@@ -54,3 +54,7 @@ skills-lock.json
 
 # Playwright auth state saved by tests/e2e/auth.setup.ts
 tests/e2e/.auth/
+
+#Dockerfiles
+.dockerignore
+Dockerfile

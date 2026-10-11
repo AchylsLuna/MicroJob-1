@@ -4,11 +4,14 @@ import mongoose from 'mongoose';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 
 import User from '../../models/User.js';
+import Job from '../../models/Job.js';
+import Category from '../../models/Category.js';
 import Transaction from '../../models/Transaction.js';
 import PayoutRequest from '../../models/PayoutRequest.js';
 import SupportTicket from '../../models/SupportTicket.js';
 import Notification from '../../models/Notification.js';
 import AuditLog from '../../models/AuditLog.js';
+import Session from '../../models/Session.js';
 import {
   createPayoutRequest,
   updateAdminPayoutRequest,
@@ -17,7 +20,15 @@ import {
   getSupportTicketById,
   updateAdminSupportTicket,
 } from '../../controllers/SupportController.js';
-import { getAdminStats, getAdminWalletStats } from '../../controllers/AdminController.js';
+import {
+  banAdminUser,
+  getAdminAnalyticsData,
+  getAdminStats,
+  getAdminUserList,
+  getAdminWalletStats,
+  unlockAdminUser,
+  updateAdminUserSuspiciousFlag,
+} from '../../controllers/AdminController.js';
 
 let replicaSet;
 
@@ -52,11 +63,14 @@ before(async () => {
 beforeEach(async () => {
   await Promise.all([
     User.deleteMany({}),
+    Job.deleteMany({}),
+    Category.deleteMany({}),
     Transaction.deleteMany({}),
     PayoutRequest.deleteMany({}),
     SupportTicket.deleteMany({}),
     Notification.deleteMany({}),
     AuditLog.deleteMany({}),
+    Session.deleteMany({}),
   ]);
 });
 
@@ -246,4 +260,199 @@ test('admin financial metrics include only completed payouts and outstanding esc
   const walletResponse = response();
   await getAdminWalletStats({}, walletResponse);
   assert.equal(walletResponse.payload.totalEscrow, 50);
+});
+
+test('analytics staff receive real aggregates without personal or payment-party data', async () => {
+  const [employer, worker, category] = await Promise.all([
+    createEmployer(0),
+    createWorker(0),
+    Category.create({ name: 'Analytics' }),
+  ]);
+  await Job.create({
+    title: 'Sanitized job',
+    description: 'Visible aggregate fixture',
+    location: 'Manila',
+    salary: 500,
+    jobType: 'Short-term',
+    deadline: new Date(Date.now() + 86400000),
+    jobPoster: employer._id,
+    category: category._id,
+    applicants: [worker._id],
+  });
+  await Transaction.create({
+    sender: employer._id,
+    receiver: worker._id,
+    amount: 500,
+    type: 'PAYOUT',
+    status: 'COMPLETED',
+    balanceTarget: 'WORKER',
+    reference: 'private-reference',
+  });
+
+  const res = response();
+  await getAdminAnalyticsData(request({ user: { role: 'admin', staffRole: 'analytics_team' } }), res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.payload.stats.totalUsers, 2);
+  assert.equal(res.payload.stats.uniqueApplicants, 1);
+  assert.equal(res.payload.stats.completedPayoutVolume, 500);
+  assert.equal(res.payload.jobs[0].applicantsCount, 1);
+  assert.deepEqual(res.payload.jobs[0].applicants, []);
+  assert.equal(res.payload.jobs[0].jobPoster, null);
+  assert.equal(res.payload.users[0].email, '');
+  assert.equal(res.payload.transactions[0].sender, null);
+  assert.equal(res.payload.transactions[0].receiver, null);
+  assert.equal(res.payload.transactions[0].reference, '');
+});
+
+test('support account recovery exposes lock state but not verification document URLs', async () => {
+  const [user, staffAccount, superadmin] = await Promise.all([User.create({
+    email: 'support-target@example.com',
+    firstName: 'Support',
+    lastName: 'Target',
+    role: 'work',
+    status: 'active',
+    passwordHashed: 'not-used',
+    lockUntil: new Date(Date.now() + 60_000),
+    failedLoginAttempts: 3,
+    loginLockCount: 1,
+    verification: {
+      identityDocument: { status: 'in-review', documentUrl: '/uploads/private-id.png' },
+      addressDocument: { status: 'in-review', documentUrl: '/uploads/private-address.png' },
+    },
+  }), User.create({
+    email: 'staff-list-target@example.com',
+    firstName: 'Listed',
+    lastName: 'Moderator',
+    role: 'admin',
+    staffRole: 'moderator',
+    status: 'active',
+    passwordHashed: 'not-used',
+  }), User.create({
+    email: 'hidden-owner@example.com',
+    firstName: 'Hidden',
+    lastName: 'Owner',
+    role: 'superadmin',
+    status: 'active',
+    passwordHashed: 'not-used',
+  })]);
+
+  const supportList = response();
+  await getAdminUserList(request({ user: { role: 'admin', staffRole: 'support_staff' } }), supportList);
+  const supportView = supportList.payload.find((item) => String(item._id) === String(user._id));
+  assert.equal(supportView.loginLocked, true);
+  assert.equal(supportView.verification.identityDocument.documentUrl, undefined);
+  assert.equal(supportView.verification.addressDocument.documentUrl, undefined);
+  assert.equal(supportList.payload.some((item) => String(item._id) === String(staffAccount._id)), false);
+  assert.equal(supportList.payload.some((item) => String(item._id) === String(superadmin._id)), false);
+
+  const moderatorList = response();
+  await getAdminUserList(request({ user: { role: 'admin', staffRole: 'moderator' } }), moderatorList);
+  const moderatorView = moderatorList.payload.find((item) => String(item._id) === String(user._id));
+  assert.equal(moderatorView.verification.identityDocument.documentUrl, '/uploads/private-id.png');
+  assert.equal(moderatorList.payload.some((item) => String(item._id) === String(staffAccount._id)), true);
+  assert.equal(moderatorList.payload.some((item) => String(item._id) === String(superadmin._id)), false);
+
+  const unlocked = response();
+  await unlockAdminUser(request({
+    user: { role: 'admin', staffRole: 'support_staff' },
+    params: { userId: String(user._id) },
+  }), unlocked);
+  assert.equal(unlocked.statusCode, 200);
+  const lockState = await User.findById(user._id).select('+lockUntil +failedLoginAttempts +loginLockCount');
+  assert.equal(lockState.lockUntil, null);
+  assert.equal(lockState.failedLoginAttempts, 0);
+  assert.equal(lockState.loginLockCount, 0);
+});
+
+test('support and finance can persist and clear suspicious-user flags', async () => {
+  const [target, support, finance] = await Promise.all([
+    createWorker(0),
+    User.create({
+      email: 'flag-support@example.com',
+      firstName: 'Flag',
+      lastName: 'Support',
+      role: 'admin',
+      staffRole: 'support_staff',
+      status: 'active',
+      passwordHashed: 'not-used',
+    }),
+    User.create({
+      email: 'flag-finance@example.com',
+      firstName: 'Flag',
+      lastName: 'Finance',
+      role: 'admin',
+      staffRole: 'finance_team',
+      status: 'active',
+      passwordHashed: 'not-used',
+    }),
+  ]);
+
+  const missingReason = response();
+  await updateAdminUserSuspiciousFlag(request({
+    user: { id: String(support._id), role: 'admin', staffRole: 'support_staff' },
+    params: { userId: String(target._id) },
+    body: { flagged: true },
+  }), missingReason);
+  assert.equal(missingReason.statusCode, 400);
+
+  const flagged = response();
+  await updateAdminUserSuspiciousFlag(request({
+    user: { id: String(support._id), role: 'admin', staffRole: 'support_staff' },
+    params: { userId: String(target._id) },
+    body: { flagged: true, reason: 'Multiple identity and payment inconsistencies.' },
+  }), flagged);
+  assert.equal(flagged.statusCode, 200);
+  let stored = await User.findById(target._id);
+  assert.equal(stored.suspiciousFlagged, true);
+  assert.equal(stored.suspiciousFlagReason, 'Multiple identity and payment inconsistencies.');
+  assert.equal(String(stored.suspiciousFlaggedBy), String(support._id));
+  assert.ok(stored.suspiciousFlaggedAt instanceof Date);
+
+  const cleared = response();
+  await updateAdminUserSuspiciousFlag(request({
+    user: { id: String(finance._id), role: 'admin', staffRole: 'finance_team' },
+    params: { userId: String(target._id) },
+    body: { flagged: false },
+  }), cleared);
+  assert.equal(cleared.statusCode, 200);
+  stored = await User.findById(target._id);
+  assert.equal(stored.suspiciousFlagged, false);
+  assert.equal(stored.suspiciousFlagReason, null);
+  assert.equal(stored.suspiciousFlaggedBy, null);
+  assert.equal(stored.suspiciousFlaggedAt, null);
+});
+
+test('moderator bans persist a reason and terminate active sessions', async () => {
+  const [target, moderator] = await Promise.all([
+    createWorker(0),
+    User.create({
+      email: 'moderator@example.com',
+      firstName: 'Queue',
+      lastName: 'Moderator',
+      role: 'admin',
+      staffRole: 'moderator',
+      status: 'active',
+      passwordHashed: 'not-used',
+    }),
+  ]);
+  const session = await Session.create({ user: target._id, active: true, expiresAt: new Date(Date.now() + 86400000) });
+
+  const res = response();
+  await banAdminUser(request({
+    user: { id: String(moderator._id), role: 'admin', staffRole: 'moderator' },
+    params: { userId: String(target._id) },
+    body: { reason: 'Repeated marketplace fraud reports.' },
+  }), res);
+
+  assert.equal(res.statusCode, 200);
+  const [updatedUser, updatedSession] = await Promise.all([
+    User.findById(target._id),
+    Session.findById(session._id),
+  ]);
+  assert.equal(updatedUser.status, 'banned');
+  assert.equal(updatedUser.banReason, 'Repeated marketplace fraud reports.');
+  assert.equal(String(updatedUser.bannedBy), String(moderator._id));
+  assert.equal(updatedSession.active, false);
+  assert.ok(updatedSession.endedAt instanceof Date);
 });

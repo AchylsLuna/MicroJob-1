@@ -844,7 +844,7 @@ export function updateUserStatus(userId: string, status: 'active' | 'pending' | 
   return request(`/users/${userId}/status`, { method: 'PATCH', body: { status } });
 }
 
-export function updateUserByAdmin(userId: string, payload: { firstName: string; lastName: string; role: string; status: 'active' | 'pending' | 'disabled' }) {
+export function updateUserByAdmin(userId: string, payload: { firstName: string; lastName: string; role: string; status: 'active' | 'pending' | 'disabled' | 'banned' }) {
   return request<{ message: string; user: any }>(`/users/${userId}`, { method: 'PATCH', body: payload });
 }
 
@@ -1351,8 +1351,40 @@ export function getAdminStats() {
   return request<any>('/admin/stats', { method: 'GET' });
 }
 
+export function getAdminAnalyticsData() {
+  return request<{ stats: any; users: any[]; jobs: any[]; transactions: PaymentTransaction[] }>('/admin/analytics-data', { method: 'GET' });
+}
+
 export function getAdminUsers() {
   return request<any[]>('/admin/users', { method: 'GET' });
+}
+
+export function requestAdminUserPasswordReset(userId: string) {
+  return request<{ message: string }>(`/admin/users/${userId}/password-reset`, { method: 'POST' });
+}
+
+export function unlockAdminUser(userId: string) {
+  return request<{ message: string; userId: string; loginLocked: false }>(`/admin/users/${userId}/unlock`, { method: 'PATCH' });
+}
+
+export function updateAdminUserSuspiciousFlag(userId: string, payload: { flagged: boolean; reason?: string }) {
+  return request<{
+    message: string;
+    user: {
+      _id: string;
+      suspiciousFlagged: boolean;
+      suspiciousFlagReason: string | null;
+      suspiciousFlaggedAt: string | null;
+      suspiciousFlaggedBy: string | null;
+    };
+  }>(`/admin/users/${userId}/suspicious-flag`, { method: 'PATCH', body: payload });
+}
+
+export function banAdminUser(userId: string, reason: string) {
+  return request<{ message: string; user: { _id: string; status: 'banned'; banReason: string } }>(`/admin/users/${userId}/ban`, {
+    method: 'PATCH',
+    body: { reason },
+  });
 }
 
 export function updateAdminVerification(

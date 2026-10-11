@@ -67,9 +67,44 @@ const UserSchema = new mongoose.Schema(
     archivedConversations: [{ type: String }],
     status: {
       type: String,
-      enum: ['pending', 'active', 'disabled', 'deleted'],
+      enum: ['pending', 'active', 'disabled', 'banned', 'deleted'],
       default: 'pending',
       index: true,
+    },
+    bannedAt: {
+      type: Date,
+      default: null,
+    },
+    bannedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    banReason: {
+      type: String,
+      trim: true,
+      maxLength: 2000,
+      default: null,
+    },
+    suspiciousFlagged: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    suspiciousFlagReason: {
+      type: String,
+      trim: true,
+      maxLength: 1000,
+      default: null,
+    },
+    suspiciousFlaggedAt: {
+      type: Date,
+      default: null,
+    },
+    suspiciousFlaggedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
     },
     deletedAt: {
       type: Date,

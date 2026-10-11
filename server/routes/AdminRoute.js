@@ -4,6 +4,7 @@ import requireAdmin, { requirePermission } from '../middleware/admin.js';
 import adminAuditLog from '../middleware/adminAuditLog.js';
 import {
   getAdminStats,
+  getAdminAnalyticsData,
   getAdminUserList,
   getAdminJobs,
   getAdminCategories,
@@ -13,6 +14,10 @@ import {
   getAdminVerifications,
   updateAdminVerification,
   getAdminAuditLogs,
+  banAdminUser,
+  unlockAdminUser,
+  requestAdminUserPasswordReset,
+  updateAdminUserSuspiciousFlag,
 } from '../controllers/AdminController.js';
 import { listAdminPayoutRequests, updateAdminPayoutRequest } from '../controllers/PaymentController.js';
 import {
@@ -38,7 +43,12 @@ router.use(adminAuditLog);
 // (completedPayoutVolume, totalTransactions, pendingPayouts) into one
 // summary, so it is gated like the other cross-cutting view: analytics.view.
 router.get('/stats', requirePermission('analytics.view'), getAdminStats);
+router.get('/analytics-data', requirePermission('analytics.view'), getAdminAnalyticsData);
 router.get('/users', requirePermission('users.view'), getAdminUserList);
+router.patch('/users/:userId/suspicious-flag', requirePermission('users.flag'), updateAdminUserSuspiciousFlag);
+router.post('/users/:userId/password-reset', requirePermission('users.resetPassword'), requestAdminUserPasswordReset);
+router.patch('/users/:userId/unlock', requirePermission('users.unlock'), unlockAdminUser);
+router.patch('/users/:userId/ban', requirePermission('users.ban'), banAdminUser);
 router.get('/jobs', requirePermission('jobs.view'), getAdminJobs);
 // Category taxonomy is job metadata, so it shares jobs.view.
 router.get('/categories', requirePermission('jobs.view'), getAdminCategories);

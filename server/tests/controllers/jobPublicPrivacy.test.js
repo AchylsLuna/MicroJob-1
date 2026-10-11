@@ -27,7 +27,7 @@ const response = () => ({
   json(payload) { this.payload = JSON.parse(JSON.stringify(payload)); return this; },
 });
 const request = (user, overrides = {}) => ({
-  user: user ? { id: String(user._id), role: user.role } : undefined,
+  user: user ? { id: String(user._id), role: user.role, staffRole: user.staffRole } : undefined,
   query: {}, params: {}, body: {}, headers: {}, get: () => '', ...overrides,
 });
 const fixture = async () => {
@@ -168,6 +168,20 @@ test('opaque ids retain job ownership checks and cannot expose another employer 
   await changeJobStatus(request(employer, { params: { id: publicId }, body: { status: 'Closed' } }), allowed);
   assert.equal(allowed.statusCode, 200);
   assert.equal(allowed.payload.job._id, publicId);
+});
+
+test('only job-management staff may change jobs they do not own', async () => {
+  const { publicId } = await fixture();
+  const support = { _id: new mongoose.Types.ObjectId(), role: 'admin', staffRole: 'support_staff' };
+  const moderator = { _id: new mongoose.Types.ObjectId(), role: 'admin', staffRole: 'moderator' };
+
+  const denied = response();
+  await changeJobStatus(request(support, { params: { id: publicId }, body: { status: 'Closed' } }), denied);
+  assert.equal(denied.statusCode, 403);
+
+  const allowed = response();
+  await changeJobStatus(request(moderator, { params: { id: publicId }, body: { status: 'Closed' } }), allowed);
+  assert.equal(allowed.statusCode, 200);
 });
 
 test('opaque employer and job links still resolve profiles, reviews, and job inquiries', async () => {

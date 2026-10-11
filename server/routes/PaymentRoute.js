@@ -21,7 +21,7 @@ import {
 import { createQrSettlementRequest, resolveQrSettlementRequest, settleQrSettlementRequest, cancelQrSettlementRequest, listQrSettlementRequests, getQrSettlementRequest, getQrSettlementImage } from '../controllers/QrSettlementController.js';
 import { qrSettlementLimiter } from '../lib/rateLimiters.js';
 import verifyToken from '../middleware/auth.js';
-import requireAdmin, { requireSuperadmin } from '../middleware/admin.js';
+import requireAdmin, { requirePermission, requireSuperadmin } from '../middleware/admin.js';
 
 const router = express.Router();
 
@@ -45,7 +45,7 @@ router.get('/payout-requests', verifyToken, listMyPayoutRequests);
 router.post('/payout-requests', verifyToken, createPayoutRequest);
 router.post('/payout-requests/:payoutRequestId/cancel', verifyToken, cancelPayoutRequest);
 router.post('/dev/webhook-sim', verifyToken, requireAdmin, requireSuperadmin, simulateWebhook);
-router.get('/audit', verifyToken, getAllTransactions);
+router.get('/audit', verifyToken, requireAdmin, requirePermission('finance.transactions.view'), getAllTransactions);
 router.post('/webhook', handleWebhook);
 
 export default router;

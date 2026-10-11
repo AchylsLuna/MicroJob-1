@@ -460,7 +460,10 @@ export async function updateUserByAdmin(req, res) {
         if (!STANDARD_ROLES.has(nextRole) && !PRIVILEGED_ROLES.has(nextRole)) {
             return res.status(400).json({ message: "Invalid role value." });
         }
-        if (!EDITABLE_STATUSES.has(nextStatus)) return res.status(400).json({ message: "Invalid status value." });
+        const preservesExistingBan = target.status === "banned" && nextStatus === "banned";
+        if (!EDITABLE_STATUSES.has(nextStatus) && !preservesExistingBan) {
+            return res.status(400).json({ message: "Invalid status value." });
+        }
         const activeSuperadminCount = target.role === "superadmin" ? await User.countDocuments({ role: "superadmin", status: "active" }) : 0;
         const forbidden = getAdminUserMutationError({ actorRole: req.user?.role, actorId: getActorId(req), targetId: String(target._id), targetRole: target.role, nextRole, nextStatus, activeSuperadminCount });
         if (forbidden) return res.status(forbidden.status).json({ message: forbidden.message });
@@ -476,6 +479,11 @@ export async function updateUserByAdmin(req, res) {
         }
         target.role = nextRole;
         target.status = nextStatus;
+        if (nextStatus === 'active') {
+            target.bannedAt = null;
+            target.bannedBy = null;
+            target.banReason = null;
+        }
         await target.save();
         return res.status(200).json({ message: "User updated.", user: await User.findById(target._id).select(PUBLIC_USER_SELECT) });
     } catch (error) {
@@ -555,6 +563,11 @@ export async function updateUserStatus(req, res) {
             return res.status(409).json({ message: "The last active superadmin cannot be disabled." });
         }
         target.status = status;
+        if (status === 'active') {
+            target.bannedAt = null;
+            target.bannedBy = null;
+            target.banReason = null;
+        }
         await target.save();
         const updated = await User.findById(target._id).select(PUBLIC_USER_SELECT);
         return res.status(200).json({ message: "User status updated.", user: updated });

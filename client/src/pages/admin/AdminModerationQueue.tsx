@@ -8,7 +8,7 @@ import { Button, ConfirmDialog, Dialog, StatusState, Textarea } from "../../comp
 import { toast } from "../../lib/toast";
 import { formatDateTime } from "../../lib/formatters";
 import { useAdminPermissions } from "../../hooks/useAdminPermissions";
-import { getAdminModerationReports, updateAdminModerationReport, updateUserStatus } from "../../services/api";
+import { banAdminUser, changeJobStatus, getAdminModerationReports, updateAdminModerationReport, updateUserStatus } from "../../services/api";
 
 interface ModerationReport {
   id: string;
@@ -22,7 +22,7 @@ interface ModerationReport {
   resolution?: string;
 }
 
-type EnforcementAction = "suspended" | "banned";
+type EnforcementAction = "suspended" | "banned" | "closed_job";
 
 const statusStyle: Record<ModerationReport["status"], string> = {
   pending: "bg-amber-100 text-amber-900",
@@ -68,14 +68,22 @@ function AdminModerationQueueContent() {
     const resolution = `${t(`moderationQueue.actions.${action}`)}: ${reason}`;
     try {
       if (report.targetType === "user") {
-        await updateUserStatus(report.targetId, "disabled");
+        if (action === "banned") {
+          await banAdminUser(report.targetId, reason);
+        } else {
+          await updateUserStatus(report.targetId, "disabled");
+        }
+      } else if (action === "closed_job") {
+        await changeJobStatus(report.targetId, "Closed");
       }
       const { report: updated } = await updateAdminModerationReport(report.id, { status: "resolved", resolution });
       setReports((current) => current.map((item) => (item.id === report.id ? { ...item, ...updated, id: item.id } : item)));
       toast.success(
         action === "banned"
           ? t("moderationQueue.toast.banned", { name: report.targetName })
-          : t("moderationQueue.toast.suspended", { name: report.targetName }),
+          : action === "closed_job"
+            ? t("moderationQueue.toast.closedJob", { name: report.targetName })
+            : t("moderationQueue.toast.suspended", { name: report.targetName }),
       );
       setEnforceTarget(null);
       setEnforceReason("");
@@ -176,14 +184,19 @@ function AdminModerationQueueContent() {
                       <td className="px-3 py-4">
                         {report.status === "pending" ? (
                           <div className="flex justify-end gap-2">
-                            {can("users.suspend") ? (
+                            {report.targetType === "user" && can("users.suspend") ? (
                               <Button onClick={() => openEnforce(report, "suspended")} className="!bg-white !text-amber-800 ring-1 ring-amber-300 hover:!bg-amber-50">
                                 {t("moderationQueue.actions.suspended")}
                               </Button>
                             ) : null}
-                            {can("users.ban") ? (
+                            {report.targetType === "user" && can("users.ban") ? (
                               <Button onClick={() => openEnforce(report, "banned")} className="!bg-red-700 hover:!bg-red-800">
                                 {t("moderationQueue.actions.banned")}
+                              </Button>
+                            ) : null}
+                            {report.targetType === "job" && can("jobs.manage") ? (
+                              <Button onClick={() => openEnforce(report, "closed_job")} className="!bg-red-700 hover:!bg-red-800">
+                                {t("moderationQueue.actions.closed_job")}
                               </Button>
                             ) : null}
                             {can("moderation.enforce") ? (
@@ -205,7 +218,7 @@ function AdminModerationQueueContent() {
 
       <Dialog
         open={Boolean(enforceTarget)}
-        title={enforceTarget?.action === "banned" ? t("moderationQueue.enforceDialog.titleBan") : t("moderationQueue.enforceDialog.titleSuspend")}
+        title={enforceTarget?.action === "banned" ? t("moderationQueue.enforceDialog.titleBan") : enforceTarget?.action === "closed_job" ? t("moderationQueue.enforceDialog.titleCloseJob") : t("moderationQueue.enforceDialog.titleSuspend")}
         description={enforceTarget ? t("moderationQueue.enforceDialog.description", { name: enforceTarget.report.targetName }) : ""}
         onClose={() => setEnforceTarget(null)}
       >
@@ -220,8 +233,8 @@ function AdminModerationQueueContent() {
           <Button onClick={() => setEnforceTarget(null)} className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50">
             {t("moderationQueue.enforceDialog.cancel")}
           </Button>
-          <Button onClick={submitEnforce} className={enforceTarget?.action === "banned" ? "!bg-red-700 hover:!bg-red-800" : undefined}>
-            {enforceTarget?.action === "banned" ? t("moderationQueue.actions.banned") : t("moderationQueue.actions.suspended")}
+          <Button onClick={submitEnforce} className={enforceTarget?.action === "banned" || enforceTarget?.action === "closed_job" ? "!bg-red-700 hover:!bg-red-800" : undefined}>
+            {enforceTarget ? t(`moderationQueue.actions.${enforceTarget.action}`) : t("moderationQueue.actions.suspended")}
           </Button>
         </div>
       </Dialog>

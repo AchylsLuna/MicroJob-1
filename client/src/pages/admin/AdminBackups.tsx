@@ -265,5 +265,5 @@ function AdminBackupsContent() {
 }
 
 export function AdminBackups() {
-  return <AdminGate permission="audit.view"><AdminBackupsContent /></AdminGate>;
+  return <AdminGate permission="backups.manage"><AdminBackupsContent /></AdminGate>;
 }

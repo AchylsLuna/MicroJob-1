@@ -56,6 +56,7 @@
     "actions": {
       "suspended": "Suspend",
       "banned": "Ban",
+      "closed_job": "Close listing",
       "dismiss": "Dismiss"
     },
     "states": {
@@ -65,6 +66,7 @@
     "enforceDialog": {
       "titleSuspend": "Suspend account",
       "titleBan": "Ban account",
+      "titleCloseJob": "Close job listing",
       "description": "This enforcement action applies to {{name}} and is logged with your reason.",
       "reasonLabel": "Reason",
       "reasonRequired": "A reason is required for this action.",
@@ -77,6 +79,7 @@
     "toast": {
       "suspended": "{{name}} was suspended.",
       "banned": "{{name}} was banned.",
+      "closedJob": "{{name}} was closed.",
       "dismissed": "The report on {{name}} was dismissed."
     }
   },
@@ -333,6 +336,13 @@
     }
   },
   "userManagement": {
+    "tabs": {
+      "label": "User management sections",
+      "users": "Users",
+      "admins": "Admins",
+      "flagged": "Flagged"
+    },
+    "flaggedBadge": "Flagged as suspicious",
     "stats": {
       "totalAccounts": {
         "label": "Total accounts",
@@ -340,7 +350,7 @@
       },
       "administrators": {
         "label": "Administrators",
-        "detail": "Admins and superadmins"
+        "detail": "Staff accounts in this view"
       },
       "activeAccounts": {
         "label": "Active accounts",
@@ -369,6 +379,11 @@
     "roles": {
       "superadmin": "Superadmin",
       "admin": "Admin",
+      "adminTeam": "Admin",
+      "moderator": "Moderator",
+      "finance": "Finance",
+      "analytics": "Analytics",
+      "support": "Support",
       "employer": "Employer",
       "both": "Both",
       "worker": "Worker"
@@ -376,7 +391,8 @@
     "statuses": {
       "active": "Active",
       "pending": "Pending",
-      "disabled": "Disabled"
+      "disabled": "Disabled",
+      "banned": "Banned"
     },
     "mobileList": {
       "loading": "Loading users…",
@@ -401,11 +417,16 @@
       "openActionsAriaLabel": "Open user actions",
       "menu": {
         "viewProfile": "View Profile",
+        "viewFullProfile": "View Full Profile",
         "editUser": "Edit User",
         "messageUser": "Message User",
+        "flagSuspicious": "Flag as Suspicious",
+        "clearFlag": "Clear Suspicious Flag",
         "approveUser": "Approve User",
         "activateUser": "Activate User",
         "suspendUser": "Suspend User",
+        "resetPassword": "Send Password Reset",
+        "unlockAccount": "Unlock Account",
         "deleteUser": "Delete User"
       },
       "pagination": {
@@ -422,6 +443,8 @@
       "roleLabel": "Role",
       "phoneLabel": "Phone",
       "joinedLabel": "Joined",
+      "suspiciousTitle": "Flagged as suspicious",
+      "suspiciousNoReason": "No reason was recorded.",
       "close": "Close",
       "activate": "Activate",
       "suspend": "Suspend",
@@ -439,12 +462,31 @@
         "reject": "Reject"
       }
     },
+    "flagDialog": {
+      "flagTitle": "Flag user as suspicious?",
+      "flagDescription": "Add {{name}} to the suspicious-user review queue.",
+      "clearTitle": "Clear suspicious flag?",
+      "clearDescription": "Remove {{name}} from the suspicious-user review queue.",
+      "reasonLabel": "Reason",
+      "reasonPlaceholder": "Describe the activity that requires review.",
+      "reasonRequired": "Enter a reason before flagging this user.",
+      "cancel": "Cancel",
+      "flagConfirm": "Flag user",
+      "clearConfirm": "Clear flag",
+      "saving": "Saving…"
+    },
     "deleteDialog": {
       "title": "Delete user",
       "description": "Delete {{name}}? Their account will be anonymized and they will lose access. Accounts with active balances, payouts, jobs, or applications cannot be deleted.",
       "fallbackName": "this user",
       "confirmLabel": "Delete user",
       "blockedPrefix": "This account can't be deleted yet:"
+    },
+    "supportActionDialog": {
+      "resetTitle": "Send password reset?",
+      "resetDescription": "Send {{name}} a secure password-reset code at their registered email address.",
+      "unlockTitle": "Unlock account?",
+      "unlockDescription": "Clear {{name}}'s failed-sign-in lock so they can try signing in again."
     },
     "rejectDialog": {
       "title": "Reject verification document",
@@ -492,7 +534,13 @@
       "accountCreated": "Account created. The temporary password must be changed at first sign-in.",
       "saveFailed": "Unable to save the user.",
       "userDeleted": "{{name}} deleted successfully.",
-      "deleteFailed": "Unable to delete this user."
+      "deleteFailed": "Unable to delete this user.",
+      "passwordResetSent": "Password-reset instructions were sent to {{name}}.",
+      "accountUnlocked": "{{name}} can sign in again.",
+      "supportActionFailed": "Unable to complete this account-support action."
+      ,"userFlagged": "{{name}} was flagged as suspicious."
+      ,"flagCleared": "The suspicious flag for {{name}} was cleared."
+      ,"flagFailed": "Unable to update the suspicious-user flag."
     },
     "formErrors": {
       "firstNameRequired": "First name is required.",
@@ -780,6 +828,12 @@
     "loading": "Loading job postings...",
     "empty": "No job postings available.",
     "viewAction": "View",
+    "details": {
+      "description": "Description",
+      "noDescription": "No description provided.",
+      "requirements": "Requirements",
+      "skills": "Skills"
+    },
     "deleteAction": "Delete",
     "deletingAction": "Deleting...",
     "pagination": {

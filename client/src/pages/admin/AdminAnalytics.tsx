@@ -19,6 +19,7 @@ function AdminAnalyticsContent() {
         users={users}
         transactions={transactions}
         totalUsers={stats.totalUsers}
+        uniqueApplicants={stats.uniqueApplicants}
         formatCurrency={formatCurrency}
       />
     </div>

@@ -26,8 +26,12 @@ export const ROLE_PERMISSIONS = {
     'staff.toggleStatus',
     'audit.view',
     'users.view',
+    'users.staff.view',
+    'users.flags.view',
+    'users.flag',
     'users.suspend',
     'jobs.view',
+    'jobs.manage',
     'analytics.view',
     'analytics.export',
     'support.tickets.handle',
@@ -35,15 +39,22 @@ export const ROLE_PERMISSIONS = {
 
   moderator: [
     'users.view',
+    'users.staff.view',
+    'users.flags.view',
+    'users.flag',
     'users.suspend',
     'users.ban',
     'verification.review',
     'moderation.review',
     'moderation.enforce',
     'jobs.view',
+    'jobs.manage',
   ],
 
   finance_team: [
+    'users.view',
+    'users.flags.view',
+    'users.flag',
     'finance.transactions.view',
     'finance.reconciliation.view',
     'finance.flag',
@@ -58,6 +69,7 @@ export const ROLE_PERMISSIONS = {
 
   support_staff: [
     'users.view',
+    'users.flag',
     'users.resetPassword',
     'users.unlock',
     'jobs.view',

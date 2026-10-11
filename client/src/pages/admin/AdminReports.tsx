@@ -137,7 +137,7 @@ function AdminReportsContent() {
             title: job.title,
             status: job.status || "Available",
             salary: job.salary || "—",
-            applicants: job.applicants?.length ?? 0,
+            applicants: job.applicantsCount ?? job.applicants?.length ?? 0,
             posted: date ? date.toLocaleDateString() : "—",
             date,
           };
@@ -176,7 +176,7 @@ function AdminReportsContent() {
         return {
           id: job._id,
           jobTitle: job.title,
-          applicants: job.applicants?.length ?? 0,
+          applicants: job.applicantsCount ?? job.applicants?.length ?? 0,
           status: job.status || "Available",
           posted: date ? date.toLocaleDateString() : "—",
           date,

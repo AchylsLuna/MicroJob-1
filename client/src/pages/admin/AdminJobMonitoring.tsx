@@ -2,18 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { motionTokens, seconds } from "@/constants/motion";
 import { Eye, Trash2 } from "lucide-react";
-import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AdminGate } from "./admin/AdminGate";
+import { useAdminPermissions } from "../../hooks/useAdminPermissions";
 import { toast } from "../../lib/toast";
 import { useAdminData } from "../../hooks/useAdminData";
 import { deleteJob } from "../../services/api";
-import { ROUTES } from "../../utils/routes";
-import { ConfirmDialog } from "../../components/ui";
+import { ConfirmDialog, Dialog } from "../../components/ui";
 import { formatDate } from "../../lib/formatters";
 
 function AdminJobMonitoringContent() {
   const { t } = useTranslation("admin");
+  const { can } = useAdminPermissions();
   const {
     isLoading,
     loadError,
@@ -29,6 +29,7 @@ function AdminJobMonitoringContent() {
   const [deletedJobIds, setDeletedJobIds] = useState<Record<string, boolean>>({});
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const pageSize = 10;
 
   const sortedJobs = useMemo(
@@ -49,6 +50,8 @@ function AdminJobMonitoringContent() {
   const pageStart = (safePage - 1) * pageSize;
   const pageEnd = Math.min(pageStart + pageSize, sortedJobs.length);
   const paginatedJobs = sortedJobs.slice(pageStart, pageStart + pageSize);
+  const selectedJob = jobs.find((job) => job._id === selectedJobId) || null;
+  const canManageJobs = can("jobs.manage");
 
   useEffect(() => {
     setCurrentPage(1);
@@ -171,22 +174,23 @@ function AdminJobMonitoringContent() {
                       <td className="py-3 pr-4 text-[#111827]">{formatSalary(job.salary)}</td>
                       <td className="py-3 min-w-[180px]">
                         <div className="flex items-center gap-2">
-                          <Link
-                            to={ROUTES.worker.jobDetails(job._id)}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedJobId(job._id)}
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-caption font-medium bg-brand/[0.06] text-brand hover:opacity-80"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             {t("jobMonitoring.viewAction")}
-                          </Link>
-                          <button
+                          </button>
+                          {canManageJobs ? <button
                             type="button"
-                          onClick={() => setDeleteTarget({ id: job._id, title: job.title })}
+                            onClick={() => setDeleteTarget({ id: job._id, title: job.title })}
                             disabled={deletingJobId === job._id}
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-caption font-medium bg-[#FEF2F2] text-[#B91C1C] hover:bg-[#FEE2E2] disabled:opacity-60"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                             {deletingJobId === job._id ? t("jobMonitoring.deletingAction") : t("jobMonitoring.deleteAction")}
-                          </button>
+                          </button> : null}
                         </div>
                       </td>
                     </motion.tr>
@@ -238,6 +242,26 @@ function AdminJobMonitoringContent() {
           </div>
         )}
       </section>
+      <Dialog
+        open={Boolean(selectedJob)}
+        title={selectedJob?.title || t("jobMonitoring.viewAction")}
+        description={selectedJob ? `${getPosterName(selectedJob)} · ${selectedJob.location || "—"}` : ""}
+        onClose={() => setSelectedJobId(null)}
+      >
+        {selectedJob ? (
+          <div className="space-y-4 text-sm text-slate-700">
+            <dl className="grid grid-cols-1 gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-2">
+              <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("jobMonitoring.table.category")}</dt><dd className="mt-1 text-slate-900">{getCategoryName(selectedJob)}</dd></div>
+              <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("jobMonitoring.table.status")}</dt><dd className="mt-1 text-slate-900">{selectedJob.status || "—"}</dd></div>
+              <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("jobMonitoring.table.salary")}</dt><dd className="mt-1 text-slate-900">{formatSalary(selectedJob.salary)}</dd></div>
+              <div><dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t("jobMonitoring.table.applicants")}</dt><dd className="mt-1 text-slate-900">{selectedJob.applicantsCount ?? selectedJob.applicants?.length ?? 0}</dd></div>
+            </dl>
+            <div><h4 className="font-semibold text-slate-950">{t("jobMonitoring.details.description")}</h4><p className="mt-1 whitespace-pre-wrap">{selectedJob.description || t("jobMonitoring.details.noDescription")}</p></div>
+            {selectedJob.requirements?.length ? <div><h4 className="font-semibold text-slate-950">{t("jobMonitoring.details.requirements")}</h4><ul className="mt-1 list-disc space-y-1 pl-5">{selectedJob.requirements.map((item) => <li key={item}>{item}</li>)}</ul></div> : null}
+            {selectedJob.skills?.length ? <div><h4 className="font-semibold text-slate-950">{t("jobMonitoring.details.skills")}</h4><div className="mt-2 flex flex-wrap gap-2">{selectedJob.skills.map((item) => <span key={item} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{item}</span>)}</div></div> : null}
+          </div>
+        ) : null}
+      </Dialog>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title={t("jobMonitoring.deleteDialog.title")}

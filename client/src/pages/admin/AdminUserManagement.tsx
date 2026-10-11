@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { createPortal } from "react-dom";
 import { motion, useReducedMotion } from "motion/react";
 import { motionTokens, seconds } from "@/constants/motion";
-import { MoreHorizontal, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
+import { AlertTriangle, MoreHorizontal, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { AdminGate } from "./admin/AdminGate";
@@ -16,7 +16,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useAdminPermissions } from "../../hooks/useAdminPermissions";
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../../lib/passwordPolicy";
 import { isValidEmail } from "../../lib/authValidation";
-import { updateAdminVerification } from "../../services/api";
+import { requestAdminUserPasswordReset, unlockAdminUser, updateAdminUserSuspiciousFlag, updateAdminVerification } from "../../services/api";
 
 const ROW_MENU_WIDTH = 176; // w-44
 const ROW_MENU_GAP = 8; // mt-2
@@ -102,8 +102,21 @@ const getRoleLabel = (role: string | undefined, t: TFunction<"admin">) => {
   return t("userManagement.roles.worker");
 };
 
+const getAccountRoleLabel = (
+  user: { role?: string; staffRole?: string | null },
+  t: TFunction<"admin">,
+) => {
+  if (user.role !== "admin") return getRoleLabel(user.role, t);
+  if (user.staffRole === "moderator") return t("userManagement.roles.moderator");
+  if (user.staffRole === "finance_team") return t("userManagement.roles.finance");
+  if (user.staffRole === "analytics_team") return t("userManagement.roles.analytics");
+  if (user.staffRole === "support_staff") return t("userManagement.roles.support");
+  return t("userManagement.roles.adminTeam");
+};
+
 const getStatusLabel = (status: string | undefined, t: TFunction<"admin">) => {
   if (status === "pending") return t("userManagement.statuses.pending");
+  if (status === "banned") return t("userManagement.statuses.banned");
   if (status === "disabled" || status === "deleted") return t("userManagement.statuses.disabled");
   return t("userManagement.statuses.active");
 };
@@ -135,6 +148,7 @@ function AdminUserManagementContent() {
 
   const prefersReducedMotion = useReducedMotion();
   const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState<"users" | "admins" | "flagged">("users");
   const [roleFilter, setRoleFilter] = useState<"all" | "privileged" | "work" | "hire" | "both">("all");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   // The menu is portaled out of the row, so it can no longer find its trigger by
@@ -151,11 +165,21 @@ function AdminUserManagementContent() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [reviewingDocument, setReviewingDocument] = useState<"identity" | "address" | null>(null);
+  const [supportAction, setSupportAction] = useState<{ type: "password-reset" | "unlock"; userId: string; name: string } | null>(null);
+  const [supportActionPending, setSupportActionPending] = useState(false);
   const [rejectionTarget, setRejectionTarget] = useState<"identity" | "address" | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [flagTarget, setFlagTarget] = useState<{ userId: string; name: string; flagged: boolean } | null>(null);
+  const [flagReason, setFlagReason] = useState("");
+  const [flagPending, setFlagPending] = useState(false);
+  const [flagError, setFlagError] = useState<string | null>(null);
   const editMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const addAccountButtonRef = useRef<HTMLButtonElement>(null);
   const pageSize = 5;
+
+  const canViewAdminTab = can("users.staff.view");
+  const canViewFlaggedTab = can("users.flags.view");
+  const canFlagUsers = can("users.flag");
 
   const filteredUsers = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -163,17 +187,24 @@ function AdminUserManagementContent() {
       const name = `${user.firstName || ""} ${user.lastName || ""}`.trim();
       const phone = user.phoneNumber ? String(user.phoneNumber).toLowerCase() : "";
       const role = String(user.role || "work").toLowerCase();
-      const matchesRole = roleFilter === "all"
+      const isMarketplaceUser = ["work", "hire", "both"].includes(role);
+      const matchesTab = activeTab === "users"
+        ? isMarketplaceUser
+        : activeTab === "admins"
+          ? role === "admin"
+          : isMarketplaceUser && user.suspiciousFlagged === true;
+      const matchesRole = activeTab !== "users" || roleFilter === "all"
         || (roleFilter === "privileged" && (role === "admin" || role === "superadmin"))
         || role === roleFilter;
-      return matchesRole && (
+      return matchesTab && matchesRole && (
         !normalizedSearch ||
         name.toLowerCase().includes(normalizedSearch) ||
-        user.email.toLowerCase().includes(normalizedSearch) ||
+        user.email?.toLowerCase().includes(normalizedSearch) ||
+        String(user.staffRole || "").toLowerCase().includes(normalizedSearch) ||
         phone.includes(normalizedSearch)
       );
     });
-  }, [users, searchTerm, roleFilter]);
+  }, [users, searchTerm, roleFilter, activeTab]);
 
   const getUserName = (user: typeof users[number]) =>
     `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email;
@@ -223,7 +254,12 @@ function AdminUserManagementContent() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, roleFilter]);
+  }, [searchTerm, roleFilter, activeTab]);
+
+  useEffect(() => {
+    if (activeTab === "admins" && !canViewAdminTab) setActiveTab("users");
+    if (activeTab === "flagged" && !canViewFlaggedTab) setActiveTab("users");
+  }, [activeTab, canViewAdminTab, canViewFlaggedTab]);
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
   const safePage = Math.min(currentPage, totalPages);
@@ -241,7 +277,78 @@ function AdminUserManagementContent() {
   // profiles (Read-only)"). Combined with the self/privileged check above for
   // every mutating action — viewing and messaging stay ungated by permission.
   const canWriteUsers = can("users.suspend");
+  const canResetPasswords = can("users.resetPassword");
+  const canUnlockUsers = can("users.unlock");
   const canMutateUser = (user: typeof users[number]) => canWriteUsers && canManageUser(user);
+  const canSupportUser = (user: typeof users[number]) =>
+    canManageUser(user) && ["work", "hire", "both"].includes(String(user.role || "")) && user.status !== "deleted";
+
+  const isMarketplaceUser = (user: typeof users[number]) => ["work", "hire", "both"].includes(String(user.role || ""));
+
+  const openMessageThread = (user: typeof users[number]) => {
+    const params = new URLSearchParams({
+      startUser: user._id,
+      startName: getUserName(user),
+      source: "user-management",
+    });
+    navigate(`${ROUTES.admin.messages}?${params.toString()}`);
+  };
+
+  const openFullProfile = (user: typeof users[number]) => {
+    const viewAs = user.role === "hire" ? "employer" : "worker";
+    navigate(`${ROUTES.publicProfile(user._id)}?viewAs=${viewAs}`);
+  };
+
+  const openFlagDialog = (user: typeof users[number]) => {
+    setFlagReason(user.suspiciousFlagReason || "");
+    setFlagError(null);
+    setFlagTarget({ userId: user._id, name: getUserName(user), flagged: Boolean(user.suspiciousFlagged) });
+  };
+
+  const submitFlagAction = async () => {
+    if (!flagTarget) return;
+    const nextFlagged = !flagTarget.flagged;
+    const reason = flagReason.trim();
+    if (nextFlagged && !reason) {
+      setFlagError(t("userManagement.flagDialog.reasonRequired"));
+      return;
+    }
+    setFlagPending(true);
+    setFlagError(null);
+    try {
+      await updateAdminUserSuspiciousFlag(flagTarget.userId, { flagged: nextFlagged, reason: nextFlagged ? reason : undefined });
+      toast.success(nextFlagged
+        ? t("userManagement.toast.userFlagged", { name: flagTarget.name })
+        : t("userManagement.toast.flagCleared", { name: flagTarget.name }));
+      setFlagTarget(null);
+      setFlagReason("");
+      reload();
+    } catch (error: any) {
+      setFlagError(error?.message || t("userManagement.toast.flagFailed"));
+    } finally {
+      setFlagPending(false);
+    }
+  };
+
+  const confirmSupportAction = async () => {
+    if (!supportAction) return;
+    setSupportActionPending(true);
+    try {
+      if (supportAction.type === "password-reset") {
+        await requestAdminUserPasswordReset(supportAction.userId);
+        toast.success(t("userManagement.toast.passwordResetSent", { name: supportAction.name }));
+      } else {
+        await unlockAdminUser(supportAction.userId);
+        toast.success(t("userManagement.toast.accountUnlocked", { name: supportAction.name }));
+        reload();
+      }
+      setSupportAction(null);
+    } catch (error: any) {
+      toast.error(error?.message || t("userManagement.toast.supportActionFailed"));
+    } finally {
+      setSupportActionPending(false);
+    }
+  };
 
   const handleVerificationReview = async (
     documentType: "identity" | "address",
@@ -301,7 +408,7 @@ function AdminUserManagementContent() {
     setIsSaving(true);
     try {
       if (formUserId) {
-        await handleEditUser(formUserId, { firstName: form.firstName.trim(), lastName: form.lastName.trim(), role: form.role, status: form.status as 'active' | 'pending' | 'disabled' });
+        await handleEditUser(formUserId, { firstName: form.firstName.trim(), lastName: form.lastName.trim(), role: form.role, status: form.status as 'active' | 'pending' | 'disabled' | 'banned' });
         toast.success(t("userManagement.toast.userUpdated"));
       } else if (formMode === "create") {
         await handleCreateUser({ firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim(), password: form.password, role: form.role as 'work' | 'hire' | 'admin' });
@@ -382,6 +489,40 @@ function AdminUserManagementContent() {
         </div>
 
         <div className="space-y-6 rounded-card border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-4" role="tablist" aria-label={t("userManagement.tabs.label")}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "users"}
+              onClick={() => setActiveTab("users")}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold ${activeTab === "users" ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
+            >
+              {t("userManagement.tabs.users")}
+            </button>
+            {canViewAdminTab ? (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "admins"}
+                onClick={() => setActiveTab("admins")}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold ${activeTab === "admins" ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
+              >
+                {t("userManagement.tabs.admins")}
+              </button>
+            ) : null}
+            {canViewFlaggedTab ? (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "flagged"}
+                onClick={() => setActiveTab("flagged")}
+                className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold ${activeTab === "flagged" ? "bg-amber-600 text-white" : "bg-amber-50 text-amber-800 hover:bg-amber-100"}`}
+              >
+                <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+                {t("userManagement.tabs.flagged")}
+              </button>
+            ) : null}
+          </div>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-slate-950">{t("userManagement.manage.title")}</h2>
@@ -407,19 +548,22 @@ function AdminUserManagementContent() {
                   className="w-full h-10 rounded-xl border border-[#E5E7EB] pl-9 pr-3 text-body-sm text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-brand"
                 />
               </div>
-              <label className="sr-only" htmlFor="admin-role-filter">{t("userManagement.manage.roleFilterLabel")}</label>
-              <select
-                id="admin-role-filter"
-                value={roleFilter}
-                onChange={(event) => setRoleFilter(event.target.value as typeof roleFilter)}
-                className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-brand-600"
-              >
-                <option value="all">{t("userManagement.manage.roleFilterOptions.all")}</option>
-                <option value="privileged">{t("userManagement.manage.roleFilterOptions.privileged")}</option>
-                <option value="work">{t("userManagement.manage.roleFilterOptions.work")}</option>
-                <option value="hire">{t("userManagement.manage.roleFilterOptions.hire")}</option>
-                <option value="both">{t("userManagement.manage.roleFilterOptions.both")}</option>
-              </select>
+              {activeTab === "users" ? (
+                <>
+                  <label className="sr-only" htmlFor="admin-role-filter">{t("userManagement.manage.roleFilterLabel")}</label>
+                  <select
+                    id="admin-role-filter"
+                    value={roleFilter}
+                    onChange={(event) => setRoleFilter(event.target.value as typeof roleFilter)}
+                    className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-brand-600"
+                  >
+                    <option value="all">{t("userManagement.manage.roleFilterOptions.all")}</option>
+                    <option value="work">{t("userManagement.manage.roleFilterOptions.work")}</option>
+                    <option value="hire">{t("userManagement.manage.roleFilterOptions.hire")}</option>
+                    <option value="both">{t("userManagement.manage.roleFilterOptions.both")}</option>
+                  </select>
+                </>
+              ) : null}
             </div>
           </div>
 
@@ -434,17 +578,26 @@ function AdminUserManagementContent() {
                 transition={{ delay: index * 0.04, duration: seconds(motionTokens.duration.standard) }}
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0"><p className="font-semibold text-slate-900">{getUserName(user)}</p><p className="truncate text-xs text-slate-600">{user.email}</p></div>
+                  <div className="min-w-0"><p className="flex items-center gap-2 font-semibold text-slate-900">{getUserName(user)}{user.suspiciousFlagged ? <AlertTriangle className="h-4 w-4 text-amber-600" aria-label={t("userManagement.flaggedBadge")} /> : null}</p><p className="truncate text-xs text-slate-600">{user.email}</p></div>
                   <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${getStatusColor(user.status)}`}>{getStatusLabel(user.status, t)}</span>
                 </div>
-                <dl className="mt-4 grid grid-cols-2 gap-3 text-xs"><div><dt className="text-slate-500">{t("userManagement.mobileList.roleLabel")}</dt><dd className="mt-1 capitalize text-slate-900">{getRoleLabel(user.role, t)}</dd></div><div><dt className="text-slate-500">{t("userManagement.mobileList.joinedLabel")}</dt><dd className="mt-1 text-slate-900">{formatJoinedDate(user._id)}</dd></div></dl>
+                <dl className="mt-4 grid grid-cols-2 gap-3 text-xs"><div><dt className="text-slate-500">{t("userManagement.mobileList.roleLabel")}</dt><dd className="mt-1 capitalize text-slate-900">{getAccountRoleLabel(user, t)}</dd></div><div><dt className="text-slate-500">{t("userManagement.mobileList.joinedLabel")}</dt><dd className="mt-1 text-slate-900">{formatJoinedDate(user._id)}</dd></div></dl>
                 <div className="mt-4 grid grid-cols-2 gap-2">
                   <Button className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-100" onClick={() => { setSelectedUserId(user._id); }}>{t("userManagement.mobileList.view")}</Button>
+                  <Button className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-100" onClick={() => openMessageThread(user)}>{t("userManagement.table.menu.messageUser")}</Button>
+                  {isMarketplaceUser(user) ? <Button className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-100" onClick={() => openFullProfile(user)}>{t("userManagement.table.menu.viewFullProfile")}</Button> : null}
+                  {canFlagUsers && isMarketplaceUser(user) ? <Button className="!bg-amber-600 hover:!bg-amber-700" onClick={() => openFlagDialog(user)}>{user.suspiciousFlagged ? t("userManagement.table.menu.clearFlag") : t("userManagement.table.menu.flagSuspicious")}</Button> : null}
                   {/* Read-only roles (no `users.suspend`) never see Edit at all — "Restricted"
                       is reserved for roles that CAN write but are blocked by the self/privileged-
                       target guard below, which is a different, pre-existing reason. */}
                   {canWriteUsers ? (
                     <Button disabled={!canManageUser(user)} onClick={() => openEdit(user)}>{canManageUser(user) ? t("userManagement.mobileList.edit") : t("userManagement.mobileList.restricted")}</Button>
+                  ) : null}
+                  {canResetPasswords && canSupportUser(user) ? (
+                    <Button className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-100" onClick={() => setSupportAction({ type: "password-reset", userId: user._id, name: getUserName(user) })}>{t("userManagement.table.menu.resetPassword")}</Button>
+                  ) : null}
+                  {canUnlockUsers && canSupportUser(user) && user.loginLocked ? (
+                    <Button onClick={() => setSupportAction({ type: "unlock", userId: user._id, name: getUserName(user) })}>{t("userManagement.table.menu.unlockAccount")}</Button>
                   ) : null}
                   {canMutateUser(user) && <Button className="col-span-2 !bg-red-700 hover:!bg-red-800" onClick={() => { setDeleteError(null); setDeleteTargetId(user._id); }}>{t("userManagement.mobileList.delete")}</Button>}
                 </div>
@@ -495,7 +648,7 @@ function AdminUserManagementContent() {
                             {getInitials(user)}
                           </div>
                           <div>
-                            <div className="text-[#111827] font-medium">{getUserName(user)}</div>
+                            <div className="flex items-center gap-2 text-[#111827] font-medium">{getUserName(user)}{user.suspiciousFlagged ? <AlertTriangle className="h-4 w-4 text-amber-600" aria-label={t("userManagement.flaggedBadge")} /> : null}</div>
                             <div className="text-caption text-[#6B7280]">
                               {user.email || getShortId(user._id)}
                             </div>
@@ -504,7 +657,7 @@ function AdminUserManagementContent() {
                       </td>
                       <td className="py-3 pr-4">
                         <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${user.role === "superadmin" ? "bg-violet-100 text-violet-800" : user.role === "admin" ? "bg-brand-100 text-brand-800" : "bg-slate-100 text-slate-700"}`}>
-                          {getRoleLabel(user.role, t)}
+                          {getAccountRoleLabel(user, t)}
                         </span>
                       </td>
                       <td className="py-3 pr-4">
@@ -537,7 +690,7 @@ function AdminUserManagementContent() {
                           </button>
                           {openMenuId === user._id && (
                             <RowActionsMenu anchor={openMenuAnchor}>
-                              {canManageUser(user) && <button
+                              <button
                                 type="button"
                                 onClick={() => {
                                   setSelectedUserId(user._id);
@@ -546,7 +699,19 @@ function AdminUserManagementContent() {
                                 className="w-full px-3 py-2 text-body-sm text-[#111827] hover:bg-[#F8FAFC]"
                               >
                                 {t("userManagement.table.menu.viewProfile")}
-                              </button>}
+                              </button>
+                              {isMarketplaceUser(user) ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    openFullProfile(user);
+                                    setOpenMenuId(null);
+                                  }}
+                                  className="w-full px-3 py-2 text-body-sm text-[#111827] hover:bg-[#F8FAFC]"
+                                >
+                                  {t("userManagement.table.menu.viewFullProfile")}
+                                </button>
+                              ) : null}
                               {canMutateUser(user) && <button
                                 type="button"
                                 onClick={() => {
@@ -566,15 +731,49 @@ function AdminUserManagementContent() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  navigate(ROUTES.admin.messages, {
-                                    state: { userId: user._id, name: getUserName(user) },
-                                  });
+                                  openMessageThread(user);
                                   setOpenMenuId(null);
                                 }}
                                 className="w-full px-3 py-2 text-body-sm text-[#111827] hover:bg-[#F8FAFC]"
                               >
                                 {t("userManagement.table.menu.messageUser")}
                               </button>
+                              {canFlagUsers && isMarketplaceUser(user) ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    openFlagDialog(user);
+                                    setOpenMenuId(null);
+                                  }}
+                                  className="w-full px-3 py-2 text-body-sm text-amber-800 hover:bg-amber-50"
+                                >
+                                  {user.suspiciousFlagged ? t("userManagement.table.menu.clearFlag") : t("userManagement.table.menu.flagSuspicious")}
+                                </button>
+                              ) : null}
+                              {canResetPasswords && canSupportUser(user) ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSupportAction({ type: "password-reset", userId: user._id, name: getUserName(user) });
+                                    setOpenMenuId(null);
+                                  }}
+                                  className="w-full px-3 py-2 text-body-sm text-[#111827] hover:bg-[#F8FAFC]"
+                                >
+                                  {t("userManagement.table.menu.resetPassword")}
+                                </button>
+                              ) : null}
+                              {canUnlockUsers && canSupportUser(user) && user.loginLocked ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSupportAction({ type: "unlock", userId: user._id, name: getUserName(user) });
+                                    setOpenMenuId(null);
+                                  }}
+                                  className="w-full px-3 py-2 text-body-sm text-[#111827] hover:bg-[#F8FAFC]"
+                                >
+                                  {t("userManagement.table.menu.unlockAccount")}
+                                </button>
+                              ) : null}
                               {user.status === "pending" && canMutateUser(user) && (
                                 <button
                                   type="button"
@@ -594,10 +793,10 @@ function AdminUserManagementContent() {
                                   setOpenMenuId(null);
                                 }}
                                 className={`w-full px-3 py-2 text-body-sm ${
-                                  user.status === "disabled" ? "text-[#111827]" : "text-[#DC2626]"
+                                  user.status === "disabled" || user.status === "banned" ? "text-[#111827]" : "text-[#DC2626]"
                                 } hover:bg-[#FEF2F2]`}
                               >
-                                {user.status === "disabled" ? t("userManagement.table.menu.activateUser") : t("userManagement.table.menu.suspendUser")}
+                                {user.status === "disabled" || user.status === "banned" ? t("userManagement.table.menu.activateUser") : t("userManagement.table.menu.suspendUser")}
                               </button>}
                               {canMutateUser(user) && <button
                                 type="button"
@@ -708,7 +907,7 @@ function AdminUserManagementContent() {
               </div>
               <div>
                 <p className="text-caption uppercase tracking-wide text-[#9CA3AF]">{t("userManagement.details.roleLabel")}</p>
-                <p className="mt-1 text-[#111827] capitalize">{getRoleLabel(selectedUser.role, t)}</p>
+                <p className="mt-1 text-[#111827] capitalize">{getAccountRoleLabel(selectedUser, t)}</p>
               </div>
               <div>
                 <p className="text-caption uppercase tracking-wide text-[#9CA3AF]">{t("userManagement.details.phoneLabel")}</p>
@@ -719,6 +918,16 @@ function AdminUserManagementContent() {
                 <p className="mt-1 text-[#111827]">{formatJoinedDate(selectedUser._id)}</p>
               </div>
             </div>
+
+            {selectedUser.suspiciousFlagged ? (
+              <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                <div className="flex items-center gap-2 font-semibold">
+                  <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+                  {t("userManagement.details.suspiciousTitle")}
+                </div>
+                <p className="mt-2">{selectedUser.suspiciousFlagReason || t("userManagement.details.suspiciousNoReason")}</p>
+              </div>
+            ) : null}
 
             <div className="mt-6 border-t border-slate-200 pt-5">
               <h5 className="text-sm font-semibold text-slate-900">{t("userManagement.details.verification.title")}</h5>
@@ -747,7 +956,7 @@ function AdminUserManagementContent() {
                       {document?.rejectionReason ? (
                         <p className="mt-2 text-xs text-red-700">{t("userManagement.details.verification.reasonPrefix", { reason: document.rejectionReason })}</p>
                       ) : null}
-                      {document?.status === "in-review" ? (
+                      {document?.status === "in-review" && can("verification.review") ? (
                         <div className="mt-3 flex gap-2">
                           <Button
                             disabled={reviewingDocument !== null}
@@ -770,7 +979,32 @@ function AdminUserManagementContent() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 mt-6">
+            <div className="flex flex-wrap items-center justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => openMessageThread(selectedUser)}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-body-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                {t("userManagement.table.menu.messageUser")}
+              </button>
+              {isMarketplaceUser(selectedUser) ? (
+                <button
+                  type="button"
+                  onClick={() => openFullProfile(selectedUser)}
+                  className="px-4 py-2 rounded-xl border border-brand-300 text-body-sm font-semibold text-brand-800 hover:bg-brand-50"
+                >
+                  {t("userManagement.table.menu.viewFullProfile")}
+                </button>
+              ) : null}
+              {canFlagUsers && isMarketplaceUser(selectedUser) ? (
+                <button
+                  type="button"
+                  onClick={() => openFlagDialog(selectedUser)}
+                  className="px-4 py-2 rounded-xl bg-amber-600 text-body-sm font-semibold text-white hover:bg-amber-700"
+                >
+                  {selectedUser.suspiciousFlagged ? t("userManagement.table.menu.clearFlag") : t("userManagement.table.menu.flagSuspicious")}
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setSelectedUserId(null)}
@@ -786,12 +1020,12 @@ function AdminUserManagementContent() {
                     setSelectedUserId(null);
                   }}
                   className={`min-h-11 rounded-xl px-4 py-2 text-sm font-semibold ${
-                    selectedUser.status === "disabled"
+                    selectedUser.status === "disabled" || selectedUser.status === "banned"
                       ? "bg-slate-200 text-slate-900"
                       : "bg-red-700 text-white"
                   }`}
                 >
-                  {selectedUser.status === "disabled" ? t("userManagement.details.activate") : t("userManagement.details.suspend")}
+                  {selectedUser.status === "disabled" || selectedUser.status === "banned" ? t("userManagement.details.activate") : t("userManagement.details.suspend")}
                 </button>
               )}
             </div>
@@ -814,6 +1048,76 @@ function AdminUserManagementContent() {
           setDeleteError(null);
         }}
       />
+
+      <ConfirmDialog
+        open={Boolean(supportAction)}
+        title={supportAction?.type === "unlock" ? t("userManagement.supportActionDialog.unlockTitle") : t("userManagement.supportActionDialog.resetTitle")}
+        description={supportAction?.type === "unlock"
+          ? t("userManagement.supportActionDialog.unlockDescription", { name: supportAction?.name })
+          : t("userManagement.supportActionDialog.resetDescription", { name: supportAction?.name })}
+        confirmLabel={supportAction?.type === "unlock" ? t("userManagement.table.menu.unlockAccount") : t("userManagement.table.menu.resetPassword")}
+        pending={supportActionPending}
+        onConfirm={confirmSupportAction}
+        onClose={() => {
+          if (!supportActionPending) setSupportAction(null);
+        }}
+      />
+
+      <Dialog
+        open={flagTarget !== null}
+        title={flagTarget?.flagged ? t("userManagement.flagDialog.clearTitle") : t("userManagement.flagDialog.flagTitle")}
+        description={flagTarget?.flagged
+          ? t("userManagement.flagDialog.clearDescription", { name: flagTarget?.name })
+          : t("userManagement.flagDialog.flagDescription", { name: flagTarget?.name })}
+        onClose={() => {
+          if (flagPending) return;
+          setFlagTarget(null);
+          setFlagReason("");
+          setFlagError(null);
+        }}
+      >
+        {!flagTarget?.flagged ? (
+          <>
+            <label htmlFor="suspicious-flag-reason" className="text-sm font-medium text-slate-700">
+              {t("userManagement.flagDialog.reasonLabel")}
+            </label>
+            <textarea
+              id="suspicious-flag-reason"
+              value={flagReason}
+              onChange={(event) => setFlagReason(event.target.value)}
+              maxLength={1000}
+              rows={4}
+              className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-600"
+              placeholder={t("userManagement.flagDialog.reasonPlaceholder")}
+            />
+          </>
+        ) : null}
+        {flagError ? <p role="alert" className="mt-3 text-sm text-red-700">{flagError}</p> : null}
+        <div className="mt-5 flex justify-end gap-3">
+          <Button
+            className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50"
+            disabled={flagPending}
+            onClick={() => {
+              setFlagTarget(null);
+              setFlagReason("");
+              setFlagError(null);
+            }}
+          >
+            {t("userManagement.flagDialog.cancel")}
+          </Button>
+          <Button
+            className={flagTarget?.flagged ? "!bg-slate-800 hover:!bg-slate-900" : "!bg-amber-600 hover:!bg-amber-700"}
+            disabled={flagPending || (!flagTarget?.flagged && !flagReason.trim())}
+            onClick={() => void submitFlagAction()}
+          >
+            {flagPending
+              ? t("userManagement.flagDialog.saving")
+              : flagTarget?.flagged
+                ? t("userManagement.flagDialog.clearConfirm")
+                : t("userManagement.flagDialog.flagConfirm")}
+          </Button>
+        </div>
+      </Dialog>
 
       <Dialog
         open={rejectionTarget !== null}
@@ -885,7 +1189,7 @@ function AdminUserManagementContent() {
             {canManagePrivilegedRoles && <option value="admin">{t("userManagement.form.roleOptions.admin")}</option>}
             {formMode === "edit" && canManagePrivilegedRoles && <option value="superadmin">{t("userManagement.form.roleOptions.superadmin")}</option>}
           </Select>
-          {formMode === "edit" && <Select label={t("userManagement.form.statusLabel")} value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}><option value="active">{t("userManagement.form.statusOptions.active")}</option><option value="pending">{t("userManagement.form.statusOptions.pending")}</option><option value="disabled">{t("userManagement.form.statusOptions.disabled")}</option></Select>}
+          {formMode === "edit" && <Select label={t("userManagement.form.statusLabel")} value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}><option value="active">{t("userManagement.form.statusOptions.active")}</option><option value="pending">{t("userManagement.form.statusOptions.pending")}</option><option value="disabled">{t("userManagement.form.statusOptions.disabled")}</option>{form.status === "banned" ? <option value="banned" disabled>{t("userManagement.statuses.banned")}</option> : null}</Select>}
         </div>
         {formErrors.form && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{formErrors.form}</p>}
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

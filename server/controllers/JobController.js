@@ -28,16 +28,16 @@ import {
 } from '../lib/jobDiscovery.js';
 import { resolveCategoryId } from '../lib/categoryPresentation.js';
 import { resolvePublicId } from '../lib/publicId.js';
+import { hasPermission, resolveStaffRole } from '../lib/adminPermissions.js';
 
 const getRequesterId = (req) => req.user?.id || req.user?.userId || null;
 const getRequesterRole = (req) => String(req.user?.role || '').toLowerCase();
-const isAdminRole = (role) => role === 'admin' || role === 'superadmin';
+const canManageAnyJob = (req) => hasPermission(resolveStaffRole(req.user), 'jobs.manage');
 const canPostJobsRole = (role) =>
     role === 'hire' ||
     role === 'both' ||
     role === 'employer' ||
-    role === 'doctor' ||
-    isAdminRole(role);
+    role === 'doctor';
 const getDiscoveryCity = (req) => resolveDiscoveryCity({
     userId: getRequesterId(req),
     role: getRequesterRole(req),
@@ -197,14 +197,13 @@ export async function getApplicantsList(req, res){
         const jobId = resolvePublicId(req.params.jobId);
         if (!jobId) return res.status(400).json({ message: 'A valid job id is required.' });
         const requesterId = getRequesterId(req);
-        const requesterRole = getRequesterRole(req);
         const job = await Job.findById(jobId)
             .populate('category', 'name')
             .populate('applicants', `${APPLICANT_SELECT} workExperience jobPreferences preferredCategories`);
         if(!job) {
             return res.status(404).json({message: "Job not found."});
         }
-        if (String(job.jobPoster || '') !== String(requesterId || '') && !isAdminRole(requesterRole)) {
+        if (String(job.jobPoster || '') !== String(requesterId || '') && !canManageAnyJob(req)) {
             return res.status(403).json({ message: "Not authorized to view applicants for this job." });
         }
         const ratings = await getReviewSummaries(job.applicants.map((item) => item._id), 'worker');
@@ -425,7 +424,6 @@ export async function changeJobStatus(req, res){
         if (!id) return res.status(400).json({ message: 'A valid job id is required.' });
         const {status} = req.body;
         const requesterId = getRequesterId(req);
-        const requesterRole = getRequesterRole(req);
         const statusOptions = ['Available', 'In Progress', 'Completed', 'Cancelled', 'Closed'];
 
         if(!statusOptions.includes(status)) {
@@ -433,7 +431,7 @@ export async function changeJobStatus(req, res){
         }
         const job = await Job.findById(id);
         if(!job) return res.status(404).json({message: "Job not found."});
-        if (job.jobPoster?.toString() !== requesterId && !isAdminRole(requesterRole)) {
+        if (job.jobPoster?.toString() !== requesterId && !canManageAnyJob(req)) {
             return res.status(403).json({ message: "You are not allowed to update this job status." });
         }
 
@@ -712,11 +710,10 @@ export async function selectApplicant(req, res){
         const { applicantId } = req.params;
         const job = await Job.findById(jobId);
         const requesterId = getRequesterId(req);
-        const requesterRole = getRequesterRole(req);
         if(!job) {
             return res.status(404).json({message: "Job not found."});
         }
-        if (job.jobPoster?.toString() !== requesterId && !isAdminRole(requesterRole)) {
+        if (job.jobPoster?.toString() !== requesterId && !canManageAnyJob(req)) {
             return res.status(403).json({ message: "You are not allowed to select applicants for this job." });
         }
         if(!job.applicants.includes(applicantId)) {
@@ -933,14 +930,13 @@ export async function deleteJob(req, res) {
         const id = resolvePublicId(req.params.id);
         if (!id) return res.status(400).json({ message: 'A valid job id is required.' });
         const userId = getRequesterId(req);
-        const requesterRole = getRequesterRole(req);
 
         const job = await Job.findById(id);
         if (!job) {
             return res.status(404).json({ message: 'Job not found.' });
         }
 
-        if (String(job.jobPoster || '') !== String(userId || '') && !isAdminRole(requesterRole)) {
+        if (String(job.jobPoster || '') !== String(userId || '') && !canManageAnyJob(req)) {
             return res.status(403).json({ message: 'You are not allowed to delete this job.' });
         }
 
@@ -1038,14 +1034,13 @@ export async function reopenJob(req, res) {
         const id = resolvePublicId(req.params.id);
         if (!id) return res.status(400).json({ message: 'A valid job id is required.' });
         const userId = req.user?.id;
-        const requesterRole = getRequesterRole(req);
 
         const job = await Job.findById(id);
         if (!job) {
             return res.status(404).json({ message: 'Job not found.' });
         }
 
-        if (job.jobPoster.toString() !== userId && !isAdminRole(requesterRole)) {
+        if (job.jobPoster.toString() !== userId && !canManageAnyJob(req)) {
             return res.status(403).json({ message: 'You are not allowed to reopen this job.' });
         }
 

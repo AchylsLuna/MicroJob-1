@@ -237,6 +237,9 @@ const loginUser = async (req, res) => {
     if (user.status === 'disabled') {
       return sendError(res, 401, 'Account is disabled. Contact an admin.');
     }
+    if (user.status === 'banned') {
+      return sendError(res, 401, 'Account is banned. Contact support.');
+    }
     if (user.status === 'deleted') {
       return sendError(res, 401, 'Account has been deleted.');
     }
@@ -370,6 +373,9 @@ const googleLogin = async (req, res) => {
     if (user?.status === 'disabled') {
       return sendError(res, 401, 'Account is disabled. Contact an admin.');
     }
+    if (user?.status === 'banned') {
+      return sendError(res, 401, 'Account is banned. Contact support.');
+    }
     if (user?.status === 'deleted') {
       return sendError(res, 401, 'Account has been deleted.');
     }
@@ -459,6 +465,9 @@ const loginMfa = async (req, res) => {
     if (user.status === 'disabled') {
       return sendError(res, 401, 'Account is disabled. Contact an admin.');
     }
+    if (user.status === 'banned') {
+      return sendError(res, 401, 'Account is banned. Contact support.');
+    }
     if (user.status === 'deleted') {
       return sendError(res, 401, 'Account has been deleted.');
     }
@@ -534,6 +543,9 @@ const loginOtpVerify = async (req, res) => {
     }
     if (user.status === 'disabled') {
       return sendError(res, 401, 'Account is disabled. Contact an admin.');
+    }
+    if (user.status === 'banned') {
+      return sendError(res, 401, 'Account is banned. Contact support.');
     }
     if (user.status === 'deleted') {
       return sendError(res, 401, 'Account has been deleted.');
