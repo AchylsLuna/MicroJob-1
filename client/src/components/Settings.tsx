@@ -47,6 +47,7 @@ import { MfaSettingsCard } from "./settings/MfaSettingsCard";
 import { WorkerResumeSection } from "./settings/WorkerResumeSection";
 import { LanguageSettingsCard } from "./settings/LanguageSettingsCard";
 import { SettingsTabList } from "./settings/SettingsTabList";
+import { ProfilePhotoEditor } from "./settings/ProfilePhotoEditor";
 import { Card, Dialog, ConfirmDialog } from "./ui";
 import { ROUTES } from "../utils/routes";
 import IdAnalyzerVerifier from "./IdAnalyzerVerifier";
@@ -474,6 +475,7 @@ export function Settings() {
 
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarFileToEdit, setAvatarFileToEdit] = useState<File | null>(null);
   const resolvedAvatarUrl = toAbsoluteAssetUrl(avatarUrl);
 
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
@@ -727,7 +729,7 @@ export function Settings() {
     }));
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -738,6 +740,13 @@ export function Settings() {
       return;
     }
 
+    // Do not upload the original. The editor creates the square, rotated image
+    // that is shown in its preview and hands that finished file to save below.
+    setAvatarFileToEdit(file);
+    e.target.value = "";
+  };
+
+  const handleEditedPhotoSave = async (file: File) => {
     setIsAvatarSubmitting(true);
     try {
       const response = await uploadAvatar(file);
@@ -747,11 +756,11 @@ export function Settings() {
       toast.success("Profile photo uploaded successfully!");
       // Trigger sidebar update
       window.dispatchEvent(new Event('auth_user_updated'));
+      setAvatarFileToEdit(null);
     } catch (error: any) {
       toast.error(error.message || "Failed to upload profile photo");
     } finally {
       setIsAvatarSubmitting(false);
-      e.target.value = "";
     }
   };
 
@@ -3236,6 +3245,23 @@ export function Settings() {
         onClose={() => setDeleteCertificateTarget(null)}
         onConfirm={() => deleteCertificateTarget && handleDeleteCertificate(deleteCertificateTarget.id)}
       />
+      <Dialog
+        open={Boolean(avatarFileToEdit)}
+        title="Edit profile photo"
+        description="Crop, zoom, reposition, and rotate your photo before saving."
+        onClose={() => !isAvatarSubmitting && setAvatarFileToEdit(null)}
+        closeDisabled={isAvatarSubmitting}
+        size="md"
+      >
+        {avatarFileToEdit ? (
+          <ProfilePhotoEditor
+            file={avatarFileToEdit}
+            saving={isAvatarSubmitting}
+            onCancel={() => setAvatarFileToEdit(null)}
+            onSave={handleEditedPhotoSave}
+          />
+        ) : null}
+      </Dialog>
     </div>
   );
 }
