@@ -393,12 +393,12 @@ export function LandingPageBlue() {
       howItWorksIntent === "hire"
         ? [
             {
-              title: "Posting a job is always free",
+              title: "Post a job for ₱20",
               description:
-                "Describe the work, pick a category, and set the pay. Publishing costs nothing — you only move money when you fund the job.",
+                "Describe the work, pick a category, and set the pay. A flat ₱20 posting fee covers the listing — the worker's pay is secured separately in escrow.",
               video: "/media/how-it-works/how-it-works-hire.mp4",
               poster: "/media/how-it-works/how-it-works-hire-poster.webp",
-              mediaLabel: "Screen recording: creating a job post in MicroJobs, from the empty form to the published listing.",
+              mediaLabel: "Screen recording: filling in the MicroJobs job wizard and reaching the checkout step, where the ₱20 posting fee is added to the pay held in escrow.",
               action: "Post a job",
             },
             {
@@ -878,7 +878,7 @@ export function LandingPageBlue() {
               </div>
               <p className="mt-8 text-[14px] text-gray-500">
                 {landingStats.openJobs === 0
-                  ? "The board is empty at this moment — new work is posted most days, and posting a job is free."
+                  ? "The board is empty at this moment — new work is posted most days, and posting a job costs ₱20."
                   : `Across ${landingStats.cities.toLocaleString()} ${
                       landingStats.cities === 1 ? "city" : "cities"
                     } in the Philippines. Counted when you loaded this page.`}
@@ -1258,7 +1258,7 @@ export function LandingPageBlue() {
               <p className="text-base font-semibold text-slate-900">No jobs are posted right now.</p>
               <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
                 We're an early-stage marketplace, so the board is quiet some days. Browse a category to
-                be ready when work lands, or post the first job yourself — posting is free.
+                be ready when work lands, or post the first job yourself — it's ₱20 to list.
               </p>
               {categories.length > 0 ? (
                 <div className="mt-6 flex flex-wrap justify-center gap-2">
@@ -1279,7 +1279,7 @@ export function LandingPageBlue() {
                 onClick={() => navigate(isAuthenticated ? ROUTES.employer.postJob : ROUTES.signUp)}
                 className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
               >
-                Post a job — it's free
+                Post a job — ₱20
                 <ChevronRight className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
