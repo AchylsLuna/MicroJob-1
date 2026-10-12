@@ -66,6 +66,30 @@ export const isInvalidTokenError = ({
 export const isCredentialLoginError = (message?: unknown) =>
   CREDENTIAL_ERROR_PATTERN.test(String(message || '').trim());
 
+/**
+ * Removes everything the old client-side "backup" implementation in
+ * `pages/admin/AdminBackups.tsx` left behind.
+ *
+ * That page serialised the full admin dataset -- every user's email, phone and
+ * address plus every transaction -- into `localStorage`, and these keys were not
+ * in `clearAuthStorage` below, so the dump survived sign-out and forced session
+ * invalidation on a shared machine. The feature is gone; this clears the
+ * residue for anyone who used it before.
+ */
+const LEGACY_BACKUP_KEYS = ['admin_backup_settings', 'admin_backup_history', 'admin_last_restore'];
+const LEGACY_BACKUP_DATA_PREFIX = 'admin_backup_data';
+
+export const purgeLegacyBackupStorage = () => {
+  try {
+    for (const key of LEGACY_BACKUP_KEYS) localStorage.removeItem(key);
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith(LEGACY_BACKUP_DATA_PREFIX)) localStorage.removeItem(key);
+    }
+  } catch {
+    // Storage disabled or quota-exhausted: nothing reachable to clean up.
+  }
+};
+
 export const clearAuthStorage = () => {
   localStorage.removeItem(AUTH_USER_KEY);
   localStorage.removeItem(CURRENT_USER_KEY);
@@ -74,6 +98,7 @@ export const clearAuthStorage = () => {
   localStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
   localStorage.removeItem(PENDING_VERIFICATION_NAME_KEY);
   localStorage.removeItem(PENDING_ACCOUNT_PREFERENCE_KEY);
+  purgeLegacyBackupStorage();
 };
 
 export const handleInvalidSession = () => {
