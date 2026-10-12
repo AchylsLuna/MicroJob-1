@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Animated, Platform, ScrollView, View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Modal } from 'react-native';
+import { Animated, Platform, RefreshControl, ScrollView, View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
 import { useAppSession } from '../../contexts/AppSessionContext';
@@ -13,6 +13,7 @@ import CalendarSheet from '../../components/ui/CalendarSheet';
 import { isDateDisabled, type DateRange } from '../../lib/calendarModel';
 import useHideOnScroll from '../../hooks/useHideOnScroll';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Category = { _id: string; name: string };
 export type Job = {
@@ -74,6 +75,7 @@ export default function Jobs(props: JobsProps) {
     initialCategory,
   } = props;
   const { t } = useTranslation('worker');
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -93,8 +95,10 @@ export default function Jobs(props: JobsProps) {
   const [showMatchingPreferences, setShowMatchingPreferences] = useState(false);
   const [savingPreferences, setSavingPreferences] = useState(false);
   const [showFilterSheet, setShowFilterSheet] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const session = useAppSession();
+  const { registerActivity } = session;
   const firstName = String(session.user?.firstName || '').trim() || t('jobs.home.fallbackName');
   const { onScroll, onHeaderLayout, headerStyle, headerHeight } = useHideOnScroll();
 
@@ -287,6 +291,16 @@ export default function Jobs(props: JobsProps) {
     }
   }, [locationLoaded, searchQuery, selectedCategory, selectedJobType, workerLocation.city, t]);
 
+  const refreshJobs = useCallback(async () => {
+    registerActivity();
+    setIsRefreshing(true);
+    try {
+      await Promise.all([fetchJobs(), fetchRecommendedJobs()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [fetchJobs, fetchRecommendedJobs, registerActivity]);
+
   useEffect(() => {
     fetchCategories();
     fetchAppliedJobs();
@@ -421,7 +435,10 @@ export default function Jobs(props: JobsProps) {
 
   return (
     <View style={styles.container}>
-      <Animated.View style={[styles.headerWrap, headerStyle]} onLayout={onHeaderLayout}>
+      <Animated.View
+        style={[styles.headerWrap, { paddingTop: insets.top }, headerStyle]}
+        onLayout={onHeaderLayout}
+      >
         <View style={styles.header}>
           <View style={styles.headerCopy}>
             <Text style={styles.greeting} numberOfLines={1}>{t('jobs.home.greeting', { name: firstName })}</Text>
@@ -444,14 +461,34 @@ export default function Jobs(props: JobsProps) {
       </Animated.View>
 
       <Animated.ScrollView
-        contentContainerStyle={[styles.scroll, { paddingTop: headerHeight + 8 }]}
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scroll, {
+          paddingTop: headerHeight + 8,
+          paddingBottom: Math.max(tokens.layout.tabBarClearance, 84 + insets.bottom),
+        }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         removeClippedSubviews={Platform.OS === 'android'}
         onScroll={onScroll}
         scrollEventThrottle={16}
+        decelerationRate="fast"
+        refreshControl={(
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => void refreshJobs()}
+            tintColor={tokens.colors.brand}
+            colors={[tokens.colors.brand]}
+            progressViewOffset={headerHeight + 8}
+          />
+        )}
       >
+        {isRefreshing ? (
+          <View style={styles.refreshStatus} accessibilityLiveRegion="polite">
+            <ActivityIndicator color={tokens.colors.brand} />
+            <Text style={styles.refreshStatusText}>{t('jobs.toolbar.refreshLabel')}</Text>
+          </View>
+        ) : null}
         <View style={styles.searchRow}>
         <View style={styles.searchContainer}>
           <Ionicons name="search-outline" size={18} color={tokens.colors.textSubtle} />
@@ -799,7 +836,16 @@ export default function Jobs(props: JobsProps) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.colors.background },
-  scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: tokens.layout.tabBarClearance, gap: 14 },
+  scrollView: { flex: 1 },
+  scroll: { flexGrow: 1, paddingHorizontal: 16, paddingTop: 8, paddingBottom: tokens.layout.tabBarClearance, gap: 14 },
+  refreshStatus: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  refreshStatusText: { fontSize: 12, fontWeight: '700', color: tokens.colors.brand },
   headerWrap: {
     position: 'absolute',
     top: 0,
@@ -855,13 +901,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.colors.border,
     paddingHorizontal: 14,
-    height: 52,
+    minHeight: 52,
     gap: 10,
   },
   searchInput: { flex: 1, fontSize: 14, color: tokens.colors.text },
   filterButton: {
     width: 52,
-    height: 52,
+    minHeight: 52,
     borderRadius: tokens.radius.md,
     alignItems: 'center',
     justifyContent: 'center',
