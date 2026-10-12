@@ -1,7 +1,7 @@
 import test, { after, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 
 import User from '../../models/User.js';
 import Category from '../../models/Category.js';
@@ -44,7 +44,12 @@ const jobPayload = (category) => ({
 });
 
 before(async () => {
-  mongoServer = await MongoMemoryServer.create();
+  // createJob now funds escrow inside `session.withTransaction`, which a
+  // standalone in-memory server cannot run ("This MongoDB deployment does not
+  // support retryable writes"). A single-node replica set supports transactions
+  // and is the same arrangement server/lib/db.js uses for dev/e2e and
+  // applicationSettlement.test.js uses here.
+  mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   await mongoose.connect(mongoServer.getUri(), { dbName: 'profile-completeness-tests' });
 });
 
