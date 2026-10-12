@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, MapPin, Search, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, MapPin, Search, SlidersHorizontal, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
@@ -18,6 +18,7 @@ import { JobDetailPanel } from "../../components/job/JobDetailPanel";
 import { FilterPill, type FilterOption } from "../../components/job/FilterPill";
 import { toJobCardData } from "../../components/job/jobCardModel";
 import { formatCurrency } from "../../lib/formatters";
+import { getPhilippineLocationOptions } from "../../services/philippineLocations";
 
 interface Job {
   id: string;
@@ -150,6 +151,11 @@ export function FindJobs() {
     barangay: "",
   });
   const [isLocationLoaded, setIsLocationLoaded] = useState(false);
+  const [locationOptions, setLocationOptions] = useState<string[]>([]);
+  const workerCity = workerLocation.city.trim();
+  const selectedLocation = searchParams.get("location");
+  const searchLocation = selectedLocation === "nationwide" ? "" : selectedLocation ?? workerCity;
+  const locationFilter = selectedLocation && selectedLocation !== "nationwide" ? selectedLocation.trim() : "";
   const [categories, setCategories] = useState<Array<{ _id: string; name: string }>>([]);
   const [preferredCategoryIds, setPreferredCategoryIds] = useState<string[]>([]);
   const [jobPreferenceText, setJobPreferenceText] = useState("");
@@ -182,6 +188,10 @@ export function FindJobs() {
   const locationScore = useCallback((jobLocation: string) => {
     const text = normalizeToken(jobLocation);
     if (!text) return 0;
+    if (selectedLocation !== null) {
+      const selected = normalizeToken(searchLocation);
+      return selected && text.includes(selected) ? 3 : 0;
+    }
 
     const province = normalizeToken(workerLocation.province);
     const city = normalizeToken(workerLocation.city);
@@ -192,7 +202,7 @@ export function FindJobs() {
     if (city && text.includes(city)) score += 2;
     if (barangay && text.includes(barangay)) score += 3;
     return score;
-  }, [normalizeToken, workerLocation]);
+  }, [normalizeToken, workerLocation, selectedLocation, searchLocation]);
 
   const handleSaveJob = async (jobId: string) => {
     // Signed-out visitors on the public /jobs route have nowhere to save a
@@ -335,17 +345,14 @@ export function FindJobs() {
     };
   }, [user]);
 
-  // Only a logged-in worker's missing city blocks the list (their location
-  // determines ranking and the empty state points them at Settings).
-  // Signed-out visitors have no city concept at all — they still get the
-  // nationwide, search-driven list.
-  const canLoadJobs = isLocationLoaded && !(user && !workerLocation.city.trim());
+  const canLoadJobs = isLocationLoaded;
 
   const { data: jobsData, isPending, error: jobsError, refetch: refetchJobs } = useWorkerJobs({
     userId: user?.id,
     search: searchQuery,
     category: selectedCategory,
-    city: workerLocation.city.trim(),
+    city: searchLocation.trim(),
+    location: selectedLocation ?? undefined,
     enabled: canLoadJobs,
   });
 
@@ -419,11 +426,10 @@ export function FindJobs() {
     saved: savedJobIds.has(job.id),
   }));
 
-  // Search plus the four filter pills. Locality is never a filter here — the
-  // worker's city only decides ranking (see the "nearest" sort and
-  // locationScore below) — filtering on it previously hid every out-of-city
-  // job and showed an empty page to anyone without a city set.
+  // The profile city ranks the national feed. Only an explicitly chosen
+  // search location filters it; clearing the control restores nationwide jobs.
   const filteredJobs = jobsWithSavedState.filter((job) => {
+    if (locationFilter && !job.location.toLowerCase().includes(locationFilter.toLowerCase())) return false;
     if (searchQuery) {
       const combined = `${job.title} ${job.company} ${job.category}`.toLowerCase();
       if (!combined.includes(searchQuery)) return false;
@@ -460,15 +466,22 @@ export function FindJobs() {
     }
   });
 
-  const workerCity = workerLocation.city.trim();
-  const workerLocationLabel = workerCity || t("findJobs.hero.setCityLabel");
-
   const updateSearchParam = useCallback((key: string, value: string | null, options?: { replace?: boolean }) => {
     const next = new URLSearchParams(searchParams);
     if (value) next.set(key, value);
     else next.delete(key);
     setSearchParams(next, options);
   }, [searchParams, setSearchParams]);
+
+  const loadLocationOptions = () => {
+    if (locationOptions.length) return;
+    getPhilippineLocationOptions()
+      .then(({ cities, provinces }) => setLocationOptions(
+        [...new Set([...cities, ...provinces].map((item) => item.name))].sort((a, b) => a.localeCompare(b)),
+      ))
+      // Free-text search remains available if the suggestion service is down.
+      .catch(() => {});
+  };
 
   // Keeps ?jobId in sync with the visible results: defaults to the first
   // result once jobs load, and re-points to the new first result whenever a
@@ -602,22 +615,36 @@ export function FindJobs() {
               {categories.map((category) => <option key={category._id} value={category._id}>{category.name}</option>)}
             </select>
           </label>
-          <button type="button" onClick={() => navigate(ROUTES.settings)} className="flex min-h-14 min-w-0 items-center gap-3 rounded-xl bg-white px-4 text-left text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1C4D8D]" aria-label={workerCity ? t("findJobs.hero.cityButtonAriaSet", { location: workerLocationLabel }) : t("findJobs.hero.cityButtonAriaUnset", { location: workerLocationLabel })}>
+          <div className="flex h-14 min-w-0 items-center gap-2 rounded-xl bg-white pl-4 text-slate-700 focus-within:ring-2 focus-within:ring-brand-500">
             <MapPin className="h-5 w-5 shrink-0 text-slate-500" aria-hidden="true" />
-            <span className="truncate text-sm font-semibold">{workerLocationLabel}</span>
-          </button>
+            <input
+              type="text"
+              aria-label={t("findJobs.hero.locationSearchAria")}
+              aria-describedby="job-location-help"
+              value={searchLocation}
+              onChange={(event) => updateSearchParam("location", event.target.value || "nationwide")}
+              onFocus={loadLocationOptions}
+              placeholder={t("findJobs.hero.nationwide")}
+              list="job-search-locations"
+              className="h-full min-w-0 flex-1 rounded-xl bg-transparent text-sm font-semibold outline-none placeholder:text-slate-500"
+            />
+            <button
+              type="button"
+              onClick={() => updateSearchParam("location", "nationwide")}
+              aria-label={t("findJobs.hero.searchNationwide")}
+              title={t("findJobs.hero.searchNationwide")}
+              className="mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <datalist id="job-search-locations">
+              {locationOptions.filter((name) => name.toLowerCase().includes(searchLocation.toLowerCase())).slice(0, 50)
+                .map((name) => <option key={name} value={name} />)}
+            </datalist>
+          </div>
+          <p id="job-location-help" className="text-xs text-white/85 lg:col-span-3">{t("findJobs.hero.locationHelp")}</p>
         </form>
       </section>
-
-      {isLocationLoaded && !workerCity && (
-        <aside role="status" className="flex flex-col gap-3 rounded-card border border-brand/20 bg-brand/[0.06] p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="font-bold text-slate-950">{t("findJobs.locationBanner.title")}</p>
-            <p className="mt-1 text-sm text-slate-600">{t("findJobs.locationBanner.subtitle")}</p>
-          </div>
-          <button type="button" onClick={() => navigate(ROUTES.settings)} className="brand-primary-interactive min-h-11 shrink-0 rounded-xl px-4 text-sm font-semibold">{t("findJobs.locationBanner.updateLocation")}</button>
-        </aside>
-      )}
 
       {/* `relative` is the anchor for the filter dropdowns below sm, where they
           span the full row instead of hanging off a single pill. */}
@@ -767,11 +794,14 @@ export function FindJobs() {
           <p className="text-xl font-bold leading-tight text-slate-950 sm:text-2xl" aria-live="polite">
             {t("findJobs.results.countLabel", { count: sortedJobs.length })}
           </p>
-          {/* Discovery is nationwide; when the worker has a city we say so
-              explicitly, since "nearest first" is otherwise invisible ordering. */}
+          {/* State the selected area, or explain the national feed's ranking. */}
           <p className="mt-1 text-sm text-slate-500">
-            {workerCity && sortBy === "nearest"
-              ? t("findJobs.results.nearestFirst", { city: workerCity })
+            {locationFilter
+              ? t("findJobs.results.inLocation", { location: locationFilter })
+              : searchLocation && sortBy === "nearest"
+              ? t("findJobs.results.nearestFirst", { city: searchLocation })
+              : selectedLocation === "nationwide"
+              ? t("findJobs.results.nationwide")
               : t("findJobs.results.sortedBy", { sort: sortLabels[sortBy].toLowerCase() })}
           </p>
         </div>
@@ -820,7 +850,7 @@ export function FindJobs() {
       )}
 
       {!isLoading && !loadError && sortedJobs.length === 0 && (
-        <StatusState title={searchQuery ? t("findJobs.status.empty.searchTitle") : t("findJobs.status.empty.defaultTitle")} description={searchQuery ? t("findJobs.status.empty.searchDescription") : t("findJobs.status.empty.defaultDescription")} />
+        <StatusState title={searchQuery || locationFilter ? t("findJobs.status.empty.searchTitle") : t("findJobs.status.empty.defaultTitle")} description={searchQuery || locationFilter ? t("findJobs.status.empty.searchDescription") : t("findJobs.status.empty.defaultDescription")} />
       )}
 
       {!isLoading && !loadError && sortedJobs.length > 0 && (

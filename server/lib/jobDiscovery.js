@@ -14,11 +14,15 @@ const WORKER_ROLES = new Set(['work', 'worker', 'user', 'patient', 'both']);
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
- * Resolves the viewer's home locality. Discovery is national — this is a
+ * Resolves the selected search locality, falling back to the viewer's home.
+ * Discovery is national — this is a
  * *ranking* signal, never a filter, so a missing city is a normal state rather
  * than an error: the viewer simply sees the national list unranked.
  */
 export async function resolveDiscoveryCity({ userId, role, requestedCity }) {
+  if (typeof requestedCity === 'string') {
+    return { city: requestedCity.trim(), province: '' };
+  }
   if (userId && WORKER_ROLES.has(role)) {
     const worker = await User.findById(userId).select('city province');
     return {

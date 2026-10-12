@@ -150,7 +150,11 @@
     "hero": {
       "eyebrow": "Paghahanap ng trabaho",
       "title": "Hanapin ang iyong susunod na oportunidad",
-      "subtitle": "Maghanap ng lokal na trabaho, ihambing ang garantisadong bayad, at i-save ang mga oportunidad na gusto mo.",
+      "subtitle": "Maghanap ng trabaho sa buong Pilipinas, ihambing ang garantisadong bayad, at i-save ang mga oportunidad na gusto mo.",
+      "locationSearchAria": "Lokasyon para sa paghahanap ng trabaho",
+      "nationwide": "Buong bansa",
+      "searchNationwide": "Maghanap sa buong bansa",
+      "locationHelp": "Mag-type ng lungsod o lalawigan, o burahin ang lokasyon para maghanap sa buong bansa.",
       "searchAria": "Maghanap ng trabaho",
       "searchPlaceholder": "Pamagat ng trabaho, kompanya, o kategorya",
       "categoryFilterAria": "I-filter ayon sa kategorya",
@@ -190,6 +194,8 @@
       "save": "I-save ang mga preference"
     },
     "results": {
+      "inLocation": "Ipinapakita ang mga trabaho sa {{location}}.",
+      "nationwide": "Ipinapakita ang mga trabaho sa buong Pilipinas.",
       "countLabel_one": "{{count}} trabahong nahanap",
       "countLabel_other": "{{count}} na trabahong nahanap",
       "sortedBy": "Nakaayos ang mga oportunidad ayon sa {{sort}}.",
@@ -216,7 +222,7 @@
       "empty": {
         "searchTitle": "Walang trabahong tumugma sa iyong paghahanap",
         "defaultTitle": "Walang available na trabaho",
-        "searchDescription": "Sumubok ng ibang pamagat, kompanya, o kategorya.",
+        "searchDescription": "Sumubok ng ibang pamagat, kompanya, kategorya, o lokasyon.",
         "defaultDescription": "Pakisuri muli sa ibang pagkakataon para sa mga bagong oportunidad."
       }
     },

@@ -41,7 +41,9 @@ const canPostJobsRole = (role) =>
 const getDiscoveryCity = (req) => resolveDiscoveryCity({
     userId: getRequesterId(req),
     role: getRequesterRole(req),
-    requestedCity: req.query?.city,
+    requestedCity: typeof req.query?.location === 'string'
+        ? req.query.location === 'nationwide' ? '' : req.query.location
+        : req.query?.city,
 });
 
 /** Attaches the proximity tag the client uses to group "nearest in your city". */
@@ -68,10 +70,14 @@ const withApplicationStatus = async (jobs, requesterId) => {
 
 export async function getJobList(req, res) {
     try {
-        const { category, jobType, search, excludeOwn } = req.query;
+        const { category, jobType, search, excludeOwn, location } = req.query;
         const discovery = await getDiscoveryCity(req);
 
         let filter = {};
+        if (typeof location === 'string' && location.trim() && location !== 'nationwide') {
+            const safeLocation = location.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            filter.location = { $regex: safeLocation, $options: 'i' };
+        }
         
         // Filter by category. The client sends the opaque public id, so it is
         // decoded here; an unresolvable one must not fall through to an
@@ -104,7 +110,7 @@ export async function getJobList(req, res) {
             filter.jobPoster = { $ne: getRequesterId(req) };
         }
         
-        // National result set, ordered so the viewer's own city comes first.
+        // Rank the selected location, or the national feed when none is chosen.
         const jobs = await Job.find(filter)
             .populate('category', 'name')
             // Verification fields are used only for worker-feed ranking and

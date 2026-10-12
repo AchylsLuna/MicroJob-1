@@ -150,7 +150,11 @@
     "hero": {
       "eyebrow": "Job search",
       "title": "Find your next opportunity",
-      "subtitle": "Search local jobs, compare guaranteed pay, and save the opportunities you like.",
+      "subtitle": "Search jobs across the Philippines, compare guaranteed pay, and save the opportunities you like.",
+      "locationSearchAria": "Job search location",
+      "nationwide": "Nationwide",
+      "searchNationwide": "Search nationwide",
+      "locationHelp": "Type a city or province, or clear the location to search nationwide.",
       "searchAria": "Search jobs",
       "searchPlaceholder": "Job title, company, or category",
       "categoryFilterAria": "Filter by category",
@@ -190,6 +194,8 @@
       "save": "Save preferences"
     },
     "results": {
+      "inLocation": "Showing jobs in {{location}}.",
+      "nationwide": "Showing jobs across the Philippines.",
       "countLabel_one": "{{count}} job found",
       "countLabel_other": "{{count}} jobs found",
       "sortedBy": "Opportunities are sorted by {{sort}}.",
@@ -216,7 +222,7 @@
       "empty": {
         "searchTitle": "No jobs match your search",
         "defaultTitle": "No jobs are available",
-        "searchDescription": "Try a different title, company, or category.",
+        "searchDescription": "Try a different title, company, category, or location.",
         "defaultDescription": "Please check again later for new opportunities."
       }
     },

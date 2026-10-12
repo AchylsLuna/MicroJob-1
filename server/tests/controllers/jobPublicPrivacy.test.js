@@ -82,6 +82,39 @@ test('anonymous discovery and details expose only public fields and opaque ident
   }
 });
 
+test('a worker can search another location or nationwide without changing their home city', async () => {
+  const { employer, worker, category } = await fixture();
+  worker.city = 'Pasig City';
+  await worker.save();
+  const cebuJob = await Job.create({
+    title: 'Cebu opportunity', description: 'Cebu description', location: 'Lahug, Cebu City, Cebu',
+    salary: 1000, jobType: 'Short-term', deadline: new Date(Date.now() + 86400000),
+    jobPoster: employer._id, category: category._id,
+  });
+
+  const selected = response();
+  await getJobList(request(worker, { query: { location: 'cebu' } }), selected);
+  assert.equal(selected.statusCode, 200);
+  assert.deepEqual(selected.payload.map((job) => job._id), [encodePublicId(cebuJob._id)]);
+  assertPublicJob(selected.payload[0], 0);
+
+  const ranked = response();
+  await getJobList(request(worker, { query: { city: 'Cebu City' } }), ranked);
+  assert.equal(ranked.payload[0]._id, encodePublicId(cebuJob._id));
+  assert.equal(ranked.payload[0].proximity, 'city');
+
+  const nationwide = response();
+  await getJobList(request(worker, { query: { location: 'nationwide' } }), nationwide);
+  assert.equal(nationwide.statusCode, 200);
+  assert.equal(nationwide.payload.length, 2);
+  assert.ok(nationwide.payload.every((job) => job.proximity === 'national'));
+
+  const literal = response();
+  await getJobList(request(worker, { query: { location: 'Cebu.*' } }), literal);
+  assert.deepEqual(literal.payload, [], 'location input must be matched as text, not a regular expression');
+  assert.equal((await User.findById(worker._id)).city, 'Pasig City');
+});
+
 test('the public serializer cannot expose new internal fields added to a job or poster', () => {
   const job = serializePublicJob({
     _id: new mongoose.Types.ObjectId(), title: 'Allowed', applicants: [new mongoose.Types.ObjectId()],

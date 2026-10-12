@@ -14,11 +14,8 @@ type Params = {
   search?: string;
   category?: string;
   city?: string;
-  /**
-   * False while the worker's location is still resolving, or when a signed-in
-   * worker has no city set — ranking depends on it, and the page shows a
-   * directional empty state pointing at Settings instead of a job list.
-   */
+  location?: string;
+  /** False while the worker's initial location is still resolving. */
   enabled: boolean;
 };
 
@@ -34,15 +31,16 @@ type Params = {
  * goes stale while a tab sits in the background, and it replaces two duplicated
  * hand-rolled window focus listeners the page used to register.
  */
-export function useWorkerJobs({ userId, search, category, city, enabled }: Params) {
+export function useWorkerJobs({ userId, search, category, city, location, enabled }: Params) {
   return useQuery({
-    queryKey: queryKey("jobs", userId ?? null, { search, category, city }),
+    queryKey: queryKey("jobs", userId ?? null, { search, category, city, location }),
     queryFn: async () => {
       const [jobs, applications] = await Promise.all([
         getJobs({
           search: search || undefined,
           category: category || undefined,
           city: city || undefined,
+          location: location || undefined,
           excludeOwn: true,
         }),
         getUserApplications(),
