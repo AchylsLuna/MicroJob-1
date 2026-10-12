@@ -45,9 +45,10 @@ export const objectIdPaths = (schema, prefix = '') => {
 export const loadModelsByCollection = async (mongoose, modelsDir) => {
   const fs = await import('fs/promises');
   const path = await import('path');
+  const { pathToFileURL } = await import('url');
 
   const files = (await fs.readdir(modelsDir)).filter((file) => file.endsWith('.js'));
-  await Promise.all(files.map((file) => import(path.join(modelsDir, file))));
+  await Promise.all(files.map((file) => import(pathToFileURL(path.join(modelsDir, file)).href)));
 
   const byCollection = new Map();
   for (const name of mongoose.modelNames()) {

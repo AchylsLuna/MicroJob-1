@@ -13,6 +13,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import ConfirmModal from '../../components/ConfirmModal';
 import { EmployerAccordion } from '../../components/employer/EmployerUI';
 import MenuCard, { type MenuCardItem } from '../../components/ui/MenuCard';
+import {
+  disableBiometricLogin,
+  enableBiometricLogin,
+  getBiometricAvailability,
+  isBiometricLoginEnabled,
+} from '../../lib/biometricAuth';
 
 type SettingsProps = {
   onBack?: () => void;
@@ -63,9 +69,29 @@ export default function Settings({
   const [profileAvatar, setProfileAvatar] = useState('');
   const [hideHiredCandidates, setHideHiredCandidates] = useState(true);
   const [isSavingPrivacy, setIsSavingPrivacy] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [isSavingBiometric, setIsSavingBiometric] = useState(false);
   const [requestedMode, setRequestedMode] = useState<'worker' | 'employer' | null>(null);
   const [expandedEmployerSection, setExpandedEmployerSection] = useState<'account' | 'security' | 'preferences' | 'support' | null>('account');
   const isEmployer = currentRole === 'employer';
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    Promise.all([getBiometricAvailability(), isBiometricLoginEnabled()])
+      .then(([available, enabled]) => {
+        if (!active) return;
+        setBiometricAvailable(available);
+        setBiometricEnabled(enabled);
+      })
+      .catch(() => {
+        if (active) {
+          setBiometricAvailable(false);
+          setBiometricEnabled(false);
+        }
+      });
+    return () => { active = false; };
+  }, []));
 
   const handleLogout = () => {
     onLogout?.();
@@ -174,6 +200,31 @@ export default function Settings({
       toast.error(error?.message || t('settings.apiFallback.savePrivacyFailed'));
     } finally {
       setIsSavingPrivacy(false);
+    }
+  };
+
+  const handleToggleBiometric = async (nextValue: boolean) => {
+    setIsSavingBiometric(true);
+    try {
+      if (!nextValue) {
+        await disableBiometricLogin();
+        setBiometricEnabled(false);
+        toast.success(t('settings.biometric.disabled'));
+        return;
+      }
+      const refreshToken = await AsyncStorage.getItem('auth_refresh_token');
+      if (!refreshToken) throw new Error(t('settings.biometric.sessionUnavailable'));
+      const result = await enableBiometricLogin(refreshToken);
+      if (!result.ok) {
+        if (result.reason !== 'cancelled') toast.error(t('settings.biometric.enableFailed'));
+        return;
+      }
+      setBiometricEnabled(true);
+      toast.success(t('settings.biometric.enabled'));
+    } catch (error: any) {
+      toast.error(error?.message || t('settings.biometric.enableFailed'));
+    } finally {
+      setIsSavingBiometric(false);
     }
   };
 
@@ -330,6 +381,24 @@ export default function Settings({
         {renderSettingsSection('account', t('settings.sections.account'), accountMenus)}
 
         {renderSettingsSection('security', t('settings.sections.security'), securityMenus)}
+
+        {biometricAvailable ? (
+          <View style={styles.preferenceCard}>
+            <View style={styles.preferenceCopy}>
+              <Text style={styles.preferenceTitle}>{t('settings.biometric.title')}</Text>
+              <Text style={styles.preferenceDescription}>{t('settings.biometric.description')}</Text>
+            </View>
+            <Switch
+              value={biometricEnabled}
+              onValueChange={handleToggleBiometric}
+              disabled={isSavingBiometric}
+              trackColor={{ false: '#CBD5E1', true: tokens.colors.brand }}
+              thumbColor={tokens.colors.white}
+              accessibilityRole="switch"
+              accessibilityLabel={t('settings.biometric.accessibilityLabel')}
+            />
+          </View>
+        ) : null}
 
         {isEmployer ? (
           <>

@@ -9,7 +9,7 @@ import {
   Platform,
   useWindowDimensions,
 } from 'react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { API_URL, GOOGLE_CLIENT_ID } from '../config';
 import ScrollView from '../components/ui/SmoothScrollView';
@@ -26,6 +26,7 @@ import { AUTH_COLORS, clamp, getAuthMetrics } from '../theme/authTheme';
 import { GoogleAuthButton } from '../components/auth/AuthControls';
 import { useToast } from '../contexts/ToastContext';
 import { isValidEmail, normalizeEmail } from '../lib/authValidation';
+import { isBiometricLoginEnabled, loginWithBiometrics } from '../lib/biometricAuth';
 
 export default function SignIn({
   onBack,
@@ -79,9 +80,29 @@ export default function SignIn({
   const [requiresMethodSelection, setRequiresMethodSelection] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string; mfa?: string }>({});
   const toast = useToast();
   const { t } = useTranslation('auth');
+
+  useEffect(() => {
+    void isBiometricLoginEnabled().then(setBiometricEnabled).catch(() => setBiometricEnabled(false));
+  }, []);
+
+  const handleBiometricSignIn = async () => {
+    setIsLoading(true);
+    try {
+      const result = await loginWithBiometrics();
+      if (result.ok) {
+        toast.success(t('signIn.toast.loginSuccess'));
+        onLogin?.();
+      } else if (result.reason !== 'cancelled') {
+        toast.error(result.message || t('signIn.toast.biometricFailed'));
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const getSignInAlert = (status: number, message?: string) => {
     const normalizedMessage = String(message || '').toLowerCase();
@@ -457,6 +478,19 @@ export default function SignIn({
             )}
           </TouchableOpacity>
 
+          {biometricEnabled && !requiresMfa && !requiresMethodSelection ? (
+            <TouchableOpacity
+              style={styles.biometricButton}
+              onPress={handleBiometricSignIn}
+              disabled={isLoading}
+              accessibilityRole="button"
+              accessibilityLabel={t('signIn.biometricButton')}
+            >
+              <Feather name="command" size={18} color={AUTH_COLORS.primary} />
+              <Text style={styles.biometricButtonText}>{t('signIn.biometricButton')}</Text>
+            </TouchableOpacity>
+          ) : null}
+
           <View style={styles.googleSection}>
             <View style={styles.divider}><View style={styles.dividerLine} /><Text style={styles.dividerText}>or continue with</Text><View style={styles.dividerLine} /></View>
             <GoogleAuthButton onPress={handleGoogleSignIn} loading={isLoading} disabled={!googleRequest} />
@@ -596,6 +630,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
+  },
+  biometricButton: {
+    minHeight: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: AUTH_COLORS.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 10,
+  },
+  biometricButtonText: {
+    color: AUTH_COLORS.primary,
+    fontSize: 15,
+    fontWeight: '700',
   },
   primaryButtonText: {
     color: AUTH_COLORS.primaryText,

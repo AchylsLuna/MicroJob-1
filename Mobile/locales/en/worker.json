@@ -535,6 +535,15 @@
     "toast": {
       "privacySaved": "Employer privacy setting saved."
     },
+    "biometric": {
+      "title": "Fingerprint login",
+      "description": "Use your device fingerprint or biometric unlock instead of entering your password.",
+      "accessibilityLabel": "Enable fingerprint login",
+      "enabled": "Fingerprint login enabled.",
+      "disabled": "Fingerprint login disabled.",
+      "enableFailed": "Fingerprint login could not be enabled.",
+      "sessionUnavailable": "Please sign in again before enabling fingerprint login."
+    },
     "menu": {
       "businessInformation": "Business Information",
       "paymentMethods": "Payment Methods",

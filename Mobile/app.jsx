@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createNavigationContainerRef, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -18,10 +18,11 @@ import './i18n';
 import { StatusBar } from 'expo-status-bar';
 import LaunchScreen from './components/LaunchScreen';
 import { resolveNotificationDestination } from './lib/notifications';
+import { isBiometricLoginEnabled, loginWithBiometrics, subscribeBiometricUnlock } from './lib/biometricAuth';
 
 const navigationRef = createNavigationContainerRef();
 
-const resetLinkPrefixes = ['microjobs://', 'https://m1cro-job.vercel.app'];
+const resetLinkPrefixes = ['microjobs://', 'https://micro-jobs.online'];
 
 const parseResetLinkUrl = (linkUrl) => {
   if (!linkUrl) return null;
@@ -45,7 +46,59 @@ const parseResetLinkUrl = (linkUrl) => {
 
 
 
-function AppNavigator() {
+function BiometricAppGate({ session }) {
+  const [locked, setLocked] = useState(false);
+  const appStateRef = useRef(AppState.currentState);
+  const attemptRef = useRef(false);
+  const initialSessionCheckedRef = useRef(false);
+
+  const requireBiometric = useCallback(async () => {
+    if (attemptRef.current || !session.isReady || !session.isAuthenticated) return;
+    if (!(await isBiometricLoginEnabled())) {
+      setLocked(false);
+      return;
+    }
+    attemptRef.current = true;
+    setLocked(true);
+    try {
+      await loginWithBiometrics();
+    } finally {
+      attemptRef.current = false;
+    }
+  }, [session.isAuthenticated, session.isReady]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeBiometricUnlock(() => setLocked(false));
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!session.isReady || initialSessionCheckedRef.current) return;
+    initialSessionCheckedRef.current = true;
+    if (session.isAuthenticated) void requireBiometric();
+  }, [requireBiometric, session.isAuthenticated, session.isReady]);
+
+  useEffect(() => {
+    if (!session.isAuthenticated) {
+      setLocked(false);
+    }
+  }, [session.isAuthenticated]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      const wasInactive = /inactive|background/.test(appStateRef.current);
+      appStateRef.current = nextState;
+      if (wasInactive && nextState === 'active' && session.isAuthenticated) {
+        void requireBiometric();
+      }
+    });
+    return () => subscription.remove();
+  }, [requireBiometric, session.isAuthenticated]);
+
+  return <AppNavigator forceLogin={locked} />;
+}
+
+function AppNavigator({ forceLogin = false }) {
   const session = useAppSession();
 
   if (!session.isReady) {
@@ -56,7 +109,9 @@ function AppNavigator() {
     return <ApiConnectionScreen session={session} />;
   }
 
-  return session.isAuthenticated ? (session.viewMode === 'employer' && session.canAccessEmployer ? <EmployerStackNavigator key="employer-mode" /> : <WorkerStackNavigator key="worker-mode" />) : <AuthNavigator />;
+  return !forceLogin && session.isAuthenticated
+    ? (session.viewMode === 'employer' && session.canAccessEmployer ? <EmployerStackNavigator key="employer-mode" /> : <WorkerStackNavigator key="worker-mode" />)
+    : <AuthNavigator />;
 }
 
 function ApiConnectionScreen({ session }) {
@@ -242,7 +297,7 @@ function RootApp() {
       >
         <NavigationContainer key={navigatorGeneration} ref={navigationRef} theme={navigationTheme} linking={linking} onReady={() => setNavigationReady(true)} onStateChange={() => session.registerActivity()}>
 
-          <AppNavigator />
+          <BiometricAppGate session={session} />
         </NavigationContainer>
       </ErrorBoundary>
       <SessionOverlays />
@@ -284,6 +339,59 @@ const styles = StyleSheet.create({
   connectionSecondary: { minHeight: 48, marginTop: 10, paddingHorizontal: 20, borderRadius: 14, borderWidth: 1, borderColor: tokens.colors.brand, alignItems: 'center', justifyContent: 'center' },
   connectionSecondaryText: { color: tokens.colors.brand, fontSize: 14, fontWeight: '800' },
   connectionHint: { maxWidth: 500, marginTop: 14, color: tokens.colors.textSubtle, fontSize: 11, lineHeight: 17, textAlign: 'center' },
+  biometricLockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  biometricLockCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    padding: 28,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  biometricLockTitle: {
+    marginTop: 18,
+    color: '#111827',
+    fontSize: 23,
+    fontWeight: '800',
+  },
+  biometricLockMessage: {
+    marginTop: 10,
+    color: '#6B7280',
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+  },
+  biometricUnlockButton: {
+    width: '100%',
+    marginTop: 24,
+    borderRadius: 14,
+    backgroundColor: tokens.colors.brand,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  biometricUnlockButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  biometricPasswordButton: {
+    marginTop: 16,
+    padding: 8,
+  },
+  biometricPasswordButtonText: {
+    color: tokens.colors.brand,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   logoutOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(15, 23, 42, 0.45)',

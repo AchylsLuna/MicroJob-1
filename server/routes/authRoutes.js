@@ -73,7 +73,11 @@ export { normalizeExperience } from '../lib/profileValidation.js';
 
 const router = express.Router();
 const protectRefresh = (req, res, next) => {
-  if ((isNativeAuthRequest(req) || isBearerAuthRequest(req)) && !req.cookies?.refreshToken && req.body?.refreshToken) return next();
+  const isMobileRefresh = (isNativeAuthRequest(req) || isBearerAuthRequest(req))
+    && !req.cookies?.refreshToken
+    && typeof req.body?.refreshToken === 'string'
+    && req.body.refreshToken.trim().length > 0;
+  if (isMobileRefresh) return next();
   return csrfProtection(req, res, next);
 };
 
