@@ -296,8 +296,21 @@ export async function requestAdminUserPasswordReset(req, res) {
       return res.status(403).json({ message: 'Password reset is unavailable for this account.' });
     }
 
-    const resetRequest = Object.create(req);
-    resetRequest.body = { email: user.email };
+    // A purpose-built request object rather than `Object.create(req)`.
+    //
+    // Prototype-chaining the caller's request carried the *staff member's* own
+    // `Origin`/`Referer` headers into getFrontendResetUrl, so a support agent
+    // could trigger a genuine reset email for any marketplace user with the
+    // link pointing at a host of their choosing (this endpoint is gated only on
+    // `users.resetPassword`, which support_staff holds). The headers are now
+    // dropped deliberately, which makes the reset URL fall back to configured
+    // origins only -- see lib/runtimeConfig.originFromRequest.
+    const resetRequest = {
+      body: { email: user.email },
+      headers: {},
+      ip: req.ip,
+      get: () => undefined,
+    };
     return requestPasswordResetOtp(resetRequest, res);
   } catch (error) {
     console.error('Admin password reset request error:', error);

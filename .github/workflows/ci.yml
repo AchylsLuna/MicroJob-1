@@ -2,8 +2,14 @@ name: CI
 
 on:
   push:
+    # `test_production` is where work actually lands, and it ran no CI at all --
+    # which is how `npm run check:security` sat red on it unnoticed (a critical
+    # proxy-addr IP-spoofing advisory that defeated the IP-keyed rate limiters,
+    # plus three high findings in production dependencies). Add any other
+    # long-lived working branch here, or drop the filter entirely to cover all.
     branches:
       - main
+      - test_production
   pull_request:
 
 permissions:

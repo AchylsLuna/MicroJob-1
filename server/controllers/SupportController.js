@@ -4,11 +4,32 @@ import User from '../models/User.js';
 import { createNotification } from '../lib/notificationService.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { getEmailTransporter, getMailFrom } from '../lib/emailTransporter.js';
+import { hasPermission, resolveStaffRole } from '../lib/adminPermissions.js';
 
 const getUserId = (req) => req.user?.id || req.user?.userId || null;
+
+/**
+ * Support scope: 'admin' sees every ticket plus internal notes and private
+ * fields; 'user' sees only their own.
+ *
+ * This is decided by the **permission**, never by the role. `getSupportTicketById`
+ * and `replyToSupportTicket` are mounted twice -- under
+ * /api/admin/support/tickets/... behind
+ * requirePermission('support.tickets.handle'), and under /api/support/tickets/...
+ * behind `auth` only (users need their own tickets there). Returning 'admin' for
+ * any admin-shaped role meant a finance_team, analytics_team or moderator
+ * account -- none of which hold support.tickets.handle -- could read and reply to
+ * every user's ticket, internal notes included, by using the user-facing path,
+ * routing straight around the permission matrix.
+ *
+ * Deciding it here fixes both mounts at once: the admin path is still gated by
+ * its middleware, and the user-facing path now grants admin scope only to
+ * accounts that actually hold the permission.
+ */
 const getRole = (req) => {
   const role = String(req.user?.role || '').toLowerCase();
-  return role === 'admin' || role === 'superadmin' ? 'admin' : 'user';
+  if (role !== 'admin' && role !== 'superadmin') return 'user';
+  return hasPermission(resolveStaffRole(req.user), 'support.tickets.handle') ? 'admin' : 'user';
 };
 
 const populateTicket = (query) =>

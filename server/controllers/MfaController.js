@@ -31,6 +31,24 @@ const setupMfa = async (req, res) => {
       return sendError(res, 404, 'User not found');
     }
 
+    // Re-enrolment is refused while MFA is already on.
+    //
+    // `setupMfa` used to overwrite `mfaPendingSecret` unconditionally, and
+    // `enableMfa` then replaced `mfaSecret` and regenerated the backup codes
+    // after validating a code from the *new* pending secret only -- never from
+    // the currently-enrolled one, and never against the password. So anyone
+    // holding a stolen access token could walk setup -> enable, silently
+    // replace the victim's authenticator, take fresh backup codes, and own the
+    // second factor outright. No session revocation, no notification.
+    //
+    // Turning MFA off still requires a valid code from the *current*
+    // authenticator (see disableMfa below), so routing re-enrolment through
+    // disable-then-enable closes the hole without adding a credential the
+    // clients do not currently send to this endpoint.
+    if (user.mfaEnabled) {
+      return sendError(res, 400, 'Two-factor authentication is already enabled. Disable it with your current authenticator before enrolling a new one.');
+    }
+
     const secret = speakeasy.generateSecret({
       name: `MicroJobs (${user.email})`,
       issuer: 'MicroJobs',
@@ -63,6 +81,11 @@ const enableMfa = async (req, res) => {
     const user = await User.findById(req.user?.id).select('+mfaPendingSecret +mfaSecret +mfaBackupCodes');
     if (!user) {
       return sendError(res, 404, 'User not found');
+    }
+    // Same reason as setupMfa: a pending secret left over from before MFA was
+    // enabled must not become a way to swap out the live authenticator.
+    if (user.mfaEnabled) {
+      return sendError(res, 400, 'Two-factor authentication is already enabled. Disable it with your current authenticator before enrolling a new one.');
     }
     if (!user.mfaPendingSecret) {
       return sendError(res, 400, 'No MFA setup found. Start setup first.');

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { RotateCcw, RotateCw, ZoomIn, ZoomOut } from "lucide-react";
 
 const OUTPUT_SIZE = 512;
@@ -38,7 +38,7 @@ export function ProfilePhotoEditor({ file, saving = false, onCancel, onSave }: P
     return () => URL.revokeObjectURL(objectUrl);
   }, [file]);
 
-  const draw = () => {
+  const draw = useCallback(() => {
     const canvas = canvasRef.current;
     const image = imageRef.current;
     if (!canvas || !image) return;
@@ -71,9 +71,12 @@ export function ProfilePhotoEditor({ file, saving = false, onCancel, onSave }: P
       image.naturalHeight * scale,
     );
     context.restore();
-  };
+    // `draw` reads rotation, zoom and position, so it has to be memoised on
+    // them rather than recreated on every render -- otherwise the effect below cannot
+    // list it as a dependency without re-running on every render.
+  }, [rotation, zoom, position]);
 
-  useEffect(() => { draw(); }, [ready, zoom, rotation, position]);
+  useEffect(() => { draw(); }, [ready, draw]);
 
   const move = (clientX: number, clientY: number) => {
     const start = dragRef.current;

@@ -19,6 +19,16 @@ import {
   removePaymentMethod,
   setDefaultPaymentMethod,
 } from '../../controllers/PaymentMethodController.js';
+import { getTestOtpCode } from '../../lib/otpChallenges.js';
+
+// The password-change OTP is deliberately no longer returned in the
+// requestPasswordChangeOtp response body -- an OTP that travels back in the
+// response that requests it is not a second factor. It is only recoverable
+// through the NODE_ENV === 'test' recorder in lib/otpChallenges.js (the stored
+// copy is HMAC-hashed, so it cannot be read back out of Mongo), and the server
+// `test` script cannot export NODE_ENV portably without a shell prefix that
+// breaks on Windows -- so it is set here, where the dependency is visible.
+process.env.NODE_ENV = 'test';
 
 let mongoServer;
 const userId = new mongoose.Types.ObjectId();
@@ -423,7 +433,9 @@ test('password changes revoke other sessions but preserve the current session', 
     otpResponse
   );
   assert.equal(otpResponse.statusCode, 200);
-  assert.match(String(otpResponse.payload.code), /^\d{6}$/);
+  assert.equal(otpResponse.payload.code, undefined, 'the OTP must not be echoed in the response body');
+  const changeOtp = getTestOtpCode('password-change', 'password-owner@example.com');
+  assert.match(String(changeOtp), /^\d{6}$/);
 
   const changeResponse = createResponse();
   await changePasswordWithOtp(
@@ -431,7 +443,7 @@ test('password changes revoke other sessions but preserve the current session', 
       user: { id: worker._id, sessionId: currentSession._id },
       body: {
         currentPassword: 'CurrentPass1!',
-        code: otpResponse.payload.code,
+        code: changeOtp,
         newPassword: 'UpdatedPass2!',
       },
     },

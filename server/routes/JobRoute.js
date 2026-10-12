@@ -7,7 +7,6 @@ import {
     getApplicantsList, 
     createJob, 
     changeJobStatus, 
-    selectApplicant,
     getMyJobs,
     updateJob,
     deleteJob,
@@ -30,7 +29,6 @@ router.get('/:id', optionalAuth, getJobDetails);
 router.post('/', verifyToken, createJob);
 router.put('/:id', verifyToken, updateJob);
 router.get('/:jobId/applicants', verifyToken, getApplicantsList);
-router.patch('/:jobId/select/:applicantId', verifyToken, selectApplicant);
 router.patch('/:id/status', verifyToken, changeJobStatus);
 router.patch('/:id/reopen', verifyToken, reopenJob);
 router.delete('/:id', verifyToken, deleteJob);

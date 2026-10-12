@@ -51,12 +51,28 @@ test('Textbee sender uses E.164 recipients and the documented optional deviceId 
 });
 
 test('TextBee phone verification routes are available without the removed provider', () => {
-  const routes = readFileSync(new URL('../../routes/index.js', import.meta.url), 'utf8');
+  const authRoutes = readFileSync(new URL('../../routes/authRoutes.js', import.meta.url), 'utf8');
   const sender = readFileSync(new URL('../../lib/phone/sms.js', import.meta.url), 'utf8');
 
-  assert.match(routes, /PhoneRoute/);
-  assert.match(routes, /\/api\/verify-phone/);
+  // The surviving phone-verification pair, which is what both clients call.
+  assert.match(authRoutes, /\/verification\/phone'/);
+  assert.match(authRoutes, /\/verification\/phone\/confirm'/);
+  // Both must stay rate limited. The identical handlers were also mounted at
+  // /api/verify-phone with no limiter at all, which made confirm an unlimited
+  // brute force against a 6-digit code (PhoneVerification has no attempt
+  // counter) and send an unlimited trigger for paid Textbee SMS.
+  assert.match(authRoutes, /verificationPhoneSendLimiter/);
+  assert.match(authRoutes, /verificationPhoneConfirmLimiter/);
   assert.match(sender, /api\.textbee\.dev/);
   assert.doesNotMatch(sender, /twilio/i);
   assert.equal(existsSync(new URL('../../models/PhoneVerification.js', import.meta.url)), true);
+});
+
+test('the unrated /api/verify-phone duplicate stays deleted', () => {
+  const routes = readFileSync(new URL('../../routes/index.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(routes, /verify-phone/, 'the unlimited-attempt duplicate mount must not come back');
+  assert.equal(existsSync(new URL('../../routes/PhoneRoute.js', import.meta.url)), false);
+  // The controller itself is shared with the rate-limited path above and must
+  // survive -- only the duplicate *mount* was the problem.
+  assert.equal(existsSync(new URL('../../controllers/PhoneVerificationController.js', import.meta.url)), true);
 });

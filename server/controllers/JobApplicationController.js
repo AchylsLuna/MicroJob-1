@@ -154,23 +154,40 @@ async function refundUnhireEscrow(application, actorId) {
 
   const employerId = application.job?.jobPoster || jobDoc?.jobPoster || actorId;
   const reference = `unhire-refund:${application._id}`;
-  if (await Transaction.exists({ reference })) return;
+
+  // The uniquely-referenced ledger row is written *before* the balance moves.
+  //
+  // This used to `$inc` first and create the row second, behind a non-atomic
+  // `Transaction.exists()` pre-check. Two concurrent un-hire transitions both
+  // passed that check, both credited the employer, and the second `create` then
+  // threw E11000 -- which the caller swallowed as a 500, leaving the employer
+  // credited twice against a single REFUND row. Writing the guarded row first
+  // means a duplicate loses on the unique index and never reaches the `$inc`.
+  // (`refundExtra` in JobOfferController gets this right by running inside
+  // `session.withTransaction`, where WriteConflict retry covers it.)
+  try {
+    await Transaction.create({
+      sender: null,
+      receiver: employerId,
+      amount: refund,
+      type: 'REFUND',
+      status: 'COMPLETED',
+      balanceTarget: 'EMPLOYER',
+      jobReference: jobId,
+      reference,
+      label: 'Hire reverted escrow refund',
+      relatedEntityType: 'application',
+      relatedEntityId: String(application._id),
+      actor: actorId || employerId,
+    });
+  } catch (error) {
+    // Already refunded -- by an earlier call or by a concurrent one that won
+    // the index. Either way the credit is not ours to apply.
+    if (error?.code === 11000) return;
+    throw error;
+  }
 
   await User.updateOne({ _id: employerId }, { $inc: { employerBalance: refund } });
-  await Transaction.create({
-    sender: null,
-    receiver: employerId,
-    amount: refund,
-    type: 'REFUND',
-    status: 'COMPLETED',
-    balanceTarget: 'EMPLOYER',
-    jobReference: jobId,
-    reference,
-    label: 'Hire reverted escrow refund',
-    relatedEntityType: 'application',
-    relatedEntityId: String(application._id),
-    actor: actorId || employerId,
-  });
 }
 
 /**
@@ -757,6 +774,23 @@ export const scheduleInterview = async (req, res) => {
     if (result.error) return sendError(res, result.status, result.error);
 
     const application = result.application;
+    // Scheduling an interview must not quietly un-hire a worker.
+    //
+    // Both handlers used to assign `status = 'Interview Scheduled'`
+    // unconditionally after only ensureEmployerAccess, which on a Hired
+    // application skipped the whole un-hire path
+    // (isUnhireTransition -> revertHire -> canUnhireApplication ->
+    // refundUnhireEscrow) that updateApplicationStatus correctly takes, and
+    // never called syncJobHiringState. job.hiredCount kept counting the hire,
+    // the negotiated escrow stayed debited, and settleApplicationPayment --
+    // which requires status 'Hired' -- could no longer pay the worker. One
+    // POST /api/applications/:id/interviews stranded the money, even when
+    // paymentStatus was 'Authorized', which canUnhireApplication explicitly
+    // refuses to release.
+    if (application.status === 'Hired') {
+      return sendError(res, 409, 'This worker is already hired. Release the hire first if you need to return them to interviewing.');
+    }
+
     application.interviews.push({
       scheduledAt: parsedDate,
       location: location ? String(location).trim() : null,
@@ -809,6 +843,13 @@ export const updateInterview = async (req, res) => {
 
     const interview = application.interviews.id(interviewId);
     if (!interview) return sendError(res, 404, 'Interview not found');
+
+    // Same reason as scheduleInterview above: this also reassigns
+    // `status = 'Interview Scheduled'`, so on a Hired application it would
+    // bypass the un-hire path and strand the escrow.
+    if (application.status === 'Hired') {
+      return sendError(res, 409, 'This worker is already hired. Release the hire first if you need to return them to interviewing.');
+    }
 
     const previousScheduledAt = interview.scheduledAt;
     if (scheduledAt !== undefined) {

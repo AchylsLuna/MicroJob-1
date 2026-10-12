@@ -307,12 +307,17 @@ export async function createJob(req, res){
         // 1. Check if user has enough balance
         const poster = await User.findById(jobPosterId);
         if (!poster) return res.status(404).json({ message: 'Job poster not found.' });
-        
+
         // For "both" role users, allow using combined balance; otherwise only use employer balance
-        const availableBalance = poster.role === 'both' 
+        const availableBalance = poster.role === 'both'
             ? (poster.employerBalance || 0) + (poster.workerBalance || 0)
             : (poster.employerBalance || 0);
-        
+
+        // A cheap pre-check purely so the caller gets the itemised
+        // INSUFFICIENT_BALANCE body below rather than a bare conflict. It is
+        // *not* what protects the balance -- the conditional debit inside the
+        // transaction is. Checking here and deducting later is precisely the
+        // read-modify-write that allowed the double-spend described below.
         if (availableBalance < costs.total) {
             return res.status(400).json({
                 code: 'INSUFFICIENT_BALANCE',
@@ -323,96 +328,142 @@ export async function createJob(req, res){
             });
         }
 
-        // 2. Deduct the balance (move to escrow)
-        // For "both" role users, deduct from employer balance first, then worker balance
-        if (poster.role === 'both') {
-            const employerPortion = Math.min(poster.employerBalance || 0, costs.total);
-            const workerPortion = costs.total - employerPortion;
-            poster.employerBalance = (poster.employerBalance || 0) - employerPortion;
-            poster.workerBalance = (poster.workerBalance || 0) - workerPortion;
-        } else {
-            poster.employerBalance = (poster.employerBalance || 0) - costs.total;
-        }
-        await poster.save();
+        // 2. Deduct the balance (move to escrow) and create the job atomically.
+        //
+        // This used to read the poster, compare `availableBalance` against the
+        // cost, mutate `poster.employerBalance` in memory and `save()` -- a
+        // textbook lost update. Concurrent POST /api/jobs calls all read the
+        // same starting balance, all passed the check, and each wrote its own
+        // computed result, so N jobs were created while the wallet was debited
+        // once. Cancelling or deleting each job then refunded its escrow, for a
+        // net gain of roughly (N-1) x workerPay per round, repeatable.
+        //
+        // The guarded `$inc` below is the fix: the balance condition lives in
+        // the update filter, so only one of N racing requests can match and the
+        // rest get a clean 409. Same shape as JobOfferController.createJobOffer.
+        const session = await mongoose.startSession();
+        let newJob;
+        try {
+            await session.withTransaction(async () => {
+                // For "both" role users, draw from the employer balance first,
+                // then the worker balance. Each leg carries its own `$gte`
+                // guard so neither can be driven negative by a concurrent post.
+                if (poster.role === 'both') {
+                    const employerPortion = Math.min(poster.employerBalance || 0, costs.total);
+                    const workerPortion = Number((costs.total - employerPortion).toFixed(2));
+                    if (employerPortion > 0) {
+                        const debit = await User.updateOne(
+                            { _id: jobPosterId, employerBalance: { $gte: employerPortion } },
+                            { $inc: { employerBalance: -employerPortion } },
+                            { session },
+                        );
+                        if (!debit.modifiedCount) throw Object.assign(new Error('Your wallet balance changed before this job could be funded. Please try again.'), { status: 409, code: 'INSUFFICIENT_BALANCE' });
+                    }
+                    if (workerPortion > 0) {
+                        const debit = await User.updateOne(
+                            { _id: jobPosterId, workerBalance: { $gte: workerPortion } },
+                            { $inc: { workerBalance: -workerPortion } },
+                            { session },
+                        );
+                        if (!debit.modifiedCount) throw Object.assign(new Error('Your wallet balance changed before this job could be funded. Please try again.'), { status: 409, code: 'INSUFFICIENT_BALANCE' });
+                    }
+                } else {
+                    const debit = await User.updateOne(
+                        { _id: jobPosterId, employerBalance: { $gte: costs.total } },
+                        { $inc: { employerBalance: -costs.total } },
+                        { session },
+                    );
+                    if (!debit.modifiedCount) throw Object.assign(new Error('Your wallet balance changed before this job could be funded. Please try again.'), { status: 409, code: 'INSUFFICIENT_BALANCE' });
+                }
 
-        // 3. Create the job (funds are now effectively in "escrow")
-        const newJob = new Job({
-            title,
-            description,
-            location,
-            salary: salaryAmount,
-            jobType: normalizedJobType,
-            deadline,
-            skills: skills || [],
-            responsibilities: responsibilities || [],
-            requirements: requirements || [],
-            // The decoded ObjectId, never the public token the client sent.
-            category: resolvedCategory,
-            image,
-            jobPoster: jobPosterId,
-            urgent: Boolean(urgent),
-            highlighted: Boolean(highlighted),
-            postingFee: costs.postingFee,
-            highlightFee: costs.highlightFee,
-            positionsNeeded: positions
-        });
-        await newJob.save();
+                // 3. Create the job (funds are now effectively in "escrow")
+                [newJob] = await Job.create([{
+                    title,
+                    description,
+                    location,
+                    salary: salaryAmount,
+                    jobType: normalizedJobType,
+                    deadline,
+                    skills: skills || [],
+                    responsibilities: responsibilities || [],
+                    requirements: requirements || [],
+                    // The decoded ObjectId, never the public token the client sent.
+                    category: resolvedCategory,
+                    image,
+                    jobPoster: jobPosterId,
+                    urgent: Boolean(urgent),
+                    highlighted: Boolean(highlighted),
+                    postingFee: costs.postingFee,
+                    highlightFee: costs.highlightFee,
+                    positionsNeeded: positions
+                }], { session });
 
-        // 4. Record the transaction in the ledger (ESCROW)
-        await Transaction.create({
-            sender: poster._id,
-            receiver: null, // Escrow
-            amount: totalEscrow,
-            type: 'ESCROW',
-            status: 'COMPLETED',
-            balanceTarget: 'ESCROW',
-            jobReference: newJob._id,
-            // References must be present and unique. Besides making the ledger
-            // auditable, this keeps posting working for databases that still
-            // have the legacy unique `reference` index (where multiple nulls
-            // would otherwise raise E11000 and turn a successful post into 500).
-            reference: `job-escrow:${newJob._id}`,
-            label: `Escrow (Job ${newJob._id})`,
-            relatedEntityType: 'job',
-            relatedEntityId: String(newJob._id),
-            actor: poster._id,
-        });
-        await Transaction.create({
-            sender: poster._id,
-            receiver: null,
-            amount: costs.postingFee,
-            type: 'POSTING_FEE',
-            status: 'COMPLETED',
-            balanceTarget: 'EMPLOYER',
-            jobReference: newJob._id,
-            reference: `job-posting-fee:${newJob._id}`,
-            label: `Non-refundable posting fee (Job ${newJob._id})`,
-            relatedEntityType: 'job',
-            relatedEntityId: String(newJob._id),
-            meta: { refundable: false, feeKind: 'posting' },
-            actor: poster._id,
-        });
-        if (costs.highlightFee > 0) {
-            await Transaction.create({
-                sender: poster._id,
-                receiver: null,
-                amount: costs.highlightFee,
-                type: 'POSTING_FEE',
-                status: 'COMPLETED',
-                balanceTarget: 'EMPLOYER',
-                jobReference: newJob._id,
-                reference: `job-highlight-fee:${newJob._id}`,
-                label: `Non-refundable highlight fee (Job ${newJob._id})`,
-                relatedEntityType: 'job',
-                relatedEntityId: String(newJob._id),
-                meta: { refundable: false, feeKind: 'highlight' },
-                actor: poster._id,
+                // 4. Record the transaction in the ledger (ESCROW)
+                await Transaction.create([{
+                    sender: poster._id,
+                    receiver: null, // Escrow
+                    amount: totalEscrow,
+                    type: 'ESCROW',
+                    status: 'COMPLETED',
+                    balanceTarget: 'ESCROW',
+                    jobReference: newJob._id,
+                    // References must be present and unique. Besides making the ledger
+                    // auditable, this keeps posting working for databases that still
+                    // have the legacy unique `reference` index (where multiple nulls
+                    // would otherwise raise E11000 and turn a successful post into 500).
+                    reference: `job-escrow:${newJob._id}`,
+                    label: `Escrow (Job ${newJob._id})`,
+                    relatedEntityType: 'job',
+                    relatedEntityId: String(newJob._id),
+                    actor: poster._id,
+                }], { session });
+                await Transaction.create([{
+                    sender: poster._id,
+                    receiver: null,
+                    amount: costs.postingFee,
+                    type: 'POSTING_FEE',
+                    status: 'COMPLETED',
+                    balanceTarget: 'EMPLOYER',
+                    jobReference: newJob._id,
+                    reference: `job-posting-fee:${newJob._id}`,
+                    label: `Non-refundable posting fee (Job ${newJob._id})`,
+                    relatedEntityType: 'job',
+                    relatedEntityId: String(newJob._id),
+                    meta: { refundable: false, feeKind: 'posting' },
+                    actor: poster._id,
+                }], { session });
+                if (costs.highlightFee > 0) {
+                    await Transaction.create([{
+                        sender: poster._id,
+                        receiver: null,
+                        amount: costs.highlightFee,
+                        type: 'POSTING_FEE',
+                        status: 'COMPLETED',
+                        balanceTarget: 'EMPLOYER',
+                        jobReference: newJob._id,
+                        reference: `job-highlight-fee:${newJob._id}`,
+                        label: `Non-refundable highlight fee (Job ${newJob._id})`,
+                        relatedEntityType: 'job',
+                        relatedEntityId: String(newJob._id),
+                        meta: { refundable: false, feeKind: 'highlight' },
+                        actor: poster._id,
+                    }], { session });
+                }
             });
+        } finally {
+            await session.endSession();
         }
+
+        // Audit and respond outside the transaction: neither should be able to
+        // roll back a successfully funded job.
         try { const monitor = await import('../lib/monitor.js'); await monitor.default.audit({ actor: poster._id, action: 'job_escrow', ip: req.ip || null, userAgent: req.get('user-agent'), amount: totalEscrow, status: 'success', meta: { job: newJob._id } }); } catch (e) {}
 
         res.status(201).json({message: "Job created and funds secured.", job: serializeOwnedJob(newJob)});
     } catch (error) {
+        // A guarded-debit miss is a concurrency conflict, not a server fault.
+        if (error?.status) {
+            return res.status(error.status).json({ message: error.message, ...(error.code ? { code: error.code } : {}) });
+        }
         console.error('Create job error:', error);
         res.status(500).json({message: "Failed to create job.", error: error.message});
     }
@@ -545,8 +596,34 @@ export async function changeJobStatus(req, res){
 
                 let payoutsProcessed = 0;
                 for (const candidate of payableCandidates) {
-                    const payoutAmount = Math.min(Number(candidate.agreedAmount || job.salary || 0), remainingEscrow);
-                    if (payoutAmount <= 0) break;
+                    // Pay in full, or refuse and change nothing.
+                    //
+                    // This was `Math.min(owed, remainingEscrow)`, which credited
+                    // a partial amount and *still* flipped the application to
+                    // paymentStatus 'Paid' / workStatus 'Completed'. After that
+                    // settleApplicationPayment short-circuits on 'Paid' and
+                    // canUnhireApplication refuses with "already been paid", so
+                    // the shortfall was unrecoverable through every API path.
+                    // The old `break` also silently skipped every remaining
+                    // candidate -- and because the leftover-escrow refund below
+                    // pays `remainingEscrow` back to the employer, a skipped
+                    // worker's money went to the employer instead.
+                    //
+                    // Aborting keeps escrow and the Hired state intact so the
+                    // worker stays payable once funding is topped up, matching
+                    // services/applicationSettlement.js's 409 on the same
+                    // condition. The 0.005 tolerance absorbs the toFixed(2)
+                    // rounding that `remainingEscrow` carries.
+                    const owed = Number(candidate.agreedAmount || job.salary || 0);
+                    if (owed <= 0) continue;
+                    if (owed - remainingEscrow > 0.005) {
+                        await session.abortTransaction();
+                        session.endSession();
+                        return res.status(409).json({
+                            message: 'The secured job funds are insufficient to pay every hired worker in full. Top up this job\'s funding before marking it done.',
+                        });
+                    }
+                    const payoutAmount = owed;
 
                     const worker = await User.findById(candidate.applicant).session(session);
                     if (!worker) continue;
@@ -658,23 +735,49 @@ export async function changeJobStatus(req, res){
 
                 const refundAmount = Math.max(0, totalEscrowed - totalCPaid - totalCRefunded);
                 if (refundAmount > 0) {
-                    // Always refund to employer balance since escrow is job-posting related
-                    poster.employerBalance = (poster.employerBalance || 0) + refundAmount;
-                    await poster.save();
-
-                    await Transaction.create({
-                        sender: null,
-                        receiver: poster._id,
-                        amount: refundAmount,
-                        type: 'REFUND',
-                        status: 'COMPLETED',
-                        balanceTarget: 'EMPLOYER',
-                        jobReference: job._id,
-                        label: `Refund (Job ${job._id})`,
-                        relatedEntityType: 'job',
-                        relatedEntityId: String(job._id),
-                        actor: poster._id,
-                    });
+                    // Always refund to employer balance since escrow is job-posting related.
+                    //
+                    // This refund used to carry no `reference` at all and ran a
+                    // read-modify-write on the balance outside any transaction.
+                    // Transaction's uniqueness guard is a *partial* index
+                    // (`partialFilterExpression: { reference: { $type: 'string' } }`,
+                    // see models/Transaction.js), so a null reference is excluded
+                    // from the index entirely and unlimited duplicates were
+                    // allowed -- two concurrent cancels could both refund, and
+                    // even when they did not race they left two REFUND rows
+                    // against one credit, which then corrupted the escrow maths
+                    // in deleteJob and reopenJob.
+                    //
+                    // Ordering matters: the uniquely-referenced ledger row is
+                    // written *before* the balance moves, so a duplicate loses
+                    // on the index and never reaches the `$inc`. Same shape as
+                    // deleteJob's refund below.
+                    const reference = `job-cancel-refund:${job._id}`;
+                    try {
+                        await Transaction.create({
+                            sender: null,
+                            receiver: poster._id,
+                            amount: refundAmount,
+                            type: 'REFUND',
+                            status: 'COMPLETED',
+                            balanceTarget: 'EMPLOYER',
+                            jobReference: job._id,
+                            reference,
+                            label: `Refund (Job ${job._id})`,
+                            relatedEntityType: 'job',
+                            relatedEntityId: String(job._id),
+                            actor: poster._id,
+                        });
+                    } catch (refundError) {
+                        // E11000 means another request already recorded this
+                        // job's cancellation refund; the credit below is its
+                        // responsibility, not ours.
+                        if (refundError?.code === 11000) {
+                            return res.status(409).json({ message: 'This job has already been cancelled and refunded.' });
+                        }
+                        throw refundError;
+                    }
+                    await User.updateOne({ _id: poster._id }, { $inc: { employerBalance: refundAmount } });
                     try { const monitor = await import('../lib/monitor.js'); await monitor.default.audit({ actor: poster._id, action: 'job_refund', ip: req.ip || null, userAgent: req.get('user-agent'), amount: refundAmount, status: 'success', meta: { job: job._id } }); } catch (e) {}
                 }
             }
@@ -703,34 +806,23 @@ export async function changeJobStatus(req, res){
     }
 }
 
-export async function selectApplicant(req, res){
-    try {
-        const jobId = resolvePublicId(req.params.jobId);
-        if (!jobId) return res.status(400).json({ message: 'A valid job id is required.' });
-        const { applicantId } = req.params;
-        const job = await Job.findById(jobId);
-        const requesterId = getRequesterId(req);
-        if(!job) {
-            return res.status(404).json({message: "Job not found."});
-        }
-        if (job.jobPoster?.toString() !== requesterId && !canManageAnyJob(req)) {
-            return res.status(403).json({ message: "You are not allowed to select applicants for this job." });
-        }
-        if(!job.applicants.includes(applicantId)) {
-            return res.status(400).json({message: "Applicant did not apply for this job."});
-        }
-        job.selectedApplicant = applicantId;
-        job.status = "In Progress";
-        await job.save();
-        await JobApplication.findOneAndUpdate(
-            { job: job._id, applicant: applicantId },
-            { $set: { status: 'Hired', applicantReadAt: null } }
-        );
-        res.status(200).json({message: "Applicant selected successfully.", job: serializeOwnedJob(job)});
-    } catch (error) {
-        res.status(500).json({message: "Failed to select an applicant."});
-    }
-}
+// `selectApplicant` lived here and was deleted rather than repaired.
+//
+// PATCH /api/jobs/:jobId/select/:applicantId wrote JobApplication.status =
+// 'Hired' and job.status = 'In Progress' directly, with no escrow reservation,
+// no `agreedAmount`, and no hiredCount/reservedOfferCount increment -- breaking
+// the invariant documented in lib/hiringState.js, which is exactly why 'Hired'
+// is excluded from EMPLOYER_MUTABLE_STATUSES. Because hiredCount stayed 0,
+// createJobOffer still saw a free slot and the same position could be filled
+// twice; the second worker's payout then computed to 0 and was skipped, so a
+// worker who finished the job was never paid and never marked unpaid. And with
+// `agreedAmount` null, changeJobStatus treated the hire as having no lifecycle
+// and skipped the "must submit finished work" check, paying job.salary for
+// nothing.
+//
+// No client ever called it (verified across client/src, Mobile, tests and
+// scripts). Hiring goes through the offer flow in JobOfferController, which
+// reserves capacity and escrow transactionally.
 
 export async function getMyJobs(req, res) {
     try {
@@ -835,6 +927,26 @@ export async function updateJob(req, res) {
         if (nextPositions < Number(job.hiredCount || 0) + Number(job.reservedOfferCount || 0)) {
             return res.status(400).json({
                 message: 'Workers needed cannot be lower than workers already hired plus positions reserved by active formal offers.',
+            });
+        }
+
+        // Minimum pay may not be cut below what has already been promised.
+        //
+        // `positionsNeeded` is guarded just above, but `salary` was not -- and
+        // `escrowDifference` below is driven by salary x positions, so a
+        // negative difference refunded straight to `employerBalance`. That let
+        // an employer hire a worker at PHP 1000, wait for the work to be
+        // submitted, then PUT `{ "salary": 1 }` and withdraw 999. Afterwards
+        // settleApplicationPayment computed remaining = 1000 - 0 - 999 = 1,
+        // which is less than the pinned `agreedAmount`, and threw 409 "The
+        // secured job funds are insufficient for this payment" -- so the worker
+        // had completed the job and was permanently unpayable through any API
+        // path while the employer kept the money. `hasActiveEscrow` also
+        // allowed this on `Closed` (fully-hired) jobs, which this covers too.
+        const committedPositions = Number(job.hiredCount || 0) + Number(job.reservedOfferCount || 0);
+        if (committedPositions > 0 && Number(updates.salary ?? job.salary ?? 0) < Number(job.salary || 0)) {
+            return res.status(400).json({
+                message: 'Minimum guaranteed pay cannot be reduced while workers are already hired or reserved by active formal offers.',
             });
         }
 

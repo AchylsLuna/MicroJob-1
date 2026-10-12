@@ -37,7 +37,7 @@ import {
   MFA_METHOD,
   verifyMfaCodeForUser,
 } from '../lib/mfaHelpers.js';
-import { getOtpChallenge, verifyOtpChallenge } from '../lib/otpChallenges.js';
+import { getOtpChallenge, getTestOtpCode, verifyOtpChallenge } from '../lib/otpChallenges.js';
 import {
   issueTrustedDevice,
   consumeTrustedDevice,
@@ -170,7 +170,7 @@ const ENUMERATION_TIMING_HASH = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad
 
 const loginUser = async (req, res) => {
   try {
-    const { emailOrUsername, password, phoneNumber, requireOtp } = req.body;
+    const { emailOrUsername, password, phoneNumber } = req.body;
     if (!password) {
       return sendError(res, 400, 'Password is required');
     }
@@ -253,18 +253,20 @@ const loginUser = async (req, res) => {
       });
     }
 
-    // A trusted device (see lib/trustedDevice.js) lets a login skip the OTP
-    // challenge below without weakening it: the client always sends
-    // requireOtp:true, so the skip decision is made here, server-side, based
-    // on a token the server itself issued after a prior OTP verification --
-    // never on anything the client merely claims.
-    let trustedDevice = null;
-    if (requireOtp) {
-      const deviceToken = getTrustedDeviceTokenFromRequest(req);
-      trustedDevice = await consumeTrustedDevice({ token: deviceToken, userId: user._id });
-    }
+    // The email OTP challenge is mandatory. A trusted device (see
+    // lib/trustedDevice.js) is the only thing that skips it, and that decision
+    // rests entirely on a token the server itself issued after a prior OTP
+    // verification -- never on anything the client claims.
+    //
+    // This used to be gated on `req.body.requireOtp`, with a comment asserting
+    // the skip was decided server-side. It was not: the flag came straight off
+    // the request body, so omitting it skipped the second factor altogether and
+    // anyone holding only a password logged in directly. Nothing but the
+    // client's own good manners was enforcing 2FA.
+    const deviceToken = getTrustedDeviceTokenFromRequest(req);
+    const trustedDevice = await consumeTrustedDevice({ token: deviceToken, userId: user._id });
 
-    if (requireOtp && !trustedDevice) {
+    if (!trustedDevice) {
       const loginOtp = await issueLoginOtpChallenge(user, includePhone);
       return sendSuccess(res, 200, 'OTP verification required', {
         otpRequired: true,
@@ -644,6 +646,23 @@ const debugLoginOtp = async (req, res) => {
   return sendSuccess(res, 200, 'ok', { code });
 };
 
+// Test-only escape hatch for the signup / email-verification OTP, same shape
+// and same hard NODE_ENV === 'test' gate as debugLoginOtp above. That code used
+// to come back in the /auth/otp/send response body on any non-production
+// deploy, which made it an account-takeover primitive; the harness now reads it
+// here instead. A no-op 404 outside NODE_ENV === 'test'.
+const debugSignupOtp = async (req, res) => {
+  if (process.env.NODE_ENV !== 'test') {
+    return sendError(res, 404, 'Not found');
+  }
+  const email = String(req.query?.email || '').toLowerCase().trim();
+  const code = getTestOtpCode('email-verification', email);
+  if (!code) {
+    return sendError(res, 404, 'No signup OTP has been issued for this address.');
+  }
+  return sendSuccess(res, 200, 'ok', { code });
+};
+
 // Test-only escape hatch, same shape and same hard gate as debugLoginOtp
 // above. Funding an employer wallet normally requires a real PayMongo
 // checkout round trip, which the isolated e2e sandbox cannot perform -- so
@@ -689,6 +708,7 @@ export {
   loginOtpVerify,
   loginOtpResend,
   debugLoginOtp,
+  debugSignupOtp,
   debugCreditWallet,
 };
 export default {

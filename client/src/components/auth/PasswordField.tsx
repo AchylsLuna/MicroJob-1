@@ -24,6 +24,7 @@ type PasswordFieldProps = {
   inputRef?: Ref<HTMLInputElement>;
   disabled?: boolean;
   invalid?: boolean;
+  describedBy?: string;
 };
 
 export function PasswordField({
@@ -40,6 +41,7 @@ export function PasswordField({
   inputRef,
   disabled,
   invalid,
+  describedBy,
 }: PasswordFieldProps) {
   return (
     <div>
@@ -58,7 +60,9 @@ export function PasswordField({
           placeholder={placeholder}
           disabled={disabled}
           aria-invalid={invalid || undefined}
-          {...(onChange ? { value: value ?? "", onChange: (event) => onChange(event.target.value) } : {})}
+          aria-describedby={describedBy}
+          {...(value !== undefined ? { value } : {})}
+          onChange={onChange ? (event) => onChange(event.target.value) : undefined}
           className={`${authFieldClass} pr-14 ${invalid ? authFieldErrorClass : ""}`}
         />
         <button

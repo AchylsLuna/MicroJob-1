@@ -47,6 +47,13 @@ const MessageSchema = new mongoose.Schema({
     type: Date,
     required: false,
   },
+  // Per-participant soft delete. A message document is shared by both parties,
+  // so "delete this conversation" cannot be a `deleteMany` without destroying
+  // the counterparty's copy -- which is what it used to do, letting either side
+  // irreversibly erase the other's inbox, settlement invoices and job offers
+  // included. Each side's deletion is recorded here instead, and the document
+  // is only really removed once both have deleted it.
+  deletedFor: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true }],
   isEdited: {
     type: Boolean,
     default: false,

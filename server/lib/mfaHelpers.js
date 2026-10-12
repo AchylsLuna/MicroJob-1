@@ -54,6 +54,8 @@ export const issueLoginOtpChallenge = async (user, includePhone = false) => {
     subject: String(user._id),
     user: user._id,
     metadata: { includePhone: Boolean(includePhone), email },
+    // A resend must not hand back a fresh five guesses -- see issueOtpChallenge.
+    carryAttempts: true,
   });
   const otpToken = createLoginOtpChallengeToken(String(user._id), challenge.challengeId, includePhone);
 
