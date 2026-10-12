@@ -230,6 +230,7 @@ function RootApp() {
       style={{ flex: 1, overflow: 'hidden', backgroundColor: tokens.colors.signedInCanvas }}
       onStartShouldSetResponder={() => true}
       onResponderGrant={() => session.registerActivity()}
+      onResponderMove={() => session.registerActivity()}
       onTouchStart={() => session.registerActivity()}
     >
       <StatusBar style="dark" />

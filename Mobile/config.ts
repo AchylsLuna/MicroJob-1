@@ -93,7 +93,7 @@ export const API_URL = normalizedApiUrl.endsWith('/api')
   : `${normalizedApiUrl}/api`;
 
 export const SOCKET_URL = (usesMetroProxy ? detectedExpoOrigin : envSocketUrl || API_URL.replace(/\/api$/, '')).replace(/\/$/, '');
-export const SOCKET_PATH = envSocketPath || '/socket.io';
+export const SOCKET_PATH = usesMetroProxy ? '/microjobs-socket' : envSocketPath || '/socket.io';
 
 export const API_DIAGNOSTICS = Object.freeze({
   apiUrl: API_URL,
