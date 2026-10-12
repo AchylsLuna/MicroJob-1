@@ -81,11 +81,11 @@ export function SignIn() {
     if (/(?:no account|account.*not found|email.*not found|does not exist)/.test(normalizedMessage)) {
       return { field: "email", message: t("signIn.toast.accountNotFound") };
     }
-    if (/incorrect password|password.*incorrect/.test(normalizedMessage)) {
-      return { field: "password", message: t("signIn.toast.incorrectPassword") };
-    }
     if (isCredentialLoginError(message)) {
       return { field: "form", message: t("signIn.toast.credentialsIncorrect") };
+    }
+    if (/incorrect password|password.*incorrect/.test(normalizedMessage)) {
+      return { field: "password", message: t("signIn.toast.incorrectPassword") };
     }
     if (/network|failed to fetch|unable to connect|connection|timeout/.test(normalizedMessage)) {
       return { field: "form", message: t("signIn.toast.networkError") };
@@ -239,11 +239,6 @@ export function SignIn() {
             <label htmlFor="signin-email" className={authLabelClass}>
               {t("signIn.form.emailLabel")}
             </label>
-            {signInErrors.email ? (
-              <p id="signin-email-error" role="alert" className="mb-2 text-body-sm font-medium text-red-600">
-                {signInErrors.email}
-              </p>
-            ) : null}
             <input
               id="signin-email"
               type="email"
@@ -253,36 +248,49 @@ export function SignIn() {
                 // Clear on edit: the message described the previous value, and
                 // leaving it up while the user retypes reads as a live
                 // verdict on what they are currently entering.
-                if (signInErrors.email || signInErrors.form) setSignInErrors({});
+                if (signInErrors.email || signInErrors.form) {
+                  setSignInErrors((current) => ({ ...current, email: undefined, form: undefined }));
+                }
               }}
               placeholder={t("signIn.form.emailPlaceholder")}
               autoComplete="username"
               autoCapitalize="none"
               spellCheck={false}
               aria-invalid={Boolean(signInErrors.email || signInErrors.form) || undefined}
-              aria-describedby={signInErrors.email ? "signin-email-error" : undefined}
+              aria-describedby={signInErrors.email ? "signin-email-error" : signInErrors.form ? "signin-form-error" : undefined}
               className={`${authFieldClass} ${signInErrors.email || signInErrors.form ? authFieldErrorClass : ""}`}
             />
+            {signInErrors.email ? (
+              <p id="signin-email-error" role="alert" className="mt-2 text-body-sm font-medium text-red-600">
+                {signInErrors.email}
+              </p>
+            ) : null}
           </div>
 
           <div>
-            {signInErrors.password ? (
-              <p id="signin-password-error" role="alert" className="mb-2 text-body-sm font-medium text-red-600">
-                {signInErrors.password}
-              </p>
-            ) : null}
             <PasswordField
               id="signin-password"
               label={t("signIn.form.passwordLabel")}
               placeholder={t("signIn.form.passwordPlaceholder")}
               autoComplete="current-password"
               inputRef={passwordInputRef}
+              onChange={() => {
+                if (signInErrors.password || signInErrors.form) {
+                  setSignInErrors((current) => ({ ...current, password: undefined, form: undefined }));
+                }
+              }}
               visible={showPassword}
               onToggle={() => setShowPassword((current) => !current)}
               showLabel={t("signIn.form.showPassword")}
               hideLabel={t("signIn.form.hidePassword")}
               invalid={Boolean(signInErrors.password || signInErrors.form)}
+              describedBy={signInErrors.password ? "signin-password-error" : signInErrors.form ? "signin-form-error" : undefined}
             />
+            {signInErrors.password ? (
+              <p id="signin-password-error" role="alert" className="mt-2 text-body-sm font-medium text-red-600">
+                {signInErrors.password}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -305,7 +313,7 @@ export function SignIn() {
           </div>
 
           {signInErrors.form ? (
-            <p role="alert" className="rounded-control border border-red-200 bg-red-50 px-4 py-3 text-body-sm font-medium text-red-700">
+            <p id="signin-form-error" role="alert" className="rounded-control border border-red-200 bg-red-50 px-4 py-3 text-body-sm font-medium text-red-700">
               {signInErrors.form}
             </p>
           ) : null}
