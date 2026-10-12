@@ -18,6 +18,7 @@ import { getUserInitials } from '../lib/userIdentity';
 import { registerPushDevice, subscribeNotificationResponses, takeInitialNotificationData, unregisterPushDevice } from '../lib/pushNotifications';
 import { PENDING_TOPUP_STORAGE_KEY } from '../lib/pendingPayment';
 import { queryClient } from '../lib/queryClient';
+import { disableBiometricLogin } from '../lib/biometricAuth';
 
 type ViewMode = 'worker' | 'employer';
 type BootstrapIssue = {
@@ -774,6 +775,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     }
 
     disconnectSocket();
+    await disableBiometricLogin();
     await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY, AUTH_USER_KEY, ACTIVE_VIEW_MODE_KEY]);
     // Both voluntary and invalid-session logout route through here (the
     // 401 handler above calls the same logout()), so a single clear covers

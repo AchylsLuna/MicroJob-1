@@ -41,7 +41,11 @@ const refreshNativeSession = async (): Promise<boolean> => {
     try {
       const response = await fetch(`${API_URL}/auth/refresh`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-microjobs-client': 'native' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-microjobs-client': 'native',
+          'x-microjobs-auth-transport': 'bearer',
+        },
         body: JSON.stringify({ refreshToken }),
       });
       if (!response.ok) return false;
