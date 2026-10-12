@@ -28,21 +28,85 @@ const audit = (prefix, omitDev) => {
   }
 };
 
-const assertNoSevere = (label, report) => {
+/**
+ * Walks `via` chains to the advisory ids actually behind a finding.
+ *
+ * Only the originating package carries advisory objects; everything that merely
+ * depends on it lists a package *name* instead. Without following those, a
+ * transitive finding looks like it has no advisory at all.
+ */
+const resolveAdvisoryIds = (report, name, seen = new Set()) => {
+  const ids = new Set();
+  if (seen.has(name)) return ids;
+  seen.add(name);
+  for (const cause of report.vulnerabilities?.[name]?.via || []) {
+    // Only high/critical advisories count. A package's finding is raised to
+    // `high` by its worst advisory, but lower-severity ones ride along in the
+    // same `via` list -- demanding entries for those would force moderate
+    // advisories into a high allowlist, which is not what this check polices.
+    if (typeof cause === 'object' && cause.source) {
+      if (['high', 'critical'].includes(cause.severity)) ids.add(Number(cause.source));
+    } else if (typeof cause === 'string') {
+      for (const id of resolveAdvisoryIds(report, cause, seen)) ids.add(id);
+    }
+  }
+  return ids;
+};
+
+/**
+ * `allowedAdvisoryIds` excuses *documented* advisories only, and only ever for
+ * the audit it is passed to. A finding is excused when every advisory reachable
+ * from it is listed, so a new advisory riding along on an already-excused
+ * package still fails the build. Criticals are never excusable.
+ */
+const assertNoSevere = (label, report, allowedAdvisoryIds = new Set()) => {
   const counts = report.metadata?.vulnerabilities || {};
-  if ((counts.critical || 0) + (counts.high || 0) > 0) {
-    failures.push(`${label} has ${counts.critical || 0} critical and ${counts.high || 0} high findings.`);
+  if ((counts.critical || 0) > 0) {
+    failures.push(`${label} has ${counts.critical} critical findings.`);
+    return;
+  }
+  const unexpected = Object.entries(report.vulnerabilities || {})
+    .filter(([, finding]) => ['high', 'critical'].includes(finding.severity))
+    .filter(([name]) => {
+      const ids = [...resolveAdvisoryIds(report, name)];
+      return ids.length === 0 || ids.some((id) => !allowedAdvisoryIds.has(id));
+    })
+    .map(([name]) => name);
+  if (unexpected.length) {
+    failures.push(`${label} has undocumented high findings: ${unexpected.join(', ')}.`);
   }
 };
 
+// Dev-only exceptions, applied solely to the complete audit below. The
+// production audit is held at an absolute zero and takes no allowlist at all,
+// because that is the set that actually ships.
+const allowedRootDevAdvisories = new Set([
+  // braces stack-exhaustion DoS via deeply nested patterns, reached through
+  // micromatch / chokidar / fast-glob under `tailwindcss` and `nodemon`. Both
+  // glob our own source paths at build and watch time and never see untrusted
+  // input. npm's offered remedies are tailwindcss@4 -- a full config-pipeline
+  // rewrite, not a security fix -- and a nodemon *downgrade* to 1.x. Same
+  // advisory and same reasoning as the Mobile entry further down.
+  1240992,
+]);
+
 assertNoSevere('Root/server production dependencies', audit('', true));
-assertNoSevere('Root/server complete dependencies', audit('', false));
+assertNoSevere('Root/server complete dependencies', audit('', false), allowedRootDevAdvisories);
 
 const mobile = audit('Mobile', false);
+// Expo SDK 54's own build toolchain. Every entry here is reachable only from
+// Metro/EAS tooling that runs on a developer machine or in CI -- none of it is
+// in the shipped app bundle, and none of it is ever fed untrusted input. npm's
+// only offered remedy for the whole group is `expo@44` / `react-native@0.72`,
+// i.e. a semver-major *downgrade* that would break the Expo Go SDK 54 / RN 0.81
+// compatibility set README.md explicitly forbids changing. Reassess with the
+// next Expo SDK upgrade, not with `npm audit fix --force`.
 const allowedMobilePackages = new Set([
-  '@expo/cli', '@expo/metro', '@expo/metro-config',
+  '@expo/cli', '@expo/code-signing-certificates', '@expo/metro', '@expo/metro-config',
+  '@react-native-community/datetimepicker',
   '@react-native/community-cli-plugin', '@react-native/virtualized-lists',
-  'expo', 'image-size', 'metro', 'metro-config', 'metro-transform-worker', 'postcss', 'react-native',
+  'braces', 'expo', 'image-size', 'metro', 'metro-config', 'metro-file-map',
+  'metro-transform-worker', 'micromatch', 'node-forge', 'postcss', 'react-native',
 ]);
 const allowedAdvisories = new Set([
   1117015,
@@ -59,6 +123,16 @@ const allowedAdvisories = new Set([
   // non-breaking fix. Build tooling, not runtime app code -- the installed
   // app never feeds it untrusted input. Reassess with the Expo SDK upgrade.
   1147955,
+  // node-forge RSA PKCS#1 v1.5 signature verification accepts extra nested
+  // DigestAlgorithm elements. Reached only through
+  // @expo/code-signing-certificates, which signs EAS Update manifests at build
+  // time; the installed app never verifies attacker-supplied signatures with
+  // it. Only fix on offer is the forbidden expo@44 downgrade.
+  1240912,
+  // braces stack-exhaustion DoS on deeply nested patterns, reached through
+  // micromatch inside Metro's file map -- it matches our own glob patterns
+  // against our own filenames during a build, never untrusted input.
+  1240992,
 ]);
 const mobileFindings = Object.entries(mobile.vulnerabilities || {});
 const unexpectedPackages = mobileFindings
