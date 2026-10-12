@@ -155,6 +155,9 @@ const getConversationWithUser = async (req, res) => {
         { sender: userId, receiver: otherUserId },
         { sender: otherUserId, receiver: userId },
       ],
+      // Messages this viewer has deleted stay hidden from them, while the
+      // counterparty keeps their own copy.
+      deletedFor: { $ne: userId },
     };
     if (jobId) filter.job = jobId;
 
@@ -376,7 +379,7 @@ const MessageController = {
 
       // Most recent first so the first hit per conversation key is the preview we need.
       const messages = await withMessagePopulate(
-        Message.find({ $or: [{ sender: userId }, { receiver: userId }] })
+        Message.find({ $or: [{ sender: userId }, { receiver: userId }], deletedFor: { $ne: userId } })
       ).sort({ createdAt: -1 });
 
       const conversationMap = new Map();
@@ -434,6 +437,7 @@ const MessageController = {
           { sender: userId, receiver: otherUserId },
           { sender: otherUserId, receiver: userId },
         ],
+        deletedFor: { $ne: userId },
       };
       if (normalizedJobId) filter.job = normalizedJobId;
       const messages = await withMessagePopulate(Message.find(filter)).sort({ createdAt: 1 });
@@ -603,7 +607,22 @@ const MessageController = {
   // Permanently erase one exact conversation (general or job-scoped) for both
   // participants. This is intentionally separate from archiving, which is
   // reversible and only affects the current user's inbox.
-  deleteConversationForBoth: async (req, res) => {
+  /**
+   * Deletes a conversation **for the calling user only**.
+   *
+   * This used to run `Message.deleteMany` across both directions of the thread,
+   * so either party could irreversibly erase the conversation from the other's
+   * inbox -- settlement-request invoices and formal job offers included, which
+   * is exactly the evidence a scammer would want gone after a dispute. The
+   * route comment in routes/MessageRoute.js already promised per-user
+   * semantics; only the implementation disagreed.
+   *
+   * Each side's deletion is now recorded in `Message.deletedFor`, and a
+   * document is only physically removed once *both* participants have deleted
+   * it, so storage is still reclaimed without one side destroying the other's
+   * copy.
+   */
+  deleteConversationForMe: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
       const { jobId } = req.body;
@@ -613,7 +632,6 @@ const MessageController = {
       const normalizedJobId = normalizeOptionalJobId(jobId);
       if (normalizedJobId && !isValidObjectId(normalizedJobId)) return sendError(res, 400, 'A valid jobId is required');
       const conversationId = buildConversationKey(otherUserId, normalizedJobId);
-      const otherConversationId = buildConversationKey(userId, normalizedJobId);
       const filter = {
         $or: [
           { sender: userId, receiver: otherUserId },
@@ -622,28 +640,25 @@ const MessageController = {
       };
       if (normalizedJobId) filter.job = normalizedJobId;
 
-      const deletion = await Message.deleteMany(filter);
-      await Promise.all([
-        User.updateOne({ _id: userId }, { $pull: { archivedConversations: conversationId } }),
-        User.updateOne({ _id: otherUserId }, { $pull: { archivedConversations: otherConversationId } }),
-      ]);
+      const hidden = await Message.updateMany(filter, { $addToSet: { deletedFor: userId } });
 
-      try {
-        emitToUser(otherUserId, 'conversation_deleted', {
-          otherUserId: String(userId),
-          jobId: normalizedJobId || null,
-        });
-      } catch (e) {
-        // Deletion is already committed; the recipient's normal refresh will
-        // still remove the empty conversation if their socket is unavailable.
-      }
+      // Reclaim only what both sides have deleted.
+      const purge = await Message.deleteMany({
+        ...filter,
+        deletedFor: { $all: [userId, otherUserId] },
+      });
 
+      // Only the caller's own archive entry is touched; the counterparty's view
+      // of this conversation is deliberately left exactly as it was.
+      await User.updateOne({ _id: userId }, { $pull: { archivedConversations: conversationId } });
+
+      const deletedCount = hidden.modifiedCount || 0;
       return sendSuccess(
         res,
         200,
-        'Conversation permanently deleted',
-        { conversationId, deletedCount: deletion.deletedCount || 0 },
-        { conversationId, deletedCount: deletion.deletedCount || 0, permanent: true }
+        'Conversation deleted',
+        { conversationId, deletedCount, purgedCount: purge.deletedCount || 0 },
+        { conversationId, deletedCount, purgedCount: purge.deletedCount || 0, permanent: false }
       );
     } catch (error) {
       return sendError(res, 500, 'Server error', { error: error.message });

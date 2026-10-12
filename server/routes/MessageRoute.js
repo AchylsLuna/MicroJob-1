@@ -35,8 +35,10 @@ router.post('/unblock', auth, MessageController.unblockUser);
 // Archive a conversation for the current user
 router.post('/archive', auth, MessageController.archiveConversation);
 
-// Compatibility route; only removes the conversation for the authenticated user.
-router.delete('/conversation', auth, MessageController.deleteConversationForBoth);
+// Removes the conversation for the authenticated user only. The counterparty
+// keeps their copy (Message.deletedFor); the document is purged once both sides
+// have deleted it.
+router.delete('/conversation', auth, MessageController.deleteConversationForMe);
 
 // Get blocked users for current user
 router.get('/blocked', auth, MessageController.getBlockedUsers);
