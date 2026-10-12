@@ -88,7 +88,9 @@ test('a verified reset replaces the password and permits immediate login', async
   assert.equal(user.verification.emailVerified, true);
 
   const loginRes = response();
-  await loginUser({ body: { emailOrUsername: EMAIL, password: NEW_PASSWORD, requireOtp: true }, ip: '127.0.0.1', get: () => 'test', headers: {} }, loginRes);
+  // No `requireOtp` flag: the challenge is unconditional now, so the body no
+  // longer carries one (it used to be how a caller could opt out of 2FA).
+  await loginUser({ body: { emailOrUsername: EMAIL, password: NEW_PASSWORD }, ip: '127.0.0.1', get: () => 'test', headers: {} }, loginRes);
   assert.equal(loginRes.statusCode, 200);
   assert.equal(loginRes.payload.data.otpRequired, true);
 });

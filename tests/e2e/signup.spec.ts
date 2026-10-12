@@ -58,8 +58,15 @@ test("Create Account registers a dummy user and sends an OTP", async ({ page }) 
   await page.getByRole("button", { name: "Create Account" }).click();
 
   expect((await registrationResponse).status()).toBe(201);
-  const code = String((await unwrap(await otpResponse))?.code || "");
-  expect(code, "test email delivery should expose the OTP").toMatch(/^\d{6}$/);
+  // Wait for the send to land, then read the code from the NODE_ENV=test-only
+  // debug endpoint. It is deliberately no longer echoed in the /otp/send
+  // response body: returning a verification code in the same response that
+  // requests it made the endpoint an account-takeover primitive on every
+  // non-production deploy (see UserController.sendOtp).
+  expect((await otpResponse).ok()).toBeTruthy();
+  const otpRead = await page.request.get(`/api/auth/debug/signup-otp?email=${encodeURIComponent(email)}`);
+  const code = String((await unwrap(otpRead))?.code || "");
+  expect(code, "debug signup-OTP endpoint should return a six-digit code").toMatch(/^\d{6}$/);
   await expect(page.getByRole("heading", { name: "Verify your email" })).toBeVisible();
 
   const inputs = page.locator('input[maxlength="1"]');

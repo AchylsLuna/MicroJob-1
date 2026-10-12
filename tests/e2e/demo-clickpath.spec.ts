@@ -78,17 +78,39 @@ async function uploadAvatar(context: APIRequestContext, headers: Record<string, 
 }
 
 /**
- * Omitting `requireOtp` takes the server's no-OTP login branch, which sets full
- * session cookies immediately -- the fastest way to get an authenticated
- * context when the OTP UX itself is not what is under test here.
+ * Password + the mandatory email OTP.
+ *
+ * This used to post the password alone and rely on the server's no-OTP branch,
+ * which was reachable simply by omitting `requireOtp` from the body. That made
+ * the second factor client-controlled, so `AuthController.loginUser` now always
+ * challenges unless the request carries a server-issued trusted-device token.
+ * The code is read from the NODE_ENV=test-only `/auth/debug/login-otp`
+ * endpoint, the same way `auth.setup.ts` does.
  */
 async function signIn(context: APIRequestContext, email: string, password: string) {
   const response = await context.post("/api/auth/login", { data: { emailOrUsername: email, password } });
   expect(response.ok(), `login failed for ${email}: ${await response.text()}`).toBeTruthy();
+
+  const body = await unwrap(response);
+  // A trusted device short-circuits the challenge, which is a legitimate
+  // outcome -- there is nothing to clear in that case.
+  if (!body?.otpRequired) return;
+
+  const otpResponse = await context.get(`/api/auth/debug/login-otp?email=${encodeURIComponent(email)}`);
+  const code = String((await unwrap(otpResponse))?.code || "");
+  expect(code, "debug login-OTP endpoint should return a six-digit code").toMatch(/^\d{6}$/);
+
+  const verify = await context.post("/api/auth/login/otp/verify", {
+    data: { otpToken: body.otpToken, code },
+  });
+  expect(verify.ok(), `login OTP verify failed for ${email}: ${await verify.text()}`).toBeTruthy();
 }
 
-/** Registers and email-verifies a fresh worker. The dev/test OTP is returned in
- *  the response body because the harness blanks every SMTP credential. */
+/** Registers and email-verifies a fresh worker. The harness blanks every SMTP
+ *  credential, so the code is read from the NODE_ENV=test-only
+ *  `/auth/debug/signup-otp` endpoint -- it is deliberately no longer returned
+ *  in the `/otp/send` response body, where it was an account-takeover
+ *  primitive on any non-production deploy. */
 async function registerWorker(context: APIRequestContext) {
   const registration = await context.post("/api/auth/register", {
     data: {
@@ -109,8 +131,10 @@ async function registerWorker(context: APIRequestContext) {
   }
   if (registration.ok()) {
     const otpSend = await context.post("/api/auth/otp/send", { data: { email: WORKER.email } });
-    const code = String((await unwrap(otpSend))?.code || "");
-    expect(code, "dev OTP should be returned when SMTP is unconfigured").toMatch(/^\d{6}$/);
+    expect(otpSend.ok(), `otp send failed: ${await otpSend.text()}`).toBeTruthy();
+    const otpRead = await context.get(`/api/auth/debug/signup-otp?email=${encodeURIComponent(WORKER.email)}`);
+    const code = String((await unwrap(otpRead))?.code || "");
+    expect(code, "debug signup-OTP endpoint should return a six-digit code").toMatch(/^\d{6}$/);
     const verify = await context.post("/api/auth/otp/verify", { data: { email: WORKER.email, code } });
     expect(verify.ok(), `otp verify failed: ${await verify.text()}`).toBeTruthy();
     return;

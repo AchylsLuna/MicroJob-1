@@ -1,13 +1,43 @@
 import mongoose from 'mongoose';
+import jwt from 'jsonwebtoken';
 import RateLimitBucket from '../models/RateLimitBucket.js';
+import { getJwtSecret } from './jwtSecret.js';
 
 const memoryBuckets = new Map();
 
 export const clientIp = (req) => String(req.ip || req.connection?.remoteAddress || req.socket?.remoteAddress || 'unknown');
 
+/**
+ * The account a second-factor request belongs to, taken from its challenge token.
+ *
+ * The bodies of /login/mfa (`{mfaToken, code}`), /login/otp/verify
+ * (`{otpToken, code}`) and /login/otp/resend (`{otpToken}`) carry no email,
+ * username or phone, and `req.user` is undefined on these unauthenticated
+ * routes. So both key builders below used to fall back to the *same* per-IP
+ * bucket -- collapsing the two independent ceilings documented in
+ * routes/authRoutes.js into one and leaving a distributed attacker with
+ * effectively no per-account limit on second-factor verification.
+ *
+ * The token is verified rather than merely decoded: an unverified decode would
+ * let a caller nominate any `userId` and so pick their own bucket, or
+ * deliberately exhaust a victim's. An invalid or expired token yields '' and
+ * the caller falls back to IP keying, which is the correct conservative answer.
+ */
+const challengeSubject = (req) => {
+  const token = req.body?.otpToken || req.body?.mfaToken || req.body?.selectionToken || req.body?.token;
+  if (!token) return '';
+  try {
+    const decoded = jwt.verify(String(token), getJwtSecret());
+    return String(decoded?.userId || '').trim().toLowerCase();
+  } catch {
+    return '';
+  }
+};
+
 const normalizedIdentifier = (req) => {
   const body = req.body || {};
-  return String(body.emailOrUsername || body.email || body.username || body.phoneNumber || '').trim().toLowerCase();
+  const supplied = String(body.emailOrUsername || body.email || body.username || body.phoneNumber || '').trim().toLowerCase();
+  return supplied || challengeSubject(req);
 };
 
 export const buildAuthRateLimitKey = (req) => {

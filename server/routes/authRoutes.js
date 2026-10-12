@@ -22,6 +22,7 @@ import {
   loginOtpVerify,
   loginOtpResend,
   debugLoginOtp,
+  debugSignupOtp,
   debugCreditWallet,
 } from '../controllers/AuthController.js';
 import {
@@ -96,10 +97,16 @@ router.post('/login/method', loginLimiter, accountLoginLimiter, selectLoginMetho
 router.post('/google', loginLimiter, googleLogin);
 router.post('/login/mfa', loginLimiter, accountLoginLimiter, loginMfa);
 router.post('/login/otp/verify', loginLimiter, accountLoginLimiter, loginOtpVerify);
-router.post('/login/otp/resend', loginLimiter, accountLoginLimiter, loginOtpResend);
+// otpSendLimiter as well as the login pair: resending mints a new code and a
+// new email, so it is a send endpoint, and it was previously the one way to
+// keep re-rolling a challenge without any per-send ceiling.
+router.post('/login/otp/resend', loginLimiter, accountLoginLimiter, otpSendLimiter, loginOtpResend);
 // 404s outside NODE_ENV === 'test' (see AuthController.debugLoginOtp) -- the
 // e2e harness's only way to read a code it can never see in a real response.
 router.get('/debug/login-otp', debugLoginOtp);
+// Same gate: the signup/email-verification code, which used to be echoed in the
+// /otp/send response body on every non-production deploy.
+router.get('/debug/signup-otp', debugSignupOtp);
 // Same gate: credits an employer wallet so the e2e suite can exercise the
 // offer -> hire -> settle path without a real PayMongo checkout.
 router.post('/debug/credit-wallet', debugCreditWallet);

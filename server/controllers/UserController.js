@@ -29,7 +29,7 @@ import { getReviewSummary } from "../lib/reviewSummary.js";
 import { buildAuthTokensPayload, createSessionWithTokens, setSessionCookies, isNativeAuthRequest } from "../lib/authSession.js";
 import { issueTrustedDevice, setTrustedDeviceCookie, clearTrustedDevicesForUser } from "../lib/trustedDevice.js";
 import crypto from "node:crypto";
-import { clearOtpChallenges, issueOtpChallenge, verifyOtpChallenge } from "../lib/otpChallenges.js";
+import { clearOtpChallenges, issueOtpChallenge, rememberTestOtpCode, verifyOtpChallenge } from "../lib/otpChallenges.js";
 import monitor from "../lib/monitor.js";
 import { getWebOrigin } from "../lib/runtimeConfig.js";
 import { deleteAvatarFromAzure } from "../lib/azureAvatarStorage.js";
@@ -1013,11 +1013,14 @@ export async function sendOtp(req, res) {
             if (process.env.NODE_ENV === "production") {
                 return res.status(500).json({ message: "Email service is not configured." });
             }
-            console.warn(`SMTP is not configured. Development OTP generated for …${normalizedEmail.slice(-6)}.`);
-            return res.status(200).json({
-                message: OTP_GENERIC_MESSAGE,
-                code,
-            });
+            // The code goes to the server log, never into the response body.
+            // Returning it to the caller made this endpoint a complete account
+            // takeover on any non-production deploy: request a code for any
+            // address, read it out of the JSON, and verify it. The test harness
+            // reads it through /auth/debug/signup-otp instead.
+            console.warn(`SMTP is not configured. Development OTP for …${normalizedEmail.slice(-6)}: ${code}`);
+            rememberTestOtpCode("email-verification", normalizedEmail, code);
+            return res.status(200).json({ message: OTP_GENERIC_MESSAGE });
         }
 
         const fromAddress = getMailFrom();
@@ -1039,10 +1042,8 @@ export async function sendOtp(req, res) {
             html,
         });
 
-        if (process.env.NODE_ENV === "production") {
-            return res.status(200).json({ message: OTP_GENERIC_MESSAGE });
-        }
-        return res.status(200).json({ message: OTP_GENERIC_MESSAGE, code });
+        rememberTestOtpCode("email-verification", normalizedEmail, code);
+        return res.status(200).json({ message: OTP_GENERIC_MESSAGE });
     } catch (error) {
         console.error("Send OTP error:", error);
         const detail = error?.message ? ` ${error.message}` : "";
@@ -1067,10 +1068,43 @@ export async function verifyOtp(req, res) {
             return res.status(404).json({ message: "User not found." });
         }
 
-        user.status = "active";
+        // This endpoint exists to complete *signup* email verification, so it
+        // may only ever promote `pending` -> `active`. It used to assign
+        // `status = "active"` unconditionally, which made every admin ban,
+        // disable and soft-delete reversible by the account's own owner: send
+        // yourself a code, verify it, and the account is live again with a
+        // fresh session. These statuses and messages mirror
+        // AuthController.loginUser so both entry points agree.
+        if (user.status === "disabled") {
+            return res.status(401).json({ message: "Account is disabled. Contact an admin." });
+        }
+        if (user.status === "banned") {
+            return res.status(401).json({ message: "Account is banned. Contact support." });
+        }
+        if (user.status === "deleted") {
+            return res.status(401).json({ message: "Account has been deleted." });
+        }
+
+        const wasPending = user.status === "pending";
         user.verification = user.verification || {};
         user.verification.emailVerified = true;
+        if (wasPending) {
+            user.status = "active";
+        }
         await user.save();
+
+        // Only a genuine signup completion gets a session. For an account that
+        // is already active, confirming the mailbox is not an authentication
+        // factor on its own -- it proves control of the email, not of the
+        // password or of an enrolled authenticator. This path used to mint a
+        // full session *and* a 30-day OTP-skipping trusted device for any
+        // account, which bypassed MFA outright (MFA can only be enrolled by an
+        // already-active account, so it could never be `pending` here) and
+        // handed a live session to anyone able to read one email. Such callers
+        // must go through /auth/login.
+        if (!wasPending) {
+            return res.status(200).json({ message: "Email verified.", emailVerified: true });
+        }
 
         const authSession = await createSessionWithTokens(req, user);
         setSessionCookies(res, {
@@ -1265,8 +1299,9 @@ export async function requestPasswordChangeOtp(req, res) {
             if (process.env.NODE_ENV === "production") {
                 return res.status(500).json({ message: "Email service is not configured." });
             }
-            console.warn(`SMTP is not configured. Development change-password OTP generated for user …${String(user._id).slice(-6)}.`);
-            return res.status(200).json({ message: "OTP generated for development.", code });
+            console.warn(`SMTP is not configured. Development change-password OTP for user …${String(user._id).slice(-6)}: ${code}`);
+            rememberTestOtpCode("password-change", emailKey, code);
+            return res.status(200).json({ message: "OTP generated for development." });
         }
 
         const fromAddress = getMailFrom();
