@@ -18,6 +18,7 @@ node_modules/
 **/node_modules/
 .expo/
 Mobile/.expo/
+Mobile/android/
 .vercel/
 
 # Build and test output
