@@ -179,7 +179,6 @@ const main = async () => {
     METRO_PORT: String(metroPort),
     CLIENT_ORIGIN: process.env.CLIENT_ORIGIN || webOrigin,
     VITE_API_PROXY_TARGET: process.env.VITE_API_PROXY_TARGET || apiOrigin,
-    MICROJOBS_METRO_API_TARGET: apiOrigin,
     AUTO_SEED_SUPERADMIN: process.env.AUTO_SEED_SUPERADMIN || 'true',
     SUPERADMIN_RESET_PASSWORD: process.env.SUPERADMIN_RESET_PASSWORD || 'true',
   };
@@ -189,15 +188,12 @@ const main = async () => {
   const web = mobileOnly ? null : await ensureWeb(environment);
   const metro = await ensureMetro(environment, npmCommand);
   const lanAddress = getLanAddress();
-  const phoneApi = tunnelMode
-    ? 'derived from the Expo tunnel QR host (/microjobs-api/api)'
-    : lanAddress ? `http://${lanAddress}:${metroPort}/microjobs-api/api` : 'unavailable: no private LAN address detected';
   console.log('\nMicroJobs is ready');
   if (web) console.log(`  Web:       ${webOrigin}${web.reused ? ' (reused)' : ''}`);
   console.log(`  API:       ${apiOrigin}/api${api.reused ? ' (reused)' : ''}`);
   console.log(`  Database:  ${api.identity.environment}:${api.identity.databaseId}`);
   console.log(`  Expo:      ${tunnelMode ? 'scan the tunnel QR shown above' : lanAddress ? `exp://${lanAddress}:${metroPort}` : 'LAN address unavailable; use npm run dev:tunnel'}${metro.reused ? ' (reused)' : ''}`);
-  console.log(`  Mobile API: ${phoneApi}`);
+  console.log('  Mobile API: configured deployed API (see Expo output above)');
   if (metro.reused) console.log('  QR: reuse the QR in the existing Expo terminal; press r there to reload.');
   console.log('Press Ctrl+C to stop only the services started by this command.');
 };

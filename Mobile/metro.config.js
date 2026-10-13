@@ -1,5 +1,6 @@
 const { getDefaultConfig } = require('expo/metro-config');
 const http = require('http');
+const https = require('https');
 const path = require('path');
 
 /** @type {import('expo/metro-config').MetroConfig} */
@@ -40,6 +41,7 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
 const productionApiOrigin = 'https://microjobs-api-test.azurewebsites.net';
 const configuredProxyTarget = process.env.MICROJOBS_METRO_API_TARGET || productionApiOrigin;
 const apiProxyTarget = new URL(configuredProxyTarget);
+const apiTransport = apiProxyTarget.protocol === 'https:' ? https : http;
 const localProxyHost = /^(?:localhost|127(?:\.\d{1,3}){3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}|0\.0\.0\.0|::1)$/i;
 if (localProxyHost.test(apiProxyTarget.hostname)) {
 	throw new Error('Local Metro API targets are disabled. Use the deployed production API.');
@@ -63,7 +65,7 @@ config.server = {
 			if (!mapping) return fallbackMiddleware(request, response, next);
 
 			const [prefix, targetPrefix] = mapping;
-			const proxyRequest = http.request({
+			const proxyRequest = apiTransport.request({
 				protocol: apiProxyTarget.protocol,
 				hostname: apiProxyTarget.hostname,
 				port: apiProxyTarget.port,

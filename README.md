@@ -13,7 +13,7 @@ cd C:\Users\Admin\Desktop\MicroJobs
 npm ci
 ```
 
-Run the complete local environment from the repository root:
+Run the development environment from the repository root:
 
 ```bash
 npm run dev
@@ -31,17 +31,18 @@ on one service in isolation. The `client/` directory intentionally has no
 
 Local ports are fixed by service: API `5050`, web `8082`, and Expo Metro `8081`.
 Override them only with `DEV_API_PORT`, `DEV_CLIENT_PORT`, and `METRO_PORT`
-respectively. `EXPO_PUBLIC_API_PORT` may override the API port visible to Expo.
+respectively.
 Avoid a generic `PORT` when starting Expo because it is intentionally ignored.
 
 Android builds require JDK 17. Expo Go compatibility is intentionally pinned to
 Expo SDK 54 and React Native 0.81; do not run a forced audit upgrade that changes
 that compatibility set.
 For normal Expo Go development, use the unified `npm run dev` command rather
-than starting another Metro process. Mobile API requests derive their origin
-from the current Expo QR host and use Metro's `/microjobs-api/api/*` proxy to API
-port `5050`; Socket.IO uses `/microjobs-socket/*`. This prevents stale LAN
-addresses and works the same way in explicit tunnel mode. Restart the unified
+than starting another Metro process. Mobile API and Socket.IO requests use the
+deployed endpoints configured in `Mobile/.env.example`, in both LAN and tunnel
+mode. The local API on port `5050` serves the web app. The launcher leaves
+`MICROJOBS_METRO_API_TARGET` unset so Metro uses its deployed API default;
+explicit Metro proxy overrides must also point to a deployed API. Restart the unified
 launcher after changing networks, or bring the app to the foreground and use
 Retry while the new QR is loading.
 If Expo Go reports a version mismatch after installing the SDK 54-compatible
