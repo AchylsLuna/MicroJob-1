@@ -44,6 +44,7 @@ import {
   setTrustedDeviceCookie,
   getTrustedDeviceTokenFromRequest,
 } from '../lib/trustedDevice.js';
+import { isAdminRole } from '../lib/auth.js';
 import { SELF_SERVICE_ROLES } from './SessionController.js';
 
 const googleClient = new OAuth2Client();
@@ -244,7 +245,13 @@ const loginUser = async (req, res) => {
       return sendError(res, 401, 'Account has been deleted.');
     }
 
-    if (user.mfaEnabled) {
+    // Staff accounts deliberately keep the long-standing password-only admin
+    // sign-in contract. The decision is based on the persisted role after the
+    // password check, never on a client-provided flag or route, so a regular
+    // user cannot opt out of the required second factor.
+    const passwordOnlyAdminLogin = isAdminRole(user.role);
+
+    if (user.mfaEnabled && !passwordOnlyAdminLogin) {
       const selectionToken = createLoginMethodSelectionToken(String(user._id), includePhone);
       return sendSuccess(res, 200, 'Choose a verification method', {
         methodSelectionRequired: true,
@@ -253,10 +260,11 @@ const loginUser = async (req, res) => {
       });
     }
 
-    // The email OTP challenge is mandatory. A trusted device (see
+    // The email OTP challenge is mandatory for marketplace accounts. A trusted device (see
     // lib/trustedDevice.js) is the only thing that skips it, and that decision
     // rests entirely on a token the server itself issued after a prior OTP
-    // verification -- never on anything the client claims.
+    // verification -- never on anything the client claims. Privileged staff
+    // accounts use the password-only policy above.
     //
     // This used to be gated on `req.body.requireOtp`, with a comment asserting
     // the skip was decided server-side. It was not: the flag came straight off
@@ -264,9 +272,11 @@ const loginUser = async (req, res) => {
     // anyone holding only a password logged in directly. Nothing but the
     // client's own good manners was enforcing 2FA.
     const deviceToken = getTrustedDeviceTokenFromRequest(req);
-    const trustedDevice = await consumeTrustedDevice({ token: deviceToken, userId: user._id });
+    const trustedDevice = passwordOnlyAdminLogin
+      ? null
+      : await consumeTrustedDevice({ token: deviceToken, userId: user._id });
 
-    if (!trustedDevice) {
+    if (!passwordOnlyAdminLogin && !trustedDevice) {
       const loginOtp = await issueLoginOtpChallenge(user, includePhone);
       return sendSuccess(res, 200, 'OTP verification required', {
         otpRequired: true,

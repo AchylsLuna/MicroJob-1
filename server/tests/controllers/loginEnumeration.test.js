@@ -13,6 +13,17 @@ before(async () => {
   const user = new User({ firstName: 'Real', lastName: 'User', email: 'real@example.ph', status: 'active' });
   await user.setPassword('CorrectHorse1!');
   await user.save();
+
+  const superadmin = new User({
+    firstName: 'Super',
+    lastName: 'Admin',
+    email: 'superadmin@example.ph',
+    role: 'superadmin',
+    status: 'active',
+    mfaEnabled: true,
+  });
+  await superadmin.setPassword('SuperAdmin123!');
+  await superadmin.save();
 });
 
 after(async () => {
@@ -106,4 +117,14 @@ test('a login that sends requireOtp:false is still challenged', async () => {
   assert.equal(res.statusCode, 200);
   assert.equal(res.payload.data.otpRequired, true);
   assert.equal(res.payload.data.user, undefined);
+});
+
+test('an administrator keeps the password-only sign-in contract', async () => {
+  const res = await attempt('superadmin@example.ph', 'SuperAdmin123!');
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.payload.data.user.role, 'superadmin');
+  assert.ok(res.payload.data.token, 'an administrator receives a session token');
+  assert.equal(res.payload.data.otpRequired, undefined);
+  assert.equal(res.payload.data.methodSelectionRequired, undefined);
 });
