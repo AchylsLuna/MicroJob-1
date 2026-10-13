@@ -276,7 +276,7 @@ function AdminReportsContent() {
 
       <section className="bg-white rounded-[20px] border border-[#E5E7EB] p-6 space-y-6">
         <div>
-          <h3 className="text-[20px] font-semibold text-[#111827]">{t("reports.generate.title")}</h3>
+          <h3 className="text-section font-semibold text-[#111827]">{t("reports.generate.title")}</h3>
           <p className="text-body-sm text-[#6B7280] mt-1">
             {t("reports.generate.subtitle")}
           </p>
@@ -387,7 +387,7 @@ function AdminReportsContent() {
 
       <section className="bg-white rounded-[20px] border border-[#E5E7EB] p-6 space-y-4">
         <div>
-          <h3 className="text-[20px] font-semibold text-[#111827]">{t("reports.recent.title")}</h3>
+          <h3 className="text-section font-semibold text-[#111827]">{t("reports.recent.title")}</h3>
           <p className="text-body-sm text-[#6B7280] mt-1">{t("reports.recent.subtitle")}</p>
         </div>
 

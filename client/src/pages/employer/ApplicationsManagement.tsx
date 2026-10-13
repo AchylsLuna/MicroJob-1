@@ -881,7 +881,7 @@ export function ApplicationsManagement() {
             <div key={status} className="w-full rounded-[18px] bg-[#F8FAFC] border border-[#E5E7EB] p-4 space-y-4 md:min-w-[320px] md:max-w-[320px]">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-[16px] font-semibold text-[#111827]">{getStatusLabel(t, status)}</h3>
+                  <h3 className="text-section font-semibold text-[#111827]">{getStatusLabel(t, status)}</h3>
                   <p className="text-caption text-[#6B7280] mt-1">
                     {t("applicationsManagement.board.applicantCount", { count: groupedApplications[status].length })}
                   </p>

@@ -526,7 +526,7 @@ const PostJob: React.FC = () => {
           <div className="mx-auto w-fit rounded-full bg-brand-50 p-4">
             <BriefcaseBusiness size={32} className="text-brand" />
           </div>
-          <h3 className="mt-5 text-xl font-semibold text-slate-900">{t("postJob.emptyState.title")}</h3>
+          <h3 className="mt-5 text-section font-semibold text-slate-900">{t("postJob.emptyState.title")}</h3>
           <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500">{t("postJob.emptyState.subtitle")}</p>
           <button
             type="button"
@@ -552,7 +552,7 @@ const PostJob: React.FC = () => {
                 className="ui-card flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between"
               >
                 <div>
-                  <h3 className="text-xl font-semibold text-slate-900">{job.title}</h3>
+                  <h3 className="text-section font-semibold text-slate-900">{job.title}</h3>
                   <div className="mt-1 text-slate-500">
                     {job.location || t("postJob.card.locationNotSet")} • {job.jobType || t("postJob.card.jobTypeNotSet")}
                   </div>
@@ -606,7 +606,7 @@ const PostJob: React.FC = () => {
 
       {!loadingJobs && jobs.length > 0 && filteredJobs.length === 0 && (
         <div className="ui-card p-8 text-center">
-          <h3 className="text-xl font-semibold text-slate-700">{t("postJob.noMatch.title")}</h3>
+          <h3 className="text-section font-semibold text-slate-700">{t("postJob.noMatch.title")}</h3>
           <p className="mt-2 text-sm text-slate-500">
             {t("postJob.noMatch.subtitle")}
           </p>
@@ -663,7 +663,7 @@ const PostJob: React.FC = () => {
                       <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-600">
                         {t("postJob.modal.employerWorkspace")}
                       </p>
-                      <h2 id="post-job-modal-title" className="text-xl font-bold tracking-tight text-slate-900 md:text-2xl">
+                      <h2 id="post-job-modal-title" className="text-section font-bold tracking-tight text-slate-900 md:text-2xl">
                         {editingJob ? t("postJob.modal.editTitle") : t("postJob.modal.createTitle")}
                       </h2>
                       <p className="mt-0.5 text-sm text-slate-500">

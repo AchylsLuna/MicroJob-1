@@ -34,11 +34,6 @@
     "openNavigationMenu": "Buksan ang navigation menu",
     "workerHomeAria": "MicroJobs home",
     "workerPrimaryNavigationAria": "Pangunahing navigation ng manggagawa",
-    "quickLinks": "Mabilisang link",
-    "quickLinksHint": "Buksan ang ibang bahagi ng iyong workspace.",
-    "openMoreNavigation": "Buksan ang higit pang navigation",
-    "moreNavigationMenuAria": "Higit pang navigation",
-    "more": "Higit pa",
     "notifications": "Mga Abiso",
     "notificationsAriaLabel": "Mga Abiso",
     "notificationsAriaLabelUnread_one": "Mga Abiso, {{count}} hindi pa nababasa",
@@ -67,36 +62,135 @@
       "markAllReadFailed": "Hindi namarkahan lahat bilang nabasa."
     },
     "pages": {
-      "findJobs": { "title": "Maghanap ng Trabaho", "searchPlaceholder": "Maghanap ng trabaho..." },
-      "appliedJobs": { "title": "Mga Inaplayang Trabaho" },
-      "messages": { "title": "Mga Mensahe" },
-      "support": { "title": "Suporta", "searchPlaceholder": "Maghanap ng tulong..." },
-      "savedJobs": { "title": "Mga Na-save na Trabaho", "searchPlaceholder": "Maghanap sa na-save na trabaho..." },
-      "payoutRequests": { "title": "Mga Kahilingan sa Payout" },
-      "supportTickets": { "title": "Mga Support Ticket" },
-      "eWallet": { "title": "E-Wallet" },
-      "notifications": { "title": "Mga Abiso", "subtitle": "Mga update sa aplikasyon, mensahe, at bayad" },
-      "settings": { "title": "Mga Setting" },
-      "profile": { "title": "Profile" },
-      "employerHome": { "title": "Home", "action": "Mag-post ng trabaho" },
-      "applications": { "title": "Mga Aplikasyon", "subtitle": "Suriin ang mga aplikante at i-update ang status ng pagkuha.", "action": "Pamahalaan ang mga trabaho" },
-      "postJob": { "title": "Aking Mga Job Posting", "subtitle": "Gumawa at pamahalaan ang iyong mga bukas na posisyon", "action": "Pamahalaan ang mga trabaho" },
-      "jobsManagement": { "title": "Pamamahala ng Trabaho", "searchPlaceholder": "Maghanap ng trabaho..." },
-      "adminAnalytics": { "title": "Analytics", "subtitle": "Unawain ang performance ng kategorya at kamakailang aktibidad sa platform" },
-      "adminEWallet": { "title": "Pagmomonitor ng E-Wallet", "subtitle": "Subaybayan ang dami ng payout, pending na balanse, at kamakailang natapos" },
-      "adminJobs": { "title": "Pagmomonitor ng Job Posting", "subtitle": "Subaybayan ang mga listahan ng trabaho, status, at aktibidad ng aplikante" },
-      "adminUsers": { "title": "Mga User", "subtitle": "Pamahalaan ang mga user ng platform at kanilang mga profile" },
-      "adminReports": { "title": "Mga Ulat", "subtitle": "Bumuo at mag-download ng mga ulat ng platform" },
-      "adminSecurity": { "title": "Seguridad at Access", "subtitle": "Pamahalaan ang access ng user, mga tungkulin, at status ng seguridad" },
-      "adminDashboard": { "title": "Admin Dashboard", "subtitle": "Overview ng iyong job posting platform" },
-      "adminStaffManagement": { "title": "Pamamahala ng Staff", "subtitle": "Gumawa ng mga staff account at pamahalaan ang kanilang mga tungkulin" },
-      "adminAuditLogs": { "title": "Mga Audit Log", "subtitle": "Aktibidad ng sistema at mga error log" },
-      "adminModerationQueue": { "title": "Pila ng Moderation", "subtitle": "Suriin ang mga na-report na user at trabaho" },
-      "adminVerificationReview": { "title": "Pag-verify ng ID", "subtitle": "Suriin ang mga isinumiteng dokumento ng pagkakakilanlan at address" },
-      "adminDisputes": { "title": "Mga Financial Dispute", "subtitle": "Imbestigahan at lutasin ang mga alitan sa pagbabayad" },
-      "jobDetails": { "title": "Detalye ng Trabaho" },
-      "employerFallback": { "title": "Employer" },
-      "adminFallback": { "title": "Admin" }
+      "findJobs": {
+        "title": "Maghanap ng Trabaho",
+        "searchPlaceholder": "Maghanap ng trabaho..."
+      },
+      "appliedJobs": {
+        "title": "Mga Inaplayang Trabaho"
+      },
+      "messages": {
+        "title": "Mga Mensahe"
+      },
+      "support": {
+        "title": "Suporta",
+        "searchPlaceholder": "Maghanap ng tulong..."
+      },
+      "savedJobs": {
+        "title": "Mga Na-save na Trabaho",
+        "searchPlaceholder": "Maghanap sa na-save na trabaho..."
+      },
+      "payoutRequests": {
+        "title": "Mga Kahilingan sa Payout"
+      },
+      "supportTickets": {
+        "title": "Mga Support Ticket"
+      },
+      "eWallet": {
+        "title": "E-Wallet"
+      },
+      "notifications": {
+        "title": "Mga Abiso",
+        "subtitle": "Mga update sa aplikasyon, mensahe, at bayad"
+      },
+      "settings": {
+        "title": "Mga Setting"
+      },
+      "profile": {
+        "title": "Profile"
+      },
+      "employerHome": {
+        "title": "Home",
+        "action": "Mag-post ng trabaho"
+      },
+      "applications": {
+        "title": "Mga Aplikasyon",
+        "subtitle": "Suriin ang mga aplikante at i-update ang status ng pagkuha.",
+        "action": "Pamahalaan ang mga trabaho"
+      },
+      "postJob": {
+        "title": "Aking Mga Job Posting",
+        "subtitle": "Gumawa at pamahalaan ang iyong mga bukas na posisyon",
+        "action": "Pamahalaan ang mga trabaho"
+      },
+      "jobsManagement": {
+        "title": "Pamamahala ng Trabaho",
+        "searchPlaceholder": "Maghanap ng trabaho..."
+      },
+      "adminAnalytics": {
+        "title": "Analytics",
+        "subtitle": "Unawain ang performance ng kategorya at kamakailang aktibidad sa platform"
+      },
+      "adminEWallet": {
+        "title": "Pagmomonitor ng E-Wallet",
+        "subtitle": "Subaybayan ang dami ng payout, pending na balanse, at kamakailang natapos"
+      },
+      "adminJobs": {
+        "title": "Pagmomonitor ng Job Posting",
+        "subtitle": "Subaybayan ang mga listahan ng trabaho, status, at aktibidad ng aplikante"
+      },
+      "adminUsers": {
+        "title": "Mga User",
+        "subtitle": "Pamahalaan ang mga user ng platform at kanilang mga profile"
+      },
+      "adminReports": {
+        "title": "Mga Ulat",
+        "subtitle": "Bumuo at mag-download ng mga ulat ng platform"
+      },
+      "adminSecurity": {
+        "title": "Seguridad at Access",
+        "subtitle": "Pamahalaan ang access ng user, mga tungkulin, at status ng seguridad"
+      },
+      "adminDashboard": {
+        "title": "Admin Dashboard",
+        "subtitle": "Overview ng iyong job posting platform"
+      },
+      "adminStaffManagement": {
+        "title": "Pamamahala ng Staff",
+        "subtitle": "Gumawa ng mga staff account at pamahalaan ang kanilang mga tungkulin"
+      },
+      "adminAuditLogs": {
+        "title": "Mga Audit Log",
+        "subtitle": "Aktibidad ng sistema at mga error log"
+      },
+      "adminModerationQueue": {
+        "title": "Pila ng Moderation",
+        "subtitle": "Suriin ang mga na-report na user at trabaho"
+      },
+      "adminVerificationReview": {
+        "title": "Pag-verify ng ID",
+        "subtitle": "Suriin ang mga isinumiteng dokumento ng pagkakakilanlan at address"
+      },
+      "adminDisputes": {
+        "title": "Mga Financial Dispute",
+        "subtitle": "Imbestigahan at lutasin ang mga alitan sa pagbabayad"
+      },
+      "jobDetails": {
+        "title": "Detalye ng Trabaho"
+      },
+      "employerFallback": {
+        "title": "Employer"
+      },
+      "adminFallback": {
+        "title": "Admin"
+      }
+    }
+  },
+  "landing": {
+    "benefits": {
+      "ariaLabel": "Sulitin ang MicroJobs",
+      "profile": {
+        "title": "Buuin ang iyong profile",
+        "description": "Ipakita ang iyong mga kasanayan at karanasan sa trabaho para makilala ng mga employer ang iyong kakayahan."
+      },
+      "matches": {
+        "title": "Makakuha ng mga trabahong tugma sa iyo",
+        "description": "Ang iyong mga kasanayan, karanasan, at mga preference ay tumutulong sa aming magrekomenda ng mga oportunidad para sa iyo."
+      },
+      "verification": {
+        "title": "Bumuo ng tiwala sa pamamagitan ng beripikasyon",
+        "description": "Beripikahin ang iyong pagkakakilanlan at mga detalye sa pakikipag-ugnayan para sa mapagkakatiwalaang profile sa MicroJobs."
+      }
     }
   }
 }

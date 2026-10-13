@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, MapPin, Search, SlidersHorizontal, X } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, Heart, MapPin, Menu, Search, SlidersHorizontal, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useNavigationType, useOutletContext, useSearchParams } from "react-router-dom";
+import type { DashboardNavigationContext } from "../../components/DashboardLayout";
 import { getCategories, getProfile, updateJobPreferences } from "../../services/api";
 import { useWorkerJobs } from "../../hooks/queries/useWorkerJobs";
 import { useRecommendedJobs } from "../../hooks/queries/useRecommendedJobs";
@@ -127,10 +128,14 @@ function getCadenceLabels(t: TFunction): Record<string, string> {
 
 export function FindJobs() {
   const { t } = useTranslation("worker");
+  const { t: commonT } = useTranslation("common");
+  const navigation = useOutletContext<DashboardNavigationContext | null>();
   const navigate = useNavigate();
   const location = useLocation();
+  const navigationType = useNavigationType();
   const [searchParams, setSearchParams] = useSearchParams();
-  const searchQuery = (searchParams.get("q") || "").trim().toLowerCase();
+  const appliedKeyword = searchParams.get("q") || "";
+  const searchQuery = appliedKeyword.trim().toLowerCase();
   const selectedCategory = searchParams.get("category") || "";
   const datePosted = searchParams.get("datePosted") || "";
   const jobTypeFilter = useMemo(
@@ -154,8 +159,11 @@ export function FindJobs() {
   const [locationOptions, setLocationOptions] = useState<string[]>([]);
   const workerCity = workerLocation.city.trim();
   const selectedLocation = searchParams.get("location");
-  const searchLocation = selectedLocation === "nationwide" ? "" : selectedLocation ?? workerCity;
+  const searchLocation = selectedLocation && selectedLocation !== "nationwide" ? selectedLocation : "";
   const locationFilter = selectedLocation && selectedLocation !== "nationwide" ? selectedLocation.trim() : "";
+  const [draftKeyword, setDraftKeyword] = useState(appliedKeyword);
+  const [draftLocation, setDraftLocation] = useState(searchLocation);
+  const appliedSearchRef = useRef({ keyword: appliedKeyword, location: searchLocation });
   const [categories, setCategories] = useState<Array<{ _id: string; name: string }>>([]);
   const [preferredCategoryIds, setPreferredCategoryIds] = useState<string[]>([]);
   const [jobPreferenceText, setJobPreferenceText] = useState("");
@@ -163,6 +171,17 @@ export function FindJobs() {
   const [showPreferences, setShowPreferences] = useState(false);
   const preferencesRef = useRef<HTMLDivElement>(null);
   const preferencesTriggerRef = useRef<HTMLButtonElement>(null);
+
+  useLayoutEffect(() => {
+    const previous = appliedSearchRef.current;
+    // Restore searches on navigation, while pill and job-selection changes
+    // leave an unfinished keyword/location draft alone.
+    if (navigationType === "POP" || previous.keyword !== appliedKeyword || previous.location !== searchLocation) {
+      setDraftKeyword(appliedKeyword);
+      setDraftLocation(searchLocation);
+    }
+    appliedSearchRef.current = { keyword: appliedKeyword, location: searchLocation };
+  }, [appliedKeyword, searchLocation, navigationType, location.key]);
 
   useEffect(() => {
     let active = true;
@@ -351,7 +370,7 @@ export function FindJobs() {
     userId: user?.id,
     search: searchQuery,
     category: selectedCategory,
-    city: searchLocation.trim(),
+    city: selectedLocation === null ? workerCity : searchLocation.trim(),
     location: selectedLocation ?? undefined,
     enabled: canLoadJobs,
   });
@@ -473,6 +492,32 @@ export function FindJobs() {
     setSearchParams(next, options);
   }, [searchParams, setSearchParams]);
 
+  const submitSearch = (event: React.FormEvent) => {
+    event.preventDefault();
+    const keyword = draftKeyword.trim();
+    const locality = draftLocation.trim();
+    const next = new URLSearchParams(searchParams);
+    if (keyword) next.set("q", keyword);
+    else next.delete("q");
+    next.set("location", locality || "nationwide");
+    next.delete("jobId");
+    // The router may commit after the user starts their next draft. This
+    // submission already owns its field values, so that commit must not
+    // restore them over more recent typing.
+    appliedSearchRef.current = { keyword, location: locality };
+    setDraftKeyword(keyword);
+    setDraftLocation(locality);
+    setSearchParams(next);
+    if (keyword === appliedKeyword && locality === searchLocation && selectedLocation !== null) {
+      void refetchJobs();
+    }
+  };
+
+  const openSavedJobs = () => {
+    if (user) navigate(ROUTES.worker.savedJobs);
+    else navigate(ROUTES.signIn, { state: { from: ROUTES.worker.savedJobs } });
+  };
+
   const loadLocationOptions = () => {
     if (locationOptions.length) return;
     getPhilippineLocationOptions()
@@ -564,9 +609,10 @@ export function FindJobs() {
     value: String(amount),
     label: t("findJobs.filters.minimumPay.option", { amount: formatCurrency(amount, { maximumFractionDigits: 0 }) }),
   }));
+  const categoryOptions: FilterOption[] = categories.map((category) => ({ value: category._id, label: category.name }));
 
   const activeFilterCount =
-    (datePosted ? 1 : 0) + (jobTypeFilter.length > 0 ? 1 : 0) + (minPay ? 1 : 0) + (fewApplicantsOnly ? 1 : 0);
+    (datePosted ? 1 : 0) + (jobTypeFilter.length > 0 ? 1 : 0) + (minPay ? 1 : 0) + (fewApplicantsOnly ? 1 : 0) + (selectedCategory ? 1 : 0);
   const preferencesActive = preferredCategoryIds.length > 0 || jobPreferenceText.trim().length > 0;
 
   const clearAllFilters = () => {
@@ -575,156 +621,175 @@ export function FindJobs() {
     next.delete("type");
     next.delete("minPay");
     next.delete("fewApplicants");
+    next.delete("category");
     setSearchParams(next);
   };
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-4 font-sans">
-      <section className="relative overflow-hidden rounded-3xl bg-brand px-5 py-7 text-white shadow-[0_14px_36px_rgba(28,77,141,0.18)] sm:px-8 lg:px-10" aria-labelledby="job-search-heading">
-        <div className="pointer-events-none absolute -right-16 -top-24 h-72 w-72 rounded-full bg-brand-400/10" aria-hidden="true" />
-        <div className="relative max-w-4xl">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/85">{t("findJobs.hero.eyebrow")}</p>
-          <h1 id="job-search-heading" className="mt-2 max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl">{t("findJobs.hero.title")}</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/85">{t("findJobs.hero.subtitle")}</p>
+      <section className="relative z-20 rounded-card bg-brand p-4 text-white sm:p-6 lg:p-7" aria-labelledby="job-search-heading">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-card" aria-hidden="true">
+          <div className="absolute -right-20 -top-28 h-80 w-80 rounded-full bg-white/5" />
+        </div>
+        <div className="relative mb-4 flex items-center gap-3">
+          {navigation && (
+            <button
+              ref={navigation.navigationButtonRef}
+              type="button"
+              onClick={navigation.openNavigation}
+              aria-label={commonT("navbar.openNavigationMenu")}
+              aria-expanded={navigation.isMobileNavigationOpen}
+              aria-controls={navigation.isMobileNavigationOpen ? "mobile-dashboard-navigation" : isLargeScreen && navigation.isDesktopSidebarHidden ? "desktop-dashboard-navigation" : undefined}
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-white/40 text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${navigation.isDesktopSidebarHidden ? "" : "lg:hidden"}`}
+            >
+              <Menu className="h-5 w-5" aria-hidden="true" />
+            </button>
+          )}
+          <h1 id="job-search-heading" className="text-lg font-bold">{t("findJobs.hero.eyebrow")}</h1>
         </div>
 
         <form
-          className="relative mt-6 grid gap-3 rounded-card bg-white/10 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(11rem,0.35fr)_minmax(11rem,0.35fr)]"
+          className="relative grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(14rem,0.6fr)_auto_auto]"
           role="search"
-          onSubmit={(event) => event.preventDefault()}
+          onSubmit={submitSearch}
         >
           <label className="relative min-w-0">
             <span className="sr-only">{t("findJobs.hero.searchAria")}</span>
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" aria-hidden="true" />
             <input
               type="search"
-              value={searchParams.get("q") || ""}
-              onChange={(event) => updateSearchParam("q", event.target.value || null)}
+              value={draftKeyword}
+              onChange={(event) => setDraftKeyword(event.target.value)}
               placeholder={t("findJobs.hero.searchPlaceholder")}
-              className="h-14 w-full rounded-xl border-0 bg-white pl-12 pr-4 text-base text-slate-950 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-brand-500"
+              className="h-14 w-full rounded-xl border-0 bg-white pl-12 pr-4 text-base text-slate-950 outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-brand"
             />
           </label>
-          <label className="min-w-0">
-            <span className="sr-only">{t("findJobs.hero.categoryFilterAria")}</span>
-            <select
-              value={selectedCategory}
-              onChange={(event) => updateSearchParam("category", event.target.value || null)}
-              className="h-14 w-full rounded-xl border-0 bg-white px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-brand-500"
-            >
-              <option value="">{t("findJobs.hero.allCategories")}</option>
-              {categories.map((category) => <option key={category._id} value={category._id}>{category.name}</option>)}
-            </select>
-          </label>
-          <div className="flex h-14 min-w-0 items-center gap-2 rounded-xl bg-white pl-4 text-slate-700 focus-within:ring-2 focus-within:ring-brand-500">
+          <div className="flex h-14 min-w-0 items-center gap-2 rounded-xl bg-white pl-4 text-slate-700 focus-within:ring-2 focus-within:ring-white focus-within:ring-offset-2 focus-within:ring-offset-brand">
             <MapPin className="h-5 w-5 shrink-0 text-slate-500" aria-hidden="true" />
             <input
               type="text"
               aria-label={t("findJobs.hero.locationSearchAria")}
               aria-describedby="job-location-help"
-              value={searchLocation}
-              onChange={(event) => updateSearchParam("location", event.target.value || "nationwide")}
+              value={draftLocation}
+              onChange={(event) => setDraftLocation(event.target.value)}
               onFocus={loadLocationOptions}
               placeholder={t("findJobs.hero.nationwide")}
               list="job-search-locations"
-              className="h-full min-w-0 flex-1 rounded-xl bg-transparent text-sm font-semibold outline-none placeholder:text-slate-500"
+              className="h-full min-w-0 flex-1 rounded-xl bg-transparent text-base outline-none placeholder:text-slate-500"
             />
             <button
               type="button"
-              onClick={() => updateSearchParam("location", "nationwide")}
-              aria-label={t("findJobs.hero.searchNationwide")}
-              title={t("findJobs.hero.searchNationwide")}
+              onClick={() => setDraftLocation("")}
+              aria-label={t("findJobs.hero.clearLocation")}
+              title={t("findJobs.hero.clearLocation")}
               className="mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
             <datalist id="job-search-locations">
-              {locationOptions.filter((name) => name.toLowerCase().includes(searchLocation.toLowerCase())).slice(0, 50)
+              {locationOptions.filter((name) => name.toLowerCase().includes(draftLocation.toLowerCase())).slice(0, 50)
                 .map((name) => <option key={name} value={name} />)}
             </datalist>
           </div>
-          <p id="job-location-help" className="text-xs text-white/85 lg:col-span-3">{t("findJobs.hero.locationHelp")}</p>
+          <div className="flex gap-3 md:col-span-2 xl:contents">
+            <button type="submit" className="h-14 min-w-0 flex-1 rounded-xl bg-white px-7 text-base font-bold text-brand transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand xl:flex-none">
+              {t("findJobs.hero.submit")}
+            </button>
+            <button
+              type="button"
+              onClick={openSavedJobs}
+              aria-label={t("findJobs.hero.savedJobs")}
+              title={t("findJobs.hero.savedJobs")}
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-brand transition hover:bg-sky-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand"
+            >
+              <Heart className="h-6 w-6" aria-hidden="true" />
+            </button>
+          </div>
         </form>
-      </section>
+        <p id="job-location-help" className="relative mt-3 text-xs leading-5 text-white/85">{t("findJobs.hero.locationHelp")}</p>
 
-      {/* `relative` is the anchor for the filter dropdowns below sm, where they
-          span the full row instead of hanging off a single pill. */}
-      <div className="relative flex flex-wrap items-center gap-2">
-        <FilterPill mode="radio" label={t("findJobs.filters.datePosted.label")} options={dateOptions} value={datePosted} onApply={(value) => updateSearchParam("datePosted", value || null)} />
-        <FilterPill mode="checkbox" label={t("findJobs.filters.jobType.label")} options={jobTypeOptions} value={jobTypeFilter} onApply={(values) => updateSearchParam("type", values.length ? values.join(",") : null)} />
-        <FilterPill mode="radio" label={t("findJobs.filters.minimumPay.label")} options={minPayOptions} value={minPay} onApply={(value) => updateSearchParam("minPay", value || null)} />
-        <FilterPill mode="toggle" label={t("findJobs.filters.fewApplicants.label")} value={fewApplicantsOnly} onApply={(value) => updateSearchParam("fewApplicants", value ? "1" : null)} />
+        <div className="relative mt-5 flex flex-wrap items-center gap-2">
+          <FilterPill variant="inverse" mode="radio" label={t("findJobs.filters.minimumPay.label")} options={minPayOptions} value={minPay} onApply={(value) => updateSearchParam("minPay", value || null)} />
+          <FilterPill variant="inverse" mode="checkbox" label={t("findJobs.filters.jobType.label")} options={jobTypeOptions} value={jobTypeFilter} onApply={(values) => updateSearchParam("type", values.length ? values.join(",") : null)} />
+          <FilterPill variant="inverse" mode="radio" label={t("findJobs.filters.category.label")} options={categoryOptions} value={selectedCategory} onApply={(value) => updateSearchParam("category", value || null)} />
+          <FilterPill variant="inverse" mode="radio" label={t("findJobs.filters.datePosted.label")} options={dateOptions} value={datePosted} onApply={(value) => updateSearchParam("datePosted", value || null)} />
+          <FilterPill variant="inverse" mode="toggle" label={t("findJobs.filters.fewApplicants.label")} value={fewApplicantsOnly} onApply={(value) => updateSearchParam("fewApplicants", value ? "1" : null)} />
 
-        {/* Same anchoring rule as FilterPill: row-anchored on mobile, pill-anchored from sm up. */}
-        <div className="sm:relative" ref={preferencesRef}>
-          <button
-            ref={preferencesTriggerRef}
-            type="button"
-            onClick={() => setShowPreferences((prev) => !prev)}
-            aria-haspopup="menu"
-            aria-expanded={showPreferences}
-            className={`inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-body-sm font-semibold transition ${
-              preferencesActive ? "border-brand bg-[#EAF2FC] text-brand" : "border-slate-300 text-slate-700 hover:border-slate-400"
-            }`}
-          >
-            {t("findJobs.preferences.title")}
-            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showPreferences ? "rotate-180" : ""}`} aria-hidden="true" />
-          </button>
-          {showPreferences ? (
-            <div role="menu" aria-label={t("findJobs.preferences.title")} className="absolute left-0 right-0 top-full z-50 mt-2 w-auto overflow-hidden rounded-card border border-slate-200 bg-white p-4 shadow-[0_18px_48px_rgba(15,23,42,0.16)] sm:right-auto sm:w-96">
-              <p className="text-xs text-slate-500">{t("findJobs.preferences.subtitle")}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {categories.map((category) => {
-                  const selected = preferredCategoryIds.includes(category._id);
-                  return (
-                    <button
-                      key={`preferred-${category._id}`}
-                      type="button"
-                      onClick={() => setPreferredCategoryIds((current) =>
-                        selected ? current.filter((id) => id !== category._id) : [...current, category._id]
-                      )}
-                      aria-pressed={selected}
-                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                        selected
-                          ? "border-brand bg-[#EAF2FC] text-brand"
-                          : "border-slate-200 text-slate-600 hover:border-slate-300"
-                      }`}
-                    >
-                      {category.name}
-                    </button>
-                  );
-                })}
+          {/* Anchor preferences to the row so the panel stays within the search band width. */}
+          <div className="max-w-full" ref={preferencesRef}>
+            <button
+              ref={preferencesTriggerRef}
+              type="button"
+              onClick={() => {
+                if (!user) navigate(ROUTES.signIn, { state: { from: `${location.pathname}${location.search}` } });
+                else setShowPreferences((prev) => !prev);
+              }}
+              aria-haspopup="menu"
+              aria-expanded={showPreferences}
+              className={`inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-body font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-brand ${
+                preferencesActive ? "border-white bg-white text-brand" : "border-white/50 text-white hover:border-white hover:bg-white/10"
+              }`}
+            >
+              <span className="min-w-0 truncate">{t("findJobs.preferences.title")}</span>
+              <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${showPreferences ? "rotate-180" : ""}`} aria-hidden="true" />
+            </button>
+            {showPreferences ? (
+              <div role="menu" aria-label={t("findJobs.preferences.title")} className="absolute left-0 right-0 top-full z-50 mt-2 w-auto overflow-hidden rounded-card border border-slate-200 bg-white p-4 text-slate-700 shadow-[0_18px_48px_rgba(15,23,42,0.16)] sm:right-auto sm:w-96 sm:max-w-full">
+                <p className="text-xs text-slate-500">{t("findJobs.preferences.subtitle")}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {categories.map((category) => {
+                    const selected = preferredCategoryIds.includes(category._id);
+                    return (
+                      <button
+                        key={`preferred-${category._id}`}
+                        type="button"
+                        onClick={() => setPreferredCategoryIds((current) =>
+                          selected ? current.filter((id) => id !== category._id) : [...current, category._id]
+                        )}
+                        aria-pressed={selected}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                          selected
+                            ? "border-brand bg-brand-100 text-brand"
+                            : "border-slate-200 text-slate-600 hover:border-slate-300"
+                        }`}
+                      >
+                        {category.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  <label htmlFor="job-preferences" className="sr-only">{t("findJobs.preferences.keywordsLabel")}</label>
+                  <input
+                    id="job-preferences"
+                    value={jobPreferenceText}
+                    onChange={(event) => setJobPreferenceText(event.target.value)}
+                    placeholder={t("findJobs.preferences.keywordsPlaceholder")}
+                    className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={savePreferences}
+                    disabled={savingPreferences}
+                    className="min-h-11 rounded-xl bg-brand px-5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+                  >
+                    {savingPreferences ? t("findJobs.preferences.saving") : t("findJobs.preferences.save")}
+                  </button>
+                </div>
               </div>
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                <label htmlFor="job-preferences" className="sr-only">{t("findJobs.preferences.keywordsLabel")}</label>
-                <input
-                  id="job-preferences"
-                  value={jobPreferenceText}
-                  onChange={(event) => setJobPreferenceText(event.target.value)}
-                  placeholder={t("findJobs.preferences.keywordsPlaceholder")}
-                  className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand-100"
-                />
-                <button
-                  type="button"
-                  onClick={savePreferences}
-                  disabled={savingPreferences}
-                  className="min-h-11 rounded-xl bg-brand px-5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
-                >
-                  {savingPreferences ? t("findJobs.preferences.saving") : t("findJobs.preferences.save")}
-                </button>
-              </div>
-            </div>
+            ) : null}
+          </div>
+
+          {activeFilterCount > 0 ? (
+            <>
+              <span className="text-body-sm text-white/85">{t("findJobs.filters.activeCount", { count: activeFilterCount })}</span>
+              <button type="button" onClick={clearAllFilters} className="min-h-11 rounded-lg px-2 text-body-sm font-semibold text-white underline underline-offset-4 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
+                {t("findJobs.filters.clearAll")}
+              </button>
+            </>
           ) : null}
         </div>
-
-        {activeFilterCount > 0 ? (
-          <>
-            <span className="text-body-sm text-slate-400">{t("findJobs.filters.activeCount", { count: activeFilterCount })}</span>
-            <button type="button" onClick={clearAllFilters} className="text-body-sm font-semibold text-brand hover:underline">
-              {t("findJobs.filters.clearAll")}
-            </button>
-          </>
-        ) : null}
-      </div>
+      </section>
 
       {/* Recommendations sit above the search results and are deliberately
           silent on failure -- see showRecommendations. When the worker has no
@@ -732,7 +797,7 @@ export function FindJobs() {
           cards dressed up as personalised picks. */}
       {showRecommendations ? (
         <section aria-labelledby="recommended-heading" className="rounded-card border border-slate-200 bg-white p-4">
-          <h2 id="recommended-heading" className="text-[15px] font-bold text-slate-950">
+          <h2 id="recommended-heading" className="text-section font-bold text-slate-950">
             {t("findJobs.recommended.title")}
           </h2>
           {hasNoRealMatches ? (
@@ -800,15 +865,15 @@ export function FindJobs() {
               ? t("findJobs.results.inLocation", { location: locationFilter })
               : searchLocation && sortBy === "nearest"
               ? t("findJobs.results.nearestFirst", { city: searchLocation })
-              : selectedLocation === "nationwide"
+              : !searchLocation && sortBy === "nearest"
               ? t("findJobs.results.nationwide")
               : t("findJobs.results.sortedBy", { sort: sortLabels[sortBy].toLowerCase() })}
           </p>
         </div>
-        <label className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-slate-600 shadow-sm focus-within:ring-2 focus-within:ring-brand-600">
+        <label className="flex min-h-11 min-w-0 max-w-full items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-slate-600 shadow-sm focus-within:ring-2 focus-within:ring-brand-600">
           <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
           <span className="sr-only">{t("findJobs.sort.ariaLabel")}</span>
-          <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="min-h-10 bg-transparent text-sm font-semibold outline-none" aria-label={t("findJobs.sort.ariaLabel")}>
+          <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="min-h-10 min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none" aria-label={t("findJobs.sort.ariaLabel")}>
             {Object.entries(sortLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>

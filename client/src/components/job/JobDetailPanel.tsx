@@ -365,7 +365,7 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
                         aria-label={t("jobDetails.verifiedEmployer")}
                         className="group/verification relative inline-flex shrink-0"
                       >
-                        <img src={verifiedBadgeUrl} alt="" aria-hidden="true" className="h-4 w-4" />
+                        <img src={verifiedBadgeUrl} alt="" aria-hidden="true" className="h-5 w-5" />
                         <span
                           role="tooltip"
                           className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-max max-w-56 -translate-x-1/2 rounded-md bg-slate-900 px-2.5 py-1.5 text-center text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover/verification:opacity-100"
@@ -467,14 +467,14 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
             </section>
 
             <section className="bg-white rounded-card border border-[#E5E7EB] p-8">
-              <h2 className="text-[20px] font-bold text-[#111827] mb-4">{t("jobDetails.sections.description")}</h2>
+              <h2 className="text-section font-bold text-[#111827] mb-4">{t("jobDetails.sections.description")}</h2>
               <p className="text-[16px] text-[#6B7280] leading-relaxed">
                 {job.description || t("jobDetails.sections.noDescription")}
               </p>
             </section>
 
             <section className="bg-white rounded-card border border-[#E5E7EB] p-8">
-              <h2 className="text-[20px] font-bold text-[#111827] mb-4">{t("jobDetails.sections.responsibilities")}</h2>
+              <h2 className="text-section font-bold text-[#111827] mb-4">{t("jobDetails.sections.responsibilities")}</h2>
               <ul className="space-y-3">
                 {(job.responsibilities?.length ? job.responsibilities : [t("jobDetails.sections.noResponsibilities")]).map((item) => (
                   <li key={item} className="flex items-start gap-3 text-[15px] text-[#6B7280]">
@@ -486,7 +486,7 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
             </section>
 
             <section className="bg-white rounded-card border border-[#E5E7EB] p-8">
-              <h2 className="text-[20px] font-bold text-[#111827] mb-4">{t("jobDetails.sections.requirements")}</h2>
+              <h2 className="text-section font-bold text-[#111827] mb-4">{t("jobDetails.sections.requirements")}</h2>
               <ul className="space-y-3">
                 {(job.requirements?.length ? job.requirements : [t("jobDetails.sections.noRequirements")]).map((item) => (
                   <li key={item} className="flex items-start gap-3 text-[15px] text-[#6B7280]">
@@ -500,7 +500,7 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
 
           <aside className="space-y-6">
             <section className="bg-white rounded-card border border-[#E5E7EB] p-6">
-              <h3 className="text-[18px] font-bold text-[#111827] mb-5">{t("jobDetails.overview.title")}</h3>
+              <h3 className="text-section font-bold text-[#111827] mb-5">{t("jobDetails.overview.title")}</h3>
               <div className="space-y-5">
                 <div className="flex items-start gap-3">
                   <div className="w-12 h-12 rounded-card bg-[#FFF7ED] flex items-center justify-center shrink-0">
@@ -545,7 +545,7 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
             </section>
 
             <section className="bg-white rounded-card border border-[#E5E7EB] p-6">
-              <h3 className="text-[18px] font-bold text-[#111827] mb-5">{t("jobDetails.sections.requiredSkills")}</h3>
+              <h3 className="text-section font-bold text-[#111827] mb-5">{t("jobDetails.sections.requiredSkills")}</h3>
               <div className="flex flex-wrap gap-2">
                 {skills.map((skill) => (
                   <span

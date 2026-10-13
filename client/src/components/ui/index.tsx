@@ -266,7 +266,7 @@ export function Dialog({ open, title, description, children, onClose, initialFoc
     <div className={join("fixed inset-0 flex items-center justify-center bg-slate-950/55 p-4", LAYER_Z.modal)} role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !closeDisabled && onClose()}>
       <section ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} className={join("relative max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-card bg-white p-6 shadow-2xl", DIALOG_WIDTHS[size])}>
         <IconButton label={t("dialog.closeLabel")} onClick={onClose} disabled={closeDisabled} className="absolute right-3 top-3"><X className="h-5 w-5" /></IconButton>
-        <h2 id={titleId} className="pr-12 text-xl font-bold text-slate-900">{title}</h2>
+        <h2 id={titleId} className="pr-12 text-section font-bold text-slate-900">{title}</h2>
         {description ? <p id={descriptionId} className="mt-2 text-sm text-slate-600">{description}</p> : null}
         <div className="mt-6">{children}</div>
       </section>
@@ -341,7 +341,7 @@ export function AlertCard({ title, titleId, message, messageId, dismissLabel, ac
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-2xl font-bold text-red-600" aria-hidden="true">
         !
       </div>
-      <h2 id={titleId} className="mt-4 text-xl font-bold text-slate-900">{title}</h2>
+      <h2 id={titleId} className="mt-4 text-section font-bold text-slate-900">{title}</h2>
       {message ? <p id={messageId} className="mt-2 text-sm leading-6 text-slate-600">{message}</p> : null}
       <div className="mt-6">
         {actions ?? (

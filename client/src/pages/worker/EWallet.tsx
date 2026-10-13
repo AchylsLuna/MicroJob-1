@@ -10,11 +10,10 @@ import {
   Wallet,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
 import { safeExternalUrl } from "../../utils/safeExternalUrl";
 import { useAuth } from "../../hooks/useAuth";
-import { formatCurrency, formatDateTime } from "../../lib/formatters";
+import { formatCurrency } from "../../lib/formatters";
 import {
   cancelPayoutRequest,
   createPayoutRequest,
@@ -25,105 +24,16 @@ import {
   type PaymentTransaction,
   type PayoutRequest,
 } from "../../services/api";
-
-const toAmount = (value: unknown) => {
-  const amount = Number(value);
-  return Number.isFinite(amount) ? amount : 0;
-};
-
-const getPartyId = (party: PaymentTransaction["sender"] | PaymentTransaction["receiver"]) => {
-  if (!party) return "";
-  if (typeof party === "string") return party;
-  return String(party._id || "");
-};
-
-const getTransactionDirection = (tx: PaymentTransaction, userId: string) => {
-  if (!userId || tx.status !== "COMPLETED") return "neutral" as const;
-  if (getPartyId(tx.receiver) === userId) return "credit" as const;
-  if (getPartyId(tx.sender) === userId) return "debit" as const;
-  return "neutral" as const;
-};
-
-const formatDate = (value?: string) => {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return formatDateTime(date);
-};
-
-const txLabel = (t: TFunction, tx: PaymentTransaction) => {
-  if (tx.label) return tx.label;
-  switch (tx.type) {
-    case "TOP_UP":
-      return t("eWallet.txLabel.topUp");
-    case "ESCROW":
-      return t("eWallet.txLabel.escrow");
-    case "PAYOUT":
-      return t("eWallet.txLabel.payout");
-    case "REFUND":
-      return t("eWallet.txLabel.refund");
-    default:
-      return t("eWallet.txLabel.transaction");
-  }
-};
-
-const txTypeLabel = (t: TFunction, type: PaymentTransaction["type"]) => {
-  switch (type) {
-    case "TOP_UP":
-      return t("eWallet.txLabel.topUp");
-    case "ESCROW":
-      return t("eWallet.txLabel.escrow");
-    case "PAYOUT":
-      return t("eWallet.txLabel.payout");
-    case "REFUND":
-      return t("eWallet.txLabel.refund");
-    default:
-      return t("eWallet.txLabel.transaction");
-  }
-};
-
-const linkedEntityLabel = (t: TFunction, value?: string | null) => {
-  switch (String(value || "").toLowerCase()) {
-    case "wallet_topup":
-      return t("eWallet.linkedEntity.walletTopUp");
-    case "job":
-      return t("eWallet.linkedEntity.job");
-    default:
-      return value ? value.replace(/_/g, " ") : "-";
-  }
-};
-
-const getPayoutStatusClasses = (status: PayoutRequest["status"]) => {
-  switch (status) {
-    case "requested":
-      return "bg-brand/10 text-brand";
-    case "approved":
-      return "bg-[#FEF3C7] text-[#B45309]";
-    case "paid":
-      return "bg-[#DCFCE7] text-[#15803D]";
-    case "rejected":
-      return "bg-[#FEE2E2] text-[#B91C1C]";
-    case "cancelled":
-      return "bg-[#F3F4F6] text-[#6B7280]";
-    default:
-      return "bg-[#F3F4F6] text-[#6B7280]";
-  }
-};
-
-const getTransactionStatusClasses = (status?: PaymentTransaction["status"]) => {
-  switch (status) {
-    case "COMPLETED":
-      return "bg-[#DCFCE7] text-[#15803D]";
-    case "PENDING":
-      return "bg-brand/10 text-brand";
-    case "FAILED":
-      return "bg-[#FEE2E2] text-[#B91C1C]";
-    case "CANCELLED":
-      return "bg-[#F3F4F6] text-[#6B7280]";
-    default:
-      return "bg-[#F3F4F6] text-[#6B7280]";
-  }
-};
+import {
+  formatDate,
+  getPayoutStatusClasses,
+  getTransactionDirection,
+  getTransactionStatusClasses,
+  linkedEntityLabel,
+  toAmount,
+  txLabel,
+  txTypeLabel,
+} from "../../components/wallet/walletFormat";
 
 export function EWallet() {
   const { t } = useTranslation("worker");
@@ -347,14 +257,21 @@ export function EWallet() {
    * `AnimatePresence` runs in `mode="wait"`, so the outgoing pane animates away
    * before the form mounts. The ref callback below does the scroll at the
    * moment the node actually appears.
+   *
+   * Which section is showing is read from `walletSectionId`, never from whether
+   * the ref happens to be populated. Mid-transition the ref still points at the
+   * *outgoing* pane, so a ref-liveness check would take the "already here, just
+   * scroll" branch while another tab was showing — leaving the button scrolling
+   * a dying node and never switching tabs.
    */
   const handleWithdrawClick = () => {
-    if (payoutRequestRef.current) {
-      payoutRequestRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
+    if (walletSectionId !== "withdraw") {
+      pendingWithdrawScrollRef.current = true;
+      setWalletSectionId("withdraw");
     }
-    pendingWithdrawScrollRef.current = true;
-    setWalletSectionId("withdraw");
+    // Already mounted -- the withdraw tab is showing, or the layout is stacked
+    // below `lg` and every section is on screen at once.
+    payoutRequestRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const attachPayoutCard = useCallback((node: HTMLDivElement | null) => {
@@ -376,7 +293,7 @@ export function EWallet() {
                   <div ref={attachPayoutCard} className="ui-card p-6">
                     <div className="flex items-center gap-3 mb-4">
                       <Wallet className="w-5 h-5 text-brand" />
-                      <h3 className="text-[20px] font-semibold text-[#111827]">{t("eWallet.form.title")}</h3>
+                      <h3 className="text-section font-semibold text-[#111827]">{t("eWallet.form.title")}</h3>
                     </div>
                     <p className="text-body-sm text-[#6B7280] mb-6">
                       {t("eWallet.form.availableToWithdraw", { amount: formatCurrency(workerBalance) })}
@@ -466,7 +383,7 @@ export function EWallet() {
                   <div className="ui-card p-6">
                     <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
                       <div>
-                        <h3 className="text-[20px] font-semibold text-[#111827]">{t("eWallet.history.title")}</h3>
+                        <h3 className="text-section font-semibold text-[#111827]">{t("eWallet.history.title")}</h3>
                         <p className="text-body-sm text-[#6B7280] mt-1">{t("eWallet.history.subtitle")}</p>
                       </div>
                       <Badge>{t("eWallet.history.workerOnly")}</Badge>
@@ -542,7 +459,7 @@ export function EWallet() {
       content: (
               <div className="ui-card p-6">
                 <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
-                  <h3 className="text-[20px] font-semibold text-[#111827]">
+                  <h3 className="text-section font-semibold text-[#111827]">
                     {isEmployerWalletView ? t("eWallet.transactions.titlePayment") : t("eWallet.transactions.titleRecent")}
                   </h3>
                   <div className="text-caption text-[#6B7280]">{t("eWallet.transactions.helper")}</div>

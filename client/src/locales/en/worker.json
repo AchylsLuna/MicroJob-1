@@ -154,9 +154,12 @@
       "locationSearchAria": "Job search location",
       "nationwide": "Nationwide",
       "searchNationwide": "Search nationwide",
-      "locationHelp": "Type a city or province, or clear the location to search nationwide.",
+      "locationHelp": "Choose a city or province, or leave the location blank for nationwide jobs. Click Search to see results.",
+      "clearLocation": "Clear location for nationwide search",
+      "submit": "Search",
+      "savedJobs": "Saved jobs",
       "searchAria": "Search jobs",
-      "searchPlaceholder": "Job title, company, or category",
+      "searchPlaceholder": "Search job titles or keywords",
       "categoryFilterAria": "Filter by category",
       "allCategories": "All categories",
       "cityButtonAriaSet": "Jobs in: {{location}}",
@@ -260,7 +263,7 @@
       "activeCount_one": "{{count}} filter",
       "activeCount_other": "{{count}} filters",
       "datePosted": {
-        "label": "Date posted",
+        "label": "Listing time",
         "past24Hours": "Past 24 hours",
         "pastWeek": "Past week",
         "pastMonth": "Past month"
@@ -269,11 +272,14 @@
         "label": "Job type"
       },
       "minimumPay": {
-        "label": "Minimum pay",
+        "label": "Pay",
         "option": "{{amount}}+ minimum"
       },
       "fewApplicants": {
-        "label": "Under 10 applicants"
+        "label": "Few applicants (<10)"
+      },
+      "category": {
+        "label": "Category"
       }
     }
   },
@@ -519,6 +525,7 @@
     "unarchive": "Unarchive",
     "archive": "Archive",
     "viewProfile": "View profile",
+    "viewProfileAria": "View {{name}}'s profile",
     "blockUser": "Block user",
     "deleteConversation": "Delete conversation",
     "noMessagesYet": "No messages yet. Start the conversation!",
@@ -878,6 +885,12 @@
       "business": "Business Information",
       "experience": "Experience",
       "resume": "CV/Resume"
+    },
+    "privacyTabs": {
+      "aria": "Security and privacy sections",
+      "security": "Security",
+      "verification": "Verification",
+      "privacy": "Privacy"
     },
     "personal": {
       "businessHeading": "Business Information",

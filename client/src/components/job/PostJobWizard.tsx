@@ -662,7 +662,7 @@ export default function PostJobWizard({
 
               {!editingJob && (
                 <section className="mt-4 rounded-card border border-brand/20 bg-[#F5F9FF] p-4 md:p-6">
-                  <h3 className="text-base font-bold text-slate-900">{t("postJob.checkout.title")}</h3>
+                  <h3 className="text-section font-bold text-slate-900">{t("postJob.checkout.title")}</h3>
                   <dl className="mt-3 space-y-2 text-sm">
                     <div className="flex justify-between gap-4"><dt className="text-slate-600">{t("postJob.wizard.summary.job")}</dt><dd className="text-right font-semibold text-slate-900">{formData.title || "—"}</dd></div>
                     <div className="border-b border-slate-200 pb-2"><dt className="text-slate-600">{t("postJob.wizard.summary.description")}</dt><dd className="mt-1 whitespace-pre-wrap text-slate-900">{formData.description || "—"}</dd></div>

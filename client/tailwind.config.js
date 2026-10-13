@@ -75,6 +75,15 @@ export default {
         body: "14px",
         "body-sm": "13px",
         caption: "12px",
+        /*
+         * The one size for a card or section heading. Before this, the same
+         * kind of heading was spelled nine different ways across the app --
+         * text-base, text-lg, text-xl and six arbitrary values between 15px
+         * and 22px -- so "Change Password" and "Active Sessions" sat at
+         * different sizes inside the same panel. Page-level titles are a
+         * separate level and keep `ui-page-title`.
+         */
+        section: "18px",
       },
       borderRadius: {
         /*

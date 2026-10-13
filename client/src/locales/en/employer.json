@@ -246,12 +246,102 @@
     "cancel": "Cancel",
     "continue": "Continue to Checkout",
     "loading": "Loading...",
-    "stats": { "available": "Available", "pending": "Pending withdrawals", "withdrawals": "Withdrawals" },
-    "status": { "requested": "Requested", "approved": "Approved", "paid": "Paid", "rejected": "Rejected", "cancelled": "Cancelled" },
-    "history": { "title": "Withdrawal History", "description": "Track employer-balance withdrawals while they are reviewed.", "empty": "No employer withdrawals yet.", "requested": "Requested {{date}}", "cancelling": "Cancelling...", "cancel": "Cancel Withdrawal" },
-    "form": { "title": "Withdraw Employer Funds", "available": "Available to withdraw: {{amount}}. Withdrawals debit your employer balance immediately and remain pending until reviewed.", "amount": "Amount (PHP)", "method": "Method", "bank": "Bank transfer", "institutionName": "Institution", "accountName": "Account name", "accountNumber": "Account number", "submitting": "Submitting withdrawal...", "submit": "Withdraw Funds" },
-    "transactions": { "title": "Employer Transactions", "empty": "No employer transactions yet." },
-    "toast": { "loadFailed": "Failed to load employer wallet data.", "invalidTopUp": "Enter a valid top-up amount.", "topUpFailed": "Failed to start top-up.", "invalidWithdrawal": "Enter a valid withdrawal amount.", "exceedsBalance": "Withdrawal amount cannot exceed your employer balance.", "destinationRequired": "Complete the destination details before submitting your withdrawal.", "withdrawalSubmitted": "Employer withdrawal submitted.", "withdrawalFailed": "Failed to submit employer withdrawal.", "withdrawalCancelled": "Employer withdrawal cancelled.", "withdrawalCancelFailed": "Failed to cancel employer withdrawal." }
+    "stats": {
+      "available": "Available",
+      "pending": "Pending withdrawals",
+      "withdrawals": "Withdrawals",
+      "availableHelper": "Balance you can fund jobs with or withdraw",
+      "pendingHelper": "Withdrawals awaiting review",
+      "withdrawalsHelper": "Requested, approved, and paid withdrawal requests"
+    },
+    "status": {
+      "requested": "Requested",
+      "approved": "Approved",
+      "paid": "Paid",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled"
+    },
+    "history": {
+      "title": "Withdrawal History",
+      "description": "Track employer-balance withdrawals while they are reviewed.",
+      "empty": "No employer withdrawals yet.",
+      "requested": "Requested",
+      "cancelling": "Cancelling...",
+      "cancel": "Cancel Withdrawal",
+      "loading": "Loading withdrawals...",
+      "emptyDescription": "Withdrawals you request will appear here with their review status.",
+      "reviewed": "Reviewed",
+      "paid": "Paid"
+    },
+    "form": {
+      "title": "Withdraw Employer Funds",
+      "available": "Available to withdraw: {{amount}}. Withdrawals debit your employer balance immediately and remain pending until reviewed.",
+      "amount": "Amount (PHP)",
+      "method": "Method",
+      "bank": "Bank transfer",
+      "institutionName": "Institution",
+      "accountName": "Account name",
+      "accountNumber": "Account number",
+      "submitting": "Submitting withdrawal...",
+      "submit": "Withdraw Funds",
+      "methodOptions": {
+        "bankTransfer": "Bank transfer",
+        "gcash": "GCash",
+        "maya": "Maya"
+      },
+      "institutionPlaceholder": "BDO, GCash, Maya",
+      "accountNamePlaceholder": "Juan Dela Cruz",
+      "accountNumberPlaceholder": "09171234567 or bank account number"
+    },
+    "transactions": {
+      "title": "Employer Transactions",
+      "empty": "No employer transactions yet.",
+      "helper": "Linked transaction status and payout references included",
+      "loading": "Loading transactions...",
+      "columns": {
+        "type": "Type",
+        "status": "Status",
+        "label": "Label",
+        "amount": "Amount",
+        "reference": "Reference",
+        "linkedEntity": "Linked Entity",
+        "date": "Date"
+      }
+    },
+    "toast": {
+      "loadFailed": "Failed to load employer wallet data.",
+      "invalidTopUp": "Enter a valid top-up amount.",
+      "topUpFailed": "Failed to start top-up.",
+      "invalidWithdrawal": "Enter a valid withdrawal amount.",
+      "exceedsBalance": "Withdrawal amount cannot exceed your employer balance.",
+      "destinationRequired": "Complete the destination details before submitting your withdrawal.",
+      "withdrawalSubmitted": "Employer withdrawal submitted.",
+      "withdrawalFailed": "Failed to submit employer withdrawal.",
+      "withdrawalCancelled": "Employer withdrawal cancelled.",
+      "withdrawalCancelFailed": "Failed to cancel employer withdrawal."
+    },
+    "pager": {
+      "ariaLabel": "Wallet sections",
+      "previous": "Previous section",
+      "next": "Next section"
+    },
+    "txLabel": {
+      "topUp": "Top-up",
+      "escrow": "Escrow",
+      "payout": "Payout",
+      "refund": "Refund",
+      "transaction": "Transaction"
+    },
+    "linkedEntity": {
+      "walletTopUp": "Wallet deposit",
+      "job": "Job payment"
+    },
+    "transactionStatus": {
+      "COMPLETED": "COMPLETED",
+      "PENDING": "PENDING",
+      "FAILED": "FAILED",
+      "CANCELLED": "CANCELLED"
+    }
   },
   "applicationsManagement": {
     "title": "Applications",

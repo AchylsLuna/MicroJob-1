@@ -149,7 +149,7 @@ export function ProfileReviews({
     <section className="rounded-card border border-slate-200 bg-white p-5 md:p-6" aria-labelledby="ratings-reviews-heading">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 id="ratings-reviews-heading" className="text-xl font-bold text-slate-950">Ratings &amp; Reviews</h2>
+          <h2 id="ratings-reviews-heading" className="text-section font-bold text-slate-950">Ratings &amp; Reviews</h2>
           <p className="mt-1 text-sm text-slate-500">Verified feedback from completed jobs.</p>
         </div>
         <label className="flex items-center gap-2 text-sm font-medium text-slate-600">

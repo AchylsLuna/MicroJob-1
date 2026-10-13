@@ -76,7 +76,7 @@ function AdminBackupsContent() {
         <div className="flex items-start gap-3">
           <Database className="mt-1 h-5 w-5 text-brand" />
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">What a real implementation needs</h2>
+            <h2 className="text-section font-semibold text-slate-900">What a real implementation needs</h2>
             <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm text-slate-600">
               <li>Server-side snapshot and restore endpoints, permission-gated on <code className="rounded bg-slate-100 px-1">backups.manage</code>.</li>
               <li>Snapshots written to durable object storage, encrypted at rest — never to a browser.</li>

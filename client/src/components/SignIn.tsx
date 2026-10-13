@@ -355,7 +355,7 @@ export function SignIn() {
       {loginMethodSelection && (
         <div className={`fixed inset-0 ${LAYER_Z.modal} flex items-center justify-center bg-slate-950/50 p-4`} role="dialog" aria-modal="true">
           <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
-            <h2 className="text-xl font-bold text-slate-950">{t("signIn.methodSelection.title")}</h2>
+            <h2 className="text-section font-bold text-slate-950">{t("signIn.methodSelection.title")}</h2>
             <p className="mt-2 text-sm leading-5 text-slate-600">{t("signIn.methodSelection.description")}</p>
             <div className="mt-6 grid gap-3">
               <button

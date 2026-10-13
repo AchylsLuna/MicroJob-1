@@ -71,7 +71,7 @@ export function TopJobCategories({ jobs }: { jobs: AdminJob[] }) {
   return (
     <div className="rounded-card border border-[#E5E7EB] bg-white p-6 transition hover:shadow-md">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-[18px] font-semibold text-[#111827]">{t("analytics.topCategories.title")}</h3>
+        <h3 className="text-section font-semibold text-[#111827]">{t("analytics.topCategories.title")}</h3>
         <div className="flex gap-1 rounded-control bg-slate-100 p-1" role="tablist" aria-label={t("analytics.topCategories.title")}>
           {metrics.map((item) => (
             <button

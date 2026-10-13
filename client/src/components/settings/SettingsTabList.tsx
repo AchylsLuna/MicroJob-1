@@ -19,20 +19,29 @@ type SettingsTabListProps<T extends string> = {
   variant?: TabVariant;
 };
 
-const VARIANT_CLASSES: Record<TabVariant, { list: string; base: string; selected: string; idle: string }> = {
+const VARIANT_CLASSES: Record<TabVariant, { list: string; base: string; selected: string; idle: string; focus: string }> = {
   pill: {
     list: "flex flex-wrap gap-2",
     base: "min-h-11 rounded-full px-4 py-2 text-body-sm font-semibold transition-colors",
     selected: "bg-brand/[0.08] text-brand",
     idle: "text-slate-500 hover:bg-slate-50",
+    focus: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
   },
   underline: {
     // -mb-px pulls the tab's own border onto the container's bottom border so
     // the active underline sits flush with it instead of floating above.
-    list: "-mb-px flex flex-wrap gap-6",
-    base: "min-h-11 border-b-2 px-1 pb-3 text-body font-semibold transition-colors",
+    //
+    // Scrolls rather than wraps. These tabs share one baseline, so a wrapped
+    // second row lands *below* the container's bottom border and the border
+    // reads as a rule struck through the middle of the list -- which is what
+    // happened to Settings at 375px, where (unlike the wallet pager, which only
+    // shows tabs from `lg` up) this strip is on screen at every width.
+    list: "-mb-px flex gap-6 overflow-x-auto",
+    base: "min-h-11 shrink-0 whitespace-nowrap border-b-2 px-1 pb-3 text-body font-semibold transition-colors",
     selected: "border-brand text-brand",
     idle: "border-transparent text-slate-500 hover:text-slate-900",
+    // Inset: an offset ring would be clipped by the scroll container above.
+    focus: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand",
   },
 };
 
@@ -92,7 +101,7 @@ export function SettingsTabList<T extends string>({
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(tab.id)}
             onKeyDown={(event) => moveFocus(event, index)}
-            className={`${styles.base} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${
+            className={`${styles.base} ${styles.focus} ${
               selected ? styles.selected : styles.idle
             }`}
           >

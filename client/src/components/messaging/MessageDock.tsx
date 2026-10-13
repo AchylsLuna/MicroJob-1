@@ -11,6 +11,7 @@ import { toast } from "../../lib/toast";
 import { LAYER_Z } from "../ui/layers";
 import { ROUTES } from "../../utils/routes";
 import { formatDate } from "../../lib/formatters";
+import { isStaffConversation } from "../../utils/staffConversation";
 
 type DockView = "collapsed" | "list" | "thread";
 
@@ -331,17 +332,29 @@ export function MessageDock() {
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-caption font-bold text-white">
-          {getInitials(selectedContact.otherUserName)}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-body font-semibold text-slate-900">{selectedContact.otherUserName}</p>
-          {peerTyping ? (
-            <p className="text-caption font-medium text-brand">{t("messages.typing")}</p>
-          ) : selectedContact.jobTitle ? (
-            <p className="truncate text-caption text-slate-400">{t("messages.reJob", { jobTitle: selectedContact.jobTitle })}</p>
-          ) : null}
-        </div>
+        <button
+          type="button"
+          disabled={!selectedContact.otherUserId || isStaffConversation(selectedContact)}
+          onClick={() => {
+            setView("collapsed");
+            navigate(`${ROUTES.publicProfile(selectedContact.otherUserId)}?viewAs=worker`);
+          }}
+          aria-label={t("messages.viewProfileAria", { name: selectedContact.otherUserName })}
+          title={!isStaffConversation(selectedContact) ? t("messages.viewProfile") : undefined}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl text-left transition enabled:hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-default"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-caption font-bold text-white">
+            {getInitials(selectedContact.otherUserName)}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-body font-semibold text-slate-900">{selectedContact.otherUserName}</span>
+            {peerTyping ? (
+              <span className="block text-caption font-medium text-brand">{t("messages.typing")}</span>
+            ) : selectedContact.jobTitle ? (
+              <span className="block truncate text-caption text-slate-400">{t("messages.reJob", { jobTitle: selectedContact.jobTitle })}</span>
+            ) : null}
+          </span>
+        </button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto bg-[#F8FAFD] px-3 py-3">
@@ -491,7 +504,7 @@ export function MessageDock() {
         // covers it -- it sat on top of the empty-state call to action on
         // /worker/applied-jobs. Messages stay one tap away in the tab bar.
         // Matches the `[@media(max-height:...)]` convention Sidebar.tsx uses.
-        className={`fixed right-4 ${LAYER_Z.dockLauncher} flex items-center gap-2 rounded-full bg-brand px-4 py-3 text-white shadow-[0_10px_28px_rgba(28,77,141,0.35)] transition hover:opacity-95 [@media(max-height:480px)]:hidden lg:!bottom-[var(--cookie-banner-height,0px)] lg:right-6 lg:rounded-b-none lg:rounded-t-card lg:px-5 lg:py-3 lg:shadow-[0_-6px_20px_rgba(15,23,42,0.14)] ${
+        className={`fixed right-4 ${LAYER_Z.dockLauncher} flex items-center gap-2 rounded-full bg-brand px-4 py-3 text-white shadow-[0_10px_28px_rgba(28,77,141,0.35)] transition hover:opacity-95 [@media(max-height:480px)]:hidden lg:!bottom-[var(--cookie-banner-height,0px)] lg:right-6 lg:rounded-b-none lg:rounded-t-card lg:px-7 lg:py-3 lg:shadow-[0_-6px_20px_rgba(15,23,42,0.14)] ${
           isExpanded ? "hidden lg:flex" : "flex"
         }`}
       >

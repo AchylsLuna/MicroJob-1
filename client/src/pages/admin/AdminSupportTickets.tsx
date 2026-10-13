@@ -273,7 +273,7 @@ function AdminSupportTicketsContent() {
               <div className="rounded-card bg-[#F8FAFC] border border-[#E5E7EB] p-5">
                 <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                   <div>
-                    <h2 className="text-[22px] font-semibold text-[#111827]">{selectedTicket.subject}</h2>
+                    <h2 className="text-section font-semibold text-[#111827]">{selectedTicket.subject}</h2>
                     <p className="text-body-sm text-[#6B7280] mt-2">
                       {t("supportTickets.detail.openedBy", {
                         date: formatTicketDate(selectedTicket.createdAt),

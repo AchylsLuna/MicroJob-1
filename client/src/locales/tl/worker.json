@@ -154,9 +154,12 @@
       "locationSearchAria": "Lokasyon para sa paghahanap ng trabaho",
       "nationwide": "Buong bansa",
       "searchNationwide": "Maghanap sa buong bansa",
-      "locationHelp": "Mag-type ng lungsod o lalawigan, o burahin ang lokasyon para maghanap sa buong bansa.",
+      "locationHelp": "Pumili ng lungsod o lalawigan, o iwang blangko ang lokasyon para sa trabaho sa buong bansa. Pindutin ang Hanapin para makita ang mga resulta.",
+      "clearLocation": "Burahin ang lokasyon para maghanap sa buong bansa",
+      "submit": "Hanapin",
+      "savedJobs": "Mga na-save na trabaho",
       "searchAria": "Maghanap ng trabaho",
-      "searchPlaceholder": "Pamagat ng trabaho, kompanya, o kategorya",
+      "searchPlaceholder": "Maghanap ng pamagat ng trabaho o keyword",
       "categoryFilterAria": "I-filter ayon sa kategorya",
       "allCategories": "Lahat ng kategorya",
       "cityButtonAriaSet": "Mga trabaho sa: {{location}}",
@@ -260,7 +263,7 @@
       "activeCount_one": "{{count}} filter",
       "activeCount_other": "{{count}} na filter",
       "datePosted": {
-        "label": "Petsa ng pag-post",
+        "label": "Oras ng pag-post",
         "past24Hours": "Nakaraang 24 oras",
         "pastWeek": "Nakaraang linggo",
         "pastMonth": "Nakaraang buwan"
@@ -269,11 +272,14 @@
         "label": "Uri ng trabaho"
       },
       "minimumPay": {
-        "label": "Minimum na sahod",
+        "label": "Sahod",
         "option": "{{amount}}+ minimum"
       },
       "fewApplicants": {
-        "label": "Wala pang 10 aplikante"
+        "label": "Kaunting aplikante (<10)"
+      },
+      "category": {
+        "label": "Kategorya"
       }
     }
   },
@@ -519,6 +525,7 @@
     "unarchive": "I-unarchive",
     "archive": "I-archive",
     "viewProfile": "Tingnan ang profile",
+    "viewProfileAria": "Tingnan ang profile ni {{name}}",
     "blockUser": "I-block ang user",
     "deleteConversation": "Tanggalin ang usapan",
     "noMessagesYet": "Wala pang mensahe. Simulan ang usapan!",
@@ -878,6 +885,12 @@
       "business": "Impormasyon ng Negosyo",
       "experience": "Karanasan",
       "resume": "CV/Resume"
+    },
+    "privacyTabs": {
+      "aria": "Mga seksyon ng seguridad at privacy",
+      "security": "Seguridad",
+      "verification": "Beripikasyon",
+      "privacy": "Privacy"
     },
     "personal": {
       "businessHeading": "Impormasyon ng Negosyo",

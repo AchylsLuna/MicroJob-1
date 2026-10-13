@@ -69,7 +69,7 @@ export function WorkerResumeSection({ initialResumeUrl }: { initialResumeUrl: st
   return (
     <section className="space-y-6" aria-labelledby="resume-section-title" aria-busy={isSubmitting}>
       <div>
-        <h2 id="resume-section-title" className="text-lg font-semibold text-slate-900">{t("settings.resume.title")}</h2>
+        <h2 id="resume-section-title" className="text-section font-semibold text-slate-900">{t("settings.resume.title")}</h2>
         <p className="text-body-sm text-slate-500">{t("settings.resume.subtitle")}</p>
       </div>
       <p className="sr-only" role="status" aria-live="polite">{statusMessage}</p>

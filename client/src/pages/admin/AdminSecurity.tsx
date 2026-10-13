@@ -50,7 +50,7 @@ function AdminSecurityContent() {
       <section className="bg-white rounded-card border border-[#E5E7EB] p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-[18px] font-semibold text-[#111827]">{t("security.recentActivity.title")}</h3>
+            <h3 className="text-section font-semibold text-[#111827]">{t("security.recentActivity.title")}</h3>
             <p className="text-body-sm text-[#6B7280] mt-1">{t("security.recentActivity.subtitle")}</p>
           </div>
         </div>

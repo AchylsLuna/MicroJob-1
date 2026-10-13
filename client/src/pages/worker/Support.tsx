@@ -351,7 +351,7 @@ export function Support() {
               <div className="w-12 h-12 rounded-xl bg-brand/[0.08] flex items-center justify-center mb-4">
                 <MessageSquare className="w-6 h-6 text-brand" />
               </div>
-              <h3 className="text-[18px] font-semibold text-[#111827] mb-2">{t("support.cards.messageSupport.title")}</h3>
+              <h3 className="text-section font-semibold text-[#111827] mb-2">{t("support.cards.messageSupport.title")}</h3>
               <p className="text-body text-[#6B7280] mb-4">{t("support.cards.messageSupport.description")}</p>
               <button
                 onClick={() => void handleOpenSupportMessages()}
@@ -366,7 +366,7 @@ export function Support() {
               <div className="w-12 h-12 rounded-xl bg-[#DCFCE7] flex items-center justify-center mb-4">
                 <Mail className="w-6 h-6 text-[#15803D]" />
               </div>
-              <h3 className="text-[18px] font-semibold text-[#111827] mb-2">{t("support.cards.emailSupport.title")}</h3>
+              <h3 className="text-section font-semibold text-[#111827] mb-2">{t("support.cards.emailSupport.title")}</h3>
               <p className="text-body text-[#6B7280] mb-4">support@microjobs.ph</p>
               <button
                 type="button"
@@ -381,7 +381,7 @@ export function Support() {
               <div className="w-12 h-12 rounded-xl bg-[#FEF3C7] flex items-center justify-center mb-4">
                 <Phone className="w-6 h-6 text-[#B45309]" />
               </div>
-              <h3 className="text-[18px] font-semibold text-[#111827] mb-2">{t("support.cards.securityEscalation.title")}</h3>
+              <h3 className="text-section font-semibold text-[#111827] mb-2">{t("support.cards.securityEscalation.title")}</h3>
               <p className="text-body text-[#6B7280] mb-4">{t("support.cards.securityEscalation.description")}</p>
               <button type="button" onClick={prepareSecurityEscalation} className="min-h-11 w-full border border-[#E5E7EB] text-brand font-medium py-2 rounded-[8px] hover:bg-gray-50 transition-all text-body">
                 {t("support.cards.securityEscalation.escalate")}
@@ -556,7 +556,7 @@ export function Support() {
           <div className="bg-white rounded-card border border-[#E5E7EB] p-6">
             <div className="flex items-center gap-3 mb-4">
               <Ticket className="w-5 h-5 text-brand" />
-              <h2 className="text-[20px] font-semibold text-[#111827]">{t("support.sidebar.yourTickets")}</h2>
+              <h2 className="text-section font-semibold text-[#111827]">{t("support.sidebar.yourTickets")}</h2>
             </div>
 
             {isLoadingTickets ? (
@@ -613,7 +613,7 @@ export function Support() {
           <div className="bg-white rounded-card border border-[#E5E7EB] p-6">
             <div className="flex items-center gap-3 mb-4">
               <Book className="w-5 h-5 text-brand" />
-              <h2 className="text-[20px] font-semibold text-[#111827]">{t("support.sidebar.ticketThread")}</h2>
+              <h2 className="text-section font-semibold text-[#111827]">{t("support.sidebar.ticketThread")}</h2>
             </div>
 
             {!selectedTicket ? (

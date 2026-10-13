@@ -133,7 +133,7 @@ export default function IdAnalyzerVerifier({ profileId, onComplete }: Props) {
     <section className="mt-3 overflow-hidden rounded-card border border-[#D9E2EC] bg-white" aria-label="Philippine document ID verification">
       <div className="border-b border-[#E8EEF5] bg-[#F8FAFC] px-5 py-4">
         <div className="flex items-center justify-between gap-3">
-          <div><p className="text-[11px] font-bold uppercase tracking-[0.12em] text-brand">ID Analyzer</p><h3 className="mt-1 text-[16px] font-semibold text-[#102A43]">Verify your Philippine government ID</h3></div>
+          <div><p className="text-[11px] font-bold uppercase tracking-[0.12em] text-brand">ID Analyzer</p><h3 className="mt-1 text-section font-semibold text-[#102A43]">Verify your Philippine government ID</h3></div>
           <FileScan className="h-6 w-6 text-brand" aria-hidden="true" />
         </div>
         <ol className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">

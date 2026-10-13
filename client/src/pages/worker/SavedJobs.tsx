@@ -202,7 +202,7 @@ export function SavedJobs() {
       {!isLoading && filteredJobs.length === 0 ? (
         <div className="bg-white rounded-card border border-[#E5E7EB] p-6 text-center sm:p-12">
           <Bookmark className="w-16 h-16 text-[#D1D5DB] mx-auto mb-4" />
-          <h3 className="text-[18px] font-semibold text-[#111827] mb-2">{t("savedJobs.emptyState.title")}</h3>
+          <h3 className="text-section font-semibold text-[#111827] mb-2">{t("savedJobs.emptyState.title")}</h3>
           <p className="text-body text-[#6B7280] mb-6">
             {jobs.length === 0
               ? t("savedJobs.emptyState.descriptionNoJobs")
@@ -231,7 +231,7 @@ export function SavedJobs() {
                     {job.logo}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-[18px] font-bold text-[#111827] mb-1 group-hover:opacity-80 transition-colors line-clamp-1">
+                    <h3 className="text-section font-bold text-[#111827] mb-1 group-hover:opacity-80 transition-colors line-clamp-1">
                       {job.title}
                     </h3>
                     <p className="text-body-sm text-[#6B7280] flex items-center gap-1 mb-2 line-clamp-1">

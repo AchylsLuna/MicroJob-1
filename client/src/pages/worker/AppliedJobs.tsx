@@ -272,7 +272,7 @@ const AppliedJobs: React.FC = () => {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
-                        <h2 className="truncate text-lg font-bold text-slate-900">{application.job?.title || t("appliedJobs.card.unavailableJob")}</h2>
+                        <h2 className="truncate text-section font-bold text-slate-900">{application.job?.title || t("appliedJobs.card.unavailableJob")}</h2>
                         <p className="mt-1 text-sm text-slate-500">
                           {application.job?.jobPoster?.companyName ||
                             `${application.job?.jobPoster?.firstName || ""} ${application.job?.jobPoster?.lastName || ""}`.trim() ||
@@ -403,7 +403,7 @@ const AppliedJobs: React.FC = () => {
                   {emptyStateLabel}
                 </div>
 
-                <h3 className="max-w-xl text-[22px] sm:text-[28px] font-bold tracking-[-0.02em] text-[#111827] sm:text-[32px]">
+                <h3 className="max-w-xl text-section sm:text-[28px] font-bold tracking-[-0.02em] text-[#111827] sm:text-[32px]">
                   {emptyStateTitle}
                 </h3>
 

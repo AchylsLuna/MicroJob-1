@@ -119,7 +119,7 @@ function ReceiptModal({ tx, onClose }: { tx: PaymentTransaction; onClose: () => 
               <Receipt className="w-5 h-5 text-[#047857]" />
             </div>
             <div>
-              <h3 id="transaction-receipt-title" className="text-lg font-bold text-[#111827]">{readableValue(tx.type)} Transaction Receipt</h3>
+              <h3 id="transaction-receipt-title" className="text-section font-bold text-[#111827]">{readableValue(tx.type)} Transaction Receipt</h3>
               <p className="text-[12px] text-slate-600 mt-1"><span className="font-semibold">Reference No:</span> {receiptReference}</p>
               <p className="text-[11px] text-[#9CA3AF] mt-0.5">
                 {tx.createdAt ? formatDateTime(tx.createdAt) : "—"}
@@ -362,7 +362,7 @@ function AdminEWalletMonitoringContent() {
       {activeTab === "payouts" && (
         <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
           <div className="mb-6">
-            <h3 className="text-[18px] font-semibold text-[#111827]">{t("eWallet.cards.completedPayouts")}</h3>
+            <h3 className="text-section font-semibold text-[#111827]">{t("eWallet.cards.completedPayouts")}</h3>
             <p className="text-[13px] text-[#6B7280] mt-1">
               {t("eWallet.payouts.subtitle")}
             </p>
@@ -487,7 +487,7 @@ function AdminEWalletMonitoringContent() {
         <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h3 className="text-[18px] font-semibold text-[#111827]">{t("eWallet.logs.title")}</h3>
+              <h3 className="text-section font-semibold text-[#111827]">{t("eWallet.logs.title")}</h3>
               <p className="text-[13px] text-[#6B7280] mt-1">
                 <Trans t={t} i18nKey="eWallet.logs.subtitle" components={{ strong: <strong /> }} />
               </p>

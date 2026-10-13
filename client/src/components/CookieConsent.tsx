@@ -168,7 +168,7 @@ export function CookieConsent() {
         <div className="space-y-3">
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-start justify-between gap-4">
-              <h3 className="text-[15px] font-bold text-slate-900">
+              <h3 className="text-section font-bold text-slate-900">
                 {CATEGORY_COPY.necessary.title}
               </h3>
               <span className="shrink-0 text-body-sm font-semibold text-brand">Always active</span>
@@ -183,7 +183,7 @@ export function CookieConsent() {
             return (
               <div key={category} className="rounded-xl border border-slate-200 p-4">
                 <div className="flex items-start justify-between gap-4">
-                  <h3 className="text-[15px] font-bold text-slate-900">
+                  <h3 className="text-section font-bold text-slate-900">
                     {CATEGORY_COPY[category].title}
                   </h3>
                   <button

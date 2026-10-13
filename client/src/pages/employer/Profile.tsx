@@ -216,7 +216,7 @@ export function Profile() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-6">
                 <div>
-                  <h2 className="mb-3 text-[17px] font-bold text-[#0F172A]">{t("profile.overviewTab.companyDescription")}</h2>
+                  <h2 className="mb-3 text-section font-bold text-[#0F172A]">{t("profile.overviewTab.companyDescription")}</h2>
                   <p className="text-body leading-6 text-slate-600">
                     {profileUser?.about || t("profile.overviewTab.aboutFallback")}
                   </p>
@@ -224,7 +224,7 @@ export function Profile() {
               </div>
 
               <div>
-                <h2 className="mb-3 text-[15px] font-bold text-[#0F172A]">{t("profile.overviewTab.contactInfo")}</h2>
+                <h2 className="mb-3 text-section font-bold text-[#0F172A]">{t("profile.overviewTab.contactInfo")}</h2>
                 <dl className="divide-y divide-slate-100 border-y border-slate-100">
                   <div className="flex items-baseline justify-between gap-4 py-2.5">
                     <dt className="flex shrink-0 items-center gap-2 text-body-sm text-slate-500">
@@ -279,7 +279,7 @@ export function Profile() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-[20px] font-semibold text-[#1e293b]">{t("profile.jobsTab.heading")}</h2>
+                  <h2 className="text-section font-semibold text-[#1e293b]">{t("profile.jobsTab.heading")}</h2>
                   {!profileLoading && totalApplicants > 0 ? (
                     <p className="mt-1 text-body-sm text-slate-500">
                       {t("profile.jobsTab.totalApplicants", { count: totalApplicants })}

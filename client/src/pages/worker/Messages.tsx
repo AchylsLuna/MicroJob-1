@@ -1202,17 +1202,26 @@ export function Messages() {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand text-body font-bold text-white">
-                    {getInitials(selectedContact.otherUserName)}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-[16px] font-semibold text-slate-900">{selectedContact.otherUserName}</p>
-                    {peerTyping ? (
-                      <p className="text-body-sm font-medium text-brand">{t("messages.typing")}</p>
-                    ) : selectedContact.jobTitle ? (
-                      <p className="truncate text-body-sm text-slate-400">{t("messages.reJob", { jobTitle: selectedContact.jobTitle })}</p>
-                    ) : null}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleViewProfile}
+                    disabled={!canViewSelectedProfile}
+                    aria-label={t("messages.viewProfileAria", { name: selectedContact.otherUserName })}
+                    title={canViewSelectedProfile ? t("messages.viewProfile") : undefined}
+                    className="flex min-w-0 items-center gap-3 rounded-xl text-left transition enabled:hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-default"
+                  >
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand text-body font-bold text-white">
+                      {getInitials(selectedContact.otherUserName)}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[16px] font-semibold text-slate-900">{selectedContact.otherUserName}</span>
+                      {peerTyping ? (
+                        <span className="block text-body-sm font-medium text-brand">{t("messages.typing")}</span>
+                      ) : selectedContact.jobTitle ? (
+                        <span className="block truncate text-body-sm text-slate-400">{t("messages.reJob", { jobTitle: selectedContact.jobTitle })}</span>
+                      ) : null}
+                    </span>
+                  </button>
                 </div>
 
                 <div className="relative" ref={moreMenuRef}>
@@ -1613,7 +1622,7 @@ export function Messages() {
               <div className="flex h-11 w-11 items-center justify-center rounded-full bg-red-50 text-red-600">
                 <Trash2 className="h-5 w-5" />
               </div>
-              <h2 id="delete-conversation-title" className="mt-4 text-lg font-semibold text-slate-900">
+              <h2 id="delete-conversation-title" className="mt-4 text-section font-semibold text-slate-900">
                 Permanently delete conversation?
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">

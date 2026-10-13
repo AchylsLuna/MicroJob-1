@@ -187,7 +187,7 @@ export function CalendarPanel(props: Props) {
             transition={{ duration: prefersReducedMotion ? 0 : 0.2 }}
           >
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-              <h2 id={titleId} className="text-lg font-extrabold text-[#0F2954]">
+              <h2 id={titleId} className="text-section font-extrabold text-[#0F2954]">
                 {title || "Select a date"}
               </h2>
               <button

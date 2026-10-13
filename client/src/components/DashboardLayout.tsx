@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LAYER_Z } from "./ui/layers";
@@ -10,6 +10,15 @@ import { ResponsiveBottomNavigation } from "./ResponsiveBottomNavigation";
 import { MessageDock } from "./messaging/MessageDock";
 import { useHideOnScroll } from "../hooks/useHideOnScroll";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { useMediaQuery } from "../hooks/useMediaQuery";
+import { ROUTES, matchesPath } from "../utils/routes";
+
+export type DashboardNavigationContext = {
+  openNavigation: () => void;
+  isDesktopSidebarHidden: boolean;
+  isMobileNavigationOpen: boolean;
+  navigationButtonRef: RefObject<HTMLButtonElement | null>;
+};
 
 export function DashboardLayout() {
   const { t } = useTranslation("common");
@@ -19,13 +28,18 @@ export function DashboardLayout() {
   );
   const mobileNavigationRef = useRef<HTMLDivElement>(null);
   const navigationTriggerRef = useRef<HTMLElement | null>(null);
+  const navigationButtonRef = useRef<HTMLButtonElement>(null);
+  const desktopSidebarButtonRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const { user } = useAuth();
   const normalizedRole = String(user?.role || "").toLowerCase();
   const isAdminView = normalizedRole === "admin" || normalizedRole === "superadmin";
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
+  const isFindJobsPage = [ROUTES.worker.findJobs, ROUTES.legacyDashboard.findJobs, ROUTES.legacyShortcuts.findJobs]
+    .some((path) => matchesPath(location.pathname, path));
 
-  const isNavBarHidden = useHideOnScroll(contentRef, { disabled: isMobileSidebarOpen });
+  const isNavBarHidden = useHideOnScroll(contentRef, { disabled: isMobileSidebarOpen || isFindJobsPage });
 
   const toggleDesktopSidebar = () => {
     setIsDesktopSidebarCollapsed((current) => {
@@ -33,6 +47,18 @@ export function DashboardLayout() {
       localStorage.setItem("microjobs_sidebar_collapsed", String(next));
       return next;
     });
+    window.requestAnimationFrame(() => navigationButtonRef.current?.focus({ preventScroll: true }));
+  };
+
+  const openNavigation = () => {
+    if (isDesktop) {
+      setIsDesktopSidebarCollapsed(false);
+      localStorage.setItem("microjobs_sidebar_collapsed", "false");
+      window.requestAnimationFrame(() => desktopSidebarButtonRef.current?.focus({ preventScroll: true }));
+    } else {
+      navigationTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setIsMobileSidebarOpen(true);
+    }
   };
 
   useEffect(() => {
@@ -97,11 +123,16 @@ export function DashboardLayout() {
   return (
     <div className={webUi.layout.shell}>
       <div
-        className={`hidden h-full shrink-0 overflow-hidden transition-[width] duration-200 lg:block ${
-          isDesktopSidebarCollapsed ? "w-[108px]" : "w-[304px]"
+        id="desktop-dashboard-navigation"
+        aria-hidden={isDesktopSidebarCollapsed || undefined}
+        inert={isDesktopSidebarCollapsed}
+        className={`hidden h-full shrink-0 overflow-hidden transition-[width] duration-200 motion-reduce:transition-none lg:block ${
+          isDesktopSidebarCollapsed ? "w-0" : "w-[304px]"
         }`}
       >
-        <Sidebar collapsed={isDesktopSidebarCollapsed} onToggleCollapsed={toggleDesktopSidebar} />
+        <div className="h-full w-[304px]">
+          <Sidebar onToggleCollapsed={toggleDesktopSidebar} toggleButtonRef={desktopSidebarButtonRef} />
+        </div>
       </div>
       {isMobileSidebarOpen && (
         /* z-100, matching `ui/index.tsx`'s Dialog: this is an `aria-modal`
@@ -124,14 +155,15 @@ export function DashboardLayout() {
         </div>
       )}
       <div ref={contentRef} className={webUi.layout.content}>
-        <NavBar
-          isNavigationOpen={isMobileSidebarOpen}
-          isHidden={isNavBarHidden}
-          onOpenNavigation={() => {
-            navigationTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-            setIsMobileSidebarOpen(true);
-          }}
-        />
+        {!isFindJobsPage && (
+          <NavBar
+            isNavigationOpen={isMobileSidebarOpen || (isDesktop && !isDesktopSidebarCollapsed)}
+            showDesktopNavigationTrigger={isDesktop && isDesktopSidebarCollapsed}
+            navigationButtonRef={navigationButtonRef}
+            isHidden={isNavBarHidden}
+            onOpenNavigation={openNavigation}
+          />
+        )}
         <main className={`${webUi.layout.main} dashboard-scope`}>
           {/* Keyed on pathname so navigating to another page clears a crash
               instead of stranding the user on the fallback. The sidebar and nav
@@ -141,7 +173,7 @@ export function DashboardLayout() {
                 including cards and quick links that call navigate() -- the
                 same unobtrusive entrance transition. */}
             <div key={location.pathname} className="page-transition">
-              <Outlet />
+              <Outlet context={{ openNavigation, isDesktopSidebarHidden: isDesktopSidebarCollapsed, isMobileNavigationOpen: isMobileSidebarOpen, navigationButtonRef } satisfies DashboardNavigationContext} />
             </div>
           </ErrorBoundary>
         </main>

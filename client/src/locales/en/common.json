@@ -34,11 +34,6 @@
     "openNavigationMenu": "Open navigation menu",
     "workerHomeAria": "MicroJobs home",
     "workerPrimaryNavigationAria": "Worker primary navigation",
-    "quickLinks": "Quick links",
-    "quickLinksHint": "Open another part of your workspace.",
-    "openMoreNavigation": "Open more navigation",
-    "moreNavigationMenuAria": "More navigation",
-    "more": "More",
     "notifications": "Notifications",
     "notificationsAriaLabel": "Notifications",
     "notificationsAriaLabelUnread_one": "Notifications, {{count}} unread",
@@ -67,36 +62,135 @@
       "markAllReadFailed": "Failed to mark all as read."
     },
     "pages": {
-      "findJobs": { "title": "Find Jobs", "searchPlaceholder": "Search jobs..." },
-      "appliedJobs": { "title": "Applied Jobs" },
-      "messages": { "title": "Messages" },
-      "support": { "title": "Support", "searchPlaceholder": "Search help..." },
-      "savedJobs": { "title": "Saved Jobs", "searchPlaceholder": "Search saved jobs..." },
-      "payoutRequests": { "title": "Payout Requests" },
-      "supportTickets": { "title": "Support Tickets" },
-      "eWallet": { "title": "E-Wallet" },
-      "notifications": { "title": "Notifications", "subtitle": "Application updates, messages, and payments" },
-      "settings": { "title": "Settings" },
-      "profile": { "title": "Profile" },
-      "employerHome": { "title": "Home", "action": "Post a job" },
-      "applications": { "title": "Applications", "subtitle": "Review applicants and update hiring status.", "action": "Manage jobs" },
-      "postJob": { "title": "My Job Postings", "subtitle": "Create and manage your open positions", "action": "Manage jobs" },
-      "jobsManagement": { "title": "Jobs Management", "searchPlaceholder": "Search jobs..." },
-      "adminAnalytics": { "title": "Analytics", "subtitle": "Understand category performance and recent platform activity" },
-      "adminEWallet": { "title": "E-Wallet Monitoring", "subtitle": "Track payout volume, pending balances, and recent completions" },
-      "adminJobs": { "title": "Job Posting Monitoring", "subtitle": "Monitor job listings, statuses, and applicant activity" },
-      "adminUsers": { "title": "Users", "subtitle": "Manage platform users and their profiles" },
-      "adminReports": { "title": "Reports", "subtitle": "Generate and download platform reports" },
-      "adminSecurity": { "title": "Security & Access", "subtitle": "Manage user access, roles, and security status" },
-      "adminDashboard": { "title": "Admin Dashboard", "subtitle": "Overview of your job posting platform" },
-      "adminStaffManagement": { "title": "Staff Management", "subtitle": "Create staff accounts and manage their roles" },
-      "adminAuditLogs": { "title": "Audit Logs", "subtitle": "System activity and error logs" },
-      "adminModerationQueue": { "title": "Moderation Queue", "subtitle": "Review reported users and jobs" },
-      "adminVerificationReview": { "title": "ID Verification", "subtitle": "Review submitted identity and address documents" },
-      "adminDisputes": { "title": "Financial Disputes", "subtitle": "Investigate and resolve payment disputes" },
-      "jobDetails": { "title": "Job Details" },
-      "employerFallback": { "title": "Employer" },
-      "adminFallback": { "title": "Admin" }
+      "findJobs": {
+        "title": "Find Jobs",
+        "searchPlaceholder": "Search jobs..."
+      },
+      "appliedJobs": {
+        "title": "Applied Jobs"
+      },
+      "messages": {
+        "title": "Messages"
+      },
+      "support": {
+        "title": "Support",
+        "searchPlaceholder": "Search help..."
+      },
+      "savedJobs": {
+        "title": "Saved Jobs",
+        "searchPlaceholder": "Search saved jobs..."
+      },
+      "payoutRequests": {
+        "title": "Payout Requests"
+      },
+      "supportTickets": {
+        "title": "Support Tickets"
+      },
+      "eWallet": {
+        "title": "E-Wallet"
+      },
+      "notifications": {
+        "title": "Notifications",
+        "subtitle": "Application updates, messages, and payments"
+      },
+      "settings": {
+        "title": "Settings"
+      },
+      "profile": {
+        "title": "Profile"
+      },
+      "employerHome": {
+        "title": "Home",
+        "action": "Post a job"
+      },
+      "applications": {
+        "title": "Applications",
+        "subtitle": "Review applicants and update hiring status.",
+        "action": "Manage jobs"
+      },
+      "postJob": {
+        "title": "My Job Postings",
+        "subtitle": "Create and manage your open positions",
+        "action": "Manage jobs"
+      },
+      "jobsManagement": {
+        "title": "Jobs Management",
+        "searchPlaceholder": "Search jobs..."
+      },
+      "adminAnalytics": {
+        "title": "Analytics",
+        "subtitle": "Understand category performance and recent platform activity"
+      },
+      "adminEWallet": {
+        "title": "E-Wallet Monitoring",
+        "subtitle": "Track payout volume, pending balances, and recent completions"
+      },
+      "adminJobs": {
+        "title": "Job Posting Monitoring",
+        "subtitle": "Monitor job listings, statuses, and applicant activity"
+      },
+      "adminUsers": {
+        "title": "Users",
+        "subtitle": "Manage platform users and their profiles"
+      },
+      "adminReports": {
+        "title": "Reports",
+        "subtitle": "Generate and download platform reports"
+      },
+      "adminSecurity": {
+        "title": "Security & Access",
+        "subtitle": "Manage user access, roles, and security status"
+      },
+      "adminDashboard": {
+        "title": "Admin Dashboard",
+        "subtitle": "Overview of your job posting platform"
+      },
+      "adminStaffManagement": {
+        "title": "Staff Management",
+        "subtitle": "Create staff accounts and manage their roles"
+      },
+      "adminAuditLogs": {
+        "title": "Audit Logs",
+        "subtitle": "System activity and error logs"
+      },
+      "adminModerationQueue": {
+        "title": "Moderation Queue",
+        "subtitle": "Review reported users and jobs"
+      },
+      "adminVerificationReview": {
+        "title": "ID Verification",
+        "subtitle": "Review submitted identity and address documents"
+      },
+      "adminDisputes": {
+        "title": "Financial Disputes",
+        "subtitle": "Investigate and resolve payment disputes"
+      },
+      "jobDetails": {
+        "title": "Job Details"
+      },
+      "employerFallback": {
+        "title": "Employer"
+      },
+      "adminFallback": {
+        "title": "Admin"
+      }
+    }
+  },
+  "landing": {
+    "benefits": {
+      "ariaLabel": "Make the most of MicroJobs",
+      "profile": {
+        "title": "Build your profile",
+        "description": "Show your skills and work experience so employers can learn what you offer."
+      },
+      "matches": {
+        "title": "Get personal job matches",
+        "description": "Your skills, experience, and matching preferences help us recommend opportunities for you."
+      },
+      "verification": {
+        "title": "Build trust with verification",
+        "description": "Verify your identity and contact details to build a trusted MicroJobs profile."
+      }
     }
   }
 }

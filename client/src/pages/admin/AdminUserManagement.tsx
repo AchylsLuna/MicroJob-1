@@ -525,7 +525,7 @@ function AdminUserManagementContent() {
           </div>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-950">{t("userManagement.manage.title")}</h2>
+              <h2 className="text-section font-bold text-slate-950">{t("userManagement.manage.title")}</h2>
               <p className="mt-1 text-sm text-slate-500">{t("userManagement.manage.subtitle")}</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">

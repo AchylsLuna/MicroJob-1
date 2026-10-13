@@ -10,6 +10,8 @@ import {
   BriefcaseBusiness,
   ChartNoAxesCombined,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CirclePlus,
   CircleDot,
   FileCheck2,
@@ -19,8 +21,6 @@ import {
   LifeBuoy,
   LockKeyhole,
   MessageSquare,
-  PanelLeftClose,
-  PanelLeftOpen,
   Scale,
   ScrollText,
   Settings,
@@ -46,6 +46,7 @@ interface SidebarProps {
   mobile?: boolean;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
+  toggleButtonRef?: React.Ref<HTMLButtonElement>;
   onClose?: () => void;
 }
 
@@ -105,6 +106,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   mobile = false,
   collapsed = false,
   onToggleCollapsed,
+  toggleButtonRef,
   onClose,
 }) => {
   const navigate = useNavigate();
@@ -321,7 +323,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       : "Worker";
 
   const getNavButtonClass = (active: boolean) =>
-    `${webUi.sidebar.navButton} ${isCollapsed ? "px-2" : "px-4"} ${
+    `${webUi.sidebar.navButton} ${isCollapsed ? "!px-2 justify-center" : "px-4"} ${
       active ? webUi.sidebar.navButtonActive : webUi.sidebar.navButtonIdle
     }`;
 
@@ -378,10 +380,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       // height), but in the drawer the panel itself has to be able to scroll --
       // otherwise the footer's Settings entry and account card are clipped away
       // with no way to reach them.
-      className={`${webUi.sidebar.root} w-full p-4 transition-[padding] duration-200 sm:p-5 [@media(max-height:700px)]:p-2 ${mobile ? "!overflow-y-auto overscroll-contain" : ""} ${isCollapsed ? "items-center px-3 sm:px-3" : ""}`}
+      className={`${webUi.sidebar.root} w-full p-4 [--sidebar-padding-y:1rem] transition-[padding] duration-200 sm:p-5 sm:[--sidebar-padding-y:1.25rem] [@media(max-height:700px)]:p-2 [@media(max-height:700px)]:[--sidebar-padding-y:0.5rem] ${mobile ? "!overflow-y-auto overscroll-contain" : ""} ${isCollapsed ? "px-3 sm:px-3" : ""}`}
     >
-      <div className="dashboard-sidebar-header mb-6 flex shrink-0 items-center justify-between [@media(max-height:700px)]:mb-0">
-        <MicroJobsLogo onClick={() => navigate(ROUTES.home)} markOnly={isCollapsed} className="min-h-11 min-w-0 cursor-pointer" />
+      <div className={`dashboard-sidebar-header -mt-[var(--sidebar-padding-y)] mb-4 flex w-full shrink-0 items-center ${isCollapsed ? "flex-col gap-1 py-2" : "h-[var(--navbar-height,4rem)] justify-between gap-2 lg:px-2"} [@media(max-height:700px)]:mb-0`}>
+        <MicroJobsLogo onClick={() => navigate(ROUTES.home)} markOnly={isCollapsed} className={`min-h-11 min-w-0 cursor-pointer ${mobile ? "[&_.microjobs-logo-wordmark]:text-xl" : ""}`} />
         {mobile ? (
           <button
             ref={closeButtonRef}
@@ -395,18 +397,21 @@ const Sidebar: React.FC<SidebarProps> = ({
           </button>
         ) : (
           <button
+            ref={toggleButtonRef}
             type="button"
             onClick={onToggleCollapsed}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-brand transition hover:border-brand-200 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            aria-label={isCollapsed ? "Show sidebar" : "Hide sidebar"}
+            aria-controls="desktop-dashboard-navigation"
+            aria-expanded={!isCollapsed}
+            title={isCollapsed ? "Show sidebar" : "Hide sidebar"}
           >
-            {isCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+            {isCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
           </button>
         )}
       </div>
 
-      <nav className="dashboard-sidebar-nav min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 [@media(max-height:700px)]:space-y-0" aria-label={`${roleLabel} menu`}>
+      <nav className="dashboard-sidebar-nav min-h-0 w-full flex-1 space-y-3 overflow-y-auto overscroll-contain [@media(max-height:700px)]:space-y-0" aria-label={`${roleLabel} menu`}>
         <div className="space-y-1.5 pb-3 [@media(max-height:700px)]:space-y-0 [@media(max-height:700px)]:pb-0">
           {effectiveRole !== "user" && (
             <button
@@ -493,7 +498,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
       </nav>
 
-      <div className="dashboard-sidebar-footer mt-3 shrink-0 space-y-2 border-t border-slate-200 pt-3 [@media(max-height:700px)]:mt-0 [@media(max-height:700px)]:space-y-0 [@media(max-height:700px)]:pt-0">
+      <div className="dashboard-sidebar-footer mt-3 w-full shrink-0 space-y-2 border-t border-slate-200 pt-3 [@media(max-height:700px)]:mt-0 [@media(max-height:700px)]:space-y-0 [@media(max-height:700px)]:pt-0">
         {pinnedSettingsItem && (
           <button
             type="button"
@@ -504,7 +509,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             {isCollapsed ? <Settings aria-hidden="true" className="mx-auto h-5 w-5" /> : <span>{pinnedSettingsItem.label}</span>}
           </button>
         )}
-        <button onClick={() => navigate(effectiveRole === "user" ? ROUTES.worker.profile : dashboardPath)} className="flex min-h-16 w-full items-center justify-between gap-3 rounded-card border border-slate-200 bg-slate-50 p-3 text-slate-900 transition hover:border-brand-200 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand [@media(max-height:700px)]:min-h-11 [@media(max-height:700px)]:p-1">
+        <button onClick={() => navigate(effectiveRole === "user" ? ROUTES.worker.profile : dashboardPath)} className={`flex min-h-16 w-full items-center gap-3 rounded-card border border-slate-200 bg-slate-50 p-3 text-slate-900 transition hover:border-brand-200 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand [@media(max-height:700px)]:min-h-11 [@media(max-height:700px)]:p-1 ${isCollapsed ? "justify-center" : "justify-between"}`}>
           <div className="flex items-center gap-3">
             {/* This was the one avatar in the app rendering `avatarUrl` raw:
                 without toAbsoluteAssetUrl a stored "/uploads/..." path resolves

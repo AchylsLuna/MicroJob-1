@@ -390,7 +390,7 @@ export function Profile() {
       <section className="rounded-card border border-[#BFDBFE] bg-[#EFF6FF] p-5" aria-labelledby="worker-profile-completeness-title">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 id="worker-profile-completeness-title" className="text-[15px] font-semibold text-[#1E3A8A]">{t("profile.completeness.title")}</h2>
+            <h2 id="worker-profile-completeness-title" className="text-section font-semibold text-[#1E3A8A]">{t("profile.completeness.title")}</h2>
             <p className="mt-1 text-body-sm text-[#475569]">
               {profileCompletionPercent === 100 ? t("profile.completeness.ready") : t("profile.completeness.incomplete")}
             </p>
@@ -405,7 +405,7 @@ export function Profile() {
       <section className="rounded-card border border-[#BFDBFE] bg-[#EFF6FF] p-5" aria-labelledby="worker-identity-verification-title">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 id="worker-identity-verification-title" className="text-[15px] font-semibold text-[#1E3A8A]">{t("profile.identityVerification.title")}</h2>
+            <h2 id="worker-identity-verification-title" className="text-section font-semibold text-[#1E3A8A]">{t("profile.identityVerification.title")}</h2>
             <p className="mt-1 text-body-sm text-[#475569]">
               {hasFullyVerifiedProfile ? t("profile.identityVerification.verifiedDescription") : t("profile.identityVerification.description")}
             </p>
@@ -471,13 +471,13 @@ export function Profile() {
                 <div className="lg:col-span-2 space-y-8">
                   {/* About Section */}
                   <div>
-                    <h2 className="mb-3 text-[17px] font-bold text-[#0F172A]">{t("profile.overviewTab.aboutMe")}</h2>
+                    <h2 className="mb-3 text-section font-bold text-[#0F172A]">{t("profile.overviewTab.aboutMe")}</h2>
                     <p className="text-body leading-6 text-slate-600">{profileData.about}</p>
                   </div>
 
                   {/* Contact Information */}
                   <div>
-                    <h2 className="mb-3 text-[17px] font-bold text-[#0F172A]">{t("profile.overviewTab.contactInfo")}</h2>
+                    <h2 className="mb-3 text-section font-bold text-[#0F172A]">{t("profile.overviewTab.contactInfo")}</h2>
                     {/* A plain divided list rather than four bordered cards with
                         colored icon chips -- same four facts, a quarter of the
                         visual weight. */}
@@ -537,7 +537,7 @@ export function Profile() {
                 <div className="space-y-6">
                   {/* CV/Resume Card */}
                   <div className="bg-brand/[0.08] border border-brand/20 rounded-card p-6">
-                    <h3 className="text-[18px] font-semibold text-[#1e293b] mb-4">{t("profile.overviewTab.cvResume")}</h3>
+                    <h3 className="text-section font-semibold text-[#1e293b] mb-4">{t("profile.overviewTab.cvResume")}</h3>
                     {safeResumeUrl ? (
                       <div className="space-y-4">
                         <div className="bg-white rounded-xl p-4 border border-brand/20">
@@ -587,7 +587,7 @@ export function Profile() {
                       the stat row above it. Removed rather than restyled --
                       one source for a number beats two that can disagree. */}
                   <div className="rounded-card border border-slate-200 p-5">
-                    <h3 className="mb-3 text-[15px] font-bold text-[#0F172A]">{t("profile.overviewTab.jobsApplied")}</h3>
+                    <h3 className="mb-3 text-section font-bold text-[#0F172A]">{t("profile.overviewTab.jobsApplied")}</h3>
                     <div className="flex items-baseline gap-2">
                       <span className="text-[24px] font-bold text-brand">{jobsApplied}</span>
                       <span className="text-body-sm text-slate-500">
@@ -607,7 +607,7 @@ export function Profile() {
             <div className="space-y-10">
               <section>
                 <div className="mb-4 flex items-center justify-between gap-4">
-                  <h2 className="text-[17px] font-bold text-[#0F172A]">
+                  <h2 className="text-section font-bold text-[#0F172A]">
                     {t("profile.skillsTab.workHistory")}
                     <span className="ml-2 text-body-sm font-medium text-slate-400">
                       {t("profile.skillsTab.entry", { count: workExperiences.length })}
@@ -662,7 +662,7 @@ export function Profile() {
 
               <section>
                 <div className="mb-4 flex items-center justify-between gap-4">
-                  <h2 className="text-[17px] font-bold text-[#0F172A]">
+                  <h2 className="text-section font-bold text-[#0F172A]">
                     {t("profile.internships.heading")}
                     <span className="ml-2 text-body-sm font-medium text-slate-400">
                       {t("profile.skillsTab.entry", { count: internships.length })}
@@ -697,7 +697,7 @@ export function Profile() {
 
               <section>
                 <div className="mb-4 flex items-center justify-between gap-4">
-                  <h2 className="text-[17px] font-bold text-[#0F172A]">
+                  <h2 className="text-section font-bold text-[#0F172A]">
                     {t("profile.certificates.heading")}
                     <span className="ml-2 text-body-sm font-medium text-slate-400">
                       {t("profile.skillsTab.entry", { count: certificates.length })}
@@ -753,7 +753,7 @@ export function Profile() {
           {activeTab === "skills" && (
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-4">
-                <h2 className="text-[17px] font-bold text-[#0F172A]">
+                <h2 className="text-section font-bold text-[#0F172A]">
                   {t("profile.skillsTab.skillsHeading")}
                   <span className="ml-2 text-body-sm font-medium text-slate-400">
                     {t("profile.skillsTab.skill", { count: skills.length })}
@@ -767,7 +767,7 @@ export function Profile() {
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   {skills.map((skill) => (
                     <div key={skill.id} className="rounded-card border border-slate-200 p-5">
-                      <h3 className="text-[15px] font-semibold text-[#0F172A]">{skill.name}</h3>
+                      <h3 className="text-section font-semibold text-[#0F172A]">{skill.name}</h3>
                       <p className="mt-1 text-body-sm leading-6 text-slate-600">
                         {skill.description?.trim() || t("profile.overviewTab.noDescriptionAdded")}
                       </p>
@@ -794,7 +794,7 @@ export function Profile() {
           {activeTab === "portfolio" && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-[20px] font-semibold text-[#1e293b]">{t("profile.portfolioTab.heading")}</h2>
+                <h2 className="text-section font-semibold text-[#1e293b]">{t("profile.portfolioTab.heading")}</h2>
                 <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)} className="text-body-sm font-semibold text-brand hover:underline">
                   {t("profile.skillsTab.manage")}
                 </button>
@@ -840,7 +840,7 @@ export function Profile() {
           {activeTab === "accepted" && (
             <div className="space-y-6">
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-[20px] font-semibold text-[#1e293b]">{t("profile.acceptedTab.heading")}</h2>
+                <h2 className="text-section font-semibold text-[#1e293b]">{t("profile.acceptedTab.heading")}</h2>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -852,7 +852,7 @@ export function Profile() {
                           {work.companyLogo}
                         </div>
                         <div>
-                          <h3 className="text-[16px] font-bold text-[#1e293b] mb-1">{work.title}</h3>
+                          <h3 className="text-section font-bold text-[#1e293b] mb-1">{work.title}</h3>
                           <p className="text-body-sm text-slate-500">{work.company}</p>
                         </div>
                       </div>

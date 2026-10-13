@@ -144,7 +144,7 @@ export function EmployerPaymentMethodsSection() {
       <Card>
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">{t("paymentMethods.title")}</h2>
+            <h2 className="text-section font-semibold text-slate-900">{t("paymentMethods.title")}</h2>
             <p className="text-body-sm text-slate-500">{t("paymentMethods.subtitle")}</p>
           </div>
           <button
@@ -236,7 +236,7 @@ export function EmployerPaymentMethodsSection() {
         <Card ref={formRef} className="scroll-mt-6">
           <div className="mb-4 flex items-start justify-between gap-4">
             <div>
-              <h3 className="text-base font-semibold text-slate-900">{t("paymentMethods.form.title")}</h3>
+              <h3 className="text-section font-semibold text-slate-900">{t("paymentMethods.form.title")}</h3>
               <p className="mt-1 text-caption text-slate-500">
                 {t("paymentMethods.form.subtitle")}
               </p>

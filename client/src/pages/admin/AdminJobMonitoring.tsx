@@ -101,7 +101,7 @@ function AdminJobMonitoringContent() {
 
       <section className="bg-white rounded-card border border-[#E5E7EB] p-6">
         <div>
-          <h3 className="text-[18px] font-semibold text-[#111827]">{t("jobMonitoring.title")}</h3>
+          <h3 className="text-section font-semibold text-[#111827]">{t("jobMonitoring.title")}</h3>
           <p className="text-body-sm text-[#6B7280] mt-1">
             {t("jobMonitoring.subtitle")}
           </p>

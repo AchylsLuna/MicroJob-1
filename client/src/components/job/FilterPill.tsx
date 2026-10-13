@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 export type FilterOption = { value: string; label: string };
 
-type CommonProps = { label: string; className?: string };
+type CommonProps = { label: string; className?: string; variant?: "default" | "inverse" };
 
 type RadioProps = CommonProps & { mode: "radio"; options: FilterOption[]; value: string; onApply: (value: string) => void };
 type CheckboxProps = CommonProps & { mode: "checkbox"; options: FilterOption[]; value: string[]; onApply: (value: string[]) => void };
@@ -12,9 +12,11 @@ type ToggleProps = CommonProps & { mode: "toggle"; value: boolean; onApply: (val
 
 type Props = RadioProps | CheckboxProps | ToggleProps;
 
-const pillClass = (isActive: boolean, className?: string) =>
-  `inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-body-sm font-semibold transition ${
-    isActive ? "border-brand bg-[#EAF2FC] text-brand" : "border-slate-300 text-slate-700 hover:border-slate-400"
+const pillClass = (isActive: boolean, className?: string, variant = "default") =>
+  `inline-flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+    variant === "inverse"
+      ? `min-h-11 text-body focus-visible:ring-white focus-visible:ring-offset-brand ${isActive ? "border-white bg-white text-brand" : "border-white/50 text-white hover:border-white hover:bg-white/10"}`
+      : `min-h-9 text-body-sm focus-visible:ring-brand ${isActive ? "border-brand bg-[#EAF2FC] text-brand" : "border-slate-300 text-slate-700 hover:border-slate-400"}`
   } ${className || ""}`;
 
 /**
@@ -26,13 +28,13 @@ const pillClass = (isActive: boolean, className?: string) =>
  */
 export function FilterPill(props: Props) {
   if (props.mode === "toggle") {
-    const { label, value, onApply, className } = props;
+    const { label, value, onApply, className, variant } = props;
     return (
       <button
         type="button"
         onClick={() => onApply(!value)}
         aria-pressed={value}
-        className={pillClass(value, className)}
+        className={pillClass(value, className, variant)}
       >
         {label}
       </button>
@@ -44,7 +46,7 @@ export function FilterPill(props: Props) {
 
 function PopoverFilterPill(props: RadioProps | CheckboxProps) {
   const { t } = useTranslation("worker");
-  const { label, options, value, onApply, className } = props;
+  const { label, options, value, onApply, className, variant } = props;
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<string | string[]>(value);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -97,18 +99,17 @@ function PopoverFilterPill(props: RadioProps | CheckboxProps) {
     setOpen(false);
   };
 
-  // The wrapper is deliberately not `relative` below sm: the mobile menu spans
-  // the whole filter row, so it anchors to the row (which is `relative`) rather
-  // than to this pill. From sm up it anchors to the pill itself.
+  // Inverse pills anchor menus to the search filter row at every width so a
+  // menu opened near the right edge stays within the available content width.
   return (
-    <div className="sm:relative" ref={containerRef}>
+    <div className={variant === "inverse" ? undefined : "sm:relative"} ref={containerRef}>
       <button
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className={pillClass(isActive, className)}
+        className={pillClass(isActive, className, variant)}
       >
         {label}
         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
@@ -123,7 +124,7 @@ function PopoverFilterPill(props: RadioProps | CheckboxProps) {
         <div
           role="menu"
           aria-label={label}
-          className="absolute left-0 right-0 top-full z-50 mt-2 w-auto overflow-hidden rounded-card border border-slate-200 bg-white shadow-[0_18px_48px_rgba(15,23,42,0.16)] sm:right-auto sm:w-72"
+          className={`absolute left-0 right-0 top-full z-50 mt-2 w-auto overflow-hidden rounded-card border border-slate-200 bg-white text-slate-700 shadow-[0_18px_48px_rgba(15,23,42,0.16)] sm:right-auto sm:w-72 ${variant === "inverse" ? "sm:max-w-full" : ""}`}
         >
           <div className="max-h-72 overflow-y-auto p-2">
             {options.map((option) => {

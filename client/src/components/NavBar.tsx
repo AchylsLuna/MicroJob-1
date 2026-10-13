@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, useMemo, type ReactNode } from "react";
-import { ArrowRight, Bell, ChevronDown, Ellipsis, MapPin, Menu, Search } from "lucide-react";
+import { useState, useRef, useEffect, useMemo, type ReactNode, type Ref } from "react";
+import { ArrowRight, Bell, ChevronDown, ChevronRight, LogOut, MapPin, Menu, Search, Star, UserRound } from "lucide-react";
 import { useReducedMotion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { LAYER_Z } from "./ui/layers";
@@ -13,19 +13,26 @@ import { ROUTES, matchesAnyPath, matchesPath, startsWithPath } from "../utils/ro
 import { webUi } from "../styles/webUi";
 import { toAbsoluteAssetUrl } from "../lib/assetUrl";
 import { MicroJobsLogo } from "./MicroJobsLogo";
-// `workerPrimaryNavigation` is no longer imported here: the header's duplicate
-// worker nav was removed, and the sidebar (which owns that list now) imports it
-// directly.
-import { workerMoreNavigation } from "./workerNavigation";
+import { Avatar } from "./ui/Avatar";
+// Neither worker navigation list is imported here any more. The header's
+// duplicate worker nav went first, and the "More" dropdown that outlived it
+// followed for the same reason -- every destination it offered is a row in the
+// sidebar. The sidebar owns both lists and imports them directly.
+
+/** Every icon + label row in the account menu renders from this one string. */
+const accountMenuItemClass =
+  "flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-body-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand";
 
 interface NavBarProps {
   isNavigationOpen?: boolean;
   onOpenNavigation?: () => void;
+  showDesktopNavigationTrigger?: boolean;
+  navigationButtonRef?: Ref<HTMLButtonElement>;
   /** Hide the navbar (slid up out of view) — set by the scrollable dashboard shell. */
   isHidden?: boolean;
 }
 
-export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = false }: NavBarProps) {
+export function NavBar({ isNavigationOpen = false, onOpenNavigation, showDesktopNavigationTrigger = false, navigationButtonRef, isHidden = false }: NavBarProps) {
   const { t } = useTranslation("common");
   const navigate = useNavigate();
   const location = useLocation();
@@ -33,13 +40,12 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
   const { logout, user, switchAccountType } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
   const prefersReducedMotion = useReducedMotion();
   // Never slide the bar away while one of its own menus is open — the popovers
   // aren't re-anchored to the header's transform, so hiding mid-interaction
   // would visually detach them from their trigger.
-  const isNavBarHidden = isHidden && !showNotifications && !showUserMenu && !showMoreMenu;
+  const isNavBarHidden = isHidden && !showNotifications && !showUserMenu;
   const notificationState = useNotifications();
   const refreshNotifications = notificationState.refresh;
   const [appliedJobsCount, setAppliedJobsCount] = useState<number>(0);
@@ -73,8 +79,6 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notificationButtonRef = useRef<HTMLButtonElement>(null);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
-  const moreMenuRef = useRef<HTMLDivElement>(null);
-  const moreButtonRef = useRef<HTMLButtonElement>(null);
 
   const notifications = useMemo(() => notificationState.notifications
     .map((item: any) => mapNotificationRecord(item, notificationAudience, "relative"))
@@ -83,6 +87,9 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
   const unreadCount = notificationState.unreadCount;
   const path = location.pathname;
   const isWorkerView = notificationAudience === "worker";
+  const isAdminView = notificationAudience === "admin";
+  // Admins have neither a profile page nor a public reviews page.
+  const canSeePublicProfile = Boolean(user?.id) && !isAdminView;
   // Avatar URLs stay on the app's existing `/uploads` route. That route reads
   // Azure first and falls back to MongoDB, so the navbar gets the current image
   // without exposing the storage provider to the client.
@@ -454,23 +461,20 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
   }, []);
 
   useEffect(() => {
-    if (!showNotifications && !showUserMenu && !showMoreMenu) return;
+    if (!showNotifications && !showUserMenu) return;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         const returnTarget = showNotifications
           ? notificationButtonRef.current
-          : showMoreMenu
-          ? moreButtonRef.current
           : accountButtonRef.current;
         setShowNotifications(false);
         setShowUserMenu(false);
-        setShowMoreMenu(false);
         window.requestAnimationFrame(() => returnTarget?.focus());
       }
     };
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [showMoreMenu, showNotifications, showUserMenu]);
+  }, [showNotifications, showUserMenu]);
 
   useEffect(() => {
     if (showNotifications) {
@@ -486,18 +490,11 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setShowUserMenu(false);
       }
-      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
-        setShowMoreMenu(false);
-      }
     }
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  useEffect(() => {
-    setShowMoreMenu(false);
-  }, [location.pathname]);
 
   const markAsRead = async (notification: FeedNotification) => {
     try {
@@ -520,7 +517,6 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
     logout();
     setShowUserMenu(false);
     setShowNotifications(false);
-    setShowMoreMenu(false);
     navigate(ROUTES.home);
   };
 
@@ -538,29 +534,6 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
 
   const displayName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || t("navbar.defaultUserName") : t("navbar.defaultUserName");
   const accountLabel = user?.role === "admin" ? t("navbar.roleAdmin") : user?.accountType === "employer" ? t("navbar.roleEmployer") : t("navbar.roleWorker");
-  // Worker only. The employer branch listed Jobs Management, Applications,
-  // E-Wallet, Support and Settings -- every one of them already a row in the
-  // employer sidebar, so the menu was a second navigation competing with the
-  // first rather than a shortcut to anything. The button and the menu below are
-  // already guarded on this being non-empty, so emptying it is the whole
-  // removal; the worker still has destinations here that its sidebar omits.
-  const headerMoreNavigation = isWorkerView ? workerMoreNavigation : [];
-
-  const isWorkerNavigationActive = (target: string) => {
-    if (target === ROUTES.worker.findJobs) {
-      return (
-        startsWithPath(path, ROUTES.worker.findJobs) ||
-        startsWithPath(path, ROUTES.worker.jobDetailsPattern.replace("/:jobId", ""))
-      );
-    }
-    if (target === ROUTES.worker.settings) {
-      return matchesPath(path, ROUTES.worker.settings) || matchesPath(path, ROUTES.settings) || matchesPath(path, ROUTES.legacyDashboard.settings);
-    }
-    return startsWithPath(path, target);
-  };
-
-  const isHeaderMoreActive = headerMoreNavigation.some((item) => isWorkerNavigationActive(item.path));
-
   return (
     <header
       ref={headerRef}
@@ -572,17 +545,14 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
       <div className={`${webUi.navbar.container} ${pageMeta.homeContext ? "!h-20 !min-h-20" : ""}`}>
         <div className={`flex min-w-0 items-center gap-2 ${isWorkerView ? "lg:gap-7" : ""}`}>
           <button
+            ref={navigationButtonRef}
             type="button"
             onClick={onOpenNavigation}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 lg:hidden"
+            className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 ${showDesktopNavigationTrigger ? "" : "lg:hidden"}`}
             aria-label={t("navbar.openNavigationMenu")}
-            // Only while the drawer exists. The id is applied by the `mobile`
-            // Sidebar, which DashboardLayout renders only when the drawer is
-            // open, so a permanent `aria-controls` pointed at nothing in the
-            // closed state -- which is the state this button is in almost
-            // always, and exactly when a screen-reader user would follow the
-            // reference to find out what it opens.
-            aria-controls={isNavigationOpen ? "mobile-dashboard-navigation" : undefined}
+            // The desktop panel remains mounted when closed. The mobile
+            // drawer's id exists only while that drawer is open.
+            aria-controls={showDesktopNavigationTrigger ? "desktop-dashboard-navigation" : isNavigationOpen ? "mobile-dashboard-navigation" : undefined}
             aria-expanded={isNavigationOpen}
           >
             <Menu className="h-5 w-5" />
@@ -637,52 +607,6 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
         </div>
 
         <div className="flex min-w-0 shrink-0 items-center justify-end gap-1.5 sm:gap-2">
-          {headerMoreNavigation.length > 0 && (
-            <div className="relative hidden sm:block" ref={moreMenuRef}>
-              <button
-                ref={moreButtonRef}
-                type="button"
-                onClick={() => {
-                  setShowMoreMenu((current) => !current);
-                  setShowNotifications(false);
-                  setShowUserMenu(false);
-                }}
-                className={`inline-flex h-10 items-center gap-1.5 rounded-xl border px-2.5 text-sm font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand xl:px-3 ${isHeaderMoreActive ? "border-[#B8CBE5] bg-[#EAF2FC] text-brand" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}
-                aria-label={t("navbar.openMoreNavigation")}
-                aria-expanded={showMoreMenu}
-                aria-haspopup="menu"
-              >
-                <Ellipsis className="h-5 w-5" aria-hidden="true" />
-                <span className="hidden xl:inline">{t("navbar.more")}</span>
-                <ChevronDown className={`hidden h-4 w-4 transition-transform xl:block ${showMoreMenu ? "rotate-180" : ""}`} aria-hidden="true" />
-              </button>
-              {showMoreMenu && (
-                <div role="menu" aria-label={t("navbar.moreNavigationMenuAria")} className={`absolute right-0 mt-2 w-64 overflow-hidden ${webUi.navbar.popover}`}>
-                  <div className="border-b border-slate-100 px-4 py-3">
-                    <p className="text-sm font-bold text-slate-900">{t("navbar.quickLinks")}</p>
-                    <p className="mt-0.5 text-xs text-slate-500">{t("navbar.quickLinksHint")}</p>
-                  </div>
-                  <div className="p-2">
-                    {headerMoreNavigation.map((item) => {
-                      const active = isWorkerNavigationActive(item.path);
-                      return (
-                        <button
-                          key={item.path}
-                          type="button"
-                          role="menuitem"
-                          onClick={() => navigate(item.path)}
-                          className={`flex min-h-11 w-full items-center rounded-xl px-3 text-left text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand ${active ? "bg-brand/[0.08] text-brand" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}
-                          aria-current={active ? "page" : undefined}
-                        >
-                          {item.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
           {pageMeta.search && !isWorkerView && (
             <div className="relative hidden h-10 w-[min(26vw,22rem)] min-w-0 md:block">
               <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#9CA3AF]" />
@@ -714,7 +638,6 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
               onClick={() => {
                 setShowNotifications(!showNotifications);
                 setShowUserMenu(false);
-                setShowMoreMenu(false);
               }}
               className={`${webUi.navbar.iconButton} border-slate-200 bg-white shadow-sm`}
               title={t("navbar.notifications")}
@@ -740,7 +663,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
                  header and so overlapped it on the 5rem "home" pages. */
               <div role="menu" aria-label={t("navbar.notifications")} className={`fixed left-4 right-4 top-full mt-2 ${LAYER_Z.furniture} flex max-h-[calc(100dvh-var(--navbar-height,4rem)-var(--mobile-bottom-nav-height,0px)-var(--cookie-banner-height,0px)-1.5rem)] flex-col overflow-hidden sm:absolute sm:left-auto sm:right-0 sm:w-[380px] ${webUi.navbar.popover}`}>
                 <div className="flex shrink-0 items-center justify-between border-b border-slate-200 p-4">
-                  <h3 className="font-semibold text-[16px] text-[#111827]">
+                  <h3 className="font-semibold text-section text-[#111827]">
                     {t("navbar.notifications")} {unreadCount > 0 && `(${unreadCount})`}
                   </h3>
                   {unreadCount > 0 && (
@@ -810,7 +733,6 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
               onClick={() => {
                 setShowUserMenu(!showUserMenu);
                 setShowNotifications(false);
-                setShowMoreMenu(false);
               }}
               className="flex min-h-11 items-center gap-2 rounded-xl border border-transparent px-1.5 text-left transition hover:border-slate-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:pr-2"
               aria-label={t("navbar.openAccountMenu")}
@@ -840,61 +762,86 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
             </button>
 
             {showUserMenu && (
-              <div role="menu" aria-label={t("navbar.accountMenuAria")} className={`fixed left-4 right-4 top-full mt-2 ${LAYER_Z.furniture} max-h-[calc(100dvh-var(--navbar-height,4rem)-var(--mobile-bottom-nav-height,0px)-var(--cookie-banner-height,0px)-1.5rem)] overflow-y-auto sm:absolute sm:left-auto sm:right-0 sm:w-[300px] ${webUi.navbar.popover}`}>
-                <div className="border-b border-slate-200 p-4">
-                  <p className="text-lg font-bold text-slate-950">{displayName}</p>
-                  <p className="text-sm text-slate-500">{t("navbar.accountSuffix", { role: accountLabel })}</p>
-                </div>
+              <div role="menu" aria-label={t("navbar.accountMenuAria")} className={`fixed left-4 right-4 top-full mt-2 ${LAYER_Z.furniture} max-h-[calc(100dvh-var(--navbar-height,4rem)-var(--mobile-bottom-nav-height,0px)-var(--cookie-banner-height,0px)-1.5rem)] overflow-y-auto p-2 sm:absolute sm:left-auto sm:right-0 sm:w-[300px] ${webUi.navbar.popover}`}>
+                {/* Identity row doubles as the link to your own profile, so the
+                    menu opens on "this is you" rather than on a list of
+                    actions. Non-admins only: admins have no profile page. */}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    navigate(isWorkerView ? ROUTES.worker.profile : ROUTES.employer.profile);
+                    setShowUserMenu(false);
+                  }}
+                  disabled={isAdminView}
+                  className="flex min-h-11 w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand disabled:cursor-default disabled:hover:bg-transparent"
+                >
+                  <Avatar name={displayName} userId={user?.id} avatarUrl={user?.avatarUrl} size={40} className="shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-body font-bold text-slate-950">{displayName}</span>
+                    <span className="block truncate text-caption text-slate-500">{accountLabel}</span>
+                  </span>
+                  {!isAdminView && (
+                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                  )}
+                </button>
 
                 {canSwitchAccount && (
-                  <div className="p-4 border-b border-[#E5E7EB]">
+                  <div className="mt-2 border-t border-slate-200 pt-2">
                     <button
                       onClick={() => handleSwitchTo(user?.accountType === "worker" ? "employer" : "worker")}
-                      className="min-h-11 w-full rounded-xl bg-brand px-4 py-3 text-sm font-bold text-white transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                      className="min-h-11 w-full rounded-xl bg-brand px-4 text-body-sm font-bold text-white transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                     >
                       {t("navbar.switchTo", { role: user?.accountType === "worker" ? t("navbar.roleEmployer") : t("navbar.roleWorker") })}
                     </button>
                   </div>
                 )}
 
-                {isWorkerView && (
-                  <div className="border-b border-slate-200 p-2">
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        navigate(ROUTES.worker.profile);
-                        setShowUserMenu(false);
-                      }}
-                      className="min-h-11 w-full rounded-xl px-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
-                    >
-                      {t("navbar.viewProfile")}
-                    </button>
+                {(isWorkerView || canSeePublicProfile) && (
+                  <div className="mt-2 border-t border-slate-200 pt-2">
+                    {isWorkerView && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          navigate(ROUTES.worker.profile);
+                          setShowUserMenu(false);
+                        }}
+                        className={accountMenuItemClass}
+                      >
+                        <UserRound className="h-[18px] w-[18px] shrink-0 text-slate-400" aria-hidden="true" />
+                        {t("navbar.viewProfile")}
+                      </button>
+                    )}
+
+                    {canSeePublicProfile && user ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          navigate(`${ROUTES.publicProfile(user.id)}?viewAs=${isWorkerView ? "worker" : "employer"}`);
+                          setShowUserMenu(false);
+                        }}
+                        className={accountMenuItemClass}
+                      >
+                        <Star className="h-[18px] w-[18px] shrink-0 text-slate-400" aria-hidden="true" />
+                        {t("navbar.ratingsAndReviews")}
+                      </button>
+                    ) : null}
                   </div>
                 )}
 
-                {user?.id && notificationAudience !== "admin" ? (
-                  <div className="border-b border-slate-200 p-2">
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        navigate(`${ROUTES.publicProfile(user.id)}?viewAs=${isWorkerView ? "worker" : "employer"}`);
-                        setShowUserMenu(false);
-                      }}
-                      className="min-h-11 w-full rounded-xl px-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
-                    >
-                      {t("navbar.ratingsAndReviews")}
-                    </button>
-                  </div>
-                ) : null}
-
-                <div className="p-4">
-                  <button onClick={handleSignOut} className="min-h-11 w-full rounded-xl px-3 text-left font-semibold text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700">
+                <div className="mt-2 border-t border-slate-200 pt-2">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={handleSignOut}
+                    className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-body-sm font-semibold text-red-700 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-700"
+                  >
+                    <LogOut className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
                     {t("navbar.signOut")}
                   </button>
                 </div>
-
               </div>
             )}
           </div>

@@ -108,7 +108,7 @@ function AdminDashboardContent() {
             <ShieldCheck className="h-4 w-4" aria-hidden="true" />
             {t("dashboard.badge")}
           </div>
-          <h2 className="text-xl font-bold sm:text-2xl">{t("dashboard.header.title")}</h2>
+          <h2 className="text-section font-bold sm:text-2xl">{t("dashboard.header.title")}</h2>
           <p className="mt-2 max-w-2xl text-sm text-white/85">
             {t("dashboard.header.description")}
           </p>
@@ -170,7 +170,7 @@ function AdminDashboardContent() {
 
       <section aria-labelledby="platform-summary-title" className="space-y-3">
         <div>
-          <h2 id="platform-summary-title" className="text-lg font-bold text-slate-950">{t("dashboard.summary.title")}</h2>
+          <h2 id="platform-summary-title" className="text-section font-bold text-slate-950">{t("dashboard.summary.title")}</h2>
           <p className="mt-1 text-sm text-slate-600">{t("dashboard.summary.subtitle")}</p>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -194,7 +194,7 @@ function AdminDashboardContent() {
 
       <section aria-labelledby="quick-actions-title" className="space-y-3">
         <div>
-          <h2 id="quick-actions-title" className="text-lg font-bold text-slate-950">{t("dashboard.quickActions.title")}</h2>
+          <h2 id="quick-actions-title" className="text-section font-bold text-slate-950">{t("dashboard.quickActions.title")}</h2>
           <p className="mt-1 text-sm text-slate-600">{t("dashboard.quickActions.subtitle")}</p>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">

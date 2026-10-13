@@ -81,15 +81,11 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
   for (const width of [320, 375, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/worker/find-jobs");
-    await expect(page.getByRole("heading", { name: "Find your next opportunity" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Jobs in: Quezon City" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Job search", exact: true })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "Job search location" })).toHaveAttribute("placeholder", "Nationwide");
     await expect(page.getByText("Philippines", { exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    // /worker/find-jobs is the worker's home page (NavBar.tsx sets
-    // `homeContext: true` for it), which grows the header to 80px to fit a
-    // local-area subtitle row -- every other page keeps the base 64px.
-    const headerBounds = await page.locator("header").boundingBox();
-    expect(headerBounds?.height).toBe(80);
+    await expect(page.locator("header")).toHaveCount(0);
     if (width >= 1024) {
       // The dashboard shell gives every role the desktop sidebar (there is no
       // role gate on it), so the worker gets one too and `main` starts after it
@@ -106,9 +102,8 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
       // the same menu twice. That nav has been removed; the sidebar is the
       // worker's desktop navigation at every width from `lg` up.
       await expect(page.getByRole("navigation", { name: "Worker primary navigation" })).toHaveCount(0);
-      // The page title stays in the header at all widths now. It was
-      // `xl:hidden` for workers only so the removed nav could take its place.
-      await expect(page.locator("header").getByRole("heading", { level: 1 })).toBeVisible();
+      // Find Jobs uses its search band heading rather than the global navbar.
+      await expect(page.getByRole("heading", { name: "Job search", exact: true })).toBeVisible();
     } else {
       const bottomNavigation = page.getByRole("navigation", { name: "Worker mobile navigation" });
       await expect(bottomNavigation).toBeVisible();
@@ -138,10 +133,9 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
     await expect(workerBottomNavigation.locator('[role="tab"][aria-selected="true"]')).toHaveCount(1);
   }
   await page.goto("/worker/find-jobs");
-  const workerLocalArea = page.getByRole("button", { name: /Quezon City.*Open Philippine location settings/i });
-  await expect(workerLocalArea).toBeVisible();
-  await workerLocalArea.click();
-  await expect(page).toHaveURL(/\/worker\/settings\?tab=personal/);
+  await page.getByRole("button", { name: "Open navigation menu", exact: true }).click();
+  await page.getByRole("dialog", { name: "Navigation menu" }).getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page).toHaveURL(/\/worker\/settings$/);
   await expect(page.getByLabel("First name")).toBeVisible();
   await workerBottomNavigation.getByRole("tab", { name: "Jobs" }).click();
   await expect(page).toHaveURL(/\/worker\/find-jobs/);
@@ -160,22 +154,22 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
   await page.goto("/worker/find-jobs");
   const heroSearch = page.getByRole("searchbox", { name: "Search jobs" });
   await heroSearch.fill("designer");
+  await heroSearch.press("Enter");
   await expect(page).toHaveURL(/q=designer/);
   await expect(page.getByLabel("Sort jobs")).toBeVisible();
   await page.setViewportSize({ width: 1024, height: 900 });
   await page.goto("/worker/find-jobs");
   await expect(page.getByTestId("header-context-action")).toHaveCount(0);
-  const moreButton = page.getByRole("button", { name: "More" });
-  await moreButton.click();
-  await expect(page.getByRole("menu", { name: "More navigation" })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("menu", { name: "More navigation" })).toBeHidden();
-  await expect(moreButton).toBeFocused();
-  await moreButton.click();
-  await page.getByRole("menuitem", { name: "Saved Jobs" }).click();
+  const sidebar = page.getByRole("complementary", { name: "Primary navigation" });
+  await sidebar.getByRole("button", { name: "Hide sidebar", exact: true }).click();
+  await expect(sidebar).toBeHidden();
+  const reopen = page.getByRole("button", { name: "Open navigation menu", exact: true });
+  await expect(reopen).toBeFocused();
+  await reopen.click();
+  await expect(sidebar).toBeVisible();
+  await sidebar.getByRole("button", { name: "Saved Jobs", exact: true }).click();
   await page.waitForURL(/\/worker\/saved-jobs/);
-  await expect(page.getByRole("button", { name: "More" })).toHaveAttribute("aria-expanded", "false");
-  await page.goto("/worker/find-jobs");
+  await expect(page.locator("header")).toBeVisible();
   const notificationsButton = page.locator('button[aria-label^="Notifications"]');
   await notificationsButton.click();
   await expect(page.getByRole("menu", { name: "Notifications" })).toBeVisible();
@@ -218,9 +212,12 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(page.getByRole("complementary", { name: "Primary navigation" })).toBeVisible();
-  // 304px is what the shell sets (`w-[304px]` in DashboardLayout.tsx, against
-  // `w-[108px]` collapsed). The old 280 predates the sidebar being widened.
+  // The open sidebar keeps the same 304px width for every dashboard role.
   expect((await page.getByRole("complementary", { name: "Primary navigation" }).boundingBox())?.width).toBe(304);
+  // Measure the finished page rather than colors blended during its entrance.
+  await page.locator(".page-transition").evaluate(async (element) => {
+    await Promise.all(element.getAnimations().map((animation) => animation.finished));
+  });
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
 });
@@ -240,25 +237,31 @@ test("profile settings support keyboard tabs and accessible validation", async (
   await page.setViewportSize({ width: 375, height: 900 });
   await page.goto("/worker/settings?tab=personal");
   const mainTabs = page.getByRole("tablist", { name: "Settings sections" });
-  // `exact` because the accessible-name match is a substring by default, and
-  // this tablist also contains "Account Verification" -- without it the locator
-  // resolves to two elements and fails Playwright's strict-mode check.
+  // `exact` keeps this robust against a future tab whose name merely starts
+  // with "Account" -- the accessible-name match is a substring by default.
   const accountTab = mainTabs.getByRole("tab", { name: "Account", exact: true });
   await expect(accountTab).toHaveAttribute("aria-selected", "true");
   await accountTab.focus();
-  // The tab order is Account, Account Verification, Security & Privacy,
-  // Payments. This used to expect one ArrowRight to land on Security & Privacy,
-  // which stopped being true when the Verification tab was added between them
-  // -- the roving tabindex was doing the right thing and the assertion had gone
-  // stale. Step through both so the ordering itself is covered.
-  await page.keyboard.press("ArrowRight");
-  const verificationTab = mainTabs.getByRole("tab", { name: "Account Verification" });
-  await expect(verificationTab).toBeFocused();
-  await expect(verificationTab).toHaveAttribute("aria-selected", "true");
+  // Worker tab order is Account, Security & Privacy (Payments is employer-only).
+  // Identity verification used to sit between the two as its own tab; it is a
+  // section inside Security & Privacy now, so one ArrowRight lands there.
   await page.keyboard.press("ArrowRight");
   const privacyTab = mainTabs.getByRole("tab", { name: "Security & Privacy" });
   await expect(privacyTab).toBeFocused();
   await expect(privacyTab).toHaveAttribute("aria-selected", "true");
+  // Security & Privacy is itself split into Security / Verification / Privacy,
+  // the same way Account is. Security leads, and identity verification is a
+  // pane in here rather than the top-level tab it used to be.
+  const privacyTabs = page.getByRole("tablist", { name: "Security and privacy sections" });
+  await expect(privacyTabs.getByRole("tab", { name: "Security", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("heading", { name: "Change Password" })).toBeVisible();
+  await privacyTabs.getByRole("tab", { name: "Verification" }).click();
+  await expect(page.getByRole("heading", { name: "Verification", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/tab=verification/);
+  await privacyTabs.getByRole("tab", { name: "Privacy", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Delete account" })).toBeVisible();
+
+  await accountTab.focus();
   await page.keyboard.press("Home");
   await expect(accountTab).toBeFocused();
 

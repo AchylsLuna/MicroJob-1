@@ -210,7 +210,7 @@ const InactivityHandler: React.FC = () => {
       onDismiss={continueWorking}
     >
       <div className="w-full rounded-card bg-white p-6 shadow-2xl">
-        <h2 id="session-timeout-title" className="mb-2 text-lg font-bold text-slate-900">Session ending soon</h2>
+        <h2 id="session-timeout-title" className="mb-2 text-section font-bold text-slate-900">Session ending soon</h2>
         <p id="session-timeout-description" className="mb-6 text-sm text-slate-700">
           Your session will end in about 30 seconds because of inactivity. Continue working to keep your session active.
         </p>

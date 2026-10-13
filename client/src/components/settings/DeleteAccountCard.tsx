@@ -50,7 +50,7 @@ export function DeleteAccountCard() {
 
   return (
     <Card>
-      <h3 className="text-base font-semibold text-slate-900">{t("settings.deleteAccount.title")}</h3>
+      <h3 className="text-section font-semibold text-slate-900">{t("settings.deleteAccount.title")}</h3>
       <p className="mt-1 text-body-sm text-slate-500">
         {t("settings.deleteAccount.description")}
       </p>

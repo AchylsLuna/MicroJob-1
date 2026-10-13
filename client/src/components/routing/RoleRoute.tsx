@@ -1,4 +1,4 @@
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Navigate, Outlet, useLocation, useOutletContext } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import {
   getDefaultDashboardPath,
@@ -13,6 +13,7 @@ export type RouteRole = "patient" | "employer" | "admin";
 export function RoleRoute({ requiredRole }: { requiredRole: RouteRole }) {
   const { user: contextUser, isLoading } = useAuth();
   const location = useLocation();
+  const layoutContext = useOutletContext();
 
   const getStoredUser = () => {
     try {
@@ -55,5 +56,6 @@ export function RoleRoute({ requiredRole }: { requiredRole: RouteRole }) {
     return <Navigate to={getDefaultDashboardPath(user)} replace />;
   }
 
-  return <Outlet />;
+  // Keep the dashboard's navigation controls available through this guard.
+  return <Outlet context={layoutContext} />;
 }

@@ -30,7 +30,7 @@ export function EmployerPrivacyCard({ initialValue }: { initialValue: boolean })
 
   return (
     <Card>
-      <h3 className="text-base font-semibold text-slate-900">{t("employerPrivacy.title")}</h3>
+      <h3 className="text-section font-semibold text-slate-900">{t("employerPrivacy.title")}</h3>
       <p className="mt-1 text-body-sm text-slate-500">
         {t("employerPrivacy.subtitle")}
       </p>

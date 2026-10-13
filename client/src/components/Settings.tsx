@@ -70,30 +70,39 @@ import {
   type ProvinceOption,
 } from "../services/philippineLocations";
 
-type TabType = "account" | "verification" | "privacy" | "payments";
+type TabType = "account" | "privacy" | "payments";
 type AccountTab = "personal" | "experience" | "resume";
+/**
+ * Security & Privacy is split the same way Account is. Each sub-tab owns one
+ * concern: how you sign in, who you have proven you are, and what others can
+ * see. They share the single `?tab=` param with every other tab, so each id
+ * doubles as its own URL token — `?tab=verification` lands straight on the
+ * verification pane, which is what the employer dashboard and worker profile
+ * link to.
+ */
+type PrivacyTab = "security" | "verification" | "privacy";
 
-const accountTabConfig: { id: AccountTab; label: string }[] = [
-  { id: "personal", label: "Personal Information" },
-  { id: "experience", label: "Experience" },
-  { id: "resume", label: "CV/Resume" },
-];
+// Ids only -- the labels are resolved against `settings.tabs` /
+// `settings.accountTabs` inside the component, where `t` is available. Both
+// locales already carry the strings; they were simply never wired up.
+const accountTabConfig: AccountTab[] = ["personal", "experience", "resume"];
 
-const mainTabConfig: { id: TabType; label: string }[] = [
-  { id: "account", label: "Account" },
-  { id: "verification", label: "Account Verification" },
-  { id: "privacy", label: "Security & Privacy" },
-  { id: "payments", label: "Payments" },
-];
+const privacyTabConfig: PrivacyTab[] = ["security", "verification", "privacy"];
+
+const mainTabConfig: TabType[] = ["account", "privacy", "payments"];
 
 const mapTabParam = (value: string | null): TabType | null => {
   if (!value) return null;
   if (value === "account") return "account";
-  if (value === "verification") return "verification";
   if (value === "privacy") return "privacy";
   if (value === "payments" || value === "payment-methods") return "payments";
   if (["personal", "experience", "resume", "cv"].includes(value)) return "account";
-  if (value === "security") return "privacy";
+  // `security` and `verification` are both aliases now. Identity verification
+  // used to be its own top-level tab and is linked to from the employer
+  // dashboard and the worker profile (`?tab=verification`); it lives inside
+  // Security & Privacy, so those links resolve here rather than 404ing into the
+  // fallback and dumping the user on the Account tab.
+  if (value === "security" || value === "verification") return "privacy";
   return null;
 };
 
@@ -103,6 +112,14 @@ const mapAccountTab = (value: string | null): AccountTab | null => {
   if (value === "experience") return "experience";
   if (value === "resume") return "resume";
   if (value === "cv") return "resume";
+  return null;
+};
+
+const mapPrivacyTab = (value: string | null): PrivacyTab | null => {
+  if (!value) return null;
+  if (value === "security") return "security";
+  if (value === "verification") return "verification";
+  if (value === "privacy") return "privacy";
   return null;
 };
 
@@ -380,12 +397,17 @@ const profileToPersonalInfo = (profile: any, previous?: PersonalInfoState): Pers
 export function Settings() {
   const { t: tAuth } = useTranslation("auth");
   const { t: tCommon } = useTranslation("common");
+  // Settings is shared by all three roles, but its `settings.*` strings have
+  // always lived in the worker namespace.
+  const { t: tWorker } = useTranslation("worker");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = mapTabParam(searchParams.get("tab")) ?? "account";
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const initialAccountTab = mapAccountTab(searchParams.get("tab")) ?? "personal";
   const [accountTab, setAccountTab] = useState<AccountTab>(initialAccountTab);
+  const initialPrivacyTab = mapPrivacyTab(searchParams.get("tab")) ?? "security";
+  const [privacyTab, setPrivacyTab] = useState<PrivacyTab>(initialPrivacyTab);
 
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -529,18 +551,23 @@ export function Settings() {
     (item) => item.name.toLowerCase() === personalInfo.barangay.trim().toLowerCase(),
   );
 
-  const visibleMainTabs = mainTabConfig.filter(
-    (tab) => (hasEmployerAccess || tab.id !== "payments") && (!isAdminRole || tab.id !== "verification"),
-  );
+  const visibleMainTabs = mainTabConfig
+    .filter((id) => hasEmployerAccess || id !== "payments")
+    .map((id) => ({ id, label: tWorker(`settings.tabs.${id}`) }));
 
   const visibleAccountTabs = (isAdminRole || isEmployerRole
-    ? accountTabConfig.filter((tab) => tab.id === "personal")
+    ? accountTabConfig.filter((id) => id === "personal")
     : accountTabConfig
-  ).map((tab) =>
-    isEmployerRole && tab.id === "personal"
-      ? { ...tab, label: "Business Information" }
-      : tab
-  );
+  ).map((id) => ({
+    id,
+    label: tWorker(`settings.accountTabs.${isEmployerRole && id === "personal" ? "business" : id}`),
+  }));
+
+  // Admins have no identity verification to complete, so that pane goes away
+  // for them exactly as the old top-level tab used to.
+  const visiblePrivacyTabs = privacyTabConfig
+    .filter((id) => id !== "verification" || !isAdminRole)
+    .map((id) => ({ id, label: tWorker(`settings.privacyTabs.${id}`) }));
 
   useEffect(() => {
     if (!visibleMainTabs.some((tab) => tab.id === activeTab)) {
@@ -591,7 +618,37 @@ export function Settings() {
     }
   }, [activeTab, accountTab, searchParams, visibleAccountTabs, setSearchParams]);
 
+  useEffect(() => {
+    if (activeTab !== "privacy") return;
+    const tabParam = searchParams.get("tab");
+    const mappedPrivacyTab = mapPrivacyTab(tabParam);
+    const isVisible = (tab: PrivacyTab) => visiblePrivacyTabs.some((item) => item.id === tab);
+
+    if (mappedPrivacyTab) {
+      if (!isVisible(mappedPrivacyTab)) {
+        setPrivacyTab("security");
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set("tab", "security");
+        setSearchParams(nextParams, { replace: true });
+        return;
+      }
+      if (mappedPrivacyTab !== privacyTab) {
+        setPrivacyTab(mappedPrivacyTab);
+      }
+      return;
+    }
+    if (!isVisible(privacyTab) && privacyTab !== "security") {
+      setPrivacyTab("security");
+    }
+  }, [activeTab, privacyTab, searchParams, visiblePrivacyTabs, setSearchParams]);
+
   const handleAccountTabChange = (tab: AccountTab) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("tab", tab);
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const handlePrivacyTabChange = (tab: PrivacyTab) => {
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("tab", tab);
     setSearchParams(nextParams, { replace: true });
@@ -601,6 +658,8 @@ export function Settings() {
     const nextParams = new URLSearchParams(searchParams);
     if (tab === "account") {
       nextParams.set("tab", accountTab);
+    } else if (tab === "privacy") {
+      nextParams.set("tab", privacyTab);
     } else {
       nextParams.set("tab", tab);
     }
@@ -621,9 +680,9 @@ export function Settings() {
     }
   };
 
-  // Load sessions when privacy tab is active
+  // Load sessions when the Security pane is showing.
   useEffect(() => {
-    if (activeTab !== "privacy") return;
+    if (activeTab !== "privacy" || privacyTab !== "security") return;
     const loadSessions = async () => {
       setIsLoadingSessions(true);
       try {
@@ -655,11 +714,11 @@ export function Settings() {
       }
     };
     loadSessions();
-  }, [activeTab]);
+  }, [activeTab, privacyTab]);
 
-  // Load trusted devices when privacy tab is active
+  // Load trusted devices when the Security pane is showing.
   useEffect(() => {
-    if (activeTab !== "privacy") return;
+    if (activeTab !== "privacy" || privacyTab !== "security") return;
     const loadTrustedDevices = async () => {
       setIsLoadingTrustedDevices(true);
       try {
@@ -679,11 +738,12 @@ export function Settings() {
       }
     };
     loadTrustedDevices();
-  }, [activeTab]);
+  }, [activeTab, privacyTab]);
 
-  // Load verification status when the Account Verification tab is active.
+  // Load verification status when its own pane inside Security & Privacy is
+  // showing.
   useEffect(() => {
-    if (activeTab !== "verification" || isAdminRole) return;
+    if (activeTab !== "privacy" || privacyTab !== "verification" || isAdminRole) return;
     const loadVerification = async () => {
       setIsLoadingVerification(true);
       try {
@@ -696,7 +756,7 @@ export function Settings() {
       }
     };
     loadVerification();
-  }, [activeTab, isAdminRole]);
+  }, [activeTab, privacyTab, isAdminRole]);
 
   const handlePersonalInfoChange = (field: string, value: string) => {
     profileDraftDirtyRef.current = true;
@@ -1708,16 +1768,19 @@ export function Settings() {
       </div>
 
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <div className="bg-slate-50 px-4 pt-4 sm:px-6 sm:pt-5">
-          <div className="border-b border-slate-200 pb-4">
-            <SettingsTabList
-              ariaLabel="Settings sections"
-              idPrefix="settings-main"
-              options={visibleMainTabs}
-              value={activeTab}
-              onChange={handleMainTabChange}
-            />
-          </div>
+        {/* Underline tabs, matching the wallet's `WalletSectionPager` strip and
+            both Profile pages. No bottom padding on this wrapper: the variant's
+            own `-mb-px` + `pb-3` is what seats the active underline on the
+            border, and any `pb` here leaves it floating above the line. */}
+        <div className="border-b border-slate-200 px-4 pt-4 sm:px-6 sm:pt-5">
+          <SettingsTabList
+            ariaLabel={tWorker("settings.tabs.ariaMain")}
+            idPrefix="settings-main"
+            options={visibleMainTabs}
+            value={activeTab}
+            onChange={handleMainTabChange}
+            variant="underline"
+          />
         </div>
 
         {activeTab === "account" && (
@@ -1727,13 +1790,14 @@ export function Settings() {
             aria-labelledby="settings-main-tab-account"
             className="p-6"
           >
-            <div className="mb-6">
+            <div className="mb-6 border-b border-slate-200">
               <SettingsTabList
-                ariaLabel="Account settings sections"
+                ariaLabel={tWorker("settings.tabs.ariaAccount")}
                 idPrefix="settings-account"
                 options={visibleAccountTabs}
                 value={accountTab}
                 onChange={handleAccountTabChange}
+                variant="underline"
               />
             </div>
 
@@ -1752,7 +1816,7 @@ export function Settings() {
                   }}
                 >
                       <div>
-                        <h2 className="text-lg font-semibold text-slate-900">
+                        <h2 className="text-section font-semibold text-slate-900">
                           {isEmployerRole ? "Business Information" : "Personal Information"}
                         </h2>
                         <p className="text-body-sm text-slate-500">
@@ -2139,13 +2203,13 @@ export function Settings() {
                       className="space-y-6"
                     >
                       <div>
-                        <h2 className="text-lg font-semibold text-slate-900">Skills & Experience</h2>
+                        <h2 className="text-section font-semibold text-slate-900">Skills & Experience</h2>
                         <p className="text-body-sm text-slate-500">Add and manage your skills, work history, internships, and certificates.</p>
                       </div>
 
                       <div className="rounded-card border border-slate-200 bg-white p-6 space-y-5">
                         <div>
-                          <h3 className="text-base font-semibold text-slate-900">
+                          <h3 className="text-section font-semibold text-slate-900">
                             {editingExperienceId ? "Edit work experience" : "Add work experience"}
                           </h3>
                           <p className="mt-1 text-body-sm text-slate-500">Show employers the roles, client work, or self-employment that support your skills.</p>
@@ -2198,7 +2262,7 @@ export function Settings() {
 
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <h3 className="text-base font-semibold text-slate-900">Work history</h3>
+                          <h3 className="text-section font-semibold text-slate-900">Work history</h3>
                           <span className="text-caption text-slate-500">{workExperiences.length} {workExperiences.length === 1 ? "entry" : "entries"}</span>
                         </div>
                         {workExperiences.length ? workExperiences.map((item) => (
@@ -2261,7 +2325,7 @@ export function Settings() {
 
                       <div className="rounded-card border border-slate-200 bg-white p-6 space-y-5">
                         <div>
-                          <h3 className="text-base font-semibold text-slate-900">
+                          <h3 className="text-section font-semibold text-slate-900">
                             {editingInternshipId ? "Edit internship" : "Add internship"}
                           </h3>
                           <p className="mt-1 text-body-sm text-slate-500">Internships are shown separately from paid work experience on your profile.</p>
@@ -2314,7 +2378,7 @@ export function Settings() {
 
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <h3 className="text-base font-semibold text-slate-900">Internships</h3>
+                          <h3 className="text-section font-semibold text-slate-900">Internships</h3>
                           <span className="text-caption text-slate-500">{internships.length} {internships.length === 1 ? "entry" : "entries"}</span>
                         </div>
                         {internships.length ? internships.map((item) => (
@@ -2337,7 +2401,7 @@ export function Settings() {
 
                       <div className="rounded-card border border-slate-200 bg-white p-6 space-y-5">
                         <div>
-                          <h3 className="text-base font-semibold text-slate-900">
+                          <h3 className="text-section font-semibold text-slate-900">
                             {editingCertificateId ? "Edit certificate" : "Add certificate"}
                           </h3>
                           <p className="mt-1 text-body-sm text-slate-500">Add licenses or certifications employers can verify.</p>
@@ -2382,7 +2446,7 @@ export function Settings() {
 
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <h3 className="text-base font-semibold text-slate-900">Certificates</h3>
+                          <h3 className="text-section font-semibold text-slate-900">Certificates</h3>
                           <span className="text-caption text-slate-500">{certificates.length} {certificates.length === 1 ? "entry" : "entries"}</span>
                         </div>
                         {certificates.length ? certificates.map((item) => (
@@ -2407,7 +2471,7 @@ export function Settings() {
                       </div>
 
                       <div className="bg-brand/[0.08] border border-brand/20 rounded-card p-6">
-                        <h3 className="text-base font-semibold text-slate-900 mb-4">Add New Skill</h3>
+                        <h3 className="text-section font-semibold text-slate-900 mb-4">Add New Skill</h3>
                         <div className="space-y-4">
                           {/* Skill Selection Mode */}
                           <div>
@@ -2689,264 +2753,283 @@ export function Settings() {
                 </div>
           )}
 
-          {(activeTab === "privacy" || activeTab === "verification") && (
+          {activeTab === "privacy" && (
             <div
-              id={`settings-main-panel-${activeTab}`}
+              id="settings-main-panel-privacy"
               role="tabpanel"
-              aria-labelledby={`settings-main-tab-${activeTab}`}
-              className="space-y-6"
+              aria-labelledby="settings-main-tab-privacy"
+              className="p-6"
             >
-              {activeTab === "privacy" && (
-                <>
-              <Card>
-                <div className="mb-6">
-                  <h2 className="text-lg font-semibold text-slate-900">Change Password</h2>
-                  <p className="text-body-sm text-slate-500">
-                    Changing your password will revoke your other active sessions and keep this one signed in.
-                  </p>
-                </div>
+              <div className="mb-6 border-b border-slate-200">
+                <SettingsTabList
+                  ariaLabel={tWorker("settings.privacyTabs.aria")}
+                  idPrefix="settings-privacy"
+                  options={visiblePrivacyTabs}
+                  value={privacyTab}
+                  onChange={handlePrivacyTabChange}
+                  variant="underline"
+                />
+              </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="settings-current-password" className="text-body-sm text-slate-500">Current Password</label>
-                    <div className="relative">
-                      <input
-                        id="settings-current-password"
-                        type={showCurrentPassword ? "text" : "password"}
-                        autoComplete="current-password"
-                        value={securityData.currentPassword}
-                        onChange={(e) => setSecurityData({ ...securityData, currentPassword: e.target.value })}
-                        className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand"
-                      />
+              {privacyTab === "security" && (
+                <div
+                  id="settings-privacy-panel-security"
+                  role="tabpanel"
+                  aria-labelledby="settings-privacy-tab-security"
+                  className="space-y-6"
+                >
+                <Card>
+                  <div className="mb-6">
+                    <h2 className="text-section font-semibold text-slate-900">Change Password</h2>
+                    <p className="text-body-sm text-slate-500">
+                      Changing your password will revoke your other active sessions and keep this one signed in.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="settings-current-password" className="text-body-sm text-slate-500">Current Password</label>
+                      <div className="relative">
+                        <input
+                          id="settings-current-password"
+                          type={showCurrentPassword ? "text" : "password"}
+                          autoComplete="current-password"
+                          value={securityData.currentPassword}
+                          onChange={(e) => setSecurityData({ ...securityData, currentPassword: e.target.value })}
+                          className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                          aria-label={showCurrentPassword ? "Hide current password" : "Show current password"}
+                          aria-pressed={showCurrentPassword}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8]"
+                        >
+                          {showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="rounded-control border border-slate-200 bg-slate-50 p-3 text-caption text-slate-600">
+                      Request OTP first. You will need the OTP from your email before setting a new password.
+                    </div>
+
+                    <div>
                       <button
-                        type="button"
-                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                        aria-label={showCurrentPassword ? "Hide current password" : "Show current password"}
-                        aria-pressed={showCurrentPassword}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8]"
+                        onClick={handleRequestPasswordOtp}
+                        disabled={isOtpSending}
+                        className="px-5 py-2.5 bg-[#0F766E] text-white rounded-full text-body-sm font-semibold disabled:opacity-60"
                       >
-                        {showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        {isOtpSending ? "Sending OTP..." : passwordOtpRequested ? "Resend OTP" : "Send OTP"}
                       </button>
                     </div>
-                  </div>
 
-                  <div className="rounded-control border border-slate-200 bg-slate-50 p-3 text-caption text-slate-600">
-                    Request OTP first. You will need the OTP from your email before setting a new password.
-                  </div>
-
-                  <div>
-                    <button
-                      onClick={handleRequestPasswordOtp}
-                      disabled={isOtpSending}
-                      className="px-5 py-2.5 bg-[#0F766E] text-white rounded-full text-body-sm font-semibold disabled:opacity-60"
-                    >
-                      {isOtpSending ? "Sending OTP..." : passwordOtpRequested ? "Resend OTP" : "Send OTP"}
-                    </button>
-                  </div>
-
-                  <div>
-                    <label htmlFor="settings-password-otp" className="text-body-sm text-slate-500">OTP Code</label>
-                    <input
-                      id="settings-password-otp"
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      aria-label="Password change verification code"
-                      value={passwordOtp}
-                      onChange={(e) => setPasswordOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      placeholder="Enter 6-digit OTP"
-                      className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="settings-new-password" className="text-body-sm text-slate-500">New Password</label>
-                      <div className="relative">
-                        <input
-                          id="settings-new-password"
-                          type={showNewPassword ? "text" : "password"}
-                          autoComplete="new-password"
-                          value={securityData.newPassword}
-                          onChange={(e) => setSecurityData({ ...securityData, newPassword: e.target.value })}
-                          className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowNewPassword(!showNewPassword)}
-                          aria-label={showNewPassword ? "Hide new password" : "Show new password"}
-                          aria-pressed={showNewPassword}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8]"
-                        >
-                          {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                        </button>
-                      </div>
+                      <label htmlFor="settings-password-otp" className="text-body-sm text-slate-500">OTP Code</label>
+                      <input
+                        id="settings-password-otp"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        aria-label="Password change verification code"
+                        value={passwordOtp}
+                        onChange={(e) => setPasswordOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        placeholder="Enter 6-digit OTP"
+                        className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand"
+                      />
                     </div>
 
-                    <div>
-                      <label htmlFor="settings-confirm-password" className="text-body-sm text-slate-500">Confirm Password</label>
-                      <div className="relative">
-                        <input
-                          id="settings-confirm-password"
-                          type={showConfirmPassword ? "text" : "password"}
-                          autoComplete="new-password"
-                          value={securityData.confirmPassword}
-                          onChange={(e) => setSecurityData({ ...securityData, confirmPassword: e.target.value })}
-                          className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          aria-label={showConfirmPassword ? "Hide confirmed password" : "Show confirmed password"}
-                          aria-pressed={showConfirmPassword}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8]"
-                        >
-                          {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                        </button>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="settings-new-password" className="text-body-sm text-slate-500">New Password</label>
+                        <div className="relative">
+                          <input
+                            id="settings-new-password"
+                            type={showNewPassword ? "text" : "password"}
+                            autoComplete="new-password"
+                            value={securityData.newPassword}
+                            onChange={(e) => setSecurityData({ ...securityData, newPassword: e.target.value })}
+                            className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                            aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+                            aria-pressed={showNewPassword}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8]"
+                          >
+                            {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label htmlFor="settings-confirm-password" className="text-body-sm text-slate-500">Confirm Password</label>
+                        <div className="relative">
+                          <input
+                            id="settings-confirm-password"
+                            type={showConfirmPassword ? "text" : "password"}
+                            autoComplete="new-password"
+                            value={securityData.confirmPassword}
+                            onChange={(e) => setSecurityData({ ...securityData, confirmPassword: e.target.value })}
+                            className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            aria-label={showConfirmPassword ? "Hide confirmed password" : "Show confirmed password"}
+                            aria-pressed={showConfirmPassword}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8]"
+                          >
+                            {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-4 mt-6">
-                  <button
-                    onClick={handleDiscardPassword}
-                    className="px-6 py-2.5 border border-slate-200 text-slate-500 rounded-full text-body"
-                  >
-                    Discard
-                  </button>
-                  <button
-                    onClick={handleChangePassword}
-                    disabled={isPasswordSubmitting}
-                    className="px-6 py-2.5 bg-brand text-white rounded-full text-body font-semibold disabled:opacity-60"
-                  >
-                    {isPasswordSubmitting ? "Saving..." : "Save New Password"}
-                  </button>
-                </div>
-              </Card>
-
-              <MfaSettingsCard />
-
-              {hasEmployerAccess && <EmployerPrivacyCard initialValue={hideHiredCandidates} />}
-
-              <Card>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-base font-semibold text-slate-900">Active Sessions</h3>
-                  {sessions.length > 0 && (
+                  <div className="flex items-center gap-4 mt-6">
                     <button
-                      onClick={handleRevokeAllSessions}
-                      className="text-[#EF4444] hover:bg-[#FEE2E2] px-4 py-2 rounded-[8px] text-body-sm font-medium transition-colors"
+                      onClick={handleDiscardPassword}
+                      className="px-6 py-2.5 border border-slate-200 text-slate-500 rounded-full text-body"
                     >
-                      Sign out all sessions
+                      Discard
                     </button>
-                  )}
-                </div>
-                <p className="text-body-sm text-slate-500 mb-4">
-                  See your currently logged in sessions and remove unrecognized ones.
-                </p>
-                <div className="space-y-4">
-                  {isLoadingSessions ? (
-                    <p className="text-body-sm text-slate-500">Loading sessions...</p>
-                  ) : sessions.length === 0 ? (
-                    <p className="text-body-sm text-slate-500">No active sessions found.</p>
-                  ) : (
-                    sessions.map((session, index) => (
-                      <div key={session.id} className="border border-slate-200 rounded-xl p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <p className="text-body-sm font-semibold text-slate-900">Session {index + 1}</p>
-                          {!session.current && (
+                    <button
+                      onClick={handleChangePassword}
+                      disabled={isPasswordSubmitting}
+                      className="px-6 py-2.5 bg-brand text-white rounded-full text-body font-semibold disabled:opacity-60"
+                    >
+                      {isPasswordSubmitting ? "Saving..." : "Save New Password"}
+                    </button>
+                  </div>
+                </Card>
+
+                <MfaSettingsCard />
+
+                <Card>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-section font-semibold text-slate-900">Active Sessions</h3>
+                    {sessions.length > 0 && (
+                      <button
+                        onClick={handleRevokeAllSessions}
+                        className="text-[#EF4444] hover:bg-[#FEE2E2] px-4 py-2 rounded-[8px] text-body-sm font-medium transition-colors"
+                      >
+                        Sign out all sessions
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-body-sm text-slate-500 mb-4">
+                    See your currently logged in sessions and remove unrecognized ones.
+                  </p>
+                  <div className="space-y-4">
+                    {isLoadingSessions ? (
+                      <p className="text-body-sm text-slate-500">Loading sessions...</p>
+                    ) : sessions.length === 0 ? (
+                      <p className="text-body-sm text-slate-500">No active sessions found.</p>
+                    ) : (
+                      sessions.map((session, index) => (
+                        <div key={session.id} className="border border-slate-200 rounded-xl p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <p className="text-body-sm font-semibold text-slate-900">Session {index + 1}</p>
+                            {!session.current && (
+                              <button
+                                onClick={() => handleRevokeSession(session.id)}
+                                className="text-[#EF4444] hover:bg-[#FEE2E2] px-3 py-1 rounded-[8px] text-caption font-medium transition-colors"
+                              >
+                                Revoke
+                              </button>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-caption text-slate-500">Current Session?</p>
+                              <p className="text-body font-semibold text-slate-900">{session.current ? "Yes" : "No"}</p>
+                            </div>
+                            <div>
+                              <p className="text-caption text-slate-500">Device Details</p>
+                              <p className="text-body font-semibold text-slate-900">{session.device}</p>
+                            </div>
+                            <div>
+                              <p className="text-caption text-slate-500">IP Address</p>
+                              <p className="text-body font-semibold text-slate-900">{session.ip}</p>
+                            </div>
+                            <div>
+                              <p className="text-caption text-slate-500">Location</p>
+                              <p className="text-body font-semibold text-slate-900">{session.location}</p>
+                            </div>
+                            <div>
+                              <p className="text-caption text-slate-500">Last activity</p>
+                              <p className="text-body font-semibold text-slate-900">{session.lastActive}</p>
+                            </div>
+                            <div className="flex items-end">
+                              <span
+                                className={`px-3 py-1 rounded-full text-caption font-semibold ${
+                                  session.current ? "bg-[#DCFCE7] text-[#166534]" : "bg-slate-200 text-slate-600"
+                                }`}
+                              >
+                                {session.current ? "Current session" : "Signed in"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </Card>
+
+                <Card>
+                  <h3 className="text-section font-semibold text-slate-900 mb-2">Trusted Devices</h3>
+                  <p className="text-body-sm text-slate-500 mb-4">
+                    Devices you chose to trust skip the email code on sign-in for 30 days. Revoke any you don't recognize.
+                  </p>
+                  <div className="space-y-4">
+                    {isLoadingTrustedDevices ? (
+                      <p className="text-body-sm text-slate-500">Loading trusted devices...</p>
+                    ) : trustedDevices.length === 0 ? (
+                      <p className="text-body-sm text-slate-500">No trusted devices.</p>
+                    ) : (
+                      trustedDevices.map((device, index) => (
+                        <div key={device.id} className="border border-slate-200 rounded-xl p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <p className="text-body-sm font-semibold text-slate-900">Device {index + 1}</p>
                             <button
-                              onClick={() => handleRevokeSession(session.id)}
+                              onClick={() => handleRevokeTrustedDevice(device.id)}
                               className="text-[#EF4444] hover:bg-[#FEE2E2] px-3 py-1 rounded-[8px] text-caption font-medium transition-colors"
                             >
                               Revoke
                             </button>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-caption text-slate-500">Current Session?</p>
-                            <p className="text-body font-semibold text-slate-900">{session.current ? "Yes" : "No"}</p>
                           </div>
-                          <div>
-                            <p className="text-caption text-slate-500">Device Details</p>
-                            <p className="text-body font-semibold text-slate-900">{session.device}</p>
-                          </div>
-                          <div>
-                            <p className="text-caption text-slate-500">IP Address</p>
-                            <p className="text-body font-semibold text-slate-900">{session.ip}</p>
-                          </div>
-                          <div>
-                            <p className="text-caption text-slate-500">Location</p>
-                            <p className="text-body font-semibold text-slate-900">{session.location}</p>
-                          </div>
-                          <div>
-                            <p className="text-caption text-slate-500">Last activity</p>
-                            <p className="text-body font-semibold text-slate-900">{session.lastActive}</p>
-                          </div>
-                          <div className="flex items-end">
-                            <span
-                              className={`px-3 py-1 rounded-full text-caption font-semibold ${
-                                session.current ? "bg-[#DCFCE7] text-[#166534]" : "bg-slate-200 text-slate-600"
-                              }`}
-                            >
-                              {session.current ? "Current session" : "Signed in"}
-                            </span>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-caption text-slate-500">Device Details</p>
+                              <p className="text-body font-semibold text-slate-900">{device.device}</p>
+                            </div>
+                            <div>
+                              <p className="text-caption text-slate-500">Trusted since</p>
+                              <p className="text-body font-semibold text-slate-900">{device.createdAt}</p>
+                            </div>
+                            <div>
+                              <p className="text-caption text-slate-500">Last used</p>
+                              <p className="text-body font-semibold text-slate-900">{device.lastActive}</p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))
-                  )}
+                      ))
+                    )}
+                  </div>
+                </Card>
                 </div>
-              </Card>
-
-              <Card>
-                <h3 className="text-base font-semibold text-slate-900 mb-2">Trusted Devices</h3>
-                <p className="text-body-sm text-slate-500 mb-4">
-                  Devices you chose to trust skip the email code on sign-in for 30 days. Revoke any you don't recognize.
-                </p>
-                <div className="space-y-4">
-                  {isLoadingTrustedDevices ? (
-                    <p className="text-body-sm text-slate-500">Loading trusted devices...</p>
-                  ) : trustedDevices.length === 0 ? (
-                    <p className="text-body-sm text-slate-500">No trusted devices.</p>
-                  ) : (
-                    trustedDevices.map((device, index) => (
-                      <div key={device.id} className="border border-slate-200 rounded-xl p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <p className="text-body-sm font-semibold text-slate-900">Device {index + 1}</p>
-                          <button
-                            onClick={() => handleRevokeTrustedDevice(device.id)}
-                            className="text-[#EF4444] hover:bg-[#FEE2E2] px-3 py-1 rounded-[8px] text-caption font-medium transition-colors"
-                          >
-                            Revoke
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-caption text-slate-500">Device Details</p>
-                            <p className="text-body font-semibold text-slate-900">{device.device}</p>
-                          </div>
-                          <div>
-                            <p className="text-caption text-slate-500">Trusted since</p>
-                            <p className="text-body font-semibold text-slate-900">{device.createdAt}</p>
-                          </div>
-                          <div>
-                            <p className="text-caption text-slate-500">Last used</p>
-                            <p className="text-body font-semibold text-slate-900">{device.lastActive}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </Card>
-                </>
               )}
 
-              {activeTab === "verification" && !isAdminRole && (
+              {privacyTab === "verification" && !isAdminRole && (
+                <div
+                  id="settings-privacy-panel-verification"
+                  role="tabpanel"
+                  aria-labelledby="settings-privacy-tab-verification"
+                >
                 <Card>
-                  <h3 className="text-base font-semibold text-slate-900">Verification</h3>
+                  <h3 className="text-section font-semibold text-slate-900">Verification</h3>
 
                   <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -3198,9 +3281,21 @@ export function Settings() {
                     />
                   </Dialog>
                 </Card>
+                </div>
               )}
 
-              {activeTab === "privacy" && <DeleteAccountCard />}
+              {privacyTab === "privacy" && (
+                <div
+                  id="settings-privacy-panel-privacy"
+                  role="tabpanel"
+                  aria-labelledby="settings-privacy-tab-privacy"
+                  className="space-y-6"
+                >
+                  {hasEmployerAccess && <EmployerPrivacyCard initialValue={hideHiredCandidates} />}
+
+                  <DeleteAccountCard />
+                </div>
+              )}
             </div>
           )}
 
@@ -3209,6 +3304,7 @@ export function Settings() {
               id="settings-main-panel-payments"
               role="tabpanel"
               aria-labelledby="settings-main-tab-payments"
+              className="p-6"
             >
               <EmployerPaymentMethodsSection />
             </div>

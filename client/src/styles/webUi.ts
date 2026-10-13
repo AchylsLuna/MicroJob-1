@@ -49,8 +49,13 @@ export const webUi = {
     // drawer has to clear the cookie banner, which otherwise covered the last
     // few nav items).
     root: "dashboard-sidebar flex h-full flex-col overflow-hidden border-r border-slate-200 bg-white text-slate-800 shadow-[8px_0_28px_rgba(15,23,42,0.05)]",
+    // `text-body` is explicit on purpose: this string carried no size class at
+    // all, so top-level nav links inherited the browser default (16px) while
+    // the nested children under "Post a Job" were 14px and every other surface
+    // in the app sizes from the token scale. The sidebar was the one place
+    // reading at a different size than the rest of the UI.
     navButton:
-      "relative flex min-h-11 w-full items-center gap-3 rounded-xl px-4 py-3 text-left font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
+      "relative flex min-h-11 w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-body font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
     navButtonActive: "bg-brand/[0.08] text-brand shadow-sm ring-1 ring-brand/20",
     navButtonIdle: "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
     sectionDivider: "border-slate-200",

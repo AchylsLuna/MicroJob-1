@@ -373,7 +373,7 @@ export function JobsManagement() {
 
             {/* Title */}
             <div className="mt-4">
-              <h3 className="truncate text-base font-semibold text-slate-900" title={job.title || undefined}>
+              <h3 className="truncate text-section font-semibold text-slate-900" title={job.title || undefined}>
                 {job.title || t("jobsManagement.card.untitledJob")}
               </h3>
               <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">

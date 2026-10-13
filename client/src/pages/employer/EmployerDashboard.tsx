@@ -333,7 +333,7 @@ export function EmployerDashboard() {
       <section className="rounded-card border border-[#BFDBFE] bg-[#EFF6FF] p-5" aria-labelledby="employer-profile-completeness-title">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 id="employer-profile-completeness-title" className="text-[15px] font-semibold text-[#1E3A8A]">
+            <h2 id="employer-profile-completeness-title" className="text-section font-semibold text-[#1E3A8A]">
               {t("employerDashboard.profileCompleteness.title")}
             </h2>
             <p className="mt-1 text-body-sm text-[#475569]">
@@ -428,7 +428,7 @@ export function EmployerDashboard() {
         <section className="ui-card rounded-card border-slate-200 p-6 shadow-sm">
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-900">{t("employerDashboard.pipeline.title")}</h2>
+              <h2 className="text-section font-bold text-slate-900">{t("employerDashboard.pipeline.title")}</h2>
               <p className="mt-1 text-sm text-slate-500">{t("employerDashboard.pipeline.subtitle")}</p>
             </div>
             <span className="rounded-full bg-[#EAF2FC] px-3 py-1 text-xs font-semibold text-brand">
@@ -475,7 +475,7 @@ export function EmployerDashboard() {
         <section className="ui-card rounded-card border-slate-200 p-6 shadow-sm">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-900">{t("employerDashboard.recentActivity.title")}</h2>
+              <h2 className="text-section font-bold text-slate-900">{t("employerDashboard.recentActivity.title")}</h2>
               <p className="mt-1 text-sm text-slate-500">{t("employerDashboard.recentActivity.subtitle")}</p>
             </div>
             <button

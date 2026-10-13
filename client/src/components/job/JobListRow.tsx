@@ -72,7 +72,7 @@ export function JobListRow({ job, selected, saved, applicationStatus, onPress, o
               aria-label={t("findJobs.card.verifiedEmployer")}
               className="group/verification relative inline-flex shrink-0"
             >
-              <img src={verifiedBadgeUrl} alt="" aria-hidden="true" className="h-3.5 w-3.5" />
+              <img src={verifiedBadgeUrl} alt="" aria-hidden="true" className="h-4 w-4" />
               <span
                 role="tooltip"
                 className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-max max-w-56 -translate-x-1/2 rounded-md bg-slate-900 px-2.5 py-1.5 text-center text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover/verification:opacity-100"

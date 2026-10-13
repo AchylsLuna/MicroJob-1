@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Briefcase, ChevronRight, MapPin, Menu, Pause, Play, Search, X } from "lucide-react";
+import { ArrowRight, Briefcase, ChevronRight, MapPin, Menu, Pause, Play, Search, ShieldCheck, Target, UserRound, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from "motion/react";
 import { motionTokens } from "@/constants/motion";
@@ -152,6 +153,7 @@ function AnimatedCounter({
 }
 
 export function LandingPageBlue() {
+  const { t } = useTranslation("common");
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const appEntryPath = getPostAuthLandingPath(user);
@@ -1310,6 +1312,24 @@ export function LandingPageBlue() {
               </motion.button>
             </motion.div>
           ) : null}
+        </div>
+      </section>
+
+      <section aria-label={t("landing.benefits.ariaLabel")} className="bg-slate-50 px-6 py-12 sm:py-16">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
+          {[
+            { key: "profile", Icon: UserRound },
+            { key: "matches", Icon: Target },
+            { key: "verification", Icon: ShieldCheck },
+          ].map(({ key, Icon }) => (
+            <article key={key} className="rounded-card border border-slate-200 bg-white p-6 text-center sm:p-8">
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand">
+                <Icon className="h-6 w-6" aria-hidden="true" />
+              </span>
+              <h2 className="mt-5 text-lg font-bold text-slate-900">{t(`landing.benefits.${key}.title`)}</h2>
+              <p className="mt-3 text-body leading-6 text-slate-600">{t(`landing.benefits.${key}.description`)}</p>
+            </article>
+          ))}
         </div>
       </section>
 
