@@ -76,7 +76,7 @@ test.describe("admin overlays", () => {
     const mobileView = page.getByRole("button", { name: "View" }).first();
     if (await rowMenu.isVisible().catch(() => false)) {
       await rowMenu.click();
-      await page.getByRole("button", { name: "View Profile" }).click();
+      await page.getByRole("menuitem", { name: "View Profile", exact: true }).click();
     } else {
       await mobileView.click();
     }

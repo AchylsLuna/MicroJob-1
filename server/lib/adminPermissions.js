@@ -31,6 +31,7 @@ export const ROLE_PERMISSIONS = {
     'users.flags.view',
     'users.flag',
     'users.suspend',
+    'users.ban',
     'jobs.view',
     'jobs.manage',
     'analytics.view',

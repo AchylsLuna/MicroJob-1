@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { motion, useReducedMotion } from "motion/react";
 import { motionTokens, seconds } from "@/constants/motion";
-import { AlertTriangle, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
+import { AlertTriangle, MoreHorizontal, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { AdminGate } from "./admin/AdminGate";
@@ -9,13 +10,98 @@ import { useAdminData } from "../../hooks/useAdminData";
 import { toast } from "../../lib/toast";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../utils/routes";
-import { Button, ConfirmDialog, Dialog, Input, Select } from "../../components/ui";
+import { Button, ConfirmDialog, Dialog, Input, Select, Textarea } from "../../components/ui";
 import { LAYER_Z } from "../../components/ui/layers";
 import { useAuth } from "../../hooks/useAuth";
 import { useAdminPermissions } from "../../hooks/useAdminPermissions";
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../../lib/passwordPolicy";
 import { isValidEmail } from "../../lib/authValidation";
-import { requestAdminUserPasswordReset, unlockAdminUser, updateAdminUserSuspiciousFlag, updateAdminVerification } from "../../services/api";
+import { banAdminUser, requestAdminUserPasswordReset, unlockAdminUser, updateAdminUserSuspiciousFlag, updateAdminVerification } from "../../services/api";
+
+// A portal keeps the row menu outside the table's scrolling/clipping container.
+function RowActionsMenu({ anchor, onClose, children }: {
+  anchor: HTMLButtonElement;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const place = () => {
+      const trigger = anchor.getBoundingClientRect();
+      const menu = menuRef.current;
+      if (!menu) return;
+      const gap = 8;
+      const top = trigger.bottom + gap + menu.offsetHeight > window.innerHeight
+        ? trigger.top - menu.offsetHeight - gap
+        : trigger.bottom + gap;
+      setPosition({
+        top: Math.max(gap, Math.min(top, window.innerHeight - menu.offsetHeight - gap)),
+        left: Math.max(gap, Math.min(trigger.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - gap)),
+      });
+    };
+    place();
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [anchor]);
+
+  const isPlaced = position !== null;
+  useEffect(() => {
+    if (isPlaced) menuRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+  }, [anchor, isPlaced]);
+
+  useEffect(() => {
+    const dismiss = (event: PointerEvent) => {
+      if (event.target instanceof Node && !anchor.contains(event.target) && !menuRef.current?.contains(event.target)) onClose();
+    };
+    const dismissHiddenAnchor = () => {
+      if (anchor.getClientRects().length === 0) onClose();
+    };
+    document.addEventListener("pointerdown", dismiss);
+    window.addEventListener("resize", dismissHiddenAnchor);
+    return () => {
+      document.removeEventListener("pointerdown", dismiss);
+      window.removeEventListener("resize", dismissHiddenAnchor);
+    };
+  }, [anchor, onClose]);
+
+  return createPortal(
+    <div
+      ref={menuRef}
+      role="menu"
+      tabIndex={-1}
+      aria-label={anchor.getAttribute("aria-label") || undefined}
+      className={`fixed ${LAYER_Z.furniture} max-h-[calc(100dvh-16px)] w-56 max-w-[calc(100vw-16px)] overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 text-left shadow-lg`}
+      style={{ top: position?.top ?? 0, left: position?.left ?? 0, visibility: position ? "visible" : "hidden" }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          onClose();
+          anchor.focus();
+        } else if (event.key === "Tab") {
+          anchor.focus();
+          onClose();
+        } else if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+          event.preventDefault();
+          const items = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('button') || []);
+          const index = items.indexOf(document.activeElement as HTMLButtonElement);
+          const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1
+            : (index + (event.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+          items[next]?.focus();
+        }
+      }}
+    >
+      {children}
+    </div>,
+    document.body,
+  );
+}
 
 const toAdminAssetUrl = (value?: string) => {
   if (!value) return "";
@@ -77,6 +163,7 @@ function AdminUserManagementContent() {
     loadError,
     users,
     getStatusColor,
+    handleApproveUser,
     handleToggleUserStatus,
     handleEditUser,
     handleCreateUser,
@@ -89,6 +176,11 @@ function AdminUserManagementContent() {
   const [activeTab, setActiveTab] = useState<"users" | "admins" | "flagged">("users");
   const [roleFilter, setRoleFilter] = useState<"all" | "privileged" | "work" | "hire" | "both">("all");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState<{ userId: string; anchor: HTMLButtonElement } | null>(null);
+  const [banTarget, setBanTarget] = useState<{ userId: string; name: string } | null>(null);
+  const [banReason, setBanReason] = useState("");
+  const [banPending, setBanPending] = useState(false);
+  const [banError, setBanError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [formMode, setFormMode] = useState<"create" | "edit" | null>(null);
   const [formUserId, setFormUserId] = useState<string | null>(null);
@@ -191,6 +283,10 @@ function AdminUserManagementContent() {
   }, [searchTerm, roleFilter, activeTab]);
 
   useEffect(() => {
+    setOpenMenu(null);
+  }, [searchTerm, roleFilter, activeTab, currentPage]);
+
+  useEffect(() => {
     if (activeTab === "admins" && !canViewAdminTab) setActiveTab("users");
     if (activeTab === "flagged" && !canViewFlaggedTab) setActiveTab("users");
   }, [activeTab, canViewAdminTab, canViewFlaggedTab]);
@@ -214,6 +310,8 @@ function AdminUserManagementContent() {
   const canResetPasswords = can("users.resetPassword");
   const canUnlockUsers = can("users.unlock");
   const canMutateUser = (user: typeof users[number]) => canWriteUsers && canManageUser(user);
+  const canBanUser = (user: typeof users[number]) =>
+    can("users.ban") && canManageUser(user) && isMarketplaceUser(user) && user.status !== "banned" && user.status !== "deleted";
   const canSupportUser = (user: typeof users[number]) =>
     canManageUser(user) && ["work", "hire", "both"].includes(String(user.role || "")) && user.status !== "deleted";
 
@@ -326,6 +424,88 @@ function AdminUserManagementContent() {
     setFormErrors({});
     setFormUserId(null);
     setFormMode("create");
+  };
+
+  const openBanDialog = (user: typeof users[number]) => {
+    setBanReason("");
+    setBanError(null);
+    setBanTarget({ userId: user._id, name: getUserName(user) });
+  };
+
+  const submitBan = async () => {
+    if (!banTarget || banPending) return;
+    const target = users.find((user) => user._id === banTarget.userId);
+    if (!target || !canBanUser(target)) return;
+    const reason = banReason.trim();
+    if (!reason) {
+      setBanError(t("moderationQueue.enforceDialog.reasonRequired"));
+      return;
+    }
+    setBanPending(true);
+    setBanError(null);
+    try {
+      await banAdminUser(banTarget.userId, reason);
+      toast.success(t("moderationQueue.toast.banned", { name: banTarget.name }));
+      setBanTarget(null);
+      reload();
+    } catch (error: any) {
+      setBanError(error?.message || t("userManagement.toast.saveFailed"));
+    } finally {
+      setBanPending(false);
+    }
+  };
+
+  const renderRowActions = (user: typeof users[number]) => {
+    const items: Array<{ label: string; action: () => void; tone?: string }> = [
+      { label: t("userManagement.table.menu.viewProfile"), action: () => setSelectedUserId(user._id) },
+    ];
+    if (isMarketplaceUser(user)) items.push({ label: t("userManagement.table.menu.viewFullProfile"), action: () => openFullProfile(user) });
+    if (canMutateUser(user)) items.push({ label: t("userManagement.table.menu.editUser"), action: () => {
+      editMenuTriggerRef.current = openMenu?.anchor || null;
+      openEdit(user);
+    } });
+    items.push({ label: t("userManagement.table.menu.messageUser"), action: () => openMessageThread(user) });
+    if (canFlagUsers && isMarketplaceUser(user)) items.push({
+      label: t(user.suspiciousFlagged ? "userManagement.table.menu.clearFlag" : "userManagement.table.menu.flagSuspicious"),
+      action: () => openFlagDialog(user), tone: "text-amber-800 hover:bg-amber-50",
+    });
+    if (canResetPasswords && canSupportUser(user)) items.push({ label: t("userManagement.table.menu.resetPassword"), action: () => setSupportAction({ type: "password-reset", userId: user._id, name: getUserName(user) }) });
+    if (canUnlockUsers && canSupportUser(user) && user.loginLocked) items.push({ label: t("userManagement.table.menu.unlockAccount"), action: () => setSupportAction({ type: "unlock", userId: user._id, name: getUserName(user) }) });
+    if (user.status === "pending" && canMutateUser(user)) items.push({ label: t("userManagement.table.menu.approveUser"), action: () => void handleApproveUser(user) });
+    if (canMutateUser(user) && user.status !== "deleted") items.push({
+      label: t(user.status === "disabled" || user.status === "banned" ? "userManagement.table.menu.activateUser" : "userManagement.table.menu.suspendUser"),
+      action: () => void handleToggleUserStatus(user), tone: "text-red-700 hover:bg-red-50",
+    });
+    if (canBanUser(user)) items.push({ label: t("moderationQueue.actions.banned"), action: () => openBanDialog(user), tone: "text-red-700 hover:bg-red-50" });
+    if (canMutateUser(user)) items.push({ label: t("userManagement.table.menu.deleteUser"), action: () => {
+      setDeleteError(null);
+      setDeleteTargetId(user._id);
+    }, tone: "font-semibold text-red-700 hover:bg-red-50" });
+
+    return (
+      <div className="inline-flex">
+        <button
+          type="button"
+          aria-label={t("userManagement.table.openActionsAriaLabel")}
+          aria-haspopup="menu"
+          aria-expanded={openMenu?.userId === user._id}
+          className="flex h-11 w-11 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
+          onClick={(event) => setOpenMenu(openMenu?.userId === user._id ? null : { userId: user._id, anchor: event.currentTarget })}
+        >
+          <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
+        </button>
+        {openMenu?.userId === user._id && (
+          <RowActionsMenu anchor={openMenu.anchor} onClose={() => setOpenMenu(null)}>
+            {items.map((item) => (
+              <button key={item.label} type="button" role="menuitem" className={`min-h-11 w-full rounded-lg px-3 py-2 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 ${item.tone || "text-slate-900 hover:bg-slate-50"}`}
+                onClick={() => { item.action(); setOpenMenu(null); }}>
+                {item.label}
+              </button>
+            ))}
+          </RowActionsMenu>
+        )}
+      </div>
+    );
   };
 
   const submitUserForm = async () => {
@@ -540,6 +720,8 @@ function AdminUserManagementContent() {
                   {canUnlockUsers && canSupportUser(user) && user.loginLocked ? (
                     <Button onClick={() => setSupportAction({ type: "unlock", userId: user._id, name: getUserName(user) })}>{t("userManagement.table.menu.unlockAccount")}</Button>
                   ) : null}
+                  {canMutateUser(user) && user.status !== "deleted" ? <Button className="!bg-white !text-red-700 ring-1 ring-red-200 hover:!bg-red-50" onClick={() => void handleToggleUserStatus(user)}>{t(user.status === "disabled" || user.status === "banned" ? "userManagement.table.menu.activateUser" : "userManagement.table.menu.suspendUser")}</Button> : null}
+                  {canBanUser(user) ? <Button className="!bg-red-700 hover:!bg-red-800" onClick={() => openBanDialog(user)}>{t("moderationQueue.actions.banned")}</Button> : null}
                   {canMutateUser(user) && <Button className="col-span-2 !bg-red-700 hover:!bg-red-800" onClick={() => { setDeleteError(null); setDeleteTargetId(user._id); }}>{t("userManagement.mobileList.delete")}</Button>}
                 </div>
               </motion.article>
@@ -555,12 +737,13 @@ function AdminUserManagementContent() {
                   <th className="py-3 pr-4 font-medium">{t("userManagement.table.headers.status")}</th>
                   {activeTab === "admins" && <th className="py-3 pr-4 font-medium">{t("staffOtp.label")}</th>}
                   <th className="py-3 pr-4 font-medium">{t("userManagement.table.headers.joined")}</th>
+                  <th className="py-3 text-right font-medium">{t("userManagement.table.headers.actions")}</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading && (
                   <tr>
-                    <td colSpan={activeTab === "admins" ? 5 : 4} className="py-6 text-center text-[#9CA3AF]">
+                    <td colSpan={activeTab === "admins" ? 6 : 5} className="py-6 text-center text-[#9CA3AF]">
                       {t("userManagement.table.loading")}
                     </td>
                   </tr>
@@ -568,7 +751,7 @@ function AdminUserManagementContent() {
 
                 {!isLoading && filteredUsers.length === 0 && (
                   <tr>
-                    <td colSpan={activeTab === "admins" ? 5 : 4} className="py-6 text-center text-[#9CA3AF]">
+                    <td colSpan={activeTab === "admins" ? 6 : 5} className="py-6 text-center text-[#9CA3AF]">
                       {t("userManagement.table.empty")}
                     </td>
                   </tr>
@@ -612,6 +795,7 @@ function AdminUserManagementContent() {
                       </td>
                       {activeTab === "admins" && <td className="py-3 pr-4"><StaffOtpTag enabled={Boolean(user.otpEnabled)} /></td>}
                       <td className="py-3 pr-4 text-[#6B7280]">{formatJoinedDate(user._id)}</td>
+                      <td className="py-3 text-right">{renderRowActions(user)}</td>
                     </motion.tr>
                   ))}
               </tbody>
@@ -831,6 +1015,21 @@ function AdminUserManagementContent() {
           </div>
         </div>
       )}
+
+      <Dialog
+        open={Boolean(banTarget)}
+        closeDisabled={banPending}
+        title={t("moderationQueue.enforceDialog.titleBan")}
+        description={banTarget ? t("moderationQueue.enforceDialog.description", { name: banTarget.name }) : ""}
+        onClose={() => { if (!banPending) setBanTarget(null); }}
+      >
+        <Textarea label={t("moderationQueue.enforceDialog.reasonLabel")} value={banReason} maxLength={2000} error={banError || undefined}
+          onChange={(event) => { setBanReason(event.target.value); setBanError(null); }} />
+        <div className="mt-6 flex justify-end gap-3">
+          <Button disabled={banPending} onClick={() => setBanTarget(null)} className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50">{t("moderationQueue.enforceDialog.cancel")}</Button>
+          <Button disabled={banPending || !banReason.trim()} onClick={() => void submitBan()} className="!bg-red-700 hover:!bg-red-800">{t("moderationQueue.actions.banned")}</Button>
+        </div>
+      </Dialog>
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}

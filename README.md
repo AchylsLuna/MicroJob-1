@@ -97,6 +97,9 @@ Staff primary-email sign-in, secondary-email OTP, setup warnings, Admins OTP tag
 and password-change OTP routing are
 documented in [Staff secondary email](docs/staff-secondary-email.md).
 
+The User Management three-dot actions, role permissions, and suspension/ban
+behavior are documented in [User Management actions](docs/admin-user-actions.md).
+
 Run `npm run verify` for static checks, server tests, and the production web
 build. Run `npm run verify:full` to include Playwright. From `Mobile/`, run
 `npx expo-doctor` after native dependency changes.

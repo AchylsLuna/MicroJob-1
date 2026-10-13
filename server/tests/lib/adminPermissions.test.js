@@ -29,6 +29,17 @@ test("a missing or non-staff role holds nothing", () => {
   assert.equal(hasPermission(undefined, "users.view"), false);
 });
 
+test("only administrators and moderators may suspend or ban marketplace users", () => {
+  for (const role of ["superadmin", "admin_team", "moderator"]) {
+    assert.equal(hasPermission(role, "users.suspend"), true, role);
+    assert.equal(hasPermission(role, "users.ban"), true, role);
+  }
+  for (const role of ["support_staff", "finance_team", "analytics_team"]) {
+    assert.equal(hasPermission(role, "users.suspend"), false, role);
+    assert.equal(hasPermission(role, "users.ban"), false, role);
+  }
+});
+
 test("role names are normalized across spellings", () => {
   assert.equal(normalizeStaffRole("Finance Team"), "finance_team");
   assert.equal(normalizeStaffRole("finance-team"), "finance_team");

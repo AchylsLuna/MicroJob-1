@@ -92,6 +92,7 @@ export const ROLE_PERMISSIONS: Record<AdminStaffRole, readonly AdminPermission[]
     "users.flags.view",
     "users.flag",
     "users.suspend",
+    "users.ban",
     "jobs.view",
     "jobs.manage",
     "analytics.view",
