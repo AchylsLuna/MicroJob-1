@@ -673,7 +673,7 @@ export function FindJobs() {
               value={draftLocation}
               onChange={(event) => setDraftLocation(event.target.value)}
               onFocus={loadLocationOptions}
-              placeholder={t("findJobs.hero.nationwide")}
+              placeholder={t("findJobs.hero.locationPlaceholder")}
               list="job-search-locations"
               className="h-full min-w-0 flex-1 rounded-xl bg-transparent text-base outline-none placeholder:text-slate-500"
             />

@@ -70,6 +70,10 @@ export function DashboardLayout() {
   }, [location.pathname]);
 
   useEffect(() => {
+    if (isDesktop) setIsMobileSidebarOpen(false);
+  }, [isDesktop]);
+
+  useEffect(() => {
     if (!isMobileSidebarOpen) return;
     // Lock the element that actually scrolls. `document.body` does not scroll
     // inside this shell -- it is `h-[100dvh] overflow-hidden` and scrolling
@@ -92,6 +96,7 @@ export function DashboardLayout() {
       (closeButton || focusableElements()[0])?.focus();
     });
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
       if (event.key === "Escape") {
         event.preventDefault();
         setIsMobileSidebarOpen(false);
@@ -131,7 +136,7 @@ export function DashboardLayout() {
         }`}
       >
         <div className="h-full w-[304px]">
-          <Sidebar onToggleCollapsed={toggleDesktopSidebar} toggleButtonRef={desktopSidebarButtonRef} />
+          <Sidebar isActive={isDesktop && !isDesktopSidebarCollapsed} onToggleCollapsed={toggleDesktopSidebar} toggleButtonRef={desktopSidebarButtonRef} />
         </div>
       </div>
       {isMobileSidebarOpen && (
@@ -150,7 +155,7 @@ export function DashboardLayout() {
             onClick={() => setIsMobileSidebarOpen(false)}
           />
           <div ref={mobileNavigationRef} className="relative h-full w-[min(20rem,88vw)]">
-            <Sidebar mobile onClose={() => setIsMobileSidebarOpen(false)} />
+            <Sidebar mobile isActive={!isDesktop && isMobileSidebarOpen} onClose={() => setIsMobileSidebarOpen(false)} />
           </div>
         </div>
       )}

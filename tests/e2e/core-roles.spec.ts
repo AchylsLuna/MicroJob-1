@@ -82,7 +82,7 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/worker/find-jobs");
     await expect(page.getByRole("heading", { name: "Job search", exact: true })).toBeVisible();
-    await expect(page.getByRole("combobox", { name: "Job search location" })).toHaveAttribute("placeholder", "Nationwide");
+    await expect(page.getByRole("combobox", { name: "Job search location" })).toHaveAttribute("placeholder", "Location");
     await expect(page.getByText("Philippines", { exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await expect(page.locator("header")).toHaveCount(0);
@@ -181,8 +181,9 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Open account menu" })).toBeFocused();
   await page.setViewportSize({ width: 375, height: 900 });
-  await page.getByRole("button", { name: "Open account menu" }).click();
-  await page.getByRole("button", { name: /Switch to Employer/i }).click();
+  await page.getByRole("button", { name: "Open navigation menu", exact: true }).click();
+  await page.getByRole("dialog", { name: "Navigation menu" }).getByRole("button", { name: "Open account menu" }).click();
+  await page.getByRole("menuitem", { name: /Switch to Employer/i }).click();
   await page.waitForURL(/\/employer\//);
   await page.goto("/settings?tab=personal");
   await expect(page).toHaveURL(/\/employer\/settings\?tab=personal/);
@@ -421,7 +422,7 @@ test("notification menu loads unread data and marks all as read", async ({ page 
     await route.continue();
   });
 
-  await page.goto("/worker/find-jobs");
+  await page.goto("/worker/saved-jobs");
   const notificationButton = page.locator('button[aria-label^="Notifications"]');
   await expect(notificationButton).toHaveAttribute("aria-label", /1 unread/);
   await notificationButton.click();

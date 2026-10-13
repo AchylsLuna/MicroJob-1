@@ -90,10 +90,8 @@ test.describe("responsive audit", () => {
       await auditScreen(page, `${testInfo.project.name} ${route}`);
     }
 
-    // Find Jobs is a "home context" route, so the header is 80px rather than
-    // 64px here -- the case where the dropdowns' old hardcoded 72px offset put
-    // them on top of the header instead of below it.
-    await goto(page, "/worker/find-jobs");
+    // Saved Jobs renders the navbar; Find Jobs has its own search band.
+    await goto(page, "/worker/saved-jobs");
     await settle(page);
 
     const header = page.locator("header").first();
@@ -109,10 +107,7 @@ test.describe("responsive audit", () => {
     const viewport = page.viewportSize();
     const isSheetMode = (viewport?.width ?? 0) < 640;
 
-    // Scoped to the header. Unscoped, `.first()` matches in DOM order and the
-    // desktop sidebar -- which renders before the header and has its own
-    // "Notifications" and account entries -- shadowed these, so the click
-    // navigated instead of opening the popover.
+    // The notification popup still belongs to the navbar.
     const headerScope = page.locator("header").first();
 
     // --- Notifications popover ---
@@ -146,30 +141,32 @@ test.describe("responsive audit", () => {
       await page.keyboard.press("Escape");
     }
 
-    // --- Account menu ---
-    const account = headerScope.getByRole("button", { name: /account menu/i }).first();
-    if (await account.isVisible()) {
-      await account.click();
-      const menu = page.getByRole("menu", { name: /account/i }).first();
-      await expect(menu).toBeVisible();
-      const menuBox = await menu.boundingBox();
-      if (isSheetMode) {
-        expect(
-          menuBox!.y,
-          `${label}: account menu starts above the header bottom`,
-        ).toBeGreaterThanOrEqual(headerBox!.y + headerBox!.height - 1);
-      }
-      await expectInteractiveElementsReachable(page, `${label} account menu`, '[role="menu"]');
-      await page.keyboard.press("Escape");
-    }
-
-    // --- Mobile navigation drawer ---
+    // Open the mobile drawer before reaching the sidebar account card.
     const hamburger = headerScope.getByRole("button", { name: /navigation menu/i }).first();
-    if (await hamburger.isVisible()) {
+    const isMobile = (viewport?.width ?? 0) < 1024;
+    if (isMobile) {
       await hamburger.click();
-      const drawer = page.getByRole("dialog", { name: /navigation/i }).first();
-      await expect(drawer).toBeVisible();
+      await expect(page.getByRole("dialog", { name: "Navigation menu", exact: true })).toBeVisible();
       await expectInteractiveElementsReachable(page, `${label} nav drawer`, '[role="dialog"]');
+    }
+    const account = page.getByRole("complementary", { name: "Primary navigation" })
+      .getByRole("button", { name: "Open account menu", exact: true });
+    await account.click();
+    const menu = page.getByRole("menu", { name: "Account", exact: true });
+    await expect(menu).toBeVisible();
+    const menuBox = (await menu.boundingBox())!;
+    const accountBox = (await account.boundingBox())!;
+    expect(Math.abs(menuBox.x - accountBox.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(menuBox.width - accountBox.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(accountBox.y - menuBox.y - menuBox.height - 8)).toBeLessThanOrEqual(1);
+    expect(menuBox.y).toBeGreaterThanOrEqual(0);
+    await expectInteractiveElementsReachable(page, `${label} account menu`, '[role="menu"]');
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+    await expect(account).toBeFocused();
+    if (isMobile) {
+      const drawer = page.getByRole("dialog", { name: "Navigation menu", exact: true });
+      await expect(drawer).toBeVisible();
       await page.keyboard.press("Escape");
       await expect(drawer).toBeHidden();
     }

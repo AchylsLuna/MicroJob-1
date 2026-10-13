@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, type ReactNode, type Ref } from "react";
-import { ArrowRight, Bell, ChevronDown, ChevronRight, LogOut, MapPin, Menu, Search, Star, UserRound } from "lucide-react";
+import { ArrowRight, Bell, MapPin, Menu, Search } from "lucide-react";
 import { useReducedMotion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { LAYER_Z } from "./ui/layers";
@@ -11,17 +11,11 @@ import { mapNotificationRecord, type FeedNotification } from "../utils/notificat
 import { useNotifications } from "../contexts/NotificationContext";
 import { ROUTES, matchesAnyPath, matchesPath, startsWithPath } from "../utils/routes";
 import { webUi } from "../styles/webUi";
-import { toAbsoluteAssetUrl } from "../lib/assetUrl";
 import { MicroJobsLogo } from "./MicroJobsLogo";
-import { Avatar } from "./ui/Avatar";
 // Neither worker navigation list is imported here any more. The header's
 // duplicate worker nav went first, and the "More" dropdown that outlived it
 // followed for the same reason -- every destination it offered is a row in the
 // sidebar. The sidebar owns both lists and imports them directly.
-
-/** Every icon + label row in the account menu renders from this one string. */
-const accountMenuItemClass =
-  "flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-body-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand";
 
 interface NavBarProps {
   isNavigationOpen?: boolean;
@@ -37,30 +31,17 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, showDesktop
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { logout, user, switchAccountType } = useAuth();
+  const { user } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
   const prefersReducedMotion = useReducedMotion();
-  // Never slide the bar away while one of its own menus is open — the popovers
-  // aren't re-anchored to the header's transform, so hiding mid-interaction
-  // would visually detach them from their trigger.
-  const isNavBarHidden = isHidden && !showNotifications && !showUserMenu;
+  // Never slide the bar away while the notifications menu is open — the popover
+  // isn't re-anchored to the header's transform, so hiding mid-interaction
+  // would visually detach it from its trigger.
+  const isNavBarHidden = isHidden && !showNotifications;
   const notificationState = useNotifications();
   const refreshNotifications = notificationState.refresh;
   const [appliedJobsCount, setAppliedJobsCount] = useState<number>(0);
   
-  const rawAccountOptions = user?.accountOptions;
-  const accountOptions: Array<"worker" | "employer"> = Array.isArray(rawAccountOptions)
-    ? (rawAccountOptions as Array<"worker" | "employer">)
-    : [];
-  const hasBothOptions =
-    accountOptions.includes("worker") && accountOptions.includes("employer");
-  const isBothRole =
-    !!user &&
-    user.role !== "admin" &&
-    (user.role === "both" || (user as any)?.accountPreference === "both" || hasBothOptions);
-  const canSwitchAccount = isBothRole;
   const normalizedRole = String(user?.role || "").toLowerCase();
   const isEmployerView =
     user?.accountType === "employer" ||
@@ -76,9 +57,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, showDesktop
 
   const headerRef = useRef<HTMLElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
-  const userMenuRef = useRef<HTMLDivElement>(null);
   const notificationButtonRef = useRef<HTMLButtonElement>(null);
-  const accountButtonRef = useRef<HTMLButtonElement>(null);
 
   const notifications = useMemo(() => notificationState.notifications
     .map((item: any) => mapNotificationRecord(item, notificationAudience, "relative"))
@@ -87,15 +66,6 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, showDesktop
   const unreadCount = notificationState.unreadCount;
   const path = location.pathname;
   const isWorkerView = notificationAudience === "worker";
-  const isAdminView = notificationAudience === "admin";
-  // Admins have neither a profile page nor a public reviews page.
-  const canSeePublicProfile = Boolean(user?.id) && !isAdminView;
-  // Avatar URLs stay on the app's existing `/uploads` route. That route reads
-  // Azure first and falls back to MongoDB, so the navbar gets the current image
-  // without exposing the storage provider to the client.
-  const avatarUrl = toAbsoluteAssetUrl(user?.avatarUrl);
-  const shouldShowAvatar = Boolean(avatarUrl && avatarUrl !== failedAvatarUrl);
-
   const isPath = (...targets: string[]) => matchesAnyPath(path, targets);
   const isExactPath = (...targets: string[]) => targets.some((target) => matchesPath(path, target));
   const isAppliedJobsPage = isPath(
@@ -440,8 +410,8 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, showDesktop
     }
   };
 
-  // Published as a CSS variable so the dropdowns below can size and place
-  // themselves against the header's real height instead of a magic number --
+  // Published as a CSS variable so the notifications popover can size and place
+  // itself against the header's real height instead of a magic number --
   // it is 4rem normally but 5rem on "home context" pages, and a hardcoded
   // offset got that wrong on exactly the two most-visited screens. Mirrors the
   // same ResizeObserver -> CSS variable pattern ResponsiveBottomNavigation uses.
@@ -461,20 +431,16 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, showDesktop
   }, []);
 
   useEffect(() => {
-    if (!showNotifications && !showUserMenu) return;
+    if (!showNotifications) return;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        const returnTarget = showNotifications
-          ? notificationButtonRef.current
-          : accountButtonRef.current;
         setShowNotifications(false);
-        setShowUserMenu(false);
-        window.requestAnimationFrame(() => returnTarget?.focus());
+        window.requestAnimationFrame(() => notificationButtonRef.current?.focus());
       }
     };
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [showNotifications, showUserMenu]);
+  }, [showNotifications]);
 
   useEffect(() => {
     if (showNotifications) {
@@ -486,9 +452,6 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, showDesktop
     function handleClickOutside(event: MouseEvent) {
       if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
         setShowNotifications(false);
-      }
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
-        setShowUserMenu(false);
       }
     }
 
@@ -513,27 +476,6 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, showDesktop
     }
   };
 
-  const handleSignOut = () => {
-    logout();
-    setShowUserMenu(false);
-    setShowNotifications(false);
-    navigate(ROUTES.home);
-  };
-
-  const handleSwitchTo = (nextType: "worker" | "employer") => {
-    if (!user || user.accountType === nextType) {
-      return;
-    }
-
-    switchAccountType(nextType);
-    setShowUserMenu(false);
-
-    const targetRoute = nextType === "employer" ? ROUTES.employer.dashboard : ROUTES.worker.findJobs;
-    navigate(targetRoute);
-  };
-
-  const displayName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || t("navbar.defaultUserName") : t("navbar.defaultUserName");
-  const accountLabel = user?.role === "admin" ? t("navbar.roleAdmin") : user?.accountType === "employer" ? t("navbar.roleEmployer") : t("navbar.roleWorker");
   return (
     <header
       ref={headerRef}
@@ -637,7 +579,6 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, showDesktop
               type="button"
               onClick={() => {
                 setShowNotifications(!showNotifications);
-                setShowUserMenu(false);
               }}
               className={`${webUi.navbar.iconButton} border-slate-200 bg-white shadow-sm`}
               title={t("navbar.notifications")}
@@ -721,126 +662,6 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, showDesktop
                       <p className="text-body text-[#6B7280]">{t("navbar.noNotifications")}</p>
                     </div>
                   )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="relative" ref={userMenuRef}>
-            <button
-              ref={accountButtonRef}
-              type="button"
-              onClick={() => {
-                setShowUserMenu(!showUserMenu);
-                setShowNotifications(false);
-              }}
-              className="flex min-h-11 items-center gap-2 rounded-xl border border-transparent px-1.5 text-left transition hover:border-slate-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:pr-2"
-              aria-label={t("navbar.openAccountMenu")}
-              aria-expanded={showUserMenu}
-              aria-haspopup="menu"
-            >
-              {shouldShowAvatar ? (
-                <img
-                  src={avatarUrl!}
-                  alt={displayName}
-                  className="h-9 w-9 shrink-0 rounded-xl object-cover"
-                  onError={() => setFailedAvatarUrl(avatarUrl)}
-                />
-              ) : (
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-100" aria-hidden="true">
-                  <span className="text-sm font-bold text-brand">
-                    {user?.firstName?.[0] ?? "U"}
-                    {user?.lastName?.[0] ?? "S"}
-                  </span>
-                </div>
-              )}
-              <span className="hidden max-w-32 min-w-0 lg:block">
-                <span className="block truncate text-sm font-bold text-slate-900">{displayName}</span>
-                <span className="block text-xs text-slate-600">{accountLabel}</span>
-              </span>
-              <ChevronDown className={`hidden h-4 w-4 text-slate-400 transition-transform lg:block ${showUserMenu ? "rotate-180" : ""}`} aria-hidden="true" />
-            </button>
-
-            {showUserMenu && (
-              <div role="menu" aria-label={t("navbar.accountMenuAria")} className={`fixed left-4 right-4 top-full mt-2 ${LAYER_Z.furniture} max-h-[calc(100dvh-var(--navbar-height,4rem)-var(--mobile-bottom-nav-height,0px)-var(--cookie-banner-height,0px)-1.5rem)] overflow-y-auto p-2 sm:absolute sm:left-auto sm:right-0 sm:w-[300px] ${webUi.navbar.popover}`}>
-                {/* Identity row doubles as the link to your own profile, so the
-                    menu opens on "this is you" rather than on a list of
-                    actions. Non-admins only: admins have no profile page. */}
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    navigate(isWorkerView ? ROUTES.worker.profile : ROUTES.employer.profile);
-                    setShowUserMenu(false);
-                  }}
-                  disabled={isAdminView}
-                  className="flex min-h-11 w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand disabled:cursor-default disabled:hover:bg-transparent"
-                >
-                  <Avatar name={displayName} userId={user?.id} avatarUrl={user?.avatarUrl} size={40} className="shrink-0" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-body font-bold text-slate-950">{displayName}</span>
-                    <span className="block truncate text-caption text-slate-500">{accountLabel}</span>
-                  </span>
-                  {!isAdminView && (
-                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
-                  )}
-                </button>
-
-                {canSwitchAccount && (
-                  <div className="mt-2 border-t border-slate-200 pt-2">
-                    <button
-                      onClick={() => handleSwitchTo(user?.accountType === "worker" ? "employer" : "worker")}
-                      className="min-h-11 w-full rounded-xl bg-brand px-4 text-body-sm font-bold text-white transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-                    >
-                      {t("navbar.switchTo", { role: user?.accountType === "worker" ? t("navbar.roleEmployer") : t("navbar.roleWorker") })}
-                    </button>
-                  </div>
-                )}
-
-                {(isWorkerView || canSeePublicProfile) && (
-                  <div className="mt-2 border-t border-slate-200 pt-2">
-                    {isWorkerView && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          navigate(ROUTES.worker.profile);
-                          setShowUserMenu(false);
-                        }}
-                        className={accountMenuItemClass}
-                      >
-                        <UserRound className="h-[18px] w-[18px] shrink-0 text-slate-400" aria-hidden="true" />
-                        {t("navbar.viewProfile")}
-                      </button>
-                    )}
-
-                    {canSeePublicProfile && user ? (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          navigate(`${ROUTES.publicProfile(user.id)}?viewAs=${isWorkerView ? "worker" : "employer"}`);
-                          setShowUserMenu(false);
-                        }}
-                        className={accountMenuItemClass}
-                      >
-                        <Star className="h-[18px] w-[18px] shrink-0 text-slate-400" aria-hidden="true" />
-                        {t("navbar.ratingsAndReviews")}
-                      </button>
-                    ) : null}
-                  </div>
-                )}
-
-                <div className="mt-2 border-t border-slate-200 pt-2">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={handleSignOut}
-                    className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-body-sm font-semibold text-red-700 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-700"
-                  >
-                    <LogOut className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
-                    {t("navbar.signOut")}
-                  </button>
                 </div>
               </div>
             )}

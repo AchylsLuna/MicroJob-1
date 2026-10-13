@@ -57,7 +57,7 @@ for (const width of [280, 375, 768, 1440]) {
     await page.goto("/worker/find-jobs");
     const location = page.getByRole("combobox", { name: "Job search location" });
     await expect(location).toHaveValue("");
-    await expect(location).toHaveAttribute("placeholder", "Nationwide");
+    await expect(location).toHaveAttribute("placeholder", "Location");
     await expect(page.getByRole("button", { name: /^View Dagupan delivery/ })).toBeVisible();
 
     await location.fill("Cebu City");
@@ -71,7 +71,7 @@ for (const width of [280, 375, 768, 1440]) {
 
     await page.getByRole("button", { name: "Clear location for nationwide search", exact: true }).click();
     await expect(location).toHaveValue("");
-    await expect(location).toHaveAttribute("placeholder", "Nationwide");
+    await expect(location).toHaveAttribute("placeholder", "Location");
     await expect(page.getByRole("button", { name: /^View Dagupan delivery/ })).toBeHidden();
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(page.getByRole("button", { name: /^View Dagupan delivery/ })).toBeVisible();
@@ -243,7 +243,7 @@ test("Filipino search labels fit on a narrow phone", async ({ page }) => {
   });
   const band = page.locator('section[aria-labelledby="job-search-heading"]');
   await expect(band.getByRole("button", { name: "Hanapin", exact: true })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Lokasyon para sa paghahanap ng trabaho" })).toHaveAttribute("placeholder", "Buong bansa");
+  await expect(page.getByRole("combobox", { name: "Lokasyon para sa paghahanap ng trabaho" })).toHaveAttribute("placeholder", "Lokasyon");
   const sortBox = await page.getByRole("combobox", { name: "Ayusin ang mga trabaho" }).boundingBox();
   expect(sortBox!.x + sortBox!.width).toBeLessThanOrEqual(280);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

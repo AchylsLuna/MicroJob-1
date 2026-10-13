@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Avatar } from "./ui/Avatar";
+import { SidebarAccountMenu } from "./SidebarAccountMenu";
 import {
   ArchiveRestore,
   BadgeDollarSign,
@@ -44,6 +44,7 @@ interface SidebarProps {
   userName?: string;
   userRole?: "user" | "employer" | "admin" | "doctor";
   mobile?: boolean;
+  isActive?: boolean;
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
   toggleButtonRef?: React.Ref<HTMLButtonElement>;
@@ -104,6 +105,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   userName = "User",
   userRole = "user",
   mobile = false,
+  isActive = true,
   collapsed = false,
   onToggleCollapsed,
   toggleButtonRef,
@@ -509,30 +511,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             {isCollapsed ? <Settings aria-hidden="true" className="mx-auto h-5 w-5" /> : <span>{pinnedSettingsItem.label}</span>}
           </button>
         )}
-        <button onClick={() => navigate(effectiveRole === "user" ? ROUTES.worker.profile : dashboardPath)} className={`flex min-h-16 w-full items-center gap-3 rounded-card border border-slate-200 bg-slate-50 p-3 text-slate-900 transition hover:border-brand-200 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand [@media(max-height:700px)]:min-h-11 [@media(max-height:700px)]:p-1 ${isCollapsed ? "justify-center" : "justify-between"}`}>
-          <div className="flex items-center gap-3">
-            {/* This was the one avatar in the app rendering `avatarUrl` raw:
-                without toAbsoluteAssetUrl a stored "/uploads/..." path resolves
-                against the web origin, so a split-origin VITE_API_BASE 404s,
-                and with no onError it showed a broken-image icon rather than
-                the initials beside it. Avatar owns both halves.
-                `size={null}` because this box shrinks on short viewports and an
-                inline width would beat the max-height utilities. */}
-            <Avatar
-              name={displayUserName}
-              avatarUrl={authUser?.avatarUrl}
-              size={null}
-              className="h-10 w-10 flex-shrink-0 text-sm [@media(max-height:700px)]:h-8 [@media(max-height:700px)]:w-8"
-            />
-            {(mobile || !isCollapsed) && (
-              <div className="text-left">
-                <p className="text-xs text-slate-500">Welcome back</p>
-                <p className="max-w-[150px] truncate text-sm font-bold text-slate-900">{displayUserName}</p>
-              </div>
-            )}
-          </div>
-          {(mobile || !isCollapsed) && <span className="text-slate-400">›</span>}
-        </button>
+        <SidebarAccountMenu displayName={displayUserName} isActive={isActive} compact={isCollapsed} onNavigate={mobile ? onClose : undefined} />
       </div>
     </aside>
   );
