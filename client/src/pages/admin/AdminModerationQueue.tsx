@@ -20,6 +20,8 @@ interface ModerationReport {
   reportedAt: string;
   status: "pending" | "resolved" | "dismissed";
   resolution?: string;
+  source?: 'manual' | 'message';
+  evidence?: Array<{ messageId: string; author: 'reporter' | 'reportedUser'; content: string; createdAt: string }>;
 }
 
 type EnforcementAction = "suspended" | "banned" | "closed_job";
@@ -41,6 +43,7 @@ function AdminModerationQueueContent() {
   const [enforceReason, setEnforceReason] = useState("");
   const [enforceError, setEnforceError] = useState<string | null>(null);
   const [dismissTarget, setDismissTarget] = useState<ModerationReport | null>(null);
+  const [evidenceTarget, setEvidenceTarget] = useState<ModerationReport | null>(null);
 
   useEffect(() => {
     getAdminModerationReports()
@@ -172,6 +175,11 @@ function AdminModerationQueueContent() {
                       </td>
                       <td className="px-3 py-4 text-slate-600">
                         {report.reason}
+                        {report.evidence?.length ? (
+                          <button type="button" onClick={() => setEvidenceTarget(report)} className="mt-2 block min-h-11 rounded-lg px-2 text-sm font-semibold text-brand underline hover:bg-slate-50">
+                            {t('moderationQueue.evidence.view')}
+                          </button>
+                        ) : null}
                         {report.resolution ? <p className="mt-1 text-xs text-slate-500">{report.resolution}</p> : null}
                       </td>
                       <td className="px-3 py-4 text-slate-600">{report.reportedBy}</td>
@@ -215,6 +223,21 @@ function AdminModerationQueueContent() {
           )}
         </div>
       </section>
+
+      <Dialog open={Boolean(evidenceTarget)} title={t('moderationQueue.evidence.title')} description={evidenceTarget ? t('moderationQueue.evidence.description', { name: evidenceTarget.targetName }) : ''} onClose={() => setEvidenceTarget(null)} size="lg">
+        <p className="mb-4 break-words text-sm text-slate-700">{evidenceTarget?.reason}</p>
+        <ol className="space-y-3">
+          {evidenceTarget?.evidence?.map((message) => (
+            <li key={message.messageId} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                <span className="font-semibold text-slate-900">{message.author === 'reportedUser' ? evidenceTarget.targetName : evidenceTarget.reportedBy}</span>
+                <time dateTime={message.createdAt}>{formatDateTime(message.createdAt)}</time>
+              </div>
+              <p className="whitespace-pre-wrap break-words text-sm text-slate-900">{message.content}</p>
+            </li>
+          ))}
+        </ol>
+      </Dialog>
 
       <Dialog
         open={Boolean(enforceTarget)}

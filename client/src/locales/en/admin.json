@@ -33,6 +33,11 @@
     }
   },
   "moderationQueue": {
+    "evidence": {
+      "view": "View conversation evidence",
+      "title": "Conversation evidence",
+        "description": "Saved messages from the report on {{name}}. Up to 20 messages are preserved as they appeared when reported."
+      },
     "title": "Moderation Queue",
     "subtitle": "Review reported users and job postings.",
     "cards": {

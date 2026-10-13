@@ -3,7 +3,7 @@ import {
   Download,
   FileText,
   Briefcase,
-  DollarSign,
+  PhilippinePeso,
   Users,
   ClipboardList,
   Calendar,
@@ -82,7 +82,7 @@ function AdminReportsContent() {
       id: "transactions" as const,
       title: t("reports.cards.transactions.title"),
       description: t("reports.cards.transactions.description"),
-      icon: <DollarSign className="w-5 h-5 text-[#F59E0B]" />,
+      icon: <PhilippinePeso className="w-5 h-5 text-[#F59E0B]" />,
       accent: "bg-[#FEF3C7]",
     },
     {

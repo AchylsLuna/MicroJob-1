@@ -6,6 +6,7 @@ import {
   CheckCheck,
   ChevronLeft,
   Ellipsis,
+  Flag,
   MessagesSquare,
   MoreVertical,
   Search,
@@ -27,6 +28,8 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { useMessaging, conversationIdOf, type Contact, type ChatMessage as Message } from "../../contexts/MessagingContext";
 import { formatCurrency, formatDate, getActiveDateLocale } from "../../lib/formatters";
 import { ConfirmDialog } from "../../components/ui/index";
+import { ConversationReportDialog } from "../../components/messaging/ConversationReportDialog";
+import { MessagingSafetyNotice } from "../../components/messaging/MessagingSafetyNotice";
 import {
   getConversationWithUser,
   sendMessage,
@@ -157,6 +160,8 @@ export function Messages() {
   const [sending, setSending] = useState(false);
   const [showListMenu, setShowListMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [reportTarget, setReportTarget] = useState<Contact | null>(null);
+  const reportTriggerRef = useRef<HTMLButtonElement>(null);
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
@@ -1228,6 +1233,7 @@ export function Messages() {
                   <button
                     type="button"
                     onClick={() => setShowMoreMenu((prev) => !prev)}
+                    ref={reportTriggerRef}
                     className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50"
                     title={t("messages.moreOptions")}
                     aria-label={t("messages.moreOptionsAria")}
@@ -1281,6 +1287,14 @@ export function Messages() {
                             {t("messages.viewProfile")}
                           </button>
                         ) : null}
+                        <button
+                          type="button"
+                          onClick={() => { setReportTarget(selectedContact); setShowMoreMenu(false); }}
+                          className="flex w-full items-center gap-3 px-4 py-2 text-left text-body text-amber-800 hover:bg-amber-50"
+                        >
+                          <Flag className="h-4 w-4" aria-hidden="true" />
+                          {t("messages.report.action")}
+                        </button>
                         {!showBlocked ? (
                           <button
                             type="button"
@@ -1305,6 +1319,7 @@ export function Messages() {
                 </div>
               </div>
 
+              <MessagingSafetyNotice />
               <div className="min-h-0 flex-1 overflow-y-auto bg-[#F8FAFD] px-5 py-5">
                 {orderedMessages.length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
@@ -1650,6 +1665,7 @@ export function Messages() {
           </motion.div>
         ) : null}
       </AnimatePresence>
+      {reportTarget ? <ConversationReportDialog contact={reportTarget} onClose={() => setReportTarget(null)} restoreFocusRef={reportTriggerRef} /> : null}
       <ConfirmDialog
         open={Boolean(offerConfirmAction)}
         title={offerConfirmAction?.title || ""}

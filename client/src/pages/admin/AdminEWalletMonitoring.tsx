@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { ArrowRightLeft, Clipboard, Clock3, CreditCard, DollarSign, Download, History, Receipt, Search, UserRound, Wallet, X } from "lucide-react";
+import { ArrowRightLeft, Clipboard, Clock3, CreditCard, PhilippinePeso, Download, History, Receipt, Search, UserRound, Wallet, X } from "lucide-react";
 import { Trans, useTranslation } from "react-i18next";
 import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
@@ -302,7 +302,7 @@ function AdminEWalletMonitoringContent() {
     {
       label: t("eWallet.cards.completedTotal"),
       value: isLoading ? "—" : formatCurrencyHook(walletStats.completedTotal),
-      icon: <DollarSign className="w-6 h-6 text-[#047857]" />,
+      icon: <PhilippinePeso className="w-6 h-6 text-[#047857]" />,
       accent: "bg-[#D1FAE5]",
     },
   ];

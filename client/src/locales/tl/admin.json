@@ -33,6 +33,11 @@
     }
   },
   "moderationQueue": {
+    "evidence": {
+      "view": "Tingnan ang ebidensya ng pag-uusap",
+      "title": "Ebidensya ng pag-uusap",
+        "description": "Mga mensaheng nai-save sa report tungkol kay {{name}}. Hanggang 20 mensahe ang pinananatili gaya noong ini-report."
+      },
     "title": "Pila ng Moderation",
     "subtitle": "Suriin ang mga na-report na user at job posting.",
     "cards": {

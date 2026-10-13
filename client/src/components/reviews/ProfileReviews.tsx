@@ -152,15 +152,15 @@ export function ProfileReviews({
           <h2 id="ratings-reviews-heading" className="text-section font-bold text-slate-950">Ratings &amp; Reviews</h2>
           <p className="mt-1 text-sm text-slate-500">Verified feedback from completed jobs.</p>
         </div>
-        <label className="flex items-center gap-2 text-sm font-medium text-slate-600">
+        <label className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium text-slate-600">
           Sort
-          <select value={sort} onChange={(event) => changeSort(event.target.value as ReviewSort)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-brand-500">
+          <select value={sort} onChange={(event) => changeSort(event.target.value as ReviewSort)} className="h-10 min-w-0 max-w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-brand-500">
             {SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </label>
       </div>
 
-      <div className="mt-5 grid gap-5 rounded-card bg-slate-50 p-5 md:grid-cols-[220px_1fr]">
+      <div className="mt-5 grid grid-cols-1 gap-5 rounded-card bg-slate-50 p-5 md:grid-cols-[220px_minmax(0,1fr)]">
         <div className="flex flex-col justify-center md:border-r md:border-slate-200 md:pr-5">
           <p className="text-4xl font-bold text-slate-950">{average.toFixed(1)} <span className="text-lg font-semibold text-slate-500">/ 5</span></p>
           <div className="mt-2 flex gap-1" aria-label={`${average.toFixed(1)} out of 5 stars`}>
@@ -175,7 +175,7 @@ export function ProfileReviews({
             const count = Number(summary.ratingBreakdown?.[star as 1 | 2 | 3 | 4 | 5] || 0);
             const width = total ? Math.round((count / total) * 100) : 0;
             return (
-              <div key={star} className="grid grid-cols-[58px_1fr_78px] items-center gap-3 text-xs text-slate-600">
+              <div key={star} className="grid grid-cols-[2.5rem_minmax(0,1fr)_3.5rem] items-center gap-2 text-xs text-slate-600 sm:grid-cols-[58px_minmax(0,1fr)_78px] sm:gap-3">
                 <span>{star} Star{star === 1 ? '' : 's'}</span>
                 <div className="h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-amber-400" style={{ width: `${width}%` }} /></div>
                 <span className="text-right">{count} review{count === 1 ? '' : 's'}</span>
@@ -192,17 +192,17 @@ export function ProfileReviews({
             const canReply = Boolean(review.canReply || isProfileOwner);
             return (
               <article key={review._id} className="rounded-card border border-slate-200 p-4 md:p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex min-w-0 items-center gap-3">
+                <div className="flex flex-col items-start gap-3 sm:flex-row sm:justify-between sm:gap-4">
+                  <div className="flex w-full min-w-0 items-center gap-3 sm:flex-1">
                     <Avatar
                       name={reviewerName}
                       userId={review.reviewer?._id}
                       avatarUrl={review.reviewer?.avatarUrl}
                       size={44}
                     />
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       {review.reviewer?._id ? (
-                        <button type="button" onClick={() => navigate(`${ROUTES.publicProfile(review.reviewer!._id!)}?viewAs=${review.reviewerRole}`)} className="truncate text-left text-sm font-bold text-slate-950 hover:text-brand-700 hover:underline">{reviewerName}</button>
+                        <button type="button" onClick={() => navigate(`${ROUTES.publicProfile(review.reviewer!._id!)}?viewAs=${review.reviewerRole}`)} className="max-w-full truncate text-left text-sm font-bold text-slate-950 hover:text-brand-700 hover:underline">{reviewerName}</button>
                       ) : <p className="truncate text-sm font-bold text-slate-950">{reviewerName}</p>}
                       <p className="mt-0.5 text-xs text-slate-500">{formatDate(review.createdAt)}</p>
                     </div>

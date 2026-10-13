@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { motionTokens, seconds } from "@/constants/motion";
-import { Briefcase, DollarSign, TrendingUp, Users } from "lucide-react";
+import { Briefcase, PhilippinePeso, TrendingUp, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { AdminJob, AdminUser } from "../../hooks/useAdminData";
 import type { PaymentTransaction } from "../../services/api";
@@ -123,7 +123,7 @@ export function AnalyticsOverview({
       label: t("analytics.overview.cards.payoutVolume"),
       value: isLoading ? "—" : formatCurrency(totalPayoutVolume),
       change: percentChange(monthlyPayoutVolume[last] || 0, monthlyPayoutVolume[last - 1] || 0),
-      icon: <DollarSign className="h-6 w-6 text-brand" />,
+      icon: <PhilippinePeso className="h-6 w-6 text-brand" />,
     },
     {
       label: t("analytics.overview.cards.activeJobs"),

@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { SidebarAccountMenu } from "./SidebarAccountMenu";
 import {
   ArchiveRestore,
-  BadgeDollarSign,
+  PhilippinePeso,
   BarChart3,
   Bell,
   Bookmark,
@@ -91,7 +91,7 @@ const menuIcons: Record<string, LucideIcon> = {
   "jobs-monitoring": BriefcaseBusiness,
   verification: ShieldCheck,
   moderation: Gavel,
-  payouts: BadgeDollarSign,
+  payouts: PhilippinePeso,
   disputes: Scale,
   "staff-management": UserCog,
   "audit-logs": ScrollText,

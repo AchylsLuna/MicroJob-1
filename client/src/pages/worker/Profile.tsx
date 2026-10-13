@@ -10,7 +10,7 @@ import {
   FileText,
   Linkedin,
   Globe,
-  DollarSign,
+  PhilippinePeso,
   Briefcase,
   Images,
   RefreshCw,
@@ -35,6 +35,7 @@ import { isProfileFullyVerified } from "../../lib/profileVerification";
 import { formatCurrency, formatDate } from "../../lib/formatters";
 import { SettingsTabList } from "../../components/settings/SettingsTabList";
 import { ProfileHeader } from "../../components/profile/ProfileHeader";
+import { ProfileReviewsLoader } from "../../components/reviews/ProfileReviewsLoader";
 import { Button, StatTile } from "../../components/ui";
 
 interface Skill {
@@ -461,7 +462,7 @@ export function Profile() {
         </div>
 
         <div className="p-6 sm:p-8" id={`worker-profile-panel-${activeTab}`} role="tabpanel" aria-labelledby={`worker-profile-tab-${activeTab}`}>
-          {/* Biography Tab — about, contact, and CV. The Skills list and Quick
+          {/* Biography Tab — about, contact, CV, and reviews. The Skills list and Quick
               Stats blocks that used to live here were removed: both duplicated
               content already shown in the Skills tab and the stat row above. */}
           {activeTab === "biography" && (
@@ -597,6 +598,13 @@ export function Profile() {
                   </div>
                 </div>
               </div>
+              {profileUserId ? (
+                <ProfileReviewsLoader
+                  profileOwnerId={profileUserId}
+                  profileOwnerName={profileData.name}
+                  viewAs="worker"
+                />
+              ) : null}
             </div>
           )}
 
@@ -870,7 +878,7 @@ export function Profile() {
                     <p className="text-body-sm text-[#475569] mb-4">{work.description}</p>
 
                     <div className="flex items-center gap-2 mb-4">
-                      <DollarSign className="w-4 h-4 text-[#10b981]" />
+                      <PhilippinePeso className="w-4 h-4 text-[#10b981]" />
                       <span className="text-[16px] font-bold text-[#10b981]">{work.salary}</span>
                     </div>
 

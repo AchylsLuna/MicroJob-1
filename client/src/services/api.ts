@@ -1263,6 +1263,12 @@ export function removeSavedJob(jobId: string) {
 }
 
 // Message APIs
+export type MessageReportCategory = 'abuse' | 'scam' | 'threats' | 'other';
+
+export function reportConversation(payload: { otherUserId: string; jobId?: string | null; category: MessageReportCategory; details: string }) {
+  return request<{ reportId: string; status: 'pending'; alreadyPending: boolean }>('/messages/report', { method: 'POST', body: payload });
+}
+
 export function sendMessage(payload: { receiverId: string; content: string; jobId?: string; clientMessageId?: string }) {
   return request<any>('/messages', { method: 'POST', body: payload });
 }

@@ -11,6 +11,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { EmployerQrScannerModal } from '../../components/wallet/WalletQrFlow';
 import { php } from '../../components/wallet/walletFormat';
 import { AnimatedMicroJobsLogoBadge } from '../../components/auth/MicroJobsLogo';
+import { ConversationReportModal } from '../../components/messaging/ConversationReportModal';
 
 interface Message {
   _id: string;
@@ -50,6 +51,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
   const [invoiceCodes, setInvoiceCodes] = useState<Record<string, string>>({});
   const [clock, setClock] = useState(Date.now());
   const [processingOfferId, setProcessingOfferId] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const scrollToLatest = useCallback((animated = true) => {
     requestAnimationFrame(() => flatListRef.current?.scrollToEnd({ animated }));
@@ -229,6 +231,9 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
           </TouchableOpacity>
           <AnimatedMicroJobsLogoBadge />
           <View style={styles.headerCopy}><Text style={styles.headerText} numberOfLines={1}>{displayName || t('chatScreen.header.fallbackTitle')}</Text>{isEmployer ? <Text style={styles.employerContext}>{t('chatScreen.header.employerConversationLabel')}</Text> : null}</View>
+          <TouchableOpacity style={styles.notificationIcon} onPress={() => setReportOpen(true)} accessibilityRole="button" accessibilityLabel={t('chatScreen.report.action')}>
+            <Ionicons name="flag-outline" size={20} color={tokens.colors.brand} />
+          </TouchableOpacity>
           {onOpenNotifications ? (
             <TouchableOpacity style={styles.notificationIcon} onPress={onOpenNotifications} accessibilityRole="button" accessibilityLabel={notificationBadgeCount ? t('chatScreen.header.notificationsLabelWithCount', { count: notificationBadgeCount }) : t('chatScreen.header.notificationsLabel')}>
               <Ionicons name="notifications-outline" size={20} color={tokens.colors.brand} />
@@ -239,6 +244,10 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
               ) : null}
             </TouchableOpacity>
           ) : null}
+        </View>
+        <View style={styles.safetyNotice}>
+          <Ionicons name="warning-outline" size={16} color={tokens.colors.text} />
+          <Text style={styles.safetyCopy}><Text style={{ fontWeight: '700' }}>{t('chatScreen.safety.title')} </Text>{t('chatScreen.safety.description')}</Text>
         </View>
         <FlatList
           ref={flatListRef}
@@ -302,12 +311,15 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
         </TouchableOpacity>
       </View>
       </KeyboardAvoidingView>
+      {reportOpen ? <ConversationReportModal key={`${userId}:${jobId || ''}`} userId={userId} name={displayName || t('chatScreen.header.fallbackTitle')} jobId={jobId} onClose={() => setReportOpen(false)} /> : null}
       <EmployerQrScannerModal visible={Boolean(invoiceRequestId)} initialRequestId={invoiceRequestId} onClose={() => setInvoiceRequestId(null)} onSettled={() => { setInvoiceRequestId(null); void fetchMessages(); }} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safetyNotice: { flexDirection: 'row', alignItems: 'flex-start', gap: tokens.spacing.xs, padding: tokens.spacing.sm, backgroundColor: tokens.colors.warningSoft },
+  safetyCopy: { flex: 1, color: tokens.colors.text, fontSize: tokens.typography.caption, lineHeight: 18 },
   screen: {
     flex: 1,
     minHeight: 0,

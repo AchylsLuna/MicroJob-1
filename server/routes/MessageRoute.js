@@ -1,6 +1,7 @@
 import express from 'express';
 import auth from '../middleware/auth.js';
 import MessageController from '../controllers/MessageController.js';
+import { reportConversation } from '../controllers/MessageReportController.js';
 import { createRateLimiter, buildUserRateLimitKey } from '../lib/rateLimiters.js';
 
 const router = express.Router();
@@ -16,6 +17,7 @@ router.post('/', auth, messageWriteLimiter, MessageController.sendMessage);
 router.post('/send', auth, messageWriteLimiter, MessageController.sendMessage);
 // Open a job inquiry thread with the employer who posted the job.
 router.post('/inquiries/:jobId', auth, messageWriteLimiter, MessageController.startJobInquiry);
+router.post('/report', auth, messageWriteLimiter, reportConversation);
 
 // Get all conversations for logged-in user
 router.get('/conversations', auth, MessageController.getConversations);

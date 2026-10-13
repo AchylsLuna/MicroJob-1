@@ -3,7 +3,9 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ChevronDown, ChevronLeft, MessagesSquare, Send } from "lucide-react";
+import { ChevronDown, ChevronLeft, Flag, MessagesSquare, Send } from "lucide-react";
+import { ConversationReportDialog } from "./ConversationReportDialog";
+import { MessagingSafetyNotice } from "./MessagingSafetyNotice";
 import { useAuth } from "../../contexts/AuthContext";
 import { useMessaging, conversationIdOf, type Contact, type ChatMessage } from "../../contexts/MessagingContext";
 import { getConversationWithUser, markMessagesAsRead, sendMessage } from "../../services/api";
@@ -69,6 +71,8 @@ export function MessageDock() {
   const [sending, setSending] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
   const selectedContactRef = useRef<Contact | null>(null);
+  const [reportTarget, setReportTarget] = useState<Contact | null>(null);
+  const reportTriggerRef = useRef<HTMLButtonElement>(null);
   const selectionRequestRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingActiveRef = useRef(false);
@@ -355,8 +359,12 @@ export function MessageDock() {
             ) : null}
           </span>
         </button>
+        <button ref={reportTriggerRef} type="button" onClick={() => setReportTarget(selectedContact)} aria-label={t("messages.report.action")} title={t("messages.report.action")} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-amber-800 hover:bg-amber-50">
+          <Flag className="h-4 w-4" aria-hidden="true" />
+        </button>
       </div>
 
+      <MessagingSafetyNotice />
       <div className="min-h-0 flex-1 overflow-y-auto bg-[#F8FAFD] px-3 py-3">
         {messages.length === 0 ? (
           <div className="flex h-full items-center justify-center text-center text-body-sm text-slate-400">
@@ -477,6 +485,7 @@ export function MessageDock() {
 
   return (
     <>
+      {reportTarget ? <ConversationReportDialog contact={reportTarget} onClose={() => setReportTarget(null)} restoreFocusRef={reportTriggerRef} /> : null}
       {/* Collapsed trigger — a floating button above the mobile bottom nav,
           a docked bar flush with the viewport edge on desktop. */}
       <button
