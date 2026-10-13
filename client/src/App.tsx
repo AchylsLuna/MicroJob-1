@@ -41,6 +41,7 @@ const PublicProfile = lazy(() => import("./pages/shared/PublicProfile").then((mo
 const NotificationsRouter = lazy(() => import("./pages/NotificationsRouter"));
 const SupportRouter = lazy(() => import("./pages/SupportRouter"));
 const PublicFindJobs = lazy(() => import("./pages/PublicFindJobs").then((module) => ({ default: module.PublicFindJobs })));
+const FinancialDisputes = lazy(() => import("./pages/shared/FinancialDisputes").then((module) => ({ default: module.FinancialDisputes })));
 
 const FindJobs = lazy(() => import("./pages/worker/FindJobs").then((module) => ({ default: module.FindJobs })));
 const AppliedJobs = lazy(() => import("./pages/worker/AppliedJobs"));
@@ -57,6 +58,7 @@ const EmployerDashboard = lazy(() => import("./pages/employer/EmployerDashboard"
 const PostJob = lazy(() => import("./pages/employer/PostJob"));
 const Applications = lazy(() => import("./pages/employer/ApplicationsManagement").then((module) => ({ default: module.ApplicationsManagement })));
 const JobsManagement = lazy(() => import("./pages/employer/JobsManagement").then((module) => ({ default: module.JobsManagement })));
+const JobHistory = lazy(() => import("./pages/employer/JobHistory").then((module) => ({ default: module.JobHistory })));
 
 const AdminSignIn = lazy(() => import("./pages/admin/AdminSignIn").then((module) => ({ default: module.AdminSignIn })));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard").then((module) => ({ default: module.AdminDashboard })));
@@ -336,6 +338,7 @@ const App: React.FC = () => {
             <Route path={ROUTES.worker.support} element={<WorkerSupport />} />
             <Route path={ROUTES.worker.messages} element={<WorkerMessages />} />
             <Route path={ROUTES.worker.eWallet} element={<WorkerEWallet />} />
+            <Route path={ROUTES.worker.financialDisputes} element={<FinancialDisputes />} />
             <Route path={ROUTES.worker.settings} element={<Settings />} />
           </Route>
 
@@ -348,8 +351,10 @@ const App: React.FC = () => {
             <Route path={ROUTES.employer.postJob} element={<PostJob />} />
             <Route path={ROUTES.employer.applications} element={<Applications />} />
             <Route path={ROUTES.employer.jobs} element={<JobsManagement />} />
+            <Route path={ROUTES.employer.jobHistory} element={<JobHistory />} />
             <Route path={ROUTES.employer.messages} element={<WorkerMessages />} />
             <Route path={ROUTES.employer.eWallet} element={<EmployerEWallet />} />
+            <Route path={ROUTES.employer.financialDisputes} element={<FinancialDisputes />} />
             <Route path={ROUTES.employer.notifications} element={<NotificationsRouter />} />
             <Route path={ROUTES.employer.support} element={<SupportRouter />} />
             <Route path={ROUTES.employer.settings} element={<Settings />} />

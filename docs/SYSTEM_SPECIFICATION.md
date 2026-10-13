@@ -1,8 +1,8 @@
 # MicroJobs System Specification
 
-**Document version:** 1.1  
+**Document version:** 1.2
 **Prepared:** 13 October 2026  
-**Basis:** the current repository implementation, including the recent web search and navigation changes  
+**Basis:** the current repository implementation, including the financial-dispute investigation and settlement workflow
 **Audience:** developers, testers, maintainers, and project reviewers
 
 ## Contents
@@ -126,6 +126,7 @@ The following requirements describe implemented capabilities. An action may rema
 | FR-22 | Allow the desktop sidebar to slide away fully, persist its state, reopen it, and transfer keyboard focus appropriately. |
 | FR-23 | Display the three informational profile/matching/verification cards on the landing page after its jobs section, with a responsive arrangement. |
 | FR-24 | Provide English and Filipino interface labels, accessible inputs, keyboard-operable controls, and clear loading/error/empty states. |
+| FR-25 | Provide worker-initiated financial disputes with automatic Support tickets, neutral notices, append-only evidence, Support investigation reports, exactly three Finance outcomes, independent Finance approval, idempotent ledger processing, participant-visible results, and an immutable case audit trail. |
 
 ## 5. Search and recommendation specification
 
@@ -211,6 +212,7 @@ Fees are separate from worker pay and non-refundable. A dual-role user can fund 
 - Application stages are `Applied`, `Shortlisted`, `Interview Scheduled`, `Interviewed`, `Offer Sent`, `Hired`, `Rejected`, and `Withdrawn`.
 - Offer states are `pending`, `accepted`, `rejected`, `cancelled`, and `hired`.
 - An accepted offer requires employer confirmation to complete hiring.
+- Confirming an offer hire sets the job to `In Progress`, regardless of remaining positions, and persists `hireConfirmedAt` as a permanent employer deletion lock. Web confirmation highlights the deletion restriction. The API rejects employer deletion of in-progress jobs or any job with a confirmed/current/legacy hire; administrator job-management authority retains its existing removal capability. Deletion, escrow refund, and dependent-record cleanup execute in one MongoDB transaction, preventing concurrent hire/delete success.
 - Hired positions and reserved offers affect remaining capacity. A manually closed listing must not reopen merely because capacity changes.
 - Higher negotiated pay may require additional secured funds. Related cancellation/refund rules must use the offer and financial records.
 
@@ -218,15 +220,17 @@ Fees are separate from worker pay and non-refundable. A dual-role user can fund 
 
 | Record field | Permitted states |
 | --- | --- |
-| Job status | Available, In Progress, Completed, Cancelled, Closed |
+| Job status | Available, In Progress, Completed, Cancelled, Closed, Full refund, Resolved |
 | Application work status | In Progress, Submitted, Changes Requested, Completed |
-| Application payment status | Secured, Authorized, Processing, Paid, Failed |
+| Application payment status | Secured, Authorized, Processing, Disputed, Paid, Partially Paid, Refunded, Outstanding, Failed |
 | Transaction status | PENDING, COMPLETED, FAILED, CANCELLED |
 | Withdrawal request status | requested, approved, rejected, paid, cancelled |
 
 Work submission is available to the hired worker from In Progress or Changes Requested. Settlement requires submitted work, the owning employer, and sufficient remaining job escrow. It credits the worker balance, writes a linked payout transaction, and marks that application completed/paid atomically.
 
 The service uses a unique application payout reference and recognizes repeat settlement requests. The ordinary per-worker path can complete the job when every required hired position is completed and paid. Job-level completion and cancellation handlers also have their own settlement/refund logic and must remain covered by financial tests.
+
+The web employer Job History page (`/employer/job-history`) reads authenticated, owner-scoped `GET /api/jobs/history`. Each owned listing includes title, status, `amountHeld`, and `amountPaid`. Amounts derive only from completed ledger records: held = max(0, escrow − payouts − refunds), paid = payouts. Posting/highlight fees and pending/failed transactions are excluded. View details reuses Applications Management cards scoped to the selected job's hired applications, including hidden applications, payment actions, and the existing completion-gated, duplicate-protected worker-review flow. `GET /api/jobs/mine` exposes owner-only `canDelete` for the deletion control.
 
 ### 6.4 Top-ups and withdrawals
 
@@ -235,6 +239,22 @@ Top-ups use provider references and validated confirmation/webhook data before c
 Withdrawal requests record the selected balance target and a destination snapshot. Request creation deducts/reserves the amount and creates a linked transaction within a database transaction. Duplicate idempotency keys are constrained per user. Approval, rejection, payment, and cancellation are distinct operations with corresponding balance/transaction rules.
 
 All documented listing examples use Philippine pesos. External payout processing time is not specified by this repository.
+
+### 6.5 Financial dispute investigation and settlement
+
+A hired worker with submitted work and a pending payment may open one active financial dispute for the application. Submission atomically marks the application `Disputed`, creates a `FIN-YYYY-*` dispute record, creates and links a high-priority Support ticket, records the first audit entries, and sends neutral investigation notices to the worker, employer, and authorized Support staff. An employer may respond and submit evidence but cannot open the worker's claim, reject it, select a settlement, or edit Finance findings.
+
+Investigation state and payment state are deliberately separate. The former uses the case workflow (`UNDER_INVESTIGATION`, evidence-waiting/review states, `FOR_FINANCE_REVIEW`, `PENDING_FINANCE_APPROVAL`, processing, appeal, and `RESOLVED`); the latter states whether value is unpaid, partially paid, actually held, outstanding outside the platform, processing, paid, refunded, or settled. `FUNDS_HELD` represents only money controlled by the platform. `OUTSTANDING_PAYMENT` is an external obligation and is never displayed as escrow.
+
+Support may assign an investigator, review linked job/application/payment records, request evidence, add private or participant-visible notes, and complete the structured Investigation Report. Support has no Finance proposal or approval permission. Finance cannot propose a result until that report is complete and forwarded. Finance selects exactly one outcome:
+
+- `FULL_REFUND`: eligible held funds go to the employer; earlier worker payments are not reversed.
+- `COMPLETE_PAYMENT`: only the remaining agreed amount is payable to the worker; previous payouts are deducted.
+- `PARTIAL_PAYMENT`: Finance explicitly allocates the available disputed held funds between worker payment and employer refund.
+
+After approval and verified settlement processing, the linked job becomes `Full refund` for Full Refund, `Completed` for Complete Payment, or `Resolved` for Partial Payment. This job update is part of the same database transaction. `Full refund` jobs are excluded from employer Job Management but retained in Job History. Both new final statuses are excluded from discovery and protected from ordinary status changes or reopening.
+
+Every proposal requires a written reason. A different authorized Finance user must approve it. Approval rechecks the current ledger, writes unique settlement-specific payout/refund references inside one MongoDB transaction, updates wallet balances and the application, records payment verification or an explicit outstanding external obligation, resolves the linked Support ticket, notifies both parties, and closes the case. Repeated approval/processing calls return the completed result without duplicating credits or refunds. Either participant may submit one appeal after a decision; the original report and settlement move to immutable history, the ticket reopens, and the case returns through Support investigation and Finance review without reversing a completed ledger transfer.
 
 ## 7. Data specification
 
@@ -257,7 +277,8 @@ MongoDB is accessed through Mongoose. The following table lists logical records 
 | Review | Eligible relationship-based feedback, ratings/content, and supported reactions/replies. |
 | Notification / Alert | Recipient-specific events, read state, and related record context. |
 | SupportTicket | Requester, subject/category/priority, status, public messages, staff-only internal notes, and timestamps. |
-| FinancialDispute / ModerationReport | Report subject, evidence/reason, status, and reviewer/resolution information. |
+| FinancialDispute | Ticket/job/application/participant links; agreed, paid, disputed, held, and outstanding amounts; separate investigation/payment states; append-only evidence and messages; structured report; Finance settlement/approval; appeal; embedded audit history. |
+| ModerationReport | Report subject, evidence/reason, status, and reviewer/resolution information. |
 | Session / TrustedDevice | User/session ownership, active/expiry state, refresh-token data, and trusted-device state. |
 | OtpChallenge / PhoneVerification / PendingIdScan | Temporary verification/recovery challenges and intermediate ID scan data. |
 | AuditLog | Administrative or sensitive-action audit metadata. |
@@ -280,6 +301,8 @@ erDiagram
     USER ||--o{ PAYOUT_REQUEST : requests
     USER ||--o{ SESSION : owns
     USER ||--o{ SUPPORT_TICKET : opens
+    JOB_APPLICATION ||--o{ FINANCIAL_DISPUTE : concerns
+    FINANCIAL_DISPUTE ||--|| SUPPORT_TICKET : creates
 ```
 
 This is a logical relationship diagram; MongoDB does not enforce relational foreign keys. Optional references and ownership rules are validated by application code.
@@ -292,6 +315,7 @@ This is a logical relationship diagram; MongoDB does not enforce relational fore
 - Unique withdrawal `(user, idempotencyKey)` values where present.
 - Unique sent-message `(sender, clientMessageId)` values where present.
 - Deduplicated job-view records with a matching unique index.
+- At most one active financial dispute per job application, plus unique settlement transaction references.
 - Required model enums, amount constraints, and controller-side role/ownership checks.
 
 ## 8. Interface specification
@@ -301,15 +325,23 @@ This is a logical relationship diagram; MongoDB does not enforce relational fore
 | Area | Representative routes |
 | --- | --- |
 | Public | `/`, `/jobs`, `/sign-in`, `/sign-up`, `/forgot-password`, `/legal` |
-| Worker | `/worker/find-jobs`, `/worker/applied-jobs`, `/worker/saved-jobs`, `/worker/job-details/:jobId`, `/worker/profile` |
-| Employer | `/employer/dashboard`, `/employer/post-job`, `/employer/jobs`, `/employer/applications`, `/employer/profile` |
+| Worker | `/worker/find-jobs`, `/worker/applied-jobs`, `/worker/saved-jobs`, `/worker/job-details/:jobId`, `/worker/financial-disputes`, `/worker/profile` |
+| Employer | `/employer/dashboard`, `/employer/post-job`, `/employer/jobs`, `/employer/job-history`, `/employer/applications`, `/employer/financial-disputes`, `/employer/profile` |
 | Shared role pages | Role-specific messages, wallet, settings, notifications, and support routes. |
 | Profile viewing | `/profiles/:userId`, under the authenticated dashboard layout. |
 | Administration | `/admin/dashboard`, `/admin/user-management`, `/admin/staff-management`, `/admin/verification`, `/admin/payouts`, `/admin/disputes`, and other permission-gated pages. |
 
 Although profile viewing is described as a public-facing profile, its current route/API requires sign-in. Public job discovery is available without sign-in.
 
-### 8.2 API groups
+### 8.2 Employer Applications (web)
+
+The employer Jobs Management page excludes `Completed` and `Full refund` postings from its displayed list. Completed jobs remain accessible in Job History; this web display filter does not remove records or change their stored state.
+
+The web Employer Applications page is table-only. Its job selector reads owner-scoped `GET /api/jobs/history`, including listings with no applications and fully refunded jobs omitted from Job Management; the first returned job is selected initially. The page fetches applications for only the selected `jobId`, renders that job's title, and retains local search/stage filters, selection-based bulk actions, and hide/restore. Columns are Name, Stage (colored text badges), Interview (schedule/reschedule), Applied on, Resume (safe file link), View Profile, Actions, and Hide.
+
+Actions opens an accessible, scrollable four-step dialog derived from persisted application/offer state: (1) Change Status and formal offer amount/confirmation; (2) applicant reviewing the pending offer; (3) accepted-offer hire decision with the highlighted in-progress/deletion warning and Hire/Reject; (4) hired application payment authorization and existing work/payment controls. Pending offers refresh every ten seconds while the dialog is open and the page is visible, and on window focus; refresh stops after a response or dialog closure. Declined offers return to step 1 with an explanation. Hire retains its existing confirmation and API; Reject confirms, cancels the offer through the existing refund/capacity path, then sets application status to Rejected. Payment authorization does not release funds; settlement and revision retain submitted-work/dispute guards. Messaging and completion-gated ratings remain in Actions. Job History retains its hired cards.
+
+### 8.3 API groups
 
 | Prefix / endpoint | Responsibility |
 | --- | --- |
@@ -324,6 +356,7 @@ Although profile viewing is described as a public-facing profile, its current ro
 | `/api/notifications`, `/api/alerts` | User events and read state. |
 | `/api/reviews` | Eligible reviews, profile review lists, reactions, and replies. |
 | `/api/support` | Agents, own tickets, ticket details, and replies. |
+| `/api/financial-disputes` | Participant-scoped case lists/details, append-only evidence, conversation, employer response, and appeal. |
 | `/api/verify-id` | Configured identity scan/verification flow. |
 | `/api/admin` | Staff-permission-based management, finance, review, analytics, and audit operations. |
 | `/api/health`, `/api/ready` | Service health and readiness; readiness follows the database gate. |
@@ -360,6 +393,7 @@ Security controls must be maintained and tested when routes, permission matrices
 | Localization | English/Filipino keys remain structurally consistent and translated labels do not overflow tested controls. |
 | Reliability | Loading, empty, error, and retry states are explicit; recommendation failure does not block the main result list. |
 | Financial consistency | Concurrent/repeated requests must not produce negative guarded balances or duplicate completed settlement transactions. |
+| Dispute separation of duties | Support cannot propose/process settlement; Finance cannot decide before a completed report; the proposer cannot approve; participants cannot mutate Finance records. |
 | Maintainability | Web type checks, lint, locale checks, relevant server/browser tests, and the production build complete as appropriate for a change. |
 
 No benchmark-derived maximum concurrency, response-time SLA, uptime guarantee, retention policy, backup schedule, or recovery objective is defined by the repository. Such operational targets require a separate deployment plan and measurement.
@@ -442,6 +476,7 @@ npm run test:e2e
 | Mobile drawer | Open, navigate, Escape/close, and focus return without the Find Jobs top navbar. |
 | Landing cards | Correct three titles/copy; below the landing jobs section; absent from Find Jobs; stacked/three-column layout; Filipino labels. |
 | Badge | Clear seal/check at job and profile sizes; existing all-four-check verification predicate retained. |
+| Financial disputes | Worker-only submission; active duplicate block; evidence and employer response; assigned Support report; three Finance outcomes; independent approval; previous-payment accounting; idempotent processing; appeal history. |
 
 ### Recorded verification evidence
 
@@ -472,6 +507,7 @@ The broader accessibility scan waits for the page's entrance animation to finish
 | Profile gates and verification | [profileCompleteness](../server/lib/profileCompleteness.js), [verification controller](../server/controllers/verificationController.js), [Settings](../client/src/components/Settings.tsx) |
 | Hiring state and fees | [applicationStatus](../server/lib/applicationStatus.js), [jobPosting](../server/lib/jobPosting.js), [application routes](../server/routes/JobApplicationRoute.js) |
 | Financial settlement | [applicationSettlement](../server/services/applicationSettlement.js), [PaymentController](../server/controllers/PaymentController.js), [payment routes](../server/routes/PaymentRoute.js) |
+| Financial disputes | [FinancialDispute model](../server/models/FinancialDispute.js), [participant controller](../server/controllers/FinancialDisputeController.js), [staff controller](../server/controllers/AdminFinanceDisputeController.js), [settlement service](../server/services/financialDisputeSettlement.js), [participant page](../client/src/pages/shared/FinancialDisputes.tsx), [staff page](../client/src/pages/admin/AdminFinancialDisputes.tsx) |
 | Schemas and integrity | [Server models](../server/models) |
 | Authentication and authorization | [auth middleware](../server/middleware/auth.js), [auth routes](../server/routes/authRoutes.js), [admin permission matrix](../server/lib/adminPermissions.js) |
 | API configuration and operations | [server app](../server/app.js), [API route registration](../server/routes/index.js), [README](../README.md), [server environment example](../server/.env.example) |
@@ -494,11 +530,12 @@ These figures are screenshots of the current implementation, not proposed replac
 | Job details | Assess a job and apply | Job selection and Apply Now | Job information and application state |
 | Applied Jobs | Track hiring and work | Status, offer response, withdrawal, work submission | Application/offer/work/payment states |
 | Posting wizard | Create a funded listing | Job, Where & when, Pay, Review | Validated and funded listing |
-| Employer Applications | Assess, hire, and review | Board/table, interview, offer, hire, changes, settlement | Per-worker workflow changes |
+| Employer Applications | Assess, hire, and review | Posted-job selector, applicant table, interview, four-step Actions dialog | Per-worker offer/hire/work/payment states |
 | Messages | Communicate in job context | Conversation, composer, header profile link | Authorized messages and related action cards |
 | Profile/Settings | Maintain profile and security | Photo, fields, skills, documents, security/language | Profile and verification states |
 | E-Wallet | Inspect funds and requests | Balance, top-up, withdrawal, transactions/history | Financial records and request states |
 | Support | Report and follow up | Ticket fields and replies | User-visible ticket history |
+| Financial Disputes | Submit/investigate/decide a payment claim | Evidence, conversation, report, three-outcome decision, approval, appeal | Separate investigation/payment states and auditable settlement |
 | Admin Payouts | Review withdrawals | Queue selection and permission-gated decisions | Review/payment status and related records |
 
 ### 13.2 Design A — authentication
@@ -595,7 +632,7 @@ The illustrated amount is an example. The design must distinguish worker escrow 
 | --- | --- | --- |
 | 1 | Employer sends an offer. | Pending offer, Offer Sent application, and capacity reservation under offer rules. |
 | 2 | Worker accepts/declines. | Recorded response; acceptance alone is not a confirmed hire. |
-| 3 | Employer confirms an accepted offer. | Hired application with agreed amount and secured payment state. |
+| 3 | Employer confirms an accepted offer after reviewing the highlighted deletion warning on web. | Hired application with agreed amount and secured payment state; In Progress job with permanent employer deletion lock. |
 | 4 | Worker submits finished work. | Submitted work and an employer notification. |
 | 5 | Employer requests changes or settles submitted work. | Revision state, or atomic worker credit and paid/completed application. |
 | 6 | Worker inspects E-Wallet. | Linked amount/status/reference confirms the recorded payment. |
@@ -662,6 +699,7 @@ flowchart TD
 | Search | FR-06–FR-11 | Designs B/C and filter/detail figures | Drafts, atomic submit, nationwide, menus, saved-job return |
 | Posting | FR-12 | Design D and manual's four stages | Field validation, scheduling, pay, fees, final review |
 | Hiring/payment | FR-13–FR-16 | Design E, work and wallet figures | Separate offer/hire/work/payment state and settlement |
+| Financial disputes | FR-25 | Worker/employer dispute pages and permission-gated staff queue | Neutral investigation, three Finance outcomes, independent approval, ledger integrity, appeal history |
 | Messages/support | FR-17–FR-20 | Conversation, support, and admin-queue figures | Participant access, profile shortcut, tickets, permissions |
 | Navigation/landing | FR-21–FR-24 | Sidebar, phone, and feature-card figures | Full hide/reopen, responsiveness, placement, focus |
 

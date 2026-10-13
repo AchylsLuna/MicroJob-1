@@ -638,6 +638,26 @@ export function getMyJobs() {
   return request<any[]>('/jobs/mine', { method: 'GET' });
 }
 
+export type EmployerJobHistoryItem = {
+  _id: string;
+  title: string;
+  status: string;
+  description?: string;
+  location?: string;
+  salary?: number;
+  jobType?: string;
+  deadline?: string;
+  skills?: string[];
+  requirements?: string[];
+  responsibilities?: string[];
+  amountHeld: number;
+  amountPaid: number;
+};
+
+export function getEmployerJobHistory() {
+  return request<EmployerJobHistoryItem[]>('/jobs/history', { method: 'GET' });
+}
+
 // Application APIs
 export function getUserApplications(status?: string) {
   return request<any[]>(`/applications${buildQuery(status ? { status } : undefined)}`, { method: 'GET' });
@@ -833,11 +853,73 @@ export function requestChanges(applicationId: string, reason: string) {
   });
 }
 
-export function openPaymentDispute(applicationId: string, reason: string) {
+export function openPaymentDispute(applicationId: string, reason: string, disputedAmount?: number) {
   return request<{ message: string; dispute: any }>(`/applications/${applicationId}/payment/disputes`, {
     method: 'POST',
-    body: { reason },
+    body: { reason, ...(disputedAmount === undefined ? {} : { disputedAmount }) },
   });
+}
+
+export type FinancialDispute = {
+  id: string;
+  _id?: string;
+  ticketId: string;
+  subject: string;
+  investigationStatus: string;
+  settlementStatus: string;
+  paymentStatus: string;
+  fundStatus: 'FUNDS_HELD' | 'OUTSTANDING_PAYMENT' | 'PARTIALLY_HELD';
+  agreedJobAmount: number;
+  alreadyPaidAmount: number;
+  disputedAmount: number;
+  fundsHeldAmount: number;
+  outstandingAmount: number;
+  workerClaim: string;
+  employerResponse?: string;
+  worker?: any;
+  employer?: any;
+  job?: any;
+  application?: any;
+  assignedSupportUserId?: any;
+  assignedFinanceUserId?: any;
+  evidence?: any[];
+  messages?: any[];
+  investigationReport?: any;
+  investigationReportHistory?: any[];
+  financeSettlement?: any;
+  settlementHistory?: any[];
+  auditLogs?: any[];
+  raisedAt?: string;
+  resolvedAt?: string | null;
+  appealSubmittedAt?: string | null;
+};
+
+export function getFinancialDisputes() {
+  return request<{ disputes: FinancialDispute[] }>('/financial-disputes', { method: 'GET' });
+}
+
+export function getFinancialDispute(disputeId: string) {
+  return request<{ dispute: FinancialDispute }>(`/financial-disputes/${disputeId}`, { method: 'GET' });
+}
+
+export function uploadFinancialDisputeEvidence(disputeId: string, payload: { file?: File | null; evidenceType: string; description: string }) {
+  const formData = new FormData();
+  if (payload.file) formData.append('evidence', payload.file);
+  formData.append('evidenceType', payload.evidenceType);
+  formData.append('description', payload.description);
+  return request<{ message: string; dispute: FinancialDispute }>(`/financial-disputes/${disputeId}/evidence`, { method: 'POST', body: formData });
+}
+
+export function addFinancialDisputeMessage(disputeId: string, message: string, visibleToParties = true) {
+  return request<{ message: string; dispute: FinancialDispute }>(`/financial-disputes/${disputeId}/messages`, { method: 'POST', body: { message, visibleToParties } });
+}
+
+export function submitFinancialDisputeEmployerResponse(disputeId: string, response: string) {
+  return request<{ message: string; dispute: FinancialDispute }>(`/financial-disputes/${disputeId}/employer-response`, { method: 'POST', body: { response } });
+}
+
+export function submitFinancialDisputeAppeal(disputeId: string, reason: string) {
+  return request<{ message: string; dispute: FinancialDispute }>(`/financial-disputes/${disputeId}/appeal`, { method: 'POST', body: { reason } });
 }
 
 export function settlePayment(applicationId: string) {
@@ -1492,7 +1574,7 @@ export function updateAdminModerationReport(reportId: string, payload: { status:
 }
 
 export function getAdminFinancialDisputes() {
-  return request<any[]>('/admin/finance/disputes', { method: 'GET' });
+  return request<FinancialDispute[]>('/admin/finance/disputes', { method: 'GET' });
 }
 
 export function updateAdminFinancialDispute(
@@ -1500,4 +1582,24 @@ export function updateAdminFinancialDispute(
   payload: { status: 'open' | 'investigating' | 'resolved' | 'rejected'; resolutionNotes?: string; workerPayoutAmount?: number },
 ) {
   return request<{ message: string; dispute: any }>(`/admin/finance/disputes/${disputeId}`, { method: 'PATCH', body: payload });
+}
+
+export function assignFinancialDisputeSupport(disputeId: string, assignedSupportUserId?: string) {
+  return request<{ message: string; dispute: FinancialDispute }>(`/admin/finance/disputes/${disputeId}/assign-support`, { method: 'POST', body: { assignedSupportUserId } });
+}
+
+export function requestFinancialDisputeEvidence(disputeId: string, target: 'worker' | 'employer', message: string) {
+  return request<{ message: string; dispute: FinancialDispute }>(`/admin/finance/disputes/${disputeId}/evidence-request`, { method: 'POST', body: { target, message } });
+}
+
+export function completeFinancialDisputeInvestigation(disputeId: string, report: Record<string, string>) {
+  return request<{ message: string; dispute: FinancialDispute }>(`/admin/finance/disputes/${disputeId}/investigation-report`, { method: 'POST', body: report });
+}
+
+export function proposeFinancialDisputeSettlement(disputeId: string, payload: { settlementType: 'FULL_REFUND' | 'COMPLETE_PAYMENT' | 'PARTIAL_PAYMENT'; workerAmount?: number; employerRefund?: number; decisionReason: string }) {
+  return request<{ message: string; dispute: FinancialDispute }>(`/admin/finance/disputes/${disputeId}/settlement`, { method: 'POST', body: payload });
+}
+
+export function approveFinancialDisputeSettlement(disputeId: string) {
+  return request<{ message: string; dispute: FinancialDispute }>(`/admin/finance/disputes/${disputeId}/settlement/approve`, { method: 'POST' });
 }

@@ -49,6 +49,7 @@
     "paymentDispute": {
       "openButton": "Magbukas ng dispute sa bayad",
       "onHold": "Naka-hold ang bayad habang sinusuri ito ng finance team.",
+      "viewExisting": "Tingnan ang kasalukuyang ticket",
       "title": "Magbukas ng dispute sa bayad",
       "description": "Ipaliwanag ang isyu sa bayad para sa {{subject}}. Ihihinto muna ang bayad habang sinusuri ng finance team.",
       "reasonLabel": "Dahilan",

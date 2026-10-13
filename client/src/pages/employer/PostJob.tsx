@@ -8,8 +8,10 @@ import { categoriesAPI, jobsAPI } from "../../services/jobs";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../lib/toast";
 import { AlertCard, AlertLayer, Button, ConfirmDialog } from "../../components/ui";
+import { Avatar } from "../../components/ui/Avatar";
 import { ROUTES } from "../../utils/routes";
 import { formatMinimumPay } from "../../lib/jobCompensation";
+import { formatDateTime } from "../../lib/formatters";
 import PostJobWizard from "../../components/job/PostJobWizard";
 import {
   type JobEdit,
@@ -63,6 +65,14 @@ const PostJob: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [jobTypeFilter, setJobTypeFilter] = useState("all");
   const [deleteTarget, setDeleteTarget] = useState<JobEdit | null>(null);
+  const [detailsJob, setDetailsJob] = useState<JobEdit | null>(null);
+  const [hiredApplications, setHiredApplications] = useState<Array<{
+    _id: string;
+    hiredAt?: string;
+    updatedAt?: string;
+    applicant: { _id: string; firstName?: string; lastName?: string; email?: string; avatarUrl?: string };
+  }>>([]);
+  const [isLoadingHired, setIsLoadingHired] = useState(false);
   const [provinceOptions, setProvinceOptions] = useState<ProvinceOption[]>([]);
   const [cityOptions, setCityOptions] = useState<CityOption[]>([]);
   const [barangayOptions, setBarangayOptions] = useState<BarangayOption[]>([]);
@@ -430,6 +440,27 @@ const PostJob: React.FC = () => {
     }
   };
 
+  const openJobDetails = async (job: JobEdit) => {
+    setDetailsJob(job);
+    setHiredApplications([]);
+    setIsLoadingHired(true);
+    try {
+      const response = await jobsAPI.getEmployerApplications({ jobId: job._id, status: "Hired" });
+      setHiredApplications(Array.isArray(response.data) ? response.data : []);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || t("postJob.errors.loadHiredFailed"));
+    } finally {
+      setIsLoadingHired(false);
+    }
+  };
+
+  const formatHiredDate = (application: { hiredAt?: string; updatedAt?: string }) => {
+    const value = application.hiredAt || application.updatedAt;
+    if (!value) return "—";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "—" : formatDateTime(date);
+  };
+
   return (
     <div className="ui-page pb-16">
       <div className="ui-page-header">
@@ -572,10 +603,20 @@ const PostJob: React.FC = () => {
                     <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-semibold text-brand-700">
                       {formatMinimumPay(job.salary, t("postJob.card.payNotSet"))}
                     </span>
+                    <span className="rounded-full bg-violet-50 px-3 py-1 text-sm font-semibold text-violet-700">
+                      {t("postJob.card.hiredCount", { count: Number(job.hiredCount || 0) })}
+                    </span>
                   </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void openJobDetails(job)}
+                    className="inline-flex min-h-11 items-center rounded-lg border border-violet-200 bg-violet-50 px-4 text-sm font-semibold text-violet-700 transition hover:bg-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                  >
+                    {t("postJob.card.viewDetails")}
+                  </button>
                   <button
                     type="button"
                     onClick={() => openEditModal(job)}
@@ -622,6 +663,59 @@ const PostJob: React.FC = () => {
             {t("postJob.noMatch.clearFilters")}
           </button>
         </div>
+      )}
+
+      {detailsJob && typeof document !== "undefined" && createPortal(
+        <div className={`fixed inset-0 ${LAYER_Z.modal} bg-slate-900/55 p-3 md:p-8`}>
+          <div className="flex min-h-full items-center justify-center">
+            <section role="dialog" aria-modal="true" aria-labelledby="job-details-title" className="flex w-full max-w-4xl max-h-[82dvh] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+              <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 md:px-6">
+                <div>
+                  <h2 id="job-details-title" className="text-section font-bold text-slate-900">{detailsJob.title}</h2>
+                  <p className="mt-1 text-sm text-slate-500">{t("postJob.hiredDialog.subtitle")}</p>
+                </div>
+                <button type="button" onClick={() => setDetailsJob(null)} className="rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-slate-200 hover:bg-slate-50 hover:text-slate-700" aria-label={t("postJob.hiredDialog.closeAria")}>
+                  <X size={22} />
+                </button>
+              </header>
+              <div className="overflow-y-auto p-5 md:p-6">
+                <h3 className="text-lg font-semibold text-slate-900">{t("postJob.hiredDialog.title", { count: hiredApplications.length })}</h3>
+                {isLoadingHired ? (
+                  <p className="mt-4 text-sm text-slate-500">{t("postJob.hiredDialog.loading")}</p>
+                ) : hiredApplications.length === 0 ? (
+                  <p className="mt-4 rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">{t("postJob.hiredDialog.empty")}</p>
+                ) : (
+                  <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+                    <table className="w-full min-w-[620px] text-left text-sm">
+                      <thead className="bg-slate-50 text-slate-600">
+                        <tr>
+                          <th className="px-4 py-3 font-semibold">{t("postJob.hiredDialog.table.profilePicture")}</th>
+                          <th className="px-4 py-3 font-semibold">{t("postJob.hiredDialog.table.name")}</th>
+                          <th className="px-4 py-3 font-semibold">{t("postJob.hiredDialog.table.dateHired")}</th>
+                          <th className="px-4 py-3 font-semibold"><span className="sr-only">{t("postJob.hiredDialog.table.actions")}</span></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {hiredApplications.map((application) => {
+                          const name = `${application.applicant.firstName || ""} ${application.applicant.lastName || ""}`.trim() || application.applicant.email || t("postJob.hiredDialog.workerFallback");
+                          return (
+                            <tr key={application._id} className="hover:bg-slate-50">
+                              <td className="px-4 py-3"><Avatar name={name} userId={application.applicant._id} avatarUrl={application.applicant.avatarUrl} size={40} /></td>
+                              <td className="px-4 py-3 font-medium text-slate-900">{name}</td>
+                              <td className="px-4 py-3 text-slate-600">{formatHiredDate(application)}</td>
+                              <td className="px-4 py-3 text-right"><button type="button" onClick={() => navigate(`${ROUTES.publicProfile(application.applicant._id)}?viewAs=worker`)} className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 font-semibold text-brand-700 transition hover:bg-brand-100">{t("postJob.hiredDialog.table.viewProfile")}</button></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
+        </div>,
+        document.body,
       )}
 
       {showModal && typeof document !== "undefined" && createPortal(

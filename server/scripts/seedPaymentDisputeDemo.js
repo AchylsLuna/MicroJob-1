@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import FinancialDispute from '../models/FinancialDispute.js';
+import SupportTicket from '../models/SupportTicket.js';
 import Job from '../models/Job.js';
 import JobApplication from '../models/JobApplication.js';
 import Transaction from '../models/Transaction.js';
@@ -68,8 +69,8 @@ async function resetDemoAssignment({ job, application, employer, worker }) {
       const demoReferences = [
         escrowReference,
         ...disputeIds.flatMap((disputeId) => [
-          `dispute-resolution:${disputeId}:worker`,
-          `dispute-resolution:${disputeId}:employer`,
+          `financial-dispute:${disputeId}:worker`,
+          `financial-dispute:${disputeId}:employer`,
         ]),
       ];
       const completedResolutions = await Transaction.find({
@@ -94,6 +95,7 @@ async function resetDemoAssignment({ job, application, employer, worker }) {
 
       if (workerCredit) await User.updateOne({ _id: worker._id }, { $inc: { workerBalance: -workerCredit } }, { session });
       if (employerCredit) await User.updateOne({ _id: employer._id }, { $inc: { employerBalance: -employerCredit } }, { session });
+      await SupportTicket.deleteMany({ financialDispute: { $in: disputes.map((dispute) => dispute._id) } }, { session });
       await FinancialDispute.deleteMany({ application: application._id }, { session });
       await Transaction.deleteMany({ jobReference: job._id, reference: { $in: demoReferences } }, { session });
       await JobApplication.updateOne(
@@ -214,8 +216,10 @@ async function seed() {
   console.log('\nTest the flow:');
   console.log('1. Sign in as the demo worker and open Applied Jobs. Open a payment dispute for the submitted demo job.');
   console.log('2. Sign in as the demo employer and confirm the dispute notice and payment hold.');
-  console.log('3. Sign in as a finance admin, open Financial Disputes, and resolve the case with a worker amount from PHP 0 to PHP 500.');
-  console.log('4. To restart the scenario, run: npm --prefix server run seed:payment-dispute-demo -- --reset');
+  console.log('3. Sign in as Support, assign the case, complete the investigation report, and forward it to Finance.');
+  console.log('4. Sign in as Finance, select Full Refund, Complete Payment, or Partial Payment and enter a reason.');
+  console.log('5. Sign in as a different authorized Finance user to approve and process the settlement.');
+  console.log('6. To restart the scenario, run: npm --prefix server run seed:payment-dispute-demo -- --reset');
   console.log('   Reset only affects the marked demo job, its dispute ledger entries, and settlement credits still held in the demo accounts.');
 }
 

@@ -63,6 +63,7 @@ test('employer applications include applicant match and rating data on the corre
     createUser({
       role: 'work',
       firstName: 'Alex',
+      avatarUrl: '/uploads/alex.png',
       skills: [{ name: 'Electrical wiring' }],
       city: 'Pasig City',
       preferredCategories: [category._id],
@@ -84,6 +85,7 @@ test('employer applications include applicant match and rating data on the corre
     job: job._id,
     applicant: worker._id,
     status: 'Hired',
+    hiredAt: new Date('2026-08-14T09:30:00.000Z'),
   });
   const offer = await JobOffer.create({
     job: job._id,
@@ -106,13 +108,15 @@ test('employer applications include applicant match and rating data on the corre
   });
 
   const employerResponse = createResponse();
-  await getEmployerApplications({ user: { id: employer._id }, query: {} }, employerResponse);
+  await getEmployerApplications({ user: { id: employer._id }, query: { status: 'Hired', jobId: String(job._id) } }, employerResponse);
 
   assert.equal(employerResponse.statusCode, 200);
   assert.equal(employerResponse.payload.length, 1);
   assert.ok(employerResponse.payload[0].match.percentage > 0);
   assert.equal(employerResponse.payload[0].applicant.rating.averageRating, 5);
   assert.equal(employerResponse.payload[0].applicant.rating.totalReviews, 1);
+  assert.equal(employerResponse.payload[0].applicant.avatarUrl, '/uploads/alex.png');
+  assert.equal(new Date(employerResponse.payload[0].hiredAt).toISOString(), '2026-08-14T09:30:00.000Z');
   assert.deepEqual(employerResponse.payload[0].offer, {
     id: String(offer._id),
     amount: 2750,

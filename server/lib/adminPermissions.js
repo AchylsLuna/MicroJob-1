@@ -35,6 +35,8 @@ export const ROLE_PERMISSIONS = {
     'analytics.view',
     'analytics.export',
     'support.tickets.handle',
+    'finance.disputes.view',
+    'finance.disputes.investigate',
   ],
 
   moderator: [
@@ -59,7 +61,10 @@ export const ROLE_PERMISSIONS = {
     'finance.reconciliation.view',
     'finance.flag',
     'finance.payouts.review',
+    'finance.disputes.view',
     'finance.disputes.handle',
+    'finance.disputes.review',
+    'finance.disputes.approve',
     'finance.logs.view',
     'analytics.view',
     'analytics.export',
@@ -75,6 +80,8 @@ export const ROLE_PERMISSIONS = {
     'jobs.view',
     'support.tickets.handle',
     'support.escalate',
+    'finance.disputes.view',
+    'finance.disputes.investigate',
   ],
 };
 

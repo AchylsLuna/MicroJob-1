@@ -14,6 +14,7 @@ import ProfileRoute from './ProfileRoute.js';
 import ReviewRoute from './ReviewRoute.js';
 import IdAnalyzerRoute from './IdAnalyzerRoute.js';
 import CronRoute from './CronRoute.js';
+import FinancialDisputeRoute from './FinancialDisputeRoute.js';
 
 export const registerRoutes = (app) => {
     app.get('/', (req, res) => {
@@ -43,4 +44,5 @@ export const registerRoutes = (app) => {
     app.use('/api/reviews', ReviewRoute);
     app.use('/api/verify-id', IdAnalyzerRoute);
     app.use('/api/cron', CronRoute);
+    app.use('/api/financial-disputes', FinancialDisputeRoute);
 };

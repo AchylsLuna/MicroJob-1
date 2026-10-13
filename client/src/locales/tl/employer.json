@@ -1,4 +1,29 @@
 {
+  "jobHistory": {
+    "title": "Kasaysayan ng Trabaho",
+    "subtitle": "Tingnan ang mga trabaho, nakahawak na pondo, bayad sa manggagawa, at rating.",
+    "jobTitle": "Pamagat",
+    "status": "Katayuan",
+    "amountHeld": "Halagang nakahawak",
+    "amountPaid": "Halagang ibinayad sa manggagawa",
+    "details": "Mga detalye",
+    "viewDetails": "Tingnan ang mga detalye",
+    "viewDetailsFor": "Tingnan ang mga detalye ng {{title}}",
+    "refresh": "I-refresh",
+    "loading": "Nilo-load ang kasaysayan ng trabaho…",
+    "empty": "Wala ka pang kasaysayan ng trabaho.",
+    "loadFailed": "Hindi ma-load ang kasaysayan ng trabaho.",
+    "moneyNote": "Ang nakahawak na pondo ay ang natitirang escrow matapos ang mga bayad at refund. Hindi kasama ang posting at highlight fees.",
+    "ratingAfterCompletion": "Maaari mong i-rate ang manggagawa kapag nakumpleto na ang trabaho.",
+    "location": "Lokasyon",
+    "jobType": "Uri ng trabaho",
+    "deadline": "Deadline",
+    "minimumPay": "Minimum na bayad sa manggagawa",
+    "skills": "Mga kasanayan",
+    "requirements": "Mga kinakailangan",
+    "responsibilities": "Mga responsibilidad",
+    "statuses": { "Available": "Bukas", "In Progress": "Isinasagawa", "Completed": "Nakumpleto", "Cancelled": "Kinansela", "Closed": "Sarado", "Full refund": "Buong refund", "Resolved": "Nalutas" }
+  },
   "postJob": {
     "header": {
       "title": "Mag-post ng Trabaho",
@@ -45,7 +70,8 @@
       "updateFailed": "Hindi na-update ang trabaho.",
       "postFailed": "Hindi na-post ang trabaho.",
       "deleteFailed": "Hindi na-delete ang trabaho.",
-      "statusUpdateFailed": "Hindi na-update ang status ng trabaho."
+      "statusUpdateFailed": "Hindi na-update ang status ng trabaho.",
+      "loadHiredFailed": "Hindi na-load ang mga na-hire na manggagawa."
     },
     "actions": {
       "postJob": "Mag-post ng Trabaho",
@@ -74,10 +100,29 @@
       "locationNotSet": "Walang nakatakdang lokasyon",
       "jobTypeNotSet": "Walang nakatakdang uri ng trabaho",
       "payNotSet": "Hindi nakatakda",
+      "hiredCount_one": "{{count}} na-hire",
+      "hiredCount_other": "{{count}} na-hire",
+      "viewDetails": "Tingnan ang detalye",
       "edit": "I-edit",
       "reopen": "Buksan muli",
       "close": "Isara",
       "delete": "I-delete"
+    },
+    "hiredDialog": {
+      "title_one": "Na-hire ({{count}})",
+      "title_other": "Na-hire ({{count}})",
+      "subtitle": "Mga manggagawang na-hire para sa trabahong ito.",
+      "closeAria": "Isara ang detalye ng trabaho",
+      "loading": "Naglo-load ng mga na-hire na manggagawa...",
+      "empty": "Wala pang na-hire na manggagawa para sa trabahong ito.",
+      "workerFallback": "Manggagawa",
+      "table": {
+        "profilePicture": "Larawan sa profile",
+        "name": "Pangalan",
+        "dateHired": "Petsa ng pag-hire",
+        "actions": "Mga aksyon",
+        "viewProfile": "Tingnan ang profile"
+      }
     },
     "noMatch": {
       "title": "Walang tumugmang trabaho sa iyong mga filter",
@@ -345,7 +390,7 @@
   },
   "applicationsManagement": {
     "title": "Mga Aplikasyon",
-    "subtitle": "Suriin ang mga aplikante ayon sa yugto, mag-iskedyul ng interbyu, at ligtas na magsagawa ng bulk na aksyon sa workflow.",
+    "subtitle": "Pumili ng trabaho upang suriin ang mga aplikante nito, mag-iskedyul ng interbyu, at pamahalaan ang mga alok at pag-hire.",
     "viewToggle": {
       "board": "Board",
       "table": "Talahanayan"
@@ -357,7 +402,10 @@
       "allStages": "Lahat ng Yugto",
       "jobAriaLabel": "I-filter ang mga aplikasyon ayon sa trabaho",
       "allJobs": "Lahat ng Trabaho",
-      "showHidden": "Ipakita ang mga itinago"
+      "showHidden": "Ipakita ang mga itinago",
+      "jobLabel": "Trabaho",
+      "loadingJobs": "Naglo-load ng mga trabaho...",
+      "noJobs": "Walang na-post na trabaho"
     },
     "status": {
       "applied": "Nag-apply",
@@ -379,7 +427,8 @@
       "hideSelected": "Itago ang Napili"
     },
     "errors": {
-      "loadFailed": "Hindi na-load ang mga aplikasyon."
+      "loadFailed": "Hindi na-load ang mga aplikasyon.",
+      "jobsLoadFailed": "Hindi na-load ang iyong mga trabaho."
     },
     "states": {
       "loading": "Naglo-load ng mga aplikasyon...",
@@ -420,20 +469,46 @@
     },
     "table": {
       "headers": {
-        "applicant": "Aplikante",
+        "applicant": "Pangalan",
         "role": "Tungkulin",
         "stage": "Yugto",
         "interview": "Interbyu",
-        "applied": "Nag-apply",
+        "applied": "Nag-apply noong",
         "resume": "Resume",
-        "actions": "Mga Aksyon"
+        "actions": "Mga Aksyon",
+        "profile": "Tingnan ang Profile",
+        "hide": "Itago"
       },
+      "selectAll": "Piliin ang lahat ng aplikasyon",
+      "selectApplicant": "Piliin ang aplikasyon ni {{name}}",
       "notScheduled": "Hindi pa naka-iskedyul",
       "noResume": "Walang resume",
       "actions": {
         "interview": "Interbyu",
         "rate": "I-rate"
       }
+    },
+    "workflow": {
+      "title": "Mga Aksyon sa Aplikante",
+      "stepsLabel": "Mga hakbang ng aplikasyon",
+      "statusStep": "Status at alok",
+      "reviewStep": "Pagsuri ng alok",
+      "hireStep": "Desisyon sa pag-hire",
+      "paymentStep": "Bayad",
+      "changeStatus": "Baguhin ang Status",
+      "waiting": "Sinusuri ng aplikante ang iyong alok",
+      "hireQuestion": "Nais mo bang i-hire ang aplikanteng ito?",
+      "hireWarning": "Kapag nag-hire ka ng aplikante, magiging In Progress ang trabaho at hindi mo na ito maaaring tanggalin",
+      "hire": "I-hire",
+      "reject": "Tanggihan",
+      "rejectTitle": "Tanggihan ang aplikante",
+      "rejectDescription": "Kanselahin ang alok na {{amount}} at tanggihan si {{name}}? Ibabalik sa iyong balanse ang karagdagang escrow.",
+      "offerDeclined": "Tinanggihan ng aplikante ang iyong alok. Maaari mong baguhin ang status o magpadala ng bagong alok.",
+      "rejectedHelp": "Tinanggihan ang aplikanteng ito. Baguhin muna ang status bago magpadala ng bagong alok.",
+      "paymentHelp": "Pahintulutan ang napagkasunduang bayad para sa aplikanteng ito. Mananatiling naka-secure ang pondo hanggang maaprubahan at mabayaran ang naisumiteng trabaho.",
+      "paymentAuthorized": "Pinahintulutan na ang bayad. Mananatiling naka-secure ang pondo hanggang aprubahan mo ang naisumiteng trabaho.",
+      "paymentPaid": "Naibigay na ang bayad sa manggagawa.",
+      "paymentDisputed": "Naka-hold ang bayad habang sinusuri ang dispute."
     },
     "messageDraft": "Kumusta {{name}}, gusto kong pag-usapan ang iyong aplikasyon para sa {{job}}.",
     "toast": {
@@ -507,6 +582,7 @@
     },
     "confirmHire": {
       "title": "Kumpirmahin ang Pag-hire",
+      "warning": "Hindi maaaring burahin ang trabaho matapos kumpirmahin ang pag-hire.",
       "description": "Kumpirmahin ang pag-hire kay {{name}} para sa {{amount}}? Ire-reserba nito ang posisyon at sisiguruhin ang escrow.",
       "confirm": "Kumpirmahin ang Pag-hire"
     },

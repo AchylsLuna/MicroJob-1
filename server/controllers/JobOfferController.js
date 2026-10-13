@@ -96,8 +96,8 @@ export async function confirmOfferHire(req, res) {
       if (!offer) throw Object.assign(new Error('Accepted offer not found.'), { status: 404 });
       application = await JobApplication.findById(offer.application).session(session); job = await Job.findById(offer.job).session(session);
       if (!application || !job || Number(job.hiredCount || 0) >= Number(job.positionsNeeded || 1)) throw Object.assign(new Error('This job no longer has an available position.'), { status: 409 });
-      application.status = 'Hired'; application.agreedAmount = offer.amount; application.workStatus = 'In Progress'; application.paymentStatus = 'Secured'; await application.save({ session });
-      job.hiredCount = Number(job.hiredCount || 0) + 1; job.reservedOfferCount = Math.max(0, Number(job.reservedOfferCount || 0) - 1); job.status = job.hiredCount >= job.positionsNeeded ? 'Closed' : 'Available'; await job.save({ session });
+      application.status = 'Hired'; application.hiredAt = new Date(); application.agreedAmount = offer.amount; application.workStatus = 'In Progress'; application.paymentStatus = 'Secured'; await application.save({ session });
+      job.hiredCount = Number(job.hiredCount || 0) + 1; job.reservedOfferCount = Math.max(0, Number(job.reservedOfferCount || 0) - 1); job.status = 'In Progress'; job.hireConfirmedAt ||= new Date(); await job.save({ session });
       offer.status = 'hired'; offer.resolvedAt = new Date(); await offer.save({ session });
     });
     await createNotification({ userId: offer.worker, audience: 'worker', type: 'application', title: 'You are hired', message: `Your PHP ${Number(offer.amount).toFixed(2)} offer was confirmed.`, entityType: 'application', entityId: application._id, actor: offer.employer, push: true });

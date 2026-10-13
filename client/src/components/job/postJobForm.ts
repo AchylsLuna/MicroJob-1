@@ -31,6 +31,7 @@ export type JobEdit = {
   deadline?: string;
   urgent?: boolean;
   positionsNeeded?: number;
+  hiredCount?: number;
   status?: string;
   highlighted?: boolean;
   createdAt?: string;

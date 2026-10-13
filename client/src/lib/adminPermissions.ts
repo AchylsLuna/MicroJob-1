@@ -55,7 +55,11 @@ export type AdminPermission =
   | "finance.reconciliation.view"
   | "finance.flag"
   | "finance.payouts.review"
+  | "finance.disputes.view"
   | "finance.disputes.handle"
+  | "finance.disputes.investigate"
+  | "finance.disputes.review"
+  | "finance.disputes.approve"
   | "finance.logs.view"
   // Analytics
   | "analytics.view"
@@ -90,6 +94,8 @@ export const ROLE_PERMISSIONS: Record<AdminStaffRole, readonly AdminPermission[]
     "analytics.view",
     "analytics.export",
     "support.tickets.handle",
+    "finance.disputes.view",
+    "finance.disputes.investigate",
   ],
 
   moderator: [
@@ -114,7 +120,10 @@ export const ROLE_PERMISSIONS: Record<AdminStaffRole, readonly AdminPermission[]
     "finance.reconciliation.view",
     "finance.flag",
     "finance.payouts.review",
+    "finance.disputes.view",
     "finance.disputes.handle",
+    "finance.disputes.review",
+    "finance.disputes.approve",
     "finance.logs.view",
     "analytics.view",
     "analytics.export",
@@ -136,6 +145,8 @@ export const ROLE_PERMISSIONS: Record<AdminStaffRole, readonly AdminPermission[]
     "jobs.view",
     "support.tickets.handle",
     "support.escalate",
+    "finance.disputes.view",
+    "finance.disputes.investigate",
   ],
 };
 

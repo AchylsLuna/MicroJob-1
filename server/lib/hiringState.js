@@ -32,7 +32,7 @@ export const HIRED_STATUSES = ['Hired', 'Accepted'];
 
 // Job statuses that represent an explicit decision and must never be
 // overwritten by capacity math.
-export const TERMINAL_JOB_STATUSES = ['Completed', 'Cancelled', 'In Progress'];
+export const TERMINAL_JOB_STATUSES = ['Completed', 'Cancelled', 'In Progress', 'Full refund', 'Resolved'];
 
 // Un-hiring returns escrow and frees a position. That is only safe while the
 // money is still sitting in escrow; once payment is authorized or in flight the

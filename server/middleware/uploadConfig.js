@@ -20,6 +20,7 @@ const resumeStorage = multer.memoryStorage();
 const avatarStorage = multer.memoryStorage();
 const documentStorage = multer.memoryStorage();
 const experienceMediaStorage = multer.memoryStorage();
+const disputeEvidenceStorage = multer.memoryStorage();
 
 const multerResume = multer({
   storage: resumeStorage,
@@ -85,6 +86,25 @@ const multerDocument = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
+const multerDisputeEvidence = multer({
+  storage: disputeEvidenceStorage,
+  fileFilter: (req, file, cb) => {
+    const allowed = new Set(['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.doc', '.docx']);
+    const allowedMime = new Set([
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ]);
+    const ext = safeExt(path.extname(file.originalname));
+    if (allowed.has(ext) && allowedMime.has(String(file.mimetype || '').toLowerCase())) cb(null, true);
+    else cb(new Error('Evidence must be a JPG, PNG, WEBP, PDF, DOC, or DOCX file'));
+  },
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
 export const hasValidResumeFileSignature = (file) => {
   const bytes = file?.buffer ? Buffer.from(file.buffer) : null;
   if (!bytes) return false;
@@ -121,6 +141,9 @@ export const hasValidVerificationFileSignature = (file) => {
   if (extension === '.jpg' || extension === '.jpeg') return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
   return false;
 };
+
+export const hasValidDisputeEvidenceFileSignature = (file) =>
+  hasValidVerificationFileSignature(file) || hasValidResumeFileSignature(file);
 
 const persistUpload = async (req, file, kind, defaultExt) => {
   const filename = buildUploadFileName(kind, file.originalname, req.user?.id);
@@ -164,6 +187,7 @@ export const uploadResumeFile = withUploadErrors(multerResume.single('resume'), 
 export const uploadVerificationFile = withUploadErrors(multerDocument.single('document'), 'verification', '.bin');
 // Same image rules and signature check as avatars -- see hasValidAvatarFileSignature.
 export const uploadExperienceMediaFile = withUploadErrors(multerExperienceMedia.single('media'), 'experience-media', '.jpg');
+export const uploadDisputeEvidenceFile = withUploadErrors(multerDisputeEvidence.single('evidence'), 'dispute-evidence', '.bin');
 
 export const removeUploadFile = async (value) => {
   try {

@@ -49,6 +49,7 @@
     "paymentDispute": {
       "openButton": "Open payment dispute",
       "onHold": "Payment is on hold while this dispute is reviewed by the finance team.",
+      "viewExisting": "View existing ticket",
       "title": "Open payment dispute",
       "description": "Explain the payment issue for {{subject}}. The payment will be held for finance review.",
       "reasonLabel": "Reason",

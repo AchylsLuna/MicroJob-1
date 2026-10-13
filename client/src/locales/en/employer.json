@@ -1,4 +1,29 @@
 {
+  "jobHistory": {
+    "title": "Job History",
+    "subtitle": "Review your job postings, held funds, worker payments, and ratings.",
+    "jobTitle": "Title",
+    "status": "Status",
+    "amountHeld": "Amount held",
+    "amountPaid": "Amount paid for worker",
+    "details": "Details",
+    "viewDetails": "View details",
+    "viewDetailsFor": "View details for {{title}}",
+    "refresh": "Refresh",
+    "loading": "Loading job history…",
+    "empty": "You have no job history yet.",
+    "loadFailed": "Failed to load job history.",
+    "moneyNote": "Held funds are remaining escrow after payments and refunds. Posting and highlight fees are excluded.",
+    "ratingAfterCompletion": "You can rate this worker after the job is completed.",
+    "location": "Location",
+    "jobType": "Job type",
+    "deadline": "Deadline",
+    "minimumPay": "Minimum worker pay",
+    "skills": "Skills",
+    "requirements": "Requirements",
+    "responsibilities": "Responsibilities",
+    "statuses": { "Available": "Available", "In Progress": "In Progress", "Completed": "Completed", "Cancelled": "Cancelled", "Closed": "Closed", "Full refund": "Full refund", "Resolved": "Resolved" }
+  },
   "postJob": {
     "header": {
       "title": "Post a Job",
@@ -45,7 +70,8 @@
       "updateFailed": "Failed to update job.",
       "postFailed": "Failed to post job.",
       "deleteFailed": "Failed to delete job.",
-      "statusUpdateFailed": "Failed to update job status."
+      "statusUpdateFailed": "Failed to update job status.",
+      "loadHiredFailed": "Failed to load hired workers."
     },
     "actions": {
       "postJob": "Post a Job",
@@ -74,10 +100,29 @@
       "locationNotSet": "Location not set",
       "jobTypeNotSet": "Job type not set",
       "payNotSet": "Not set",
+      "hiredCount_one": "{{count}} hired",
+      "hiredCount_other": "{{count}} hired",
+      "viewDetails": "View details",
       "edit": "Edit",
       "reopen": "Reopen",
       "close": "Close",
       "delete": "Delete"
+    },
+    "hiredDialog": {
+      "title_one": "Hired ({{count}})",
+      "title_other": "Hired ({{count}})",
+      "subtitle": "Workers hired for this job.",
+      "closeAria": "Close job details",
+      "loading": "Loading hired workers...",
+      "empty": "No workers have been hired for this job yet.",
+      "workerFallback": "Worker",
+      "table": {
+        "profilePicture": "Profile picture",
+        "name": "Name",
+        "dateHired": "Date hired",
+        "actions": "Actions",
+        "viewProfile": "View profile"
+      }
     },
     "noMatch": {
       "title": "No jobs match your filters",
@@ -345,7 +390,7 @@
   },
   "applicationsManagement": {
     "title": "Applications",
-    "subtitle": "Review applicants by stage, schedule interviews, and run bulk workflow actions safely.",
+    "subtitle": "Select a job to review its applicants, schedule interviews, and manage offers and hiring.",
     "viewToggle": {
       "board": "Board",
       "table": "Table"
@@ -357,7 +402,10 @@
       "allStages": "All stages",
       "jobAriaLabel": "Filter applications by job",
       "allJobs": "All jobs",
-      "showHidden": "Show hidden"
+      "showHidden": "Show hidden",
+      "jobLabel": "Job",
+      "loadingJobs": "Loading jobs...",
+      "noJobs": "No posted jobs"
     },
     "status": {
       "applied": "Applied",
@@ -379,7 +427,8 @@
       "hideSelected": "Hide Selected"
     },
     "errors": {
-      "loadFailed": "Failed to load applications."
+      "loadFailed": "Failed to load applications.",
+      "jobsLoadFailed": "Failed to load your jobs."
     },
     "states": {
       "loading": "Loading applications...",
@@ -420,20 +469,46 @@
     },
     "table": {
       "headers": {
-        "applicant": "Applicant",
+        "applicant": "Name",
         "role": "Role",
         "stage": "Stage",
         "interview": "Interview",
-        "applied": "Applied",
+        "applied": "Applied on",
         "resume": "Resume",
-        "actions": "Actions"
+        "actions": "Actions",
+        "profile": "View Profile",
+        "hide": "Hide"
       },
+      "selectAll": "Select all applications",
+      "selectApplicant": "Select application for {{name}}",
       "notScheduled": "Not scheduled",
       "noResume": "No resume",
       "actions": {
         "interview": "Interview",
         "rate": "Rate"
       }
+    },
+    "workflow": {
+      "title": "Applicant Actions",
+      "stepsLabel": "Application steps",
+      "statusStep": "Status & offer",
+      "reviewStep": "Offer review",
+      "hireStep": "Hire decision",
+      "paymentStep": "Payment",
+      "changeStatus": "Change Status",
+      "waiting": "Applicant is reviewing your offer",
+      "hireQuestion": "Do you wish to hire this applicant?",
+      "hireWarning": "Hiring an applicant will put the job in progress and you won't be able to delete it",
+      "hire": "Hire",
+      "reject": "Reject",
+      "rejectTitle": "Reject applicant",
+      "rejectDescription": "Cancel the {{amount}} offer and reject {{name}}? Any additional escrow will be refunded to your balance.",
+      "offerDeclined": "The applicant declined your offer. You may change the status or send a new offer.",
+      "rejectedHelp": "This applicant is rejected. Change the status before sending a new offer.",
+      "paymentHelp": "Authorize the agreed payment for this applicant. Funds remain secured until submitted work is approved and paid.",
+      "paymentAuthorized": "Payment is authorized. Funds remain secured until you approve the submitted work.",
+      "paymentPaid": "Payment has been released to the worker.",
+      "paymentDisputed": "Payment is on hold while the dispute is reviewed."
     },
     "messageDraft": "Hi {{name}}, I would like to discuss your application for {{job}}.",
     "toast": {
@@ -507,6 +582,7 @@
     },
     "confirmHire": {
       "title": "Confirm Hire",
+      "warning": "Cannot delete the job after confirming the hire.",
       "description": "Confirm hiring {{name}} for {{amount}}? This reserves the position and secures escrow.",
       "confirm": "Confirm Hire"
     },

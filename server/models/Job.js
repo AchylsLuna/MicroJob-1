@@ -46,7 +46,7 @@ const JobSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ['Available', 'In Progress', 'Completed', 'Cancelled', 'Closed'],
+            enum: ['Available', 'In Progress', 'Completed', 'Cancelled', 'Closed', 'Full refund', 'Resolved'],
             default: 'Available',
         },
         urgent: {
@@ -89,6 +89,8 @@ const JobSchema = new mongoose.Schema(
             default: 0,
             min: 0,
         },
+        // Permanent employer deletion lock, including after an assignment ends.
+        hireConfirmedAt: { type: Date, default: null },
         reservedOfferCount: {
             type: Number,
             default: 0,

@@ -8,6 +8,7 @@ import {
     createJob, 
     changeJobStatus, 
     getMyJobs,
+    getEmployerJobHistory,
     updateJob,
     deleteJob,
     reopenJob
@@ -24,6 +25,7 @@ router.get('/available', optionalAuth, getAvailableJobs);
 router.get('/recommended', verifyToken, getRecommendedJobs);
 router.get('/category/:categoryId', optionalAuth, getJobByCategory);
 router.get('/mine', verifyToken, getMyJobs);
+router.get('/history', verifyToken, getEmployerJobHistory);
 router.get('/:id', optionalAuth, getJobDetails);
 
 router.post('/', verifyToken, createJob);

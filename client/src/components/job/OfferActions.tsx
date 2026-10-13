@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { formatCurrency } from "../../lib/formatters";
 import type { JobOffer } from "../../services/api";
 
-// Ported verbatim from Mobile/pages/employer/EmployerApplications.tsx's
-// CandidateCard offer/hired panels -- same three states, same guards. Do not
-// diverge from that state machine; if mobile's flow changes, mirror it here.
+// Shared offer/payment guards for application actions and Job History cards.
+// The stepped presentation changes labels and layout, not payment transitions.
 export type OfferActionsApplication = {
   _id: string;
   status: string;
@@ -35,7 +34,8 @@ export function OfferActions({
   onAuthorizePayment,
   onReleasePayment,
   onRequestChanges,
-  onOpenDispute,
+  stepped = false,
+  onReject,
 }: {
   application: OfferActionsApplication;
   busy: boolean;
@@ -45,11 +45,14 @@ export function OfferActions({
   onAuthorizePayment: () => void;
   onReleasePayment: () => void;
   onRequestChanges: (reason: string) => void;
-  onOpenDispute: () => void;
+  stepped?: boolean;
+  onReject?: () => void;
 }) {
   const { t } = useTranslation("employer");
   const [offerAmount, setOfferAmount] = useState("");
   const [changeReason, setChangeReason] = useState("");
+  const amountId = useId();
+  const reasonId = useId();
 
   const offer = application.offer ?? null;
   const offerActive = Boolean(offer && (offer.status === "pending" || offer.status === "accepted"));
@@ -68,6 +71,8 @@ export function OfferActions({
           </p>
           <div className="flex gap-2">
             <input
+              id={amountId}
+              aria-label={t("applicationsManagement.offerPanel.amountPlaceholder")}
               value={offerAmount}
               onChange={(event) => setOfferAmount(event.target.value.replace(/[^0-9.]/g, ""))}
               inputMode="decimal"
@@ -80,7 +85,7 @@ export function OfferActions({
               onClick={() => onSendOffer(amountNumber)}
               className={primaryButtonClass}
             >
-              {t("applicationsManagement.offerPanel.reviewOffer")}
+              {t(stepped ? "applicationsManagement.offerPanel.title" : "applicationsManagement.offerPanel.reviewOffer")}
             </button>
           </div>
           {amountNumber > minimumSalary ? (
@@ -93,22 +98,27 @@ export function OfferActions({
 
       {offerActive ? (
         <div className="rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-3 space-y-2">
-          <p className="text-caption font-semibold text-[#111827]">
+          <p className="text-body-sm font-semibold text-[#111827]" role="status">
             {offer?.status === "accepted"
-              ? t("applicationsManagement.offerActive.accepted")
-              : t("applicationsManagement.offerActive.awaiting")}
+              ? t(stepped ? "applicationsManagement.workflow.hireQuestion" : "applicationsManagement.offerActive.accepted")
+              : t(stepped ? "applicationsManagement.workflow.waiting" : "applicationsManagement.offerActive.awaiting")}
           </p>
+          {stepped && offer?.status === "accepted" ? (
+            <p role="note" className="rounded-control border border-amber-300 bg-amber-50 p-3 text-body-sm font-bold text-amber-900">
+              {t("applicationsManagement.workflow.hireWarning")}
+            </p>
+          ) : null}
           <p className="text-[11px] text-[#6B7280]">
             {t("applicationsManagement.offerActive.escrowBacked", { amount: formatCurrency(offer?.amount) })}
           </p>
           <div className="flex flex-wrap gap-2">
             {offer?.status === "accepted" ? (
               <button type="button" disabled={busy} onClick={onConfirmHire} className={primaryButtonClass}>
-                {t("applicationsManagement.offerActive.confirmHire")}
+                {t(stepped ? "applicationsManagement.workflow.hire" : "applicationsManagement.offerActive.confirmHire")}
               </button>
             ) : null}
-            <button type="button" disabled={busy} onClick={onCancelOffer} className={dangerOutlineButtonClass}>
-              {t("applicationsManagement.offerActive.cancelOffer")}
+            <button type="button" disabled={busy} onClick={stepped && offer?.status === "accepted" ? onReject : onCancelOffer} className={dangerOutlineButtonClass}>
+              {t(stepped && offer?.status === "accepted" ? "applicationsManagement.workflow.reject" : "applicationsManagement.offerActive.cancelOffer")}
             </button>
           </div>
         </div>
@@ -129,6 +139,7 @@ export function OfferActions({
                   paymentStatus,
                 })}
               </p>
+              {stepped ? <p className="text-body-sm text-slate-600">{t(`applicationsManagement.workflow.${paymentStatus === "Paid" ? "paymentPaid" : paymentStatus === "Disputed" ? "paymentDisputed" : paymentStatus === "Authorized" ? "paymentAuthorized" : "paymentHelp"}`)}</p> : null}
               {!["Authorized", "Paid", "Disputed"].includes(paymentStatus) ? (
                 <button type="button" disabled={busy} onClick={onAuthorizePayment} className={secondaryButtonClass}>
                   {t("applicationsManagement.hiredPanel.authorizePayment")}
@@ -144,14 +155,11 @@ export function OfferActions({
                   {t("applicationsManagement.hiredPanel.paymentOnHold")}
                 </p>
               ) : null}
-              {workStatus === "Submitted" && !["Paid", "Disputed"].includes(paymentStatus) ? (
-                <button type="button" disabled={busy} onClick={onOpenDispute} className={dangerOutlineButtonClass}>
-                  {t("applicationsManagement.hiredPanel.openDispute")}
-                </button>
-              ) : null}
               {canRequestChanges ? (
                 <div className="flex gap-2">
                   <input
+                    id={reasonId}
+                    aria-label={t("applicationsManagement.hiredPanel.changeReasonPlaceholder")}
                     value={changeReason}
                     onChange={(event) => setChangeReason(event.target.value)}
                     placeholder={t("applicationsManagement.hiredPanel.changeReasonPlaceholder")}

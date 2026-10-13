@@ -82,6 +82,21 @@ test('anonymous discovery and details expose only public fields and opaque ident
   }
 });
 
+test('Find Jobs discovery excludes completed and closed postings', async () => {
+  const { employer, category } = await fixture();
+  await Promise.all(['Completed', 'Closed'].map((status) => Job.create({
+    title: `${status} opportunity`, description: 'This work is unavailable.', location: 'Pasig City',
+    salary: 1000, jobType: 'Short-term', deadline: new Date(Date.now() + 86400000),
+    jobPoster: employer._id, category: category._id, status,
+  })));
+
+  const res = response();
+  await getJobList(request(), res);
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.payload.map((job) => job.title), ['Public opportunity']);
+});
+
 test('a worker can search another location or nationwide without changing their home city', async () => {
   const { employer, worker, category } = await fixture();
   worker.city = 'Pasig City';

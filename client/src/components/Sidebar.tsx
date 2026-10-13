@@ -166,6 +166,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     children: [
         { icon: "jobs-management", label: "Jobs Management", path: ROUTES.employer.jobs },
       { icon: "applications", label: "Applications", path: ROUTES.employer.applications },
+      { icon: "jobs-management", label: "Job History", path: ROUTES.employer.jobHistory },
     ],
   };
 
@@ -174,6 +175,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       ? [
           { icon: "messages", label: "Messages", path: ROUTES.employer.messages, notification: true },
           { icon: "e-wallet", label: "E-Wallet", path: ROUTES.employer.eWallet },
+          { icon: "disputes", label: "Financial Disputes", path: ROUTES.employer.financialDisputes },
         ]
       : [
           { icon: "messages", label: "Messages", path: ROUTES.worker.messages, notification: true },
@@ -208,7 +210,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { icon: "e-wallet", label: "E-Wallet", path: ROUTES.admin.eWallet, permission: "finance.transactions.view" },
         { icon: "payouts", label: "Payout Requests", path: ROUTES.admin.payouts, permission: "finance.payouts.review" },
-        { icon: "disputes", label: "Financial Disputes", path: ROUTES.admin.disputes, permission: "finance.disputes.handle" },
+        { icon: "disputes", label: "Financial Disputes", path: ROUTES.admin.disputes, permission: "finance.disputes.view" },
       ],
     },
     {

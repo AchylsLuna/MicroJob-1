@@ -23,6 +23,16 @@ export function requirePermission(permission) {
   };
 }
 
+export function requireAnyPermission(...permissions) {
+  return (req, res, next) => {
+    const staffRole = resolveStaffRole(req.user);
+    if (permissions.some((permission) => hasPermission(staffRole, permission))) {
+      return next();
+    }
+    return res.status(403).json({ message: 'You do not have permission to perform this action.' });
+  };
+}
+
 /**
  * Platform-owner gate for routes that have no matching entry in the permission
  * matrix — platform configuration rather than day-to-day staff work. Kept

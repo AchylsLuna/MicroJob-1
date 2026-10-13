@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import auth from '../middleware/auth.js';
-import requireAdmin, { requirePermission } from '../middleware/admin.js';
+import requireAdmin, { requireAnyPermission, requirePermission } from '../middleware/admin.js';
 import adminAuditLog from '../middleware/adminAuditLog.js';
 import {
   getAdminStats,
@@ -28,7 +28,15 @@ import {
 } from '../controllers/SupportController.js';
 import { getAdminStaffList, createAdminStaff, updateAdminStaff } from '../controllers/AdminStaffController.js';
 import { listAdminModerationReports, updateAdminModerationReport } from '../controllers/AdminModerationController.js';
-import { listAdminFinancialDisputes, updateAdminFinancialDispute } from '../controllers/AdminFinanceDisputeController.js';
+import {
+  approveFinancialDisputeSettlement,
+  assignFinancialDisputeSupport,
+  completeFinancialDisputeInvestigation,
+  listAdminFinancialDisputes,
+  proposeFinancialDisputeSettlement,
+  requestFinancialDisputeEvidence,
+  updateAdminFinancialDispute,
+} from '../controllers/AdminFinanceDisputeController.js';
 
 const router = Router();
 
@@ -73,7 +81,12 @@ router.patch('/staff/:userId', requirePermission('staff.assignRole'), updateAdmi
 router.get('/moderation/reports', requirePermission('moderation.review'), listAdminModerationReports);
 router.patch('/moderation/reports/:reportId', requirePermission('moderation.enforce'), updateAdminModerationReport);
 
-router.get('/finance/disputes', requirePermission('finance.disputes.handle'), listAdminFinancialDisputes);
-router.patch('/finance/disputes/:disputeId', requirePermission('finance.disputes.handle'), updateAdminFinancialDispute);
+router.get('/finance/disputes', requirePermission('finance.disputes.view'), listAdminFinancialDisputes);
+router.patch('/finance/disputes/:disputeId', requireAnyPermission('finance.disputes.investigate', 'finance.disputes.review'), updateAdminFinancialDispute);
+router.post('/finance/disputes/:disputeId/assign-support', requirePermission('finance.disputes.investigate'), assignFinancialDisputeSupport);
+router.post('/finance/disputes/:disputeId/evidence-request', requirePermission('finance.disputes.investigate'), requestFinancialDisputeEvidence);
+router.post('/finance/disputes/:disputeId/investigation-report', requirePermission('finance.disputes.investigate'), completeFinancialDisputeInvestigation);
+router.post('/finance/disputes/:disputeId/settlement', requirePermission('finance.disputes.review'), proposeFinancialDisputeSettlement);
+router.post('/finance/disputes/:disputeId/settlement/approve', requirePermission('finance.disputes.approve'), approveFinancialDisputeSettlement);
 
 export default router;

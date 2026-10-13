@@ -1,6 +1,6 @@
 # MicroJobs User Manual
 
-**Document version:** 1.1  
+**Document version:** 1.2
 **Prepared:** 13 October 2026  
 **Applies to:** the current MicroJobs web application  
 **Audience:** visitors, workers, employers, and authorized administrative staff
@@ -81,7 +81,7 @@ A password error appears with the password field. Correct the field and try agai
 
 ### Desktop navigation
 
-The sidebar contains the pages available to your account. Worker navigation includes **Find Jobs**, **Applied Jobs**, **Saved Jobs**, **Messages**, **E-Wallet**, **Notifications**, **Support**, and **Settings**.
+The sidebar contains the pages available to your account. Worker navigation includes **Find Jobs**, **Applied Jobs**, **Saved Jobs**, **Messages**, **E-Wallet**, **Financial Disputes**, **Notifications**, **Support**, and **Settings**.
 
 Use the round chevron button beside the MicroJobs logo to hide the sidebar. It slides away completely, giving the page the full available width. The system remembers the hidden state after a refresh.
 
@@ -237,22 +237,36 @@ If the wallet balance is insufficient, top up the wallet and submit again. Curre
 
 Open the employer jobs page to inspect and manage your own listings. Use the available edit, close, reopen, completion, cancellation, or deletion actions only after reviewing their confirmation and financial effects. Availability depends on job status, filled positions, and outstanding offers.
 
+**Completed** jobs are hidden from **Jobs Management** and remain available in **Job History**.
+
+On the web, a confirmed hire sets the job to **In Progress**. The employer cannot delete a job after confirming a hire, including after completion or cancellation. The Delete control is disabled and the server enforces the same restriction.
+
 ### 7.3 Review applications and hire
 
-1. Open **Applications** and use the board or table view.
-2. Select an application and inspect the worker's profile and submitted information.
-3. Shortlist the applicant or record an interview using the available actions.
-4. Send an offer and enter the agreed amount.
-5. Wait for the worker to accept.
-6. Confirm the hire and check the updated application and position count.
+1. Open **Applications** and select a posted **Job**. The selector includes jobs with no applicants. Only that job's title and applications are shown.
+2. Review the table: **Name | Stage | Interview | Applied on | Resume | View Profile | Actions | Hide**. Stage badges use color and text. Use **Interview** to schedule/reschedule, **View Resume** to open the file, or **View Profile** to inspect the worker. **Show hidden** lets you restore hidden rows. Checkboxes within Name retain bulk status and hide actions.
+3. Open **Actions**. Step 1 provides **Change Status** and **Send a formal offer** with the agreed amount and existing offer confirmation.
+4. Step 2 displays **Applicant is reviewing your offer** and refreshes while the dialog is open. An accepted offer advances to step 3; a declined offer returns to status/offer controls. At step 3, review **Do you wish to hire this applicant?** and the highlighted warning **Hiring an applicant will put the job in progress and you won't be able to delete it**. Choose **Hire** and confirm, or **Reject** and confirm cancellation of the offer and rejection of the application.
+5. After hiring, step 4 shows the agreed amount, work/payment states, and **Authorize Payment**. Authorization keeps funds secured. Approval/payment and revision actions become available for submitted work under the existing rules. Messaging and eligible worker ratings remain available in Actions.
 
 Offers reserve capacity. A negotiated amount above the original pay can require additional secured funds. Keep discussions and offer responses associated with the correct job.
 
+The web **Confirm Hire** pop-up highlights: **“Cannot delete the job after confirming the hire.”** Confirming changes the application to **Hired** and the job to **In Progress**, even when other positions remain unfilled.
+
 ### 7.4 Review and pay for work
 
-Open the hired application after the worker submits finished work. Review the result. If a revision is needed, use the changes action and give a clear reason. Otherwise, use the available approval/settlement action to pay that worker from the secured job funds.
+Select the job in **Applications**, then open the hired worker's **Actions** dialog to review payment authorization and work/payment states. After the worker submits finished work, review the result. If a revision is needed, use **Request Changes** and give a clear reason. Otherwise, use **Approve & Pay** and confirm to pay that worker from the secured job funds. These actions also remain available on hired cards in **Job History**.
 
 For jobs with multiple workers, each worker's work and payment are tracked separately. Check the individual application and transaction rather than assuming that one payment completes every position.
+
+### 7.5 Review Job History (web)
+
+1. Open **Post a Job → Job History** in the employer sidebar.
+2. Review each job's **Title**, **Status**, **Amount held**, and **Amount paid for worker**. Held funds are completed escrow deposits less completed worker payments and refunds; posting and highlight fees are excluded. Paid amounts total completed payouts to workers.
+3. Select **View details** for the job description, location, pay, deadline, requirements, and hired application cards. Hidden hired applications remain visible here. Cards retain applicant, offer/work/payment, profile, message, and résumé information; the separate Applications page uses a table and Actions dialog.
+4. After the job is completed, select **Rate worker**, choose 1–5 stars, optionally add a comment, and submit. Each worker application accepts one employer review; a submitted review is marked on the card.
+
+Use **Refresh** to reload current history and amounts. Details also refresh the history after payment or rating actions.
 
 ## 8. Messages and profiles
 
@@ -299,6 +313,22 @@ Use the transaction history to inspect the amount, status, reference, date, and 
 
 QR settlement requests are tied to a specific payment context. Open or scan the request through the available action, verify the job and amount, and check the resulting status. An expired or already resolved request may no longer be payable.
 
+### 9.5 Financial disputes
+
+Use **Financial Disputes** when a worker believes the correct agreed payment was not received. This process is neutral: submitting a claim does not prove the worker or employer is correct and does not automatically release or refund money.
+
+1. In the worker view, open **Financial Disputes** or the dispute action on eligible submitted work.
+2. Select the affected job, enter the amount believed unpaid, explain the problem, and submit.
+3. Track **Investigation** separately from **Payment**. “Funds held” means MicroJobs controls that money; “outstanding payment” means it is owed but not held by the platform.
+4. Upload relevant images, PDFs, receipts, work records, attendance records, job logs, documents, or chat references. Submitted evidence is append-only.
+5. Reply when Support requests evidence. The employer can provide a neutral response and supporting records in the same case.
+6. Review Finance's final reason and amounts. Finance can issue only **Full Refund**, **Complete Payment**, or **Partial Payment**. Earlier worker payments are included in the calculation so the worker is not paid twice.
+7. After a decision is issued, either party may submit the one available appeal with a written reason. The original decision remains visible in history while Support and Finance review the reopened case.
+
+An active case blocks a duplicate dispute for the same application. Open the existing ticket and add evidence there. Employers cannot cancel a claim or decide the settlement after it opens.
+
+Once Finance approves and processes the settlement, the job status becomes **Full refund**, **Completed**, or **Resolved** for Full Refund, Complete Payment, or Partial Payment respectively. Full refund jobs disappear from **Job Management** and remain available in **Job History**.
+
 ## 10. Notifications, support, and account security
 
 ### Notifications
@@ -331,9 +361,9 @@ Staff accounts use the dedicated admin sign-in page. Their assigned permissions 
 | Superadmin | Overall administrative access and staff administration. |
 | Admin team | Staff and user administration, jobs, audit review, analytics, and support tasks permitted to the role. |
 | Moderator | Verification review, moderation, and permitted user/job enforcement. |
-| Finance team | Transactions, reconciliation, payout review, and financial disputes. |
+| Finance team | Transactions, reconciliation, payout review, financial-dispute decisions, and independent settlement approval. |
 | Analytics team | Analytics and permitted exports. |
-| Support staff | Support tickets and permitted account assistance, such as unlocking or initiating recovery. |
+| Support staff | Support tickets, financial-dispute investigation/reports, and permitted account assistance; no financial settlement authority. |
 
 ### Common staff procedures
 
@@ -344,6 +374,8 @@ Staff accounts use the dedicated admin sign-in page. Their assigned permissions 
 5. Use audit logs or transaction references where your role permits them.
 
 For payout requests, approval and marking a request paid are separate actions. Verification reviewers should record rejection reasons so users can correct documents. Support staff should keep internal notes separate from user-facing replies.
+
+For financial disputes, Support assigns and investigates the case, requests evidence, and completes the structured report. Finance then selects one of the three permitted outcomes and records its reason. A second authorized Finance user approves and processes the result. Staff must confirm that the displayed held amount comes from the ledger, not from an unverified claim, and must leave the audit history intact.
 
 The **Backups** screen currently states that backups are not configured. It does not create or restore database backups. Operators must use their separately configured database/storage backup process.
 
@@ -570,13 +602,14 @@ Before a protected task, sign in with the required role. Before applying or post
 
 ![Figure 18. Employer application table](assets/11-employer-applications.png)
 
-*Figure 18. Employer application table for the demonstration delivery job after settlement.*
+*Figure 18. Employer application table for the sample Park cleanup job, showing an accepted offer. The table scrolls horizontally on narrow screens.*
 
 | Step | Action | Expected result |
 | --- | --- | --- |
-| 1 | Open Applications and select a record from the board or table. | The applicant and job context are available for review. |
-| 2 | Use permitted interview/offer actions and confirm an accepted hire. | Application and offer states update separately. |
-| 3 | Review submitted work, request changes, or settle it. | That worker's work/payment states change; settlement credits their worker balance. |
+| 1 | Open Applications and select a posted job. | Only that job's title and applicant table are displayed. |
+| 2 | Open a row's Actions dialog; change status or send and confirm a formal offer. | The dialog moves to applicant review after the offer is sent. |
+| 3 | After acceptance, review the highlighted warning and choose Hire or Reject. | Confirmed hiring moves to payment; rejection cancels the offer before rejecting the application. |
+| 4 | Authorize payment, then review submitted work, request changes, or approve and pay. | Authorization keeps funds secured; settlement credits that worker's balance. |
 
 ### 13.11 Use messages and view another profile
 

@@ -21,7 +21,7 @@ import { LAYER_Z } from "../../components/ui/layers";
 
 interface JobPosting {
   id: string;
-  backendStatus: "Available" | "In Progress" | "Completed" | "Cancelled" | "Closed";
+  backendStatus: "Available" | "In Progress" | "Completed" | "Cancelled" | "Closed" | "Full refund" | "Resolved";
   title: string;
   department: string;
   location: string;
@@ -45,7 +45,7 @@ const STATUS_LABEL_KEYS: Record<JobPosting["status"], string> = {
   Closed: "closed",
 };
 const getPipelineStatusLabel = (t: TFunction, status: JobPosting["status"]) =>
-  t(`jobsManagement.status.${STATUS_LABEL_KEYS[status]}`);
+  status === "Hold" ? t("jobHistory.statuses.In Progress") : t(`jobsManagement.status.${STATUS_LABEL_KEYS[status]}`);
 
 const MATCH_QUALITY_LABEL_KEYS: Record<JobPosting["matchQuality"], string> = {
   "Strong Match": "strong",
@@ -110,6 +110,8 @@ export function JobsManagement() {
       case "In Progress":
         return "Hold";
       case "Completed":
+      case "Full refund":
+      case "Resolved":
       case "Cancelled":
       case "Closed":
         return "Closed";
@@ -146,7 +148,7 @@ export function JobsManagement() {
       workLocation,
       workType,
       positionsNeeded: Number(job.positionsNeeded) || 1,
-      hasHired: false,
+      hasHired: Number(job.hiredCount || 0) > 0,
       source: job,
     };
   }, []);
@@ -156,7 +158,7 @@ export function JobsManagement() {
     setLoadError(null);
     try {
       const data = await getMyJobs();
-      const mapped = Array.isArray(data) ? data.map(mapJob) : [];
+      const mapped = Array.isArray(data) ? data.filter((job: any) => !["Completed", "Full refund"].includes(job.status)).map(mapJob) : [];
 
       // Fetch all employer applications once and compute hired flags per job to avoid per-job requests
       let allApps: any[] = [];
@@ -178,7 +180,7 @@ export function JobsManagement() {
         const apps = appsByJob[m.id as string] || [];
         const hasHired = apps.some((a: any) => a.status === 'Hired' || a.status === 'Accepted');
         const selectedApplicant = (data || []).find((j: any) => String(j._id) === String(m.id))?.selectedApplicant;
-        return { ...m, hasHired: Boolean(hasHired || selectedApplicant) };
+        return { ...m, hasHired: Boolean(m.hasHired || hasHired || selectedApplicant) };
       });
 
       setJobs(withFlags);
@@ -249,6 +251,10 @@ export function JobsManagement() {
   };
 
   const handleDeleteJob = (job: JobPosting) => {
+    if (job.source.canDelete === false || job.backendStatus === "In Progress" || job.hasHired) {
+      toast.error(t("applicationsManagement.confirmHire.warning"));
+      return;
+    }
     setConfirmDeleteJob(job);
   };
 
@@ -354,7 +360,7 @@ export function JobsManagement() {
           const isMarkingDone = markingDoneJobId === job.id;
           const isDeleting = deletingJobId === job.id;
           const isReopening = reopeningJobId === job.id;
-          const canMarkDone = !(job.backendStatus === "Completed" || isMarkingDone || !job.hasHired);
+          const canMarkDone = !(["Completed", "Resolved"].includes(job.backendStatus) || isMarkingDone || !job.hasHired);
           return (
           <div
             key={job.id}
@@ -364,7 +370,7 @@ export function JobsManagement() {
             <div className="flex items-center gap-2">
               <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(job.status)}`}>
                 <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
-                {getPipelineStatusLabel(t, job.status)}
+                {job.backendStatus === "Completed" || job.backendStatus === "Resolved" ? t(`jobHistory.statuses.${job.backendStatus}`) : getPipelineStatusLabel(t, job.status)}
               </span>
               <span className="truncate text-xs text-slate-500">
                 {job.department || t("jobsManagement.card.departmentFallback")}
@@ -465,7 +471,7 @@ export function JobsManagement() {
                 >
                   {t("jobsManagement.card.editDetails")}
                 </button>
-                {job.status === "Closed" && (
+                {job.status === "Closed" && job.backendStatus !== "Resolved" && (
                   <button
                     type="button"
                     onClick={() => void handleReopenJob(job)}
@@ -496,9 +502,9 @@ export function JobsManagement() {
                 <button
                   type="button"
                   onClick={() => void handleDeleteJob(job)}
-                  disabled={isDeleting}
+                  disabled={isDeleting || job.source.canDelete === false || job.backendStatus === "In Progress" || job.hasHired}
                   className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-3 text-xs font-semibold text-[#B91C1C] transition hover:bg-[#FEE2E2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B91C1C] focus-visible:ring-offset-2 disabled:opacity-60 ${job.status === "Closed" ? "" : "col-span-2"}`}
-                  title={t("jobsManagement.card.deleteTooltip")}
+                  title={job.source.canDelete === false || job.backendStatus === "In Progress" || job.hasHired ? t("applicationsManagement.confirmHire.warning") : t("jobsManagement.card.deleteTooltip")}
                 >
                   {isDeleting ? (
                     <><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />{t("jobsManagement.card.deleting")}</>
@@ -543,7 +549,7 @@ export function JobsManagement() {
               <div>
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(viewingJob.status)}`}>
-                    {getPipelineStatusLabel(t, viewingJob.status)}
+                    {viewingJob.backendStatus === "Completed" || viewingJob.backendStatus === "Resolved" ? t(`jobHistory.statuses.${viewingJob.backendStatus}`) : getPipelineStatusLabel(t, viewingJob.status)}
                   </span>
                   <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
                     {viewingJob.department || t("jobsManagement.card.departmentFallback")}

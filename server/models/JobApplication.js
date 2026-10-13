@@ -130,6 +130,11 @@ const JobApplicationSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    hiredAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
     agreedAmount: { type: Number, default: null, min: 1 },
     workStatus: {
       type: String,
@@ -139,7 +144,7 @@ const JobApplicationSchema = new mongoose.Schema(
     },
     paymentStatus: {
       type: String,
-      enum: ['Secured', 'Authorized', 'Processing', 'Disputed', 'Paid', 'Failed'],
+      enum: ['Secured', 'Authorized', 'Processing', 'Disputed', 'Paid', 'Partially Paid', 'Refunded', 'Outstanding', 'Failed'],
       default: 'Secured',
       index: true,
     },

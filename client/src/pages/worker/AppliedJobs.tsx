@@ -367,9 +367,16 @@ const AppliedJobs: React.FC = () => {
                       </div>
                     ) : null}
                     {application.status === "Hired" && application.workStatus === "Submitted" && application.paymentStatus === "Disputed" ? (
-                      <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-                        {t("appliedJobs.paymentDispute.onHold")}
-                      </p>
+                      <div className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+                        <p>{t("appliedJobs.paymentDispute.onHold")}</p>
+                        <button
+                          type="button"
+                          onClick={() => navigate(ROUTES.worker.financialDisputes)}
+                          className="mt-2 font-semibold text-amber-950 underline underline-offset-2"
+                        >
+                          {t("appliedJobs.paymentDispute.viewExisting")}
+                        </button>
+                      </div>
                     ) : null}
                     {application.status === "Hired" && application.workStatus === "Submitted" && !["Paid", "Disputed"].includes(application.paymentStatus || "") ? (
                       <div className="mt-4">

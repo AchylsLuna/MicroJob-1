@@ -2,9 +2,11 @@ import express from 'express';
 import User from '../models/User.js';
 import Job from '../models/Job.js';
 import JobApplication from '../models/JobApplication.js';
+import FinancialDispute from '../models/FinancialDispute.js';
 import { getAuthContextFromRequest, isAdminRole } from '../lib/auth.js';
 import { getStoredUpload, isSafeUploadFileName } from '../lib/uploadStore.js';
 import { getAvatarFromAzure } from '../lib/azureAvatarStorage.js';
+import { hasPermission, resolveStaffRole } from '../lib/adminPermissions.js';
 
 const toUploadUrl = (fileName = '') => `/uploads/${fileName}`;
 
@@ -22,6 +24,21 @@ export const createUploadsRouter = () => {
                 return res.status(400).json({ message: 'Invalid file path.' });
             }
             const uploadUrl = toUploadUrl(fileName);
+            const storedUpload = await getStoredUpload(fileName);
+            if (storedUpload?.metadata?.kind === 'dispute-evidence') {
+                const authContext = await getAuthContextFromRequest(req);
+                if (!authContext?.id) return res.status(401).json({ message: 'Authentication required.' });
+                const dispute = await FinancialDispute.findOne({ 'evidence.fileUrl': uploadUrl }).select('worker employer');
+                if (!dispute) return res.status(404).json({ message: 'Evidence metadata not found.' });
+                const isParticipant = [String(dispute.worker), String(dispute.employer)].includes(authContext.id);
+                const canReview = hasPermission(resolveStaffRole(authContext), 'finance.disputes.view');
+                if (!isParticipant && !canReview) return res.status(403).json({ message: 'Not allowed to access this evidence.' });
+                res.setHeader('Content-Type', storedUpload.contentType || 'application/octet-stream');
+                res.setHeader('X-Content-Type-Options', 'nosniff');
+                res.setHeader('Cache-Control', 'private, no-store');
+                res.setHeader('Content-Disposition', `attachment; filename="${fileName.replace(/["\\\r\n]/g, '_')}"`);
+                return res.send(Buffer.from(storedUpload.data || []));
+            }
             const owner = await User.findOne({
                 $or: [
                     { avatarUrl: uploadUrl },
@@ -65,8 +82,8 @@ export const createUploadsRouter = () => {
                 }
             }
 
-            const storedUpload = azureAvatar ? null : await getStoredUpload(fileName);
-            if (!azureAvatar && !storedUpload) {
+            const fallbackStoredUpload = azureAvatar ? null : storedUpload;
+            if (!azureAvatar && !fallbackStoredUpload) {
                 return res.status(404).json({ message: 'File not found.' });
             }
 
@@ -92,13 +109,13 @@ export const createUploadsRouter = () => {
             }
 
             if (isAvatar || isPortfolioMedia || isSensitiveFile) {
-                res.setHeader('Content-Type', azureAvatar?.contentType || storedUpload.contentType || 'application/octet-stream');
+                res.setHeader('Content-Type', azureAvatar?.contentType || fallbackStoredUpload.contentType || 'application/octet-stream');
                 res.setHeader('X-Content-Type-Options', 'nosniff');
                 res.setHeader('Cache-Control', isSensitiveFile ? 'private, no-store' : 'public, max-age=3600');
                 if (isSensitiveFile) {
                     res.setHeader('Content-Disposition', `attachment; filename="${fileName.replace(/["\\\r\n]/g, '_')}"`);
                 }
-                return res.send(azureAvatar?.data || Buffer.from(storedUpload.data || []));
+                return res.send(azureAvatar?.data || Buffer.from(fallbackStoredUpload.data || []));
             }
 
             return res.status(404).json({ message: 'File metadata not found.' });

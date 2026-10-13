@@ -55,6 +55,22 @@ const SupportTicketSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    financialDispute: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'FinancialDispute',
+      default: null,
+      index: true,
+    },
+    relatedUsers: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    }],
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+      index: true,
+    },
     subject: {
       type: String,
       required: true,
