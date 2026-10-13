@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { sendDuePaymentReviewReminders } from '../services/paymentReviewReminderService.js';
+import { sendDuePaymentReminders } from '../services/paymentReviewReminderService.js';
 
 const isAuthorizedCronRequest = (req) => {
   const secret = String(process.env.CRON_SECRET || '');
@@ -12,7 +12,7 @@ const isAuthorizedCronRequest = (req) => {
     && crypto.timingSafeEqual(expectedBuffer, providedBuffer);
 };
 
-export async function sendPaymentReviewReminders(req, res) {
+export async function sendPaymentReminders(req, res) {
   if (!process.env.CRON_SECRET) {
     return res.status(503).json({ message: 'Payment reminder scheduler is not configured.' });
   }
@@ -21,10 +21,12 @@ export async function sendPaymentReviewReminders(req, res) {
   }
 
   try {
-    const result = await sendDuePaymentReviewReminders();
-    return res.json({ message: 'Payment review reminders processed.', ...result });
+    const result = await sendDuePaymentReminders();
+    return res.json({ message: 'Payment reminders processed.', ...result });
   } catch (error) {
-    console.error('Failed to send payment review reminders:', error);
-    return res.status(500).json({ message: 'Payment review reminders could not be processed.' });
+    console.error('Failed to send payment reminders:', error);
+    return res.status(500).json({ message: 'Payment reminders could not be processed.' });
   }
 }
+
+export const sendPaymentReviewReminders = sendPaymentReminders;

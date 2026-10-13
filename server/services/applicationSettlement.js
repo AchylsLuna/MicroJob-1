@@ -26,6 +26,7 @@ export async function settleApplicationPayment({ applicationId, employerId }) {
       const existing = await Transaction.findOne({ reference, status: 'COMPLETED' }).session(session);
       if (existing) {
         application.paymentStatus = 'Paid'; application.workStatus = 'Completed';
+        application.paymentReminderClaimedAt = null; application.paymentReminderClaimedStage = null;
         application.paidAt ||= existing.createdAt; application.completedAt ||= existing.createdAt;
         await application.save({ session });
         result = { application, job, transaction: existing, deduplicated: true };
@@ -42,7 +43,9 @@ export async function settleApplicationPayment({ applicationId, employerId }) {
       if (remaining < amount) throw Object.assign(new Error('The secured job funds are insufficient for this payment.'), { status: 409 });
       await User.updateOne({ _id: application.applicant }, { $inc: { workerBalance: amount } }, { session });
       const [transaction] = await Transaction.create([{ sender: null, receiver: application.applicant, amount, type: 'PAYOUT', status: 'COMPLETED', balanceTarget: 'WORKER', jobReference: job._id, reference, label: `Worker payout (${job.title})`, relatedEntityType: 'job_application', relatedEntityId: String(application._id), actor: employerId }], { session });
-      application.paymentStatus = 'Paid'; application.workStatus = 'Completed'; application.paidAt = new Date(); application.completedAt = new Date();
+      application.paymentStatus = 'Paid'; application.workStatus = 'Completed';
+      application.paymentReminderClaimedAt = null; application.paymentReminderClaimedStage = null;
+      application.paidAt = new Date(); application.completedAt = new Date();
       await application.save({ session });
       const unpaid = await JobApplication.countDocuments({ job: job._id, status: 'Hired', $or: [{ paymentStatus: { $ne: 'Paid' } }, { workStatus: { $ne: 'Completed' } }] }).session(session);
       if (unpaid === 0 && Number(job.hiredCount || 0) >= Number(job.positionsNeeded || 1)) { job.status = 'Completed'; await job.save({ session }); }

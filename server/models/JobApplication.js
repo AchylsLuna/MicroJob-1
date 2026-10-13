@@ -151,7 +151,11 @@ const JobApplicationSchema = new mongoose.Schema(
     paymentAuthorizedAt: { type: Date, default: null },
     workSubmittedAt: { type: Date, default: null },
     paymentReminderClaimedAt: { type: Date, default: null },
+    paymentReminderClaimedStage: { type: String, default: null },
     paymentReminderSentAt: { type: Date, default: null },
+    paymentReminder3hSentAt: { type: Date, default: null },
+    paymentReminder5hSentAt: { type: Date, default: null },
+    paymentReminder24hSentAt: { type: Date, default: null },
     changesRequestedAt: { type: Date, default: null },
     paidAt: { type: Date, default: null },
     appliedDate: {
@@ -165,6 +169,6 @@ const JobApplicationSchema = new mongoose.Schema(
 JobApplicationSchema.index({ job: 1, applicant: 1 }, { unique: true });
 JobApplicationSchema.index({ applicant: 1, status: 1, updatedAt: -1 });
 JobApplicationSchema.index({ job: 1, status: 1, updatedAt: -1 });
-JobApplicationSchema.index({ workStatus: 1, paymentStatus: 1, workSubmittedAt: 1, paymentReminderSentAt: 1 });
+JobApplicationSchema.index({ workStatus: 1, paymentStatus: 1, workSubmittedAt: 1, paymentReminder3hSentAt: 1 });
 
 export default mongoose.model('JobApplication', JobApplicationSchema);

@@ -153,7 +153,7 @@ export function SignIn() {
         toast.success(t("signIn.toast.otpSent"));
       } else if (isAdmin(result.user)) {
         logout({ silent: true });
-        setSignInErrors({ form: t("signIn.toast.adminSignInRequired") });
+        setSignInErrors({ form: t("signIn.toast.credentialsIncorrect") });
       }
     } catch (error: any) {
       const failure = getSignInFailure(error);
@@ -172,7 +172,7 @@ export function SignIn() {
       const loggedInUser = await verifyMfaLogin(code);
       if (isAdmin(loggedInUser)) {
         logout({ silent: true });
-        toast.error(t("signIn.toast.adminSignInRequired"));
+        toast.error(t("signIn.toast.credentialsIncorrect"));
       }
     } catch (error: any) {
       toast.error(error?.message || t("signIn.toast.mfaVerificationFailed"));
@@ -196,7 +196,7 @@ export function SignIn() {
       const loggedInUser = await googleSignIn(credential);
       if (isAdmin(loggedInUser)) {
         logout({ silent: true });
-        toast.error(t("signIn.toast.adminSignInRequired"));
+        toast.error(t("signIn.toast.credentialsIncorrect"));
       }
     } catch (error: any) {
       toast.error(error?.message || t("signIn.toast.googleFailed"));

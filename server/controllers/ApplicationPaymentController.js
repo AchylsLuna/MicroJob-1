@@ -170,7 +170,12 @@ export async function submitWork(req, res) {
   if (!app) return res.status(404).json({ message: 'Hired application not found.' });
   if (!['In Progress', 'Changes Requested'].includes(app.workStatus)) return res.status(409).json({ message: 'This work cannot be submitted now.' });
   app.workStatus = 'Submitted'; app.workSubmittedAt = new Date();
-  app.paymentReminderClaimedAt = null; app.paymentReminderSentAt = null;
+  app.paymentReminderClaimedAt = null;
+  app.paymentReminderClaimedStage = null;
+  app.paymentReminderSentAt = null;
+  app.paymentReminder3hSentAt = null;
+  app.paymentReminder5hSentAt = null;
+  app.paymentReminder24hSentAt = null;
   await app.save();
   await createNotification({ userId: app.job.jobPoster, audience: 'employer', type: 'application', title: 'Work submitted', message: `Finished work was submitted for ${app.job.title}.`, entityType: 'application', entityId: app._id, actor: id(req), push: true });
   return res.json({ application: app });
