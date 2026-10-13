@@ -93,7 +93,7 @@ export const buildVerificationPayload = ({ accepted, decision, profileMatch }) =
 export const savePendingScan = (userId, pending) => PendingIdScan.findOneAndUpdate(
   { user: userId },
   { $set: { ...pending, expiresAt: new Date(Date.now() + PENDING_SCAN_TTL_MS) } },
-  { upsert: true, new: true, setDefaultsOnInsert: true },
+  { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
 ).lean();
 
 export const getPendingScan = (userId) => PendingIdScan.findOne({ user: userId }).lean();

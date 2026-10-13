@@ -354,7 +354,7 @@ Use **Sign out** when finished, especially on a shared device.
 
 ## 11. Administrative staff guide
 
-Staff accounts use the dedicated admin sign-in page. Their assigned permissions determine the visible pages and allowed actions.
+Staff accounts use the dedicated admin sign-in page with their **Primary Email** and password. If a secondary email is verified, enter the sign-in OTP sent there before accessing the dashboard. Staff without a verified secondary email may sign in directly; a warning asks them to set up the secondary email and turn on OTP verification. Their assigned permissions determine the visible pages and allowed actions.
 
 | Staff role | Typical responsibility |
 | --- | --- |
@@ -364,6 +364,17 @@ Staff accounts use the dedicated admin sign-in page. Their assigned permissions 
 | Finance team | Transactions, reconciliation, payout review, financial-dispute decisions, and independent settlement approval. |
 | Analytics team | Analytics and permitted exports. |
 | Support staff | Support tickets, financial-dispute investigation/reports, and permitted account assistance; no financial settlement authority. |
+
+### Secondary email and password changes
+
+1. Open **Settings → Account**, enter a **Secondary Email** different from your sign-in email, and confirm your current password.
+2. Select **Send verification OTP**, enter the six-digit code from that mailbox, and select **Verify secondary email**. Codes expire after five minutes.
+3. Open **Security & Privacy → Security**, enter your current password, and select **Send OTP**. The password-change code goes to your verified secondary email.
+4. Enter the code, enter and confirm a new password, and select **Save New Password**. Other sessions end; this session remains signed in.
+
+Verifying the secondary email automatically turns on OTP verification for future staff sign-ins and password changes. All staff roles must verify a secondary email before using Change Password. To replace it, edit the field and verify the new address; the old verified address remains active until verification succeeds. Worker/employer settings and sign-in are unchanged. See [Staff secondary email](staff-secondary-email.md) for configuration and recovery scope.
+
+The sign-in setup warning provides **Set up secondary email** and **Remind me next sign-in** actions. Dismissal lasts until the next fresh sign-in. In **User Management → Admins**, the **OTP** tag shows **On** for verified secondary-email enrollment and **Off** otherwise, including on phone cards. This status is separate from authenticator-app MFA.
 
 ### Common staff procedures
 

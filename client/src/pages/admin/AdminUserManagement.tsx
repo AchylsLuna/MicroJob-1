@@ -25,6 +25,14 @@ const toAdminAssetUrl = (value?: string) => {
   return value.startsWith("/") ? `${origin}${value}` : `${origin}/${value}`;
 };
 
+function StaffOtpTag({ enabled }: { enabled: boolean }) {
+  const { t } = useTranslation("admin");
+  return <span aria-label={`${t("staffOtp.label")} ${t(enabled ? "staffOtp.on" : "staffOtp.off")}`}
+    className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${enabled ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
+    {t(enabled ? "staffOtp.on" : "staffOtp.off")}
+  </span>;
+}
+
 const getRoleLabel = (role: string | undefined, t: TFunction<"admin">) => {
   if (role === "superadmin") return t("userManagement.roles.superadmin");
   if (role === "admin") return t("userManagement.roles.admin");
@@ -69,7 +77,6 @@ function AdminUserManagementContent() {
     loadError,
     users,
     getStatusColor,
-    handleApproveUser,
     handleToggleUserStatus,
     handleEditUser,
     handleCreateUser,
@@ -515,6 +522,7 @@ function AdminUserManagementContent() {
                   <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${getStatusColor(user.status)}`}>{getStatusLabel(user.status, t)}</span>
                 </div>
                 <dl className="mt-4 grid grid-cols-2 gap-3 text-xs"><div><dt className="text-slate-500">{t("userManagement.mobileList.roleLabel")}</dt><dd className="mt-1 capitalize text-slate-900">{getAccountRoleLabel(user, t)}</dd></div><div><dt className="text-slate-500">{t("userManagement.mobileList.joinedLabel")}</dt><dd className="mt-1 text-slate-900">{formatJoinedDate(user._id)}</dd></div></dl>
+                {activeTab === "admins" && <div className="mt-3 flex items-center gap-2 text-xs"><span className="text-slate-500">{t("staffOtp.label")}</span><StaffOtpTag enabled={Boolean(user.otpEnabled)} /></div>}
                 <div className="mt-4 grid grid-cols-2 gap-2">
                   <Button className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-100" onClick={() => { setSelectedUserId(user._id); }}>{t("userManagement.mobileList.view")}</Button>
                   <Button className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-100" onClick={() => openMessageThread(user)}>{t("userManagement.table.menu.messageUser")}</Button>
@@ -545,13 +553,14 @@ function AdminUserManagementContent() {
                   <th className="py-3 pr-4 font-medium">{t("userManagement.table.headers.user")}</th>
                   <th className="py-3 pr-4 font-medium">{t("userManagement.table.headers.role")}</th>
                   <th className="py-3 pr-4 font-medium">{t("userManagement.table.headers.status")}</th>
+                  {activeTab === "admins" && <th className="py-3 pr-4 font-medium">{t("staffOtp.label")}</th>}
                   <th className="py-3 pr-4 font-medium">{t("userManagement.table.headers.joined")}</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading && (
                   <tr>
-                    <td colSpan={4} className="py-6 text-center text-[#9CA3AF]">
+                    <td colSpan={activeTab === "admins" ? 5 : 4} className="py-6 text-center text-[#9CA3AF]">
                       {t("userManagement.table.loading")}
                     </td>
                   </tr>
@@ -559,7 +568,7 @@ function AdminUserManagementContent() {
 
                 {!isLoading && filteredUsers.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="py-6 text-center text-[#9CA3AF]">
+                    <td colSpan={activeTab === "admins" ? 5 : 4} className="py-6 text-center text-[#9CA3AF]">
                       {t("userManagement.table.empty")}
                     </td>
                   </tr>
@@ -601,6 +610,7 @@ function AdminUserManagementContent() {
                           {getStatusLabel(user.status, t)}
                         </span>
                       </td>
+                      {activeTab === "admins" && <td className="py-3 pr-4"><StaffOtpTag enabled={Boolean(user.otpEnabled)} /></td>}
                       <td className="py-3 pr-4 text-[#6B7280]">{formatJoinedDate(user._id)}</td>
                     </motion.tr>
                   ))}

@@ -2,6 +2,7 @@ import { runDataBackfills } from './backfills.js';
 import { checkObjectIdValidators } from './dataIntegrity.js';
 import RateLimitBucket from '../models/RateLimitBucket.js';
 import PendingIdScan from '../models/PendingIdScan.js';
+import GovernmentIdVerification from '../models/GovernmentIdVerification.js';
 
 let runtimeDataReady;
 
@@ -12,6 +13,8 @@ export function ensureRuntimeData() {
       // ceiling, including across serverless instances.
       RateLimitBucket.init(),
       PendingIdScan.init(),
+      // Ensure concurrent finalizations cannot create two records for a user.
+      GovernmentIdVerification.init(),
     ]).then(() => runDataBackfills())
       .then(() =>
         // Advisory only: a missing validator means the database is open to the

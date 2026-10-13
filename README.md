@@ -90,6 +90,13 @@ The complete environment contract is documented in `client/.env.example` and
 
 ## Verification
 
+Government ID verification records and the admin Government ID / Proof of Address
+tabs are documented in [Government ID verification](docs/government-id-verification.md).
+
+Staff primary-email sign-in, secondary-email OTP, setup warnings, Admins OTP tags,
+and password-change OTP routing are
+documented in [Staff secondary email](docs/staff-secondary-email.md).
+
 Run `npm run verify` for static checks, server tests, and the production web
 build. Run `npm run verify:full` to include Playwright. From `Mobile/`, run
 `npx expo-doctor` after native dependency changes.

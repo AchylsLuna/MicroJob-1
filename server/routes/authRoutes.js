@@ -2,6 +2,7 @@ import express from 'express';
 import csrfProtection from '../middleware/csrf.js';
 import { isBearerAuthRequest, isNativeAuthRequest } from '../lib/authSession.js';
 import verifyToken from '../middleware/auth.js';
+import { getSecondaryEmail, requestSecondaryEmailOtp, confirmSecondaryEmailOtp } from '../controllers/StaffSecondaryEmailController.js';
 import requireAdmin, { requirePermission } from '../middleware/admin.js';
 import {
   sendOtp,
@@ -54,6 +55,8 @@ import {
   passwordResetRequestLimiter,
   passwordResetConfirmLimiter,
   passwordChangeLimiter,
+  secondaryEmailSendLimiter,
+  secondaryEmailConfirmLimiter,
   verificationPhoneSendLimiter,
   verificationPhoneConfirmLimiter,
   loginLimiter,
@@ -91,6 +94,9 @@ router.post('/password-reset/verify', passwordResetConfirmLimiter, verifyPasswor
 router.post('/password-reset/confirm', passwordResetConfirmLimiter, resetPasswordWithOtp);
 router.post('/password-change/request', verifyToken, passwordChangeLimiter, requestPasswordChangeOtp);
 router.post('/password-change/confirm', verifyToken, passwordChangeLimiter, changePasswordWithOtp);
+router.get('/secondary-email', verifyToken, requireAdmin, getSecondaryEmail);
+router.post('/secondary-email/request', verifyToken, requireAdmin, secondaryEmailSendLimiter, requestSecondaryEmailOtp);
+router.post('/secondary-email/confirm', verifyToken, requireAdmin, secondaryEmailConfirmLimiter, confirmSecondaryEmailOtp);
 router.post('/password/initial-change', verifyToken, passwordChangeLimiter, changeInitialPassword);
 
 // Two ceilings on every login entry point: loginLimiter caps attempts per

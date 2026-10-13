@@ -11,6 +11,13 @@ const run = (gate, user) => {
 
 const staff = (staffRole) => ({ role: 'admin', staffRole });
 
+test('Government ID record listing/revocation and address review share the verification authority', () => {
+  const gate = requirePermission('verification.review');
+  assert.equal(run(gate, staff('moderator')).passed, true);
+  for (const role of ['admin_team', 'support_staff', 'finance_team', 'analytics_team']) assert.equal(run(gate, staff(role)).status, 403);
+  assert.equal(run(gate, { role: 'superadmin' }).passed, true);
+});
+
 /**
  * Regression guard: routes in UserRoute/CategoryRoute/PaymentRoute used to sit
  * behind `requireAdmin` alone, so any staff role — including analytics_team,

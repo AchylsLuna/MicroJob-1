@@ -173,11 +173,11 @@ export async function getAdminUserList(req, res) {
       ? { role: { $ne: 'superadmin' } }
       : { role: { $in: ['work', 'hire', 'both'] } };
     const users = await User.find(accountFilter)
-      .select('-passwordHashed -mfaSecret -mfaPendingSecret -mfaBackupCodes +lockUntil')
+      .select('-passwordHashed -mfaSecret -mfaPendingSecret -mfaBackupCodes +lockUntil +secondaryEmail +secondaryEmailVerifiedAt')
       .sort({ createdAt: -1 })
       .lean();
     const mayReviewVerification = hasPermission(staffRole, 'verification.review');
-    res.status(200).json(users.map(({ lockUntil, ...user }) => {
+    res.status(200).json(users.map(({ lockUntil, secondaryEmail, secondaryEmailVerifiedAt, ...user }) => {
       if (!mayReviewVerification && user.verification) {
         for (const documentKey of ['identityDocument', 'addressDocument']) {
           if (user.verification[documentKey]) delete user.verification[documentKey].documentUrl;
@@ -185,6 +185,7 @@ export async function getAdminUserList(req, res) {
       }
       return {
         ...user,
+        ...(user.role === 'admin' ? { otpEnabled: Boolean(secondaryEmail && secondaryEmailVerifiedAt) } : {}),
         loginLocked: Boolean(lockUntil && new Date(lockUntil).getTime() > Date.now()),
       };
     }));

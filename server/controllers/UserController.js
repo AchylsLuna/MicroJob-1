@@ -1,4 +1,6 @@
 import User from "../models/User.js";
+import GovernmentIdVerification from "../models/GovernmentIdVerification.js";
+import PendingIdScan from "../models/PendingIdScan.js";
 import JobApplication from "../models/JobApplication.js";
 import Job from "../models/Job.js";
 import Session from "../models/Session.js";
@@ -29,8 +31,9 @@ import { getReviewSummary } from "../lib/reviewSummary.js";
 import { buildAuthTokensPayload, createSessionWithTokens, setSessionCookies, isNativeAuthRequest } from "../lib/authSession.js";
 import { issueTrustedDevice, setTrustedDeviceCookie, clearTrustedDevicesForUser } from "../lib/trustedDevice.js";
 import crypto from "node:crypto";
-import { clearOtpChallenges, issueOtpChallenge, rememberTestOtpCode, verifyOtpChallenge } from "../lib/otpChallenges.js";
+import { clearOtpChallenges, clearUserOtpChallenges, issueOtpChallenge, rememberTestOtpCode, verifyOtpChallenge } from "../lib/otpChallenges.js";
 import monitor from "../lib/monitor.js";
+import { isStaffAccount, hasVerifiedSecondaryEmail, staffPasswordChangeSubject } from "../lib/staffSecurity.js";
 import { getWebOrigin } from "../lib/runtimeConfig.js";
 import { deleteAvatarFromAzure } from "../lib/azureAvatarStorage.js";
 
@@ -306,6 +309,8 @@ export async function anonymizeAndDeleteUser(userId) {
     user.firstName = "Deleted";
     user.lastName = "User";
     user.email = `deleted+${suffix}@microjobs.invalid`;
+    user.secondaryEmail = null;
+    user.secondaryEmailVerifiedAt = null;
     user.phoneNumber = undefined;
     user.username = `deleted_${String(user._id).slice(-12)}`;
     user.city = undefined;
@@ -351,6 +356,8 @@ export async function anonymizeAndDeleteUser(userId) {
         PushDevice.deleteMany({ user: userId }),
         SavedJob.deleteMany({ user: userId }),
         Notification.deleteMany({ user: userId }),
+        GovernmentIdVerification.deleteMany({ user: userId }),
+        PendingIdScan.deleteMany({ user: userId }),
     ]);
     await Promise.all([
         removeStoredUploads(storedUploads),
@@ -359,6 +366,7 @@ export async function anonymizeAndDeleteUser(userId) {
 
     await clearPhoneVerificationCode(String(userId));
     await clearOtpChallenges(originalEmailKey);
+    await clearUserOtpChallenges(userId);
 
     return user;
 }
@@ -1282,7 +1290,7 @@ export async function requestPasswordChangeOtp(req, res) {
             return res.status(400).json({ message: "Current password is required." });
         }
 
-        const user = await User.findById(userId).select("+passwordHashed");
+        const user = await User.findById(userId).select("+passwordHashed +secondaryEmail +secondaryEmailVerifiedAt");
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
@@ -1291,16 +1299,25 @@ export async function requestPasswordChangeOtp(req, res) {
         if (!matches) {
             return res.status(401).json({ message: "Current password is incorrect." });
         }
-        const emailKey = String(user.email || "").toLowerCase().trim();
-        const { code } = await issueOtpChallenge({ purpose: "password-change", subject: emailKey, user: user._id, metadata: { userId: String(user._id) } });
-
+        const staff = isStaffAccount(user);
+        if (staff && !hasVerifiedSecondaryEmail(user)) {
+            return res.status(409).json({ message: "Verify your secondary email in Account settings before changing your password." });
+        }
+        const emailKey = String(staff ? user.secondaryEmail : user.email).toLowerCase().trim();
+        const subjectKey = staff ? staffPasswordChangeSubject(user) : emailKey;
         const transporter = getEmailTransporter();
+        if (staff && !transporter && process.env.NODE_ENV !== "test") {
+            return res.status(503).json({ message: "Email service is not configured." });
+        }
+        const { code } = await issueOtpChallenge({ purpose: "password-change", subject: subjectKey, user: user._id,
+            metadata: { userId: String(user._id), ...(staff ? { secondaryEmail: emailKey, secondaryEmailVerifiedAt: user.secondaryEmailVerifiedAt.toISOString() } : {}) } });
+
         if (!transporter) {
             if (process.env.NODE_ENV === "production") {
                 return res.status(500).json({ message: "Email service is not configured." });
             }
-            console.warn(`SMTP is not configured. Development change-password OTP for user …${String(user._id).slice(-6)}: ${code}`);
-            rememberTestOtpCode("password-change", emailKey, code);
+            if (!staff) console.warn("SMTP is not configured. Password-change code retained for the isolated test harness only.");
+            rememberTestOtpCode("password-change", subjectKey, code);
             return res.status(200).json({ message: "OTP generated for development." });
         }
 
@@ -1346,7 +1363,7 @@ export async function changePasswordWithOtp(req, res) {
             return res.status(400).json({ message: PASSWORD_POLICY_MESSAGE });
         }
 
-        const user = await User.findById(userId).select("+passwordHashed");
+        const user = await User.findById(userId).select("+passwordHashed +secondaryEmail +secondaryEmailVerifiedAt");
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
@@ -1359,7 +1376,11 @@ export async function changePasswordWithOtp(req, res) {
             return res.status(400).json({ message: "New password must be different from the current password." });
         }
 
-        const emailKey = String(user.email || "").toLowerCase().trim();
+        const staff = isStaffAccount(user);
+        if (staff && !hasVerifiedSecondaryEmail(user)) {
+            return res.status(409).json({ message: "Verify your secondary email in Account settings before changing your password." });
+        }
+        const emailKey = staff ? staffPasswordChangeSubject(user) : String(user.email || "").toLowerCase().trim();
         const verification = await verifyOtpChallenge({
             purpose: "password-change",
             subject: emailKey,
@@ -1376,9 +1397,20 @@ export async function changePasswordWithOtp(req, res) {
         if (String(verification.challenge.user || "") !== String(user._id)) {
             return res.status(400).json({ message: "Invalid password change code." });
         }
+        if (staff && (verification.challenge.metadata.secondaryEmail !== user.secondaryEmail
+            || verification.challenge.metadata.secondaryEmailVerifiedAt !== user.secondaryEmailVerifiedAt.toISOString())) {
+            return res.status(400).json({ message: "Secondary email changed. Request a new password change code." });
+        }
 
+        const previousPasswordHash = user.passwordHashed;
         await user.setPassword(newPassword);
-        await user.save();
+        if (staff) {
+            const updated = await User.updateOne({ _id: user._id, role: user.role, status: 'active',
+                passwordHashed: previousPasswordHash,
+                secondaryEmail: user.secondaryEmail, secondaryEmailVerifiedAt: user.secondaryEmailVerifiedAt },
+                { $set: { passwordHashed: user.passwordHashed } });
+            if (!updated.modifiedCount) return res.status(409).json({ message: "Account security details changed. Request a new code." });
+        } else await user.save();
         await revokeSessions(user._id, req.user?.sessionId);
         await monitor.audit({ actor: user._id, action: "password_changed", ip: req.ip || null, userAgent: req.get?.("user-agent") || null, status: "success" });
         return res.status(200).json({ message: "Password changed successfully." });

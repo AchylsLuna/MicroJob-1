@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import Session from '../models/Session.js';
 import { getJwtSecret } from './jwtSecret.js';
+import { hasVerifiedSecondaryEmail } from './staffSecurity.js';
 
 export const cookieSecurityOptions = {
   sameSite: 'lax',
@@ -148,6 +149,7 @@ export const buildLoginPayload = (user, includePhone = false) => {
     // `role` alone flattens every staff member to "admin", so without this the
     // client cannot tell a moderator from a finance_team member.
     staffRole: role === 'superadmin' ? 'superadmin' : user.staffRole || null,
+    ...(['admin', 'superadmin'].includes(role) ? { otpEnabled: hasVerifiedSecondaryEmail(user) } : {}),
     accountOptions,
     avatarUrl: user.avatarUrl,
     city: user.city,

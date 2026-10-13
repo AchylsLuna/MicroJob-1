@@ -2,6 +2,7 @@ import { Router } from 'express';
 import auth from '../middleware/auth.js';
 import requireAdmin, { requireAnyPermission, requirePermission } from '../middleware/admin.js';
 import adminAuditLog from '../middleware/adminAuditLog.js';
+import { getGovernmentIdVerifications, revokeGovernmentIdVerification } from '../controllers/AdminGovernmentIdController.js';
 import {
   getAdminStats,
   getAdminAnalyticsData,
@@ -64,6 +65,8 @@ router.get('/wallets', requirePermission('finance.transactions.view'), getAdminW
 router.get('/recent-payouts', requirePermission('finance.payouts.review'), getAdminRecentPayouts);
 router.get('/transactions', requirePermission('finance.transactions.view'), getAdminTransactions);
 router.get('/verifications', requirePermission('verification.review'), getAdminVerifications);
+router.get('/government-id-verifications', requirePermission('verification.review'), getGovernmentIdVerifications);
+router.patch('/government-id-verifications/:verificationId/revoke', requirePermission('verification.review'), revokeGovernmentIdVerification);
 router.patch('/verifications/:userId/:documentType', requirePermission('verification.review'), updateAdminVerification);
 router.get('/payout-requests', requirePermission('finance.payouts.review'), listAdminPayoutRequests);
 router.patch('/payout-requests/:payoutRequestId', requirePermission('finance.payouts.review'), updateAdminPayoutRequest);

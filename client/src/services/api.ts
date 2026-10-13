@@ -84,6 +84,8 @@ export type LoginOtpChallengeResponse = {
   otpRequired: true;
   otpToken: string;
   message?: string;
+  deliveryEmail?: string;
+  staffLogin?: boolean;
 };
 export type LoginMethodSelectionResponse = {
   methodSelectionRequired: true;
@@ -515,7 +517,7 @@ export function registerUser(payload: { username?: string; firstName?: string; l
   return request<AuthResponse>('/auth/register', { method: 'POST', body: payload });
 }
 
-export function loginUser(payload: { emailOrUsername: string; password: string; requireOtp?: boolean }) {
+export function loginUser(payload: { emailOrUsername: string; password: string; requireOtp?: boolean; staffOnly?: boolean }) {
   return request<LoginResponse>('/auth/login', { method: 'POST', body: payload });
 }
 
@@ -574,6 +576,20 @@ export function resetPasswordWithOtp(payload: { email: string; code: string; new
 
 export function requestPasswordChangeOtp(payload: { currentPassword: string }) {
   return request<{ message: string; code?: string }>('/auth/password-change/request', { method: 'POST', body: payload });
+}
+
+export type StaffSecondaryEmailStatus = { email: string; verified: boolean };
+
+export function getStaffSecondaryEmail() {
+  return request<StaffSecondaryEmailStatus>('/auth/secondary-email', { method: 'GET' });
+}
+
+export function requestStaffSecondaryEmailOtp(payload: { email: string; currentPassword: string }) {
+  return request<{ message: string }>('/auth/secondary-email/request', { method: 'POST', body: payload });
+}
+
+export function confirmStaffSecondaryEmailOtp(payload: { email: string; code: string }) {
+  return request<StaffSecondaryEmailStatus>('/auth/secondary-email/confirm', { method: 'POST', body: payload });
 }
 
 export function confirmPasswordChangeWithOtp(payload: { currentPassword: string; code: string; newPassword: string }) {
@@ -1480,6 +1496,26 @@ export function banAdminUser(userId: string, reason: string) {
     method: 'PATCH',
     body: { reason },
   });
+}
+
+export interface GovernmentIdVerificationRecord {
+  _id: string;
+  user: { _id: string; role: string };
+  userName: string;
+  govIdName: string;
+  documentType: string;
+  date: string;
+  verified: boolean;
+}
+
+export function getGovernmentIdVerifications() {
+  return request<GovernmentIdVerificationRecord[]>('/admin/government-id-verifications', { method: 'GET' });
+}
+
+export function revokeGovernmentIdVerification(verificationId: string) {
+  return request<{ message: string; verificationId: string; verified: false }>(
+    `/admin/government-id-verifications/${verificationId}/revoke`, { method: 'PATCH', body: {} },
+  );
 }
 
 export function updateAdminVerification(

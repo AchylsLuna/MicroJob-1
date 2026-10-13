@@ -1,4 +1,38 @@
 {
+  "staffOtp": {
+    "label": "OTP",
+    "on": "On",
+    "off": "Off",
+    "description": "Ilagay ang sign-in code na ipinadala sa iyong na-verify na pangalawang email:",
+    "failed": "Hindi na-verify ang OTP. Pakisubukan ulit.",
+    "cancel": "Kanselahin ang verification",
+    "warningTitle": "I-set up ang pangalawang email at OTP verification",
+    "warningDescription": "Naka-off ang OTP verification ng iyong staff account. Maaari kang magpatuloy sa paggamit ng system, pero kailangan mong mag-set up at mag-verify ng pangalawang email sa Settings upang i-on ang OTP verification para sa mga susunod na sign-in.",
+    "setup": "I-set up ang pangalawang email",
+    "later": "Ipaalala sa susunod na sign-in"
+  },
+  "secondaryEmail": {
+    "label": "Pangalawang Email",
+    "description": "Mag-verify ng ibang email address upang i-on ang OTP verification para sa staff sign-in at pagpapalit ng password. Mag-e-expire ang code sa loob ng 5 minuto.",
+    "active": "Na-verify na email para sa pagpapalit ng password: {{email}}",
+    "password": "Kasalukuyang password para i-verify ang pangalawang email",
+    "code": "OTP ng pangalawang email",
+    "send": "Ipadala ang verification OTP",
+    "resend": "Ipadala ulit ang verification OTP",
+    "verify": "I-verify ang pangalawang email",
+    "verified": "Na-verify ang pangalawang email",
+    "unverified": "Hindi pa na-verify ang email",
+    "loading": "Kinukuha ang pangalawang email...",
+    "retry": "Subukan ulit",
+    "working": "Mangyaring maghintay...",
+    "sent": "Naipadala ang OTP sa iyong pangalawang email",
+    "sendFailed": "Hindi naipadala ang OTP sa pangalawang email",
+    "verifyFailed": "Hindi na-verify ang pangalawang email",
+    "required": "I-verify ang pangalawang email sa Account settings bago palitan ang iyong password.",
+    "setup": "I-set up ang pangalawang email",
+    "passwordSent": "Naipadala ang OTP para sa pagpapalit ng password sa iyong na-verify na pangalawang email",
+    "passwordDestination": "Ipapadala ang OTP para sa pagpapalit ng password sa {{email}}."
+  },
   "gate": {
     "toast": {
       "accessDenied": "Wala kang access sa admin section na ito."
@@ -90,15 +124,30 @@
   },
   "verificationReview": {
     "title": "Pag-verify ng ID",
-    "subtitle": "Suriin ang mga dokumento ng pagkakakilanlan at address na isinumite para sa pag-verify.",
+    "subtitle": "Suriin ang mga patunay ng tirahan na isinumite para sa pag-verify.",
+    "tabs": { "label": "Uri ng pag-verify" },
+    "governmentId": {
+      "caption": "Mga naitalang pag-verify ng Government ID",
+      "userName": "Pangalan ng user",
+      "govIdName": "Buong pangalan sa Government ID",
+      "documentType": "Uri ng Government ID",
+      "date": "Petsa ng pag-verify",
+      "viewProfile": "Tingnan ang profile",
+      "revoke": "Bawiin ang pag-verify",
+      "revoked": "Binawi ang pag-verify",
+      "revokeDescription": "Itakda sa false ang pag-verify ng Government ID ni {{name}}? Kailangan niyang i-verify muli ang kanyang ID. Mananatili ang naitalang pag-verify.",
+      "revokedToast": "Binawi ang pag-verify ng Government ID.",
+      "emptyTitle": "Walang naitalang pag-verify ng Government ID",
+      "emptyDescription": "Lalabas dito ang mga matagumpay na nakumpletong pag-verify ng Government ID."
+    },
     "cards": {
       "pending": "Naghihintay ng review"
     },
-    "identityLabel": "Dokumento ng pagkakakilanlan",
-    "addressLabel": "Dokumento ng address",
+    "identityLabel": "Government ID",
+    "addressLabel": "Patunay ng tirahan",
     "viewDocument": "Tingnan ang dokumento",
     "table": {
-      "caption": "Mga dokumento ng pagkakakilanlan at address na naghihintay ng desisyon",
+      "caption": "Mga patunay ng tirahan na naghihintay ng desisyon",
       "applicant": "Aplikante",
       "document": "Dokumento",
       "actions": "Mga Aksyon"
@@ -112,7 +161,7 @@
       "errorTitle": "Hindi ma-load ang mga isinumite",
       "retry": "Subukan muli",
       "emptyTitle": "Walang naghihintay ng review",
-      "emptyDescription": "Lalabas dito ang mga bagong isinumiteng dokumento ng pagkakakilanlan at address."
+      "emptyDescription": "Lalabas dito ang mga bagong isinumiteng patunay ng tirahan."
     },
     "rejectDialog": {
       "title": "Tanggihan ang isinumite",
@@ -625,8 +674,8 @@
     "eyebrow": "MicroJobs control center",
     "title": "Admin Sign In",
     "subtitle": "Restricted na access para sa mga platform administrator",
-    "emailLabel": "Email",
-    "emailPlaceholder": "Ilagay ang iyong email",
+    "emailLabel": "Pangunahing Email",
+    "emailPlaceholder": "Ilagay ang iyong pangunahing email",
     "passwordLabel": "Password",
     "passwordPlaceholder": "Ilagay ang iyong password",
     "hidePassword": "Itago ang password",

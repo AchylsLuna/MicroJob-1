@@ -88,6 +88,18 @@ test('superadmin actions are logged with the superadmin role', async () => {
   assert.equal(logs[0].actorRole, 'superadmin');
 });
 
+test('government ID revocation logs the verification record as its target', async () => {
+  const req = makeReq({ user: { id: new mongoose.Types.ObjectId().toString(), role: 'admin', staffRole: 'moderator' }, params: { verificationId: 'verification-record-1' } });
+  req.route.path = '/government-id-verifications/:verificationId/revoke';
+  const res = makeRes();
+  adminAuditLog(req, res, () => {});
+  res.json({ verified: false });
+  res.emit('finish');
+  await waitForLogs(1);
+  const log = await AuditLog.findOne().lean();
+  assert.equal(log.target, 'verification-record-1');
+});
+
 test('a failed action is logged as an error with its reason', async () => {
   const req = makeReq({ user: { id: new mongoose.Types.ObjectId().toString(), role: 'admin', staffRole: 'moderator' }, params: { userId: 'target-3' } });
   const res = makeRes();

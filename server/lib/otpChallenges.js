@@ -114,3 +114,4 @@ export const consumeVerifiedOtpChallenge = ({ purpose, subject, code }) =>
   verifyOtpChallenge({ purpose, subject, code, consume: true });
 
 export const clearOtpChallenges = (subject) => OtpChallenge.deleteMany({ subject: String(subject || '').trim().toLowerCase() });
+export const clearUserOtpChallenges = (user) => OtpChallenge.deleteMany({ user });

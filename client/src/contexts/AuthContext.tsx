@@ -86,6 +86,7 @@ export interface User {
   totalApplicants?: number;
   employerSuccessRate?: string;
   passwordChangeRequired?: boolean;
+  otpEnabled?: boolean;
   skills?: Array<{
     _id?: string;
     id?: string;
@@ -145,6 +146,8 @@ type MfaChallenge = {
 type LoginOtpChallenge = {
   otpToken: string;
   email: string;
+  deliveryEmail?: string;
+  staffLogin?: boolean;
 };
 
 type LoginMethodSelection = {
@@ -156,7 +159,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string, options?: { suppressToast?: boolean; requireOtp?: boolean }) => Promise<LoginResult>;
+  login: (email: string, password: string, options?: { suppressToast?: boolean; requireOtp?: boolean; staffOnly?: boolean }) => Promise<LoginResult>;
   googleSignIn: (credential: string, role?: "hire" | "work" | "both") => Promise<User>;
   mfaChallenge: MfaChallenge | null;
   loginMethodSelection: LoginMethodSelection | null;
@@ -409,9 +412,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       avatarUrl: apiUser.avatarUrl,
       authProvider: apiUser.authProvider === "google" ? "google" : "password",
       passwordChangeRequired: Boolean(apiUser.passwordChangeRequired),
+      ...(role === "admin" ? { otpEnabled: Boolean(apiUser.otpEnabled) } : {}),
       createdAt: new Date().toISOString(),
     };
 
+    if (role === "admin" && apiUser.otpEnabled === false) {
+      sessionStorage.setItem("staff_otp_setup_warning", loggedInUser.id);
+    } else {
+      sessionStorage.removeItem("staff_otp_setup_warning");
+    }
     setUser(loggedInUser);
     setMfaChallenge(null);
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(loggedInUser));
@@ -682,7 +691,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (
     email: string,
     password: string,
-    options?: { suppressToast?: boolean; requireOtp?: boolean }
+    options?: { suppressToast?: boolean; requireOtp?: boolean; staffOnly?: boolean }
   ): Promise<LoginResult> => {
     setIsLoading(true);
     const normalizedEmail = email.trim().toLowerCase();
@@ -692,6 +701,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         emailOrUsername: normalizedEmail,
         password,
         requireOtp: options?.requireOtp,
+        staffOnly: options?.staffOnly,
       });
       const container = getResponseContainer(response);
       if (container?.mfaRequired) {
@@ -715,7 +725,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (container?.otpRequired) {
         const otpToken = String(container.otpToken || "");
         if (!otpToken) throw new Error("Invalid OTP challenge from server.");
-        setLoginOtpChallenge({ otpToken, email: normalizedEmail });
+        setLoginOtpChallenge({ otpToken, email: normalizedEmail, deliveryEmail: container.deliveryEmail, staffLogin: Boolean(container.staffLogin) });
         setIsLoading(false);
         if (!options?.suppressToast) {
           toast.success("OTP sent to your email!");
@@ -857,6 +867,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const cancelLoginOtp = () => setLoginOtpChallenge(null);
 
   const logout = (options?: { silent?: boolean }) => {
+    sessionStorage.removeItem("staff_otp_setup_warning");
     try {
       logoutUser().catch(() => undefined);
     } catch {

@@ -159,7 +159,7 @@
       },
       "adminVerificationReview": {
         "title": "ID Verification",
-        "subtitle": "Review submitted identity and address documents"
+        "subtitle": "Manage Government ID verifications and review Proof of Address"
       },
       "adminDisputes": {
         "title": "Financial Disputes",

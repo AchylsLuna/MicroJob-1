@@ -145,6 +145,10 @@ export const otpVerifyLimiter = authLimiter(10 * 60 * 1000, 20, 'Too many OTP ve
 export const passwordResetRequestLimiter = authLimiter(15 * 60 * 1000, 5, 'Too many password reset requests. Please try again later.');
 export const passwordResetConfirmLimiter = authLimiter(15 * 60 * 1000, 15, 'Too many password reset attempts. Please try again later.');
 export const passwordChangeLimiter = authLimiter(15 * 60 * 1000, 10, 'Too many password change attempts. Please try again later.');
+export const secondaryEmailSendLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, limit: 5,
+  message: 'Too many secondary email OTP requests. Please try again later.', keyGenerator: buildUserRateLimitKey('secondary-email-send') });
+export const secondaryEmailConfirmLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, limit: 15,
+  message: 'Too many secondary email verification attempts. Please try again later.', keyGenerator: buildUserRateLimitKey('secondary-email-confirm') });
 export const verificationPhoneSendLimiter = authLimiter(10 * 60 * 1000, 5, 'Too many phone verification requests. Please try again later.');
 export const verificationPhoneConfirmLimiter = authLimiter(10 * 60 * 1000, 20, 'Too many verification code attempts. Please try again later.');
 export const loginLimiter = authLimiter(1 * 60 * 1000, 20, 'Too many login attempts. Please try again later.');

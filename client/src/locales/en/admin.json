@@ -1,4 +1,38 @@
 {
+  "staffOtp": {
+    "label": "OTP",
+    "on": "On",
+    "off": "Off",
+    "description": "Enter the sign-in code sent to your verified secondary email:",
+    "failed": "OTP verification failed. Please try again.",
+    "cancel": "Cancel verification",
+    "warningTitle": "Set up secondary email and OTP verification",
+    "warningDescription": "OTP verification is off for your staff account. You can continue using the system, but you need to set up and verify a secondary email in Settings to turn on OTP verification for future sign-ins.",
+    "setup": "Set up secondary email",
+    "later": "Remind me next sign-in"
+  },
+  "secondaryEmail": {
+    "label": "Secondary Email",
+    "description": "Verify a different email address to turn on OTP verification for staff sign-in and password changes. Codes expire in 5 minutes.",
+    "active": "Verified address for password changes: {{email}}",
+    "password": "Current password to verify secondary email",
+    "code": "Secondary email OTP",
+    "send": "Send verification OTP",
+    "resend": "Resend verification OTP",
+    "verify": "Verify secondary email",
+    "verified": "Secondary email verified",
+    "unverified": "Email not yet verified",
+    "loading": "Loading secondary email...",
+    "retry": "Retry",
+    "working": "Please wait...",
+    "sent": "OTP sent to your secondary email",
+    "sendFailed": "Failed to send secondary email OTP",
+    "verifyFailed": "Failed to verify secondary email",
+    "required": "Verify your secondary email in Account settings before changing your password.",
+    "setup": "Set up secondary email",
+    "passwordSent": "Password change OTP sent to your verified secondary email",
+    "passwordDestination": "Your password change OTP will be sent to {{email}}."
+  },
   "gate": {
     "toast": {
       "accessDenied": "You don't have access to this admin section."
@@ -90,15 +124,30 @@
   },
   "verificationReview": {
     "title": "ID Verification Review",
-    "subtitle": "Review identity and address documents submitted for verification.",
+    "subtitle": "Review proof-of-address documents submitted for verification.",
+    "tabs": { "label": "Verification type" },
+    "governmentId": {
+      "caption": "Recorded government ID verifications",
+      "userName": "User Name",
+      "govIdName": "Full Name in Government ID",
+      "documentType": "Government ID type",
+      "date": "Date verified",
+      "viewProfile": "View profile",
+      "revoke": "Revoke verification",
+      "revoked": "Verification revoked",
+      "revokeDescription": "Set {{name}}'s Government ID verification to false? They will need to verify their ID again. The verification record will be retained.",
+      "revokedToast": "Government ID verification revoked.",
+      "emptyTitle": "No Government ID verification records",
+      "emptyDescription": "Successfully completed Government ID verifications will appear here."
+    },
     "cards": {
       "pending": "Awaiting review"
     },
-    "identityLabel": "Identity document",
-    "addressLabel": "Address document",
+    "identityLabel": "Government ID",
+    "addressLabel": "Proof of Address",
     "viewDocument": "View document",
     "table": {
-      "caption": "Identity and address documents awaiting a decision",
+      "caption": "Proof-of-address documents awaiting a decision",
       "applicant": "Applicant",
       "document": "Document",
       "actions": "Actions"
@@ -112,7 +161,7 @@
       "errorTitle": "Couldn't load submissions",
       "retry": "Retry",
       "emptyTitle": "Nothing awaiting review",
-      "emptyDescription": "New identity and address submissions will appear here."
+      "emptyDescription": "New proof-of-address submissions will appear here."
     },
     "rejectDialog": {
       "title": "Reject submission",
@@ -625,8 +674,8 @@
     "eyebrow": "MicroJobs control center",
     "title": "Admin Sign In",
     "subtitle": "Restricted access for platform administrators",
-    "emailLabel": "Email",
-    "emailPlaceholder": "Enter your email",
+    "emailLabel": "Primary Email",
+    "emailPlaceholder": "Enter your primary email",
     "passwordLabel": "Password",
     "passwordPlaceholder": "Enter your password",
     "hidePassword": "Hide password",

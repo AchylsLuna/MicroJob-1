@@ -46,6 +46,7 @@ import {
   getTrustedDeviceTokenFromRequest,
 } from '../lib/trustedDevice.js';
 import { isAdminRole } from '../lib/auth.js';
+import { hasVerifiedSecondaryEmail, matchesStaffLoginChallenge } from '../lib/staffSecurity.js';
 import { SELF_SERVICE_ROLES } from './SessionController.js';
 
 const googleClient = new OAuth2Client();
@@ -186,7 +187,7 @@ const loginUser = async (req, res) => {
         return sendError(res, 400, PHONE_VALIDATION_MESSAGE);
       }
       includePhone = true;
-      user = await User.findOne({ phoneNumber: normalizedPhone }).select('+passwordHashed +failedLoginAttempts +loginLockCount +lockUntil');
+      user = await User.findOne({ phoneNumber: normalizedPhone }).select('+passwordHashed +failedLoginAttempts +loginLockCount +lockUntil +secondaryEmail +secondaryEmailVerifiedAt');
     } else {
       const loginInput = String(emailOrUsername || '').trim();
       if (!loginInput) {
@@ -197,7 +198,7 @@ const loginUser = async (req, res) => {
           { email: normalizeEmail(loginInput) },
           { username: normalizeUsername(loginInput) },
         ],
-      }).select('+passwordHashed +failedLoginAttempts +loginLockCount +lockUntil');
+      }).select('+passwordHashed +failedLoginAttempts +loginLockCount +lockUntil +secondaryEmail +secondaryEmailVerifiedAt');
     }
 
     // One generic message for both "no such account" and "wrong password".
@@ -230,6 +231,10 @@ const loginUser = async (req, res) => {
       await user.registerFailedLogin();
       return sendError(res, 401, invalidMessage);
     }
+    const staff = isAdminRole(user.role);
+    if ((staff && (includePhone || normalizeEmail(emailOrUsername) !== user.email)) || (req.body?.staffOnly && !staff)) {
+      return sendError(res, 401, invalidMessage);
+    }
 
     await user.clearLoginLock();
 
@@ -246,13 +251,11 @@ const loginUser = async (req, res) => {
       return sendError(res, 401, 'Account has been deleted.');
     }
 
-    // Staff accounts deliberately keep the long-standing password-only admin
-    // sign-in contract. The decision is based on the persisted role after the
-    // password check, never on a client-provided flag or route, so a regular
-    // user cannot opt out of the required second factor.
-    const passwordOnlyAdminLogin = isAdminRole(user.role);
+    // Staff sign in with their primary email; a verified secondary mailbox
+    // enables mandatory OTP. The server derives this from persisted fields.
+    const passwordOnlyAdminLogin = staff && !hasVerifiedSecondaryEmail(user);
 
-    if (user.mfaEnabled && !passwordOnlyAdminLogin) {
+    if (user.mfaEnabled && !staff) {
       const selectionToken = createLoginMethodSelectionToken(String(user._id), includePhone);
       return sendSuccess(res, 200, 'Choose a verification method', {
         methodSelectionRequired: true,
@@ -265,7 +268,7 @@ const loginUser = async (req, res) => {
     // lib/trustedDevice.js) is the only thing that skips it, and that decision
     // rests entirely on a token the server itself issued after a prior OTP
     // verification -- never on anything the client claims. Privileged staff
-    // accounts use the password-only policy above.
+    // accounts with a verified secondary email must present OTP every sign-in.
     //
     // This used to be gated on `req.body.requireOtp`, with a comment asserting
     // the skip was decided server-side. It was not: the flag came straight off
@@ -273,7 +276,7 @@ const loginUser = async (req, res) => {
     // anyone holding only a password logged in directly. Nothing but the
     // client's own good manners was enforcing 2FA.
     const deviceToken = getTrustedDeviceTokenFromRequest(req);
-    const trustedDevice = passwordOnlyAdminLogin
+    const trustedDevice = staff
       ? null
       : await consumeTrustedDevice({ token: deviceToken, userId: user._id });
 
@@ -282,6 +285,7 @@ const loginUser = async (req, res) => {
       return sendSuccess(res, 200, 'OTP verification required', {
         otpRequired: true,
         otpToken: loginOtp.otpToken,
+        ...(staff ? { deliveryEmail: user.secondaryEmail, staffLogin: true } : {}),
       });
     }
 
@@ -326,6 +330,7 @@ const loginTrustedDevice = async (req, res) => {
     if (!user || user.status !== 'active') {
       return sendError(res, 401, 'This trusted device is no longer valid.');
     }
+    if (isAdminRole(user.role)) return sendError(res, 401, 'Staff must sign in with their primary email and password.');
 
     const authSession = await createSessionWithTokens(req, user);
     const csrfToken = crypto.randomBytes(24).toString('hex');
@@ -367,6 +372,7 @@ const selectLoginMethod = async (req, res) => {
       return sendError(res, 401, 'Invalid login verification selection.');
     }
     const user = await User.findById(decoded.userId).select('+mfaSecret +mfaBackupCodes');
+    if (user && isAdminRole(user.role)) return sendError(res, 401, 'Staff must sign in with their primary email and password.');
     if (!user || !user.mfaEnabled) return sendError(res, 401, 'Two-factor authentication is not enabled.');
     if (user.status !== 'active') return sendError(res, 401, 'This account cannot sign in.');
 
@@ -420,6 +426,7 @@ const googleLogin = async (req, res) => {
 
     const requestedRole = SELF_SERVICE_ROLES.has(req.body?.role) ? req.body.role : 'both';
     let user = await User.findOne({ $or: [{ googleId }, { email }] }).select('+googleId');
+    if (user && isAdminRole(user.role)) return sendError(res, 401, 'Staff must sign in with their primary email and password.');
 
     if (user?.status === 'disabled') {
       return sendError(res, 401, 'Account is disabled. Contact an admin.');
@@ -504,6 +511,7 @@ const loginMfa = async (req, res) => {
     }
 
     const user = await User.findById(decoded.userId).select('+mfaSecret +mfaBackupCodes');
+    if (user && isAdminRole(user.role)) return sendError(res, 401, 'Staff must sign in with their primary email and password.');
     if (!user) {
       return sendError(res, 401, 'Account not found.');
     }
@@ -585,9 +593,12 @@ const loginOtpVerify = async (req, res) => {
     if (String(challenge.user || '') !== String(decoded.userId)) {
       return sendError(res, 401, 'Invalid OTP challenge token.');
     }
-    const user = await User.findById(challenge.user);
+    const user = await User.findById(challenge.user).select('+secondaryEmail +secondaryEmailVerifiedAt');
     if (!user) {
       return sendError(res, 404, 'User not found.');
+    }
+    if (!matchesStaffLoginChallenge(user, challenge)) {
+      return sendError(res, 401, 'Account security details changed. Please sign in again.');
     }
     if (user.status === 'pending') {
       return sendError(res, 401, 'Please verify your email before signing in.');
@@ -615,7 +626,7 @@ const loginOtpVerify = async (req, res) => {
     });
 
     let trustedDevice = null;
-    if (req.body?.rememberDevice) {
+    if (req.body?.rememberDevice && !isAdminRole(user.role)) {
       trustedDevice = await issueTrustedDevice(user, {
         ip: req.ip || req.headers['x-forwarded-for'] || '',
         label: req.get('User-Agent') || '',
@@ -662,15 +673,19 @@ const loginOtpResend = async (req, res) => {
     if (String(challenge.user || '') !== String(decoded.userId)) {
       return sendError(res, 401, 'Invalid OTP challenge token.');
     }
-    const user = await User.findById(challenge.user);
+    const user = await User.findById(challenge.user).select('+secondaryEmail +secondaryEmailVerifiedAt');
     if (!user) {
       return sendError(res, 404, 'User not found.');
+    }
+    if (user.status !== 'active' || !matchesStaffLoginChallenge(user, challenge)) {
+      return sendError(res, 401, 'Account security details changed. Please sign in again.');
     }
 
     const renewed = await issueLoginOtpChallenge(user, Boolean(challenge.metadata?.includePhone));
     return sendSuccess(res, 200, 'OTP resent', {
       otpRequired: true,
       otpToken: renewed.otpToken,
+      ...(isAdminRole(user.role) ? { deliveryEmail: user.secondaryEmail, staffLogin: true } : {}),
     });
   } catch (e) {
     console.error('Login OTP resend error:', e);

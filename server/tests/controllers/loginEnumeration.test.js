@@ -119,7 +119,7 @@ test('a login that sends requireOtp:false is still challenged', async () => {
   assert.equal(res.payload.data.user, undefined);
 });
 
-test('an administrator keeps the password-only sign-in contract', async () => {
+test('an administrator without a verified secondary email signs in with OTP off', async () => {
   const res = await attempt('superadmin@example.ph', 'SuperAdmin123!');
 
   assert.equal(res.statusCode, 200);
@@ -127,4 +127,5 @@ test('an administrator keeps the password-only sign-in contract', async () => {
   assert.ok(res.payload.data.token, 'an administrator receives a session token');
   assert.equal(res.payload.data.otpRequired, undefined);
   assert.equal(res.payload.data.methodSelectionRequired, undefined);
+  assert.equal(res.payload.data.user.otpEnabled, false);
 });

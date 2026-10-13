@@ -19,6 +19,9 @@ const UserSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    // Private staff password-change address; exposed only by the owner's security API.
+    secondaryEmail: { type: String, lowercase: true, trim: true, default: null, select: false },
+    secondaryEmailVerifiedAt: { type: Date, default: null, select: false },
     googleId: {
       type: String,
       unique: true,

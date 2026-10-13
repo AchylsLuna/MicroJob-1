@@ -9,10 +9,11 @@ import { getPostSignInPath } from "../../utils/authRedirects";
 import { ROUTES } from "../../utils/routes";
 import { MfaLoginForm } from "../../components/auth/MfaLoginForm";
 import { isCredentialLoginError } from "../../utils/authSession";
+import { OTPVerification } from "../../components/OTPVerification";
 
 export function AdminSignIn() {
   const { t } = useTranslation("admin");
-  const { login, isAuthenticated, user, logout, mfaChallenge, verifyMfaLogin, cancelMfaLogin } = useAuth();
+  const { login, isAuthenticated, user, logout, mfaChallenge, verifyMfaLogin, cancelMfaLogin, loginOtpChallenge } = useAuth();
   const location = useLocation();
   const redirectPath = getPostSignInPath((location.state as { from?: unknown } | null)?.from, ROUTES.admin.dashboard);
   const [email, setEmail] = useState("");
@@ -47,7 +48,8 @@ export function AdminSignIn() {
 
     setIsLoading(true);
     try {
-      const result = await login(email, password, { suppressToast: true });
+      const result = await login(email, password, { suppressToast: true, staffOnly: true });
+      if (result.status === "otp_required") return;
       if (result.status === "mfa_required") {
         toast.info(t("signIn.toast.mfaCodePrompt"));
         return;
@@ -58,7 +60,7 @@ export function AdminSignIn() {
         return;
       }
 
-      toast.success(t("signIn.toast.welcomeBack", { name: result.user.firstName ? `, ${result.user.firstName}` : "" }));
+      if (result.user.otpEnabled !== false) toast.success(t("signIn.toast.welcomeBack", { name: result.user.firstName ? `, ${result.user.firstName}` : "" }));
     } catch (error: any) {
       toast.error(isCredentialLoginError(error?.message)
         ? t("signIn.toast.credentialsIncorrect")
@@ -168,6 +170,9 @@ export function AdminSignIn() {
         </form>}
 
       </div>
+      {loginOtpChallenge && <OTPVerification mode="staff-signin"
+        email={loginOtpChallenge.deliveryEmail || loginOtpChallenge.email}
+        redirectPath={redirectPath} onClose={cancelMfaLogin} />}
     </main>
   );
 }

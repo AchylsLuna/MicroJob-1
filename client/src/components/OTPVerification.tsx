@@ -12,11 +12,13 @@ interface OTPVerificationProps {
   email: string;
   // "signin" drives login-OTP verification (server-issued challenge, trusted
   // device option) instead of the signup email-verification flow.
-  mode?: "signup" | "signin";
+  mode?: "signup" | "signin" | "staff-signin";
+  redirectPath?: string;
 }
 
-export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerificationProps) {
+export function OTPVerification({ onClose, email, mode = "signup", redirectPath }: OTPVerificationProps) {
   const { t } = useTranslation("auth");
+  const { t: tAdmin } = useTranslation("admin");
   const { verifyOTP, resendOTP, verifyLoginOtpCode, resendLoginOtpCode, devVerificationCode, logout } = useAuth();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -136,16 +138,16 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
     setIsVerifying(true);
 
     try {
-      if (mode === "signin") {
-        const loggedInUser = await verifyLoginOtpCode(otpCode, rememberDevice, { suppressToast: true });
-        if (isAdmin(loggedInUser)) {
+      if (mode === "signin" || mode === "staff-signin") {
+        const loggedInUser = await verifyLoginOtpCode(otpCode, mode === "signin" && rememberDevice, { suppressToast: true });
+        if (isAdmin(loggedInUser) !== (mode === "staff-signin")) {
           logout({ silent: true });
           onClose();
           toast.error(t("signIn.toast.credentialsIncorrect"));
           return;
         }
         const destination =
-          sessionStorage.getItem("post_verify_redirect") || getPostAuthLandingPath(loggedInUser);
+          redirectPath || sessionStorage.getItem("post_verify_redirect") || getPostAuthLandingPath(loggedInUser);
         sessionStorage.removeItem("post_verify_redirect");
         // Use hard redirect immediately to avoid route-guard/modal state races.
         window.location.replace(destination);
@@ -184,6 +186,10 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
         inputRefs.current[0]?.focus();
       }
     } catch (error) {
+      if (mode === "staff-signin") {
+        toast.error(error instanceof Error ? error.message : tAdmin("staffOtp.failed"));
+        setOtp(["", "", "", "", "", ""]);
+      }
       inputRefs.current[0]?.focus();
     } finally {
       verifyInFlightRef.current = false;
@@ -201,7 +207,7 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
     setCountdown(60);
 
     try {
-      if (mode === "signin") {
+      if (mode === "signin" || mode === "staff-signin") {
         await resendLoginOtpCode();
       } else {
         await resendOTP();
@@ -240,6 +246,7 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
         {/* Close Button */}
         <button
           onClick={onClose}
+          aria-label={tAdmin("staffOtp.cancel")}
           className="absolute top-6 right-6 text-[#9CA3AF] hover:text-[#111827] transition-colors"
         >
           <X className="w-6 h-6" />
@@ -250,7 +257,7 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
           {t("otpVerification.title")}
         </h2>
         <p className="text-body text-[#6B7280] text-center mb-8">
-          {t("otpVerification.description")}<br />
+          {mode === "staff-signin" ? tAdmin("staffOtp.description") : t("otpVerification.description")}<br />
           <span className="font-semibold text-[#111827]">{email}</span>
         </p>
 

@@ -29,6 +29,7 @@ export type AdminUser = {
   role?: "user" | "employer" | "admin" | "doctor" | "hire" | "work" | "both" | "superadmin";
   status?: "active" | "pending" | "disabled" | "banned" | "deleted";
   loginLocked?: boolean;
+  otpEnabled?: boolean;
   bannedAt?: string | null;
   banReason?: string | null;
   suspiciousFlagged?: boolean;

@@ -5,6 +5,7 @@ import { getSignInRouteForPath } from "../utils/authRedirects";
 import { DashboardLayout } from "./DashboardLayout";
 import { DashboardShellSkeleton } from "./ui/PageSkeletons";
 import { Skeleton } from "./ui/Skeleton";
+import { StaffOtpSetupWarning } from "./settings/StaffOtpSetupWarning";
 
 export function ProtectedDashboardLayout() {
   const { t } = useTranslation("common");
@@ -62,5 +63,5 @@ export function ProtectedDashboardLayout() {
     );
   }
 
-  return <DashboardLayout />;
+  return <><DashboardLayout /><StaffOtpSetupWarning /></>;
 }

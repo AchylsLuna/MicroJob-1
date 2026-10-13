@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { motionTokens, seconds } from "@/constants/motion";
-import { FileCheck2, IdCard, MapPinned } from "lucide-react";
+import { FileCheck2, MapPinned } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { AdminGate } from "./admin/AdminGate";
 import { Button, Dialog, StatusState, Textarea } from "../../components/ui";
 import { toast } from "../../lib/toast";
 import { useAdminData } from "../../hooks/useAdminData";
 import { updateAdminVerification } from "../../services/api";
+import { GovernmentIdVerificationTable } from "./GovernmentIdVerificationTable";
 
 const toAdminAssetUrl = (value?: string) => {
   if (!value) return "";
@@ -17,7 +18,7 @@ const toAdminAssetUrl = (value?: string) => {
   return value.startsWith("/") ? `${origin}${value}` : `${origin}/${value}`;
 };
 
-type DocumentType = "identity" | "address";
+type DocumentType = "address";
 
 interface PendingSubmission {
   userId: string;
@@ -35,7 +36,7 @@ interface PendingSubmission {
  * queue view over the same submissions, filtered to the ones awaiting a
  * decision, so a moderator doesn't have to open users one at a time.
  */
-function AdminVerificationReviewContent() {
+function ProofOfAddressReviewContent() {
   const { t } = useTranslation("admin");
   const { isLoading, loadError, users, reload } = useAdminData();
   const prefersReducedMotion = useReducedMotion();
@@ -49,7 +50,7 @@ function AdminVerificationReviewContent() {
     const rows: PendingSubmission[] = [];
     for (const user of users) {
       const name = `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email;
-      (["identity", "address"] as const).forEach((documentType) => {
+      (["address"] as const).forEach((documentType) => {
         const document = user.verification?.[`${documentType}Document`];
         if (document?.status === "in-review") {
           rows.push({ userId: user._id, name, email: user.email, documentType, documentUrl: document.documentUrl });
@@ -152,8 +153,8 @@ function AdminVerificationReviewContent() {
                       </td>
                       <td className="px-3 py-4">
                         <div className="flex items-center gap-2 text-slate-800">
-                          {submission.documentType === "identity" ? <IdCard className="h-4 w-4 text-slate-400" aria-hidden="true" /> : <MapPinned className="h-4 w-4 text-slate-400" aria-hidden="true" />}
-                          {submission.documentType === "identity" ? t("verificationReview.identityLabel") : t("verificationReview.addressLabel")}
+                          <MapPinned className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                          {t("verificationReview.addressLabel")}
                         </div>
                         {submission.documentUrl ? (
                           <a href={toAdminAssetUrl(submission.documentUrl)} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs font-semibold text-brand-700 hover:underline">
@@ -207,9 +208,38 @@ function AdminVerificationReviewContent() {
 }
 
 export function AdminVerificationReview() {
+  const { t } = useTranslation("admin");
+  const [activeTab, setActiveTab] = useState<"identity" | "address">("identity");
   return (
     <AdminGate permission="verification.review">
-      <AdminVerificationReviewContent />
+      <div className="mx-auto max-w-[1341px] space-y-6">
+        <div className="flex flex-wrap gap-2 rounded-card border border-slate-200 bg-white p-4 shadow-sm" role="tablist" aria-label={t("verificationReview.tabs.label")}>
+          {(["identity", "address"] as const).map((tab) => (
+            <Button
+              key={tab}
+              id={`verification-tab-${tab}`}
+              role="tab"
+              aria-selected={activeTab === tab}
+              aria-controls={`verification-panel-${tab}`}
+              tabIndex={activeTab === tab ? 0 : -1}
+              onKeyDown={(event) => {
+                if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+                event.preventDefault();
+                const nextTab = event.key === "Home" ? "identity" : event.key === "End" ? "address" : tab === "identity" ? "address" : "identity";
+                setActiveTab(nextTab);
+                document.getElementById(`verification-tab-${nextTab}`)?.focus();
+              }}
+              onClick={() => setActiveTab(tab)}
+              className={activeTab === tab ? "" : "!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50"}
+            >
+              {t(`verificationReview.${tab}Label`)}
+            </Button>
+          ))}
+        </div>
+        <div id={`verification-panel-${activeTab}`} role="tabpanel" aria-labelledby={`verification-tab-${activeTab}`}>
+          {activeTab === "identity" ? <GovernmentIdVerificationTable /> : <ProofOfAddressReviewContent />}
+        </div>
+      </div>
     </AdminGate>
   );
 }

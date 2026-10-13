@@ -10,6 +10,8 @@ import {
   uploadAvatar,
   deleteAvatar,
   requestPasswordChangeOtp,
+  getStaffSecondaryEmail,
+  type StaffSecondaryEmailStatus,
   confirmPasswordChangeWithOtp,
   getSessions,
   revokeSession,
@@ -44,6 +46,7 @@ import { DeleteAccountCard } from "./settings/DeleteAccountCard";
 import { EmployerPaymentMethodsSection } from "./settings/EmployerPaymentMethodsSection";
 import { EmployerPrivacyCard } from "./settings/EmployerPrivacyCard";
 import { MfaSettingsCard } from "./settings/MfaSettingsCard";
+import { StaffSecondaryEmail } from "./settings/StaffSecondaryEmail";
 import { WorkerResumeSection } from "./settings/WorkerResumeSection";
 import { LanguageSettingsCard } from "./settings/LanguageSettingsCard";
 import { SettingsTabList } from "./settings/SettingsTabList";
@@ -397,6 +400,7 @@ const profileToPersonalInfo = (profile: any, previous?: PersonalInfoState): Pers
 export function Settings() {
   const { t: tAuth } = useTranslation("auth");
   const { t: tCommon } = useTranslation("common");
+  const { t: tAdmin } = useTranslation("admin");
   // Settings is shared by all three roles, but its `settings.*` strings have
   // always lived in the worker namespace.
   const { t: tWorker } = useTranslation("worker");
@@ -494,6 +498,22 @@ export function Settings() {
   const [passwordOtpRequested, setPasswordOtpRequested] = useState(false);
   const [isOtpSending, setIsOtpSending] = useState(false);
   const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
+  const [secondaryEmail, setSecondaryEmail] = useState<StaffSecondaryEmailStatus | null>(null);
+  const [secondaryEmailError, setSecondaryEmailError] = useState("");
+  const [secondaryEmailReload, setSecondaryEmailReload] = useState(0);
+
+  useEffect(() => {
+    if (!isAdminRole) return;
+    let active = true;
+    setSecondaryEmail(null);
+    setSecondaryEmailError("");
+    getStaffSecondaryEmail().then((status) => {
+      if (active) setSecondaryEmail(status);
+    }).catch((error: Error) => {
+      if (active) setSecondaryEmailError(error.message);
+    });
+    return () => { active = false; };
+  }, [isAdminRole, user?.id, secondaryEmailReload]);
 
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -1586,6 +1606,10 @@ export function Settings() {
   };
 
   const handleRequestPasswordOtp = async () => {
+    if (isAdminRole && !secondaryEmail?.verified) {
+      toast.error(tAdmin("secondaryEmail.required"));
+      return;
+    }
     if (!securityData.currentPassword) {
       toast.error("Please enter your current password");
       return;
@@ -1595,7 +1619,8 @@ export function Settings() {
     try {
       await requestPasswordChangeOtp({ currentPassword: securityData.currentPassword });
       setPasswordOtpRequested(true);
-      toast.success("OTP sent to your email");
+      setPasswordOtp("");
+      toast.success(isAdminRole ? tAdmin("secondaryEmail.passwordSent") : "OTP sent to your email");
     } catch (error: any) {
       toast.error(error?.message || "Failed to send OTP");
     } finally {
@@ -1604,6 +1629,10 @@ export function Settings() {
   };
 
   const handleChangePassword = async () => {
+    if (isAdminRole && !secondaryEmail?.verified) {
+      toast.error(tAdmin("secondaryEmail.required"));
+      return;
+    }
     if (!passwordOtpRequested) {
       toast.error("Request OTP first");
       return;
@@ -2069,6 +2098,12 @@ export function Settings() {
                             />
                           </div>
                         </div>
+                      )}
+
+                      {isAdminRole && (
+                        <StaffSecondaryEmail status={secondaryEmail} error={secondaryEmailError}
+                          onRetry={() => setSecondaryEmailReload((value) => value + 1)}
+                          onVerified={(status) => { setSecondaryEmail(status); updateAuthProfile({ otpEnabled: status.verified }); setPasswordOtpRequested(false); setPasswordOtp(""); }} />
                       )}
 
                       {isAdminRole && (
@@ -2811,13 +2846,18 @@ export function Settings() {
                     </div>
 
                     <div className="rounded-control border border-slate-200 bg-slate-50 p-3 text-caption text-slate-600">
-                      Request OTP first. You will need the OTP from your email before setting a new password.
+                      {isAdminRole
+                        ? secondaryEmail?.verified
+                          ? tAdmin("secondaryEmail.passwordDestination", { email: secondaryEmail.email })
+                          : tAdmin("secondaryEmail.required")
+                        : "Request OTP first. You will need the OTP from your email before setting a new password."}
+                      {isAdminRole && !secondaryEmail?.verified && <button type="button" className="block mt-2 font-semibold text-brand underline" onClick={() => handleAccountTabChange("personal")}>{tAdmin("secondaryEmail.setup")}</button>}
                     </div>
 
                     <div>
                       <button
                         onClick={handleRequestPasswordOtp}
-                        disabled={isOtpSending}
+                        disabled={isOtpSending || (isAdminRole && !secondaryEmail?.verified)}
                         className="px-5 py-2.5 bg-[#0F766E] text-white rounded-full text-body-sm font-semibold disabled:opacity-60"
                       >
                         {isOtpSending ? "Sending OTP..." : passwordOtpRequested ? "Resend OTP" : "Send OTP"}
@@ -2897,7 +2937,7 @@ export function Settings() {
                     </button>
                     <button
                       onClick={handleChangePassword}
-                      disabled={isPasswordSubmitting}
+                      disabled={isPasswordSubmitting || (isAdminRole && !secondaryEmail?.verified)}
                       className="px-6 py-2.5 bg-brand text-white rounded-full text-body font-semibold disabled:opacity-60"
                     >
                       {isPasswordSubmitting ? "Saving..." : "Save New Password"}
