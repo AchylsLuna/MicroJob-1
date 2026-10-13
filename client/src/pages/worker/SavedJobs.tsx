@@ -5,7 +5,6 @@ import {
   Building2,
   Calendar,
   Clock,
-  DollarSign,
   ExternalLink,
   MapPin,
   Trash2,
@@ -69,11 +68,21 @@ const getWorkMode = (job: any): SavedJobView["workMode"] => {
   return "On-site";
 };
 
+const stripCurrencySymbol = (value: string) =>
+  value
+    .replace(/\b(?:USD|PHP)\b/gi, "")
+    .replace(/[$₱]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
 const formatSalary = (t: TFunction, value?: string | number) => {
-  if (typeof value === "number") return formatCurrency(value, { maximumFractionDigits: 0 });
+  if (typeof value === "number") {
+    return `₱${stripCurrencySymbol(formatCurrency(value, { maximumFractionDigits: 0 }))}`;
+  }
+
   const raw = String(value || "").trim();
   if (!raw) return t("savedJobs.card.salaryFallback");
-  return raw.replace(/\$/g, "PHP ").replace(/\bUSD\b/gi, "PHP");
+  return `₱${stripCurrencySymbol(raw)}`;
 };
 
 const formatDeadline = (t: TFunction, value?: string) => {
@@ -268,8 +277,7 @@ export function SavedJobs() {
                 </button>
               </div>
 
-              <div className="flex items-center gap-2 mb-3">
-                <DollarSign className="w-4 h-4 text-[#10B981]" />
+              <div className="mb-3">
                 <p className="text-[16px] font-bold text-[#10B981]">{job.salary}</p>
               </div>
 
