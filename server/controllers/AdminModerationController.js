@@ -20,6 +20,10 @@ export async function listAdminModerationReports(req, res) {
         reportedAt: report.reportedAt,
         status: report.status,
         resolution: report.resolution,
+        source: report.source,
+        category: report.category,
+        conversationJob: report.conversationJob,
+        evidence: report.evidence || [],
       })),
     );
   } catch (error) {

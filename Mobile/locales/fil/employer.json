@@ -1,14 +1,39 @@
 {
   "chatScreen": {
-    "toast": {
-      "sendFailed": "Hindi maipadala ang mensahe.",
-      "networkError": "May error sa network.",
-      "workerHired": "Matagumpay na na-hire ang manggagawa.",
-      "offerAccepted": "Tinanggap ang alok.",
-      "offerRejected": "Tinanggihan ang alok.",
-      "offerCancelled": "Kinansela ang alok.",
-      "offerUpdateFailed": "Hindi ma-update ang alok na ito."
+    "safety": {
+      "title": "Mag-ingat.",
+      "description": "Maging magalang sa chat. Huwag ibigay ang password o verification code. Panatilihin ang bayad sa MicroJobs at i-report ang pang-aabuso, pagbabanta, o posibleng scam."
     },
+    "report": {
+      "action": "I-report ang user",
+      "title": "I-report si {{name}}",
+      "description": "Ipaalam sa mga admin ang pagmumura, pang-aabuso, o posibleng scam sa pag-uusap na ito.",
+      "reason": "Dahilan ng pag-report",
+      "chooseReason": "Pumili ng dahilan",
+      "reasons": {
+        "abuse": "Pagmumura, pang-aabuso, o pangha-harass",
+        "scam": "Scam o panloloko",
+        "threats": "Pagbabanta o mapanganib na asal",
+        "other": "Iba pang alalahanin"
+      },
+      "details": "Karagdagang detalye (opsyonal)",
+      "evidenceNotice": "Ibabahagi sa mga admin ang pinakahuling 20 mensahe sa pag-uusap na ito para sa pagsusuri. Hindi awtomatikong iba-block o paparusahan ang taong ito kapag ni-report.",
+      "cancel": "Kanselahin",
+      "submit": "Isumite ang report",
+      "submitting": "Isinusumite…",
+      "success": "Naisumite ang report. Susuriin ng mga admin ang pag-uusap.",
+      "alreadyPending": "May report na ang pag-uusap na ito na naghihintay ng pagsusuri ng admin.",
+      "failed": "Hindi naisumite ang report. Subukan muli."
+    },
+  "toast": {
+    "sendFailed": "Hindi maipadala ang mensahe.",
+    "networkError": "May error sa network.",
+    "workerHired": "Matagumpay na na-hire ang manggagawa.",
+    "offerAccepted": "Tinanggap ang alok.",
+    "offerRejected": "Tinanggihan ang alok.",
+    "offerCancelled": "Kinansela ang alok.",
+    "offerUpdateFailed": "Hindi ma-update ang alok na ito."
+  },
     "header": {
       "backLabel": "Bumalik sa mga pag-uusap",
       "fallbackTitle": "Chat",

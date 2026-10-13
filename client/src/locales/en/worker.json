@@ -521,6 +521,31 @@
     }
   },
   "messages": {
+    "safety": {
+      "title": "Stay safe.",
+        "description": "Keep chats respectful. Never share passwords or verification codes. Keep payments in MicroJobs and report abuse, threats, or suspected scams."
+      },
+      "report": {
+        "action": "Report user",
+        "title": "Report {{name}}",
+        "description": "Tell admins about abusive language, harassment, or a suspected scam in this conversation.",
+        "reason": "Reason for reporting",
+        "chooseReason": "Choose a reason",
+        "reasons": {
+          "abuse": "Swearing, abusive language, or harassment",
+          "scam": "Scam or fraud",
+          "threats": "Threats or unsafe behavior",
+          "other": "Other concern"
+        },
+        "details": "Additional details (optional)",
+        "evidenceNotice": "The latest 20 messages from this conversation will be shared with admins for review. Reporting does not automatically block or penalize this person.",
+        "cancel": "Cancel",
+        "submit": "Submit report",
+        "submitting": "Submitting…",
+        "success": "Report submitted. Admins will review the conversation.",
+        "alreadyPending": "This conversation already has a report awaiting admin review.",
+        "failed": "Unable to submit your report. Please try again."
+      },
     "title": "Messages",
     "listOptionsLabel": "List options",
     "backToInbox": "Back To Inbox",
@@ -1240,12 +1265,14 @@
       "typeDeleteLabel": "Type DELETE to confirm",
       "confirmWarning": "This permanently deletes your account and everything in it. There is no way to recover it.",
       "deleteButton": "Delete account",
+      "superadminDisabled": "Superadmin accounts cannot be deleted to protect platform ownership and access.",
       "deletingButton": "Deleting...",
       "confirmButton": "Delete my account",
       "cancelButton": "Cancel",
       "toast": {
         "enterPassword": "Enter your current password.",
         "typeDeleteConfirm": "Type DELETE to confirm.",
+        "superadminProtected": "Superadmin accounts cannot be deleted.",
         "deleteSuccess": "Your account has been deleted.",
         "deleteFailed": "Could not delete your account."
       }

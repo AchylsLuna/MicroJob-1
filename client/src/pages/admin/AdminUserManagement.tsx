@@ -1,8 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { motionTokens, seconds } from "@/constants/motion";
-import { AlertTriangle, MoreHorizontal, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
+import { AlertTriangle, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { AdminGate } from "./admin/AdminGate";
@@ -17,74 +16,6 @@ import { useAdminPermissions } from "../../hooks/useAdminPermissions";
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../../lib/passwordPolicy";
 import { isValidEmail } from "../../lib/authValidation";
 import { requestAdminUserPasswordReset, unlockAdminUser, updateAdminUserSuspiciousFlag, updateAdminVerification } from "../../services/api";
-
-const ROW_MENU_WIDTH = 176; // w-44
-const ROW_MENU_GAP = 8; // mt-2
-
-/**
- * The row-actions menu has to escape the table's scroll container. That wrapper
- * is `overflow-x-auto` so the table can scroll sideways, but CSS forces the
- * other axis to `auto` too whenever one axis is not `visible` -- you cannot ask
- * for horizontal scrolling and vertical overflow at the same time. Measured in
- * a browser: the menu ran 172px past a 48px-tall row wrapper and was clipped,
- * and specifying `overflow-y: visible` changed nothing because it computed back
- * to `auto`.
- *
- * So the menu is portaled to the body and positioned from the trigger's rect,
- * right-aligned to it, flipping above the trigger when it would otherwise run
- * off the bottom of the viewport.
- */
-function RowActionsMenu({
-  anchor,
-  children,
-}: {
-  anchor: HTMLElement | null;
-  children: ReactNode;
-}) {
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
-
-  useLayoutEffect(() => {
-    if (!anchor) return;
-    const place = () => {
-      const trigger = anchor.getBoundingClientRect();
-      const menuHeight = menuRef.current?.offsetHeight ?? 0;
-      const flipsUp = trigger.bottom + ROW_MENU_GAP + menuHeight > window.innerHeight && trigger.top - menuHeight - ROW_MENU_GAP > 0;
-      setPosition({
-        top: flipsUp ? trigger.top - menuHeight - ROW_MENU_GAP : trigger.bottom + ROW_MENU_GAP,
-        // Right-aligned to the trigger, then clamped so it cannot leave the viewport.
-        left: Math.max(ROW_MENU_GAP, Math.min(trigger.right - ROW_MENU_WIDTH, window.innerWidth - ROW_MENU_WIDTH - ROW_MENU_GAP)),
-      });
-    };
-    place();
-    // A fixed menu does not follow a scrolling page or table, so re-place it.
-    window.addEventListener("scroll", place, true);
-    window.addEventListener("resize", place);
-    return () => {
-      window.removeEventListener("scroll", place, true);
-      window.removeEventListener("resize", place);
-    };
-  }, [anchor]);
-
-  if (typeof document === "undefined" || !anchor) return null;
-
-  return createPortal(
-    <div
-      ref={menuRef}
-      role="menu"
-      className={`fixed ${LAYER_Z.furniture} w-44 rounded-xl border border-[#E5E7EB] bg-white text-left shadow-lg`}
-      style={{
-        top: position?.top ?? 0,
-        left: position?.left ?? 0,
-        // Hidden until measured, so it never flashes at the top-left corner.
-        visibility: position ? "visible" : "hidden",
-      }}
-    >
-      {children}
-    </div>,
-    document.body,
-  );
-}
 
 const toAdminAssetUrl = (value?: string) => {
   if (!value) return "";
@@ -150,10 +81,6 @@ function AdminUserManagementContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"users" | "admins" | "flagged">("users");
   const [roleFilter, setRoleFilter] = useState<"all" | "privileged" | "work" | "hire" | "both">("all");
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  // The menu is portaled out of the row, so it can no longer find its trigger by
-  // walking the DOM -- hold the element itself for positioning and focus return.
-  const [openMenuAnchor, setOpenMenuAnchor] = useState<HTMLButtonElement | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [formMode, setFormMode] = useState<"create" | "edit" | null>(null);
@@ -175,7 +102,7 @@ function AdminUserManagementContent() {
   const [flagError, setFlagError] = useState<string | null>(null);
   const editMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const addAccountButtonRef = useRef<HTMLButtonElement>(null);
-  const pageSize = 5;
+  const pageSize = 10;
 
   const canViewAdminTab = can("users.staff.view");
   const canViewFlaggedTab = can("users.flags.view");
@@ -251,16 +178,6 @@ function AdminUserManagementContent() {
   const activeToday = users.filter((user) => user.status === "active").length;
   const adminCount = users.filter((user) => user.role === "admin" || user.role === "superadmin").length;
   const pendingCount = users.filter((user) => user.status === "pending").length;
-
-  useEffect(() => {
-    if (!openMenuId) return;
-    const handleWindowClick = () => {
-      setOpenMenuId(null);
-      setOpenMenuAnchor(null);
-    };
-    window.addEventListener("click", handleWindowClick);
-    return () => window.removeEventListener("click", handleWindowClick);
-  }, [openMenuId]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -629,13 +546,12 @@ function AdminUserManagementContent() {
                   <th className="py-3 pr-4 font-medium">{t("userManagement.table.headers.role")}</th>
                   <th className="py-3 pr-4 font-medium">{t("userManagement.table.headers.status")}</th>
                   <th className="py-3 pr-4 font-medium">{t("userManagement.table.headers.joined")}</th>
-                  <th className="py-3 font-medium text-right">{t("userManagement.table.headers.actions")}</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading && (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-[#9CA3AF]">
+                    <td colSpan={4} className="py-6 text-center text-[#9CA3AF]">
                       {t("userManagement.table.loading")}
                     </td>
                   </tr>
@@ -643,7 +559,7 @@ function AdminUserManagementContent() {
 
                 {!isLoading && filteredUsers.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-[#9CA3AF]">
+                    <td colSpan={4} className="py-6 text-center text-[#9CA3AF]">
                       {t("userManagement.table.empty")}
                     </td>
                   </tr>
@@ -686,149 +602,6 @@ function AdminUserManagementContent() {
                         </span>
                       </td>
                       <td className="py-3 pr-4 text-[#6B7280]">{formatJoinedDate(user._id)}</td>
-                      <td className="py-3 text-right">
-                        <div className="relative inline-flex">
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              const trigger = event.currentTarget;
-                              setOpenMenuId((prev) => {
-                                const next = prev === user._id ? null : user._id;
-                                setOpenMenuAnchor(next ? trigger : null);
-                                return next;
-                              });
-                            }}
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:bg-[#F3F4F6]"
-                            aria-label={t("userManagement.table.openActionsAriaLabel")}
-                          >
-                            <MoreHorizontal className="w-4 h-4" />
-                          </button>
-                          {openMenuId === user._id && (
-                            <RowActionsMenu anchor={openMenuAnchor}>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedUserId(user._id);
-                                  setOpenMenuId(null);
-                                }}
-                                className="w-full px-3 py-2 text-body-sm text-[#111827] hover:bg-[#F8FAFC]"
-                              >
-                                {t("userManagement.table.menu.viewProfile")}
-                              </button>
-                              {isMarketplaceUser(user) ? (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    openFullProfile(user);
-                                    setOpenMenuId(null);
-                                  }}
-                                  className="w-full px-3 py-2 text-body-sm text-[#111827] hover:bg-[#F8FAFC]"
-                                >
-                                  {t("userManagement.table.menu.viewFullProfile")}
-                                </button>
-                              ) : null}
-                              {canMutateUser(user) && <button
-                                type="button"
-                                onClick={() => {
-                                  // Use the captured trigger rather than walking up from the
-                                  // menu: it is portaled to the body, so it has no row
-                                  // ancestor to search, and the old lookup also matched a
-                                  // hardcoded English aria-label that never matched once the
-                                  // label was translated.
-                                  editMenuTriggerRef.current = openMenuAnchor;
-                                  openEdit(user);
-                                  setOpenMenuId(null);
-                                }}
-                                className="w-full px-3 py-2 text-body-sm text-[#111827] hover:bg-[#F8FAFC]"
-                              >
-                                {t("userManagement.table.menu.editUser")}
-                              </button>}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  openMessageThread(user);
-                                  setOpenMenuId(null);
-                                }}
-                                className="w-full px-3 py-2 text-body-sm text-[#111827] hover:bg-[#F8FAFC]"
-                              >
-                                {t("userManagement.table.menu.messageUser")}
-                              </button>
-                              {canFlagUsers && isMarketplaceUser(user) ? (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    openFlagDialog(user);
-                                    setOpenMenuId(null);
-                                  }}
-                                  className="w-full px-3 py-2 text-body-sm text-amber-800 hover:bg-amber-50"
-                                >
-                                  {user.suspiciousFlagged ? t("userManagement.table.menu.clearFlag") : t("userManagement.table.menu.flagSuspicious")}
-                                </button>
-                              ) : null}
-                              {canResetPasswords && canSupportUser(user) ? (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSupportAction({ type: "password-reset", userId: user._id, name: getUserName(user) });
-                                    setOpenMenuId(null);
-                                  }}
-                                  className="w-full px-3 py-2 text-body-sm text-[#111827] hover:bg-[#F8FAFC]"
-                                >
-                                  {t("userManagement.table.menu.resetPassword")}
-                                </button>
-                              ) : null}
-                              {canUnlockUsers && canSupportUser(user) && user.loginLocked ? (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSupportAction({ type: "unlock", userId: user._id, name: getUserName(user) });
-                                    setOpenMenuId(null);
-                                  }}
-                                  className="w-full px-3 py-2 text-body-sm text-[#111827] hover:bg-[#F8FAFC]"
-                                >
-                                  {t("userManagement.table.menu.unlockAccount")}
-                                </button>
-                              ) : null}
-                              {user.status === "pending" && canMutateUser(user) && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleApproveUser(user);
-                                    setOpenMenuId(null);
-                                  }}
-                                  className="w-full px-3 py-2 text-body-sm text-[#111827] hover:bg-[#F8FAFC]"
-                                >
-                                  {t("userManagement.table.menu.approveUser")}
-                                </button>
-                              )}
-                              {canMutateUser(user) && <button
-                                type="button"
-                                onClick={() => {
-                                  handleToggleUserStatus(user);
-                                  setOpenMenuId(null);
-                                }}
-                                className={`w-full px-3 py-2 text-body-sm ${
-                                  user.status === "disabled" || user.status === "banned" ? "text-[#111827]" : "text-[#DC2626]"
-                                } hover:bg-[#FEF2F2]`}
-                              >
-                                {user.status === "disabled" || user.status === "banned" ? t("userManagement.table.menu.activateUser") : t("userManagement.table.menu.suspendUser")}
-                              </button>}
-                              {canMutateUser(user) && <button
-                                type="button"
-                                onClick={() => {
-                                  setDeleteError(null);
-                                  setDeleteTargetId(user._id);
-                                  setOpenMenuId(null);
-                                }}
-                                className="w-full px-3 py-2 text-body-sm font-semibold text-red-700 hover:bg-red-50"
-                              >
-                                {t("userManagement.table.menu.deleteUser")}
-                              </button>}
-                            </RowActionsMenu>
-                          )}
-                        </div>
-                      </td>
                     </motion.tr>
                   ))}
               </tbody>

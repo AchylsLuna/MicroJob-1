@@ -1,14 +1,39 @@
 {
   "chatScreen": {
-    "toast": {
-      "sendFailed": "Unable to send message.",
-      "networkError": "Network error.",
-      "workerHired": "Worker hired successfully.",
-      "offerAccepted": "Offer accepted.",
-      "offerRejected": "Offer rejected.",
-      "offerCancelled": "Offer cancelled.",
-      "offerUpdateFailed": "Unable to update this offer."
+    "safety": {
+      "title": "Stay safe.",
+      "description": "Keep chats respectful. Never share passwords or verification codes. Keep payments in MicroJobs and report abuse, threats, or suspected scams."
     },
+    "report": {
+      "action": "Report user",
+      "title": "Report {{name}}",
+      "description": "Tell admins about abusive language, harassment, or a suspected scam in this conversation.",
+      "reason": "Reason for reporting",
+      "chooseReason": "Choose a reason",
+      "reasons": {
+        "abuse": "Swearing, abusive language, or harassment",
+        "scam": "Scam or fraud",
+        "threats": "Threats or unsafe behavior",
+        "other": "Other concern"
+      },
+      "details": "Additional details (optional)",
+      "evidenceNotice": "The latest 20 messages from this conversation will be shared with admins for review. Reporting does not automatically block or penalize this person.",
+      "cancel": "Cancel",
+      "submit": "Submit report",
+      "submitting": "Submitting…",
+      "success": "Report submitted. Admins will review the conversation.",
+      "alreadyPending": "This conversation already has a report awaiting admin review.",
+      "failed": "Unable to submit your report. Please try again."
+    },
+  "toast": {
+    "sendFailed": "Unable to send message.",
+    "networkError": "Network error.",
+    "workerHired": "Worker hired successfully.",
+    "offerAccepted": "Offer accepted.",
+    "offerRejected": "Offer rejected.",
+    "offerCancelled": "Offer cancelled.",
+    "offerUpdateFailed": "Unable to update this offer."
+  },
     "header": {
       "backLabel": "Back to conversations",
       "fallbackTitle": "Chat",
