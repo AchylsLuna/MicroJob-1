@@ -18,7 +18,7 @@ export type NotificationListItem = {
   entityId: string;
 };
 
-export type NotificationDestination = 'applications' | 'messages' | 'wallet' | 'support' | 'settings' | 'feed';
+export type NotificationDestination = 'applications' | 'messages' | 'wallet' | 'support' | 'settings' | 'disputes' | 'feed';
 
 export const resolveNotificationDestination = (item: any): NotificationDestination => {
   const type = String(item?.type || item?.entityType || '').toLowerCase();
@@ -28,6 +28,7 @@ export const resolveNotificationDestination = (item: any): NotificationDestinati
   if (type.includes('message')) return 'messages';
   if (type.includes('application') || type.includes('interview') || type.includes('offer')) return 'applications';
   if (type.includes('payment') || type.includes('payout') || type.includes('invoice') || type.includes('settlement') || entityType === 'payment_request') return 'wallet';
+  if (type.includes('dispute') || entityType === 'financial_dispute') return 'disputes';
   if (type.includes('support')) return 'support';
   if (type.includes('account') || type.includes('security')) return 'settings';
   return 'feed';

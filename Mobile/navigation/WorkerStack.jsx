@@ -17,6 +17,7 @@ import About from '../pages/worker/About';
 import DeleteAccount from '../pages/worker/DeleteAccount';
 import ChangePassword from '../pages/worker/ChangePassword';
 import ContactSupport from '../pages/worker/ContactSupport';
+import FinancialDisputes from '../pages/shared/FinancialDisputes';
 import { useAppSession } from '../contexts/AppSessionContext';
 import { useToast } from '../contexts/ToastContext';
 import { resolveNotificationDestination } from '../lib/notifications';
@@ -213,6 +214,7 @@ function WorkerNotificationsScreen() {
     else if (destination === 'wallet') workerTabPress('EWallet');
     else if (destination === 'support') navigation.navigate('WorkerSupport');
     else if (destination === 'settings') navigation.navigate('WorkerSettings');
+    else if (destination === 'disputes') navigation.navigate('WorkerFinancialDisputes');
   };
   return (
     <NotificationsInbox
@@ -244,6 +246,7 @@ function WorkerSettingsScreen() {
       onNavigateAbout={() => navigation.navigate('WorkerAbout')}
       onNavigateDeleteAccount={() => navigation.navigate('WorkerDeleteAccount')}
       onNavigateSupport={() => navigation.navigate('WorkerSupport')}
+      onNavigateFinancialDisputes={() => navigation.navigate('WorkerFinancialDisputes')}
       currentRole="worker"
       canSwitchAccountMode={session.canSwitchAccountMode}
       onSwitchAccountMode={session.switchViewMode}
@@ -313,8 +316,14 @@ function WorkerStackNavigator() {
       <WorkerStack.Screen name="WorkerDeleteAccount" component={WorkerDeleteAccountScreen} />
       <WorkerStack.Screen name="WorkerChangePassword" component={WorkerChangePasswordScreen} />
       <WorkerStack.Screen name="WorkerSupport" component={WorkerSupportScreen} />
+      <WorkerStack.Screen name="WorkerFinancialDisputes" component={WorkerFinancialDisputesScreen} />
     </WorkerStack.Navigator>
   );
+}
+
+function WorkerFinancialDisputesScreen() {
+  const navigation = useNavigation();
+  return <FinancialDisputes onBack={() => navigation.goBack()} />;
 }
 
 export default WorkerStackNavigator;
