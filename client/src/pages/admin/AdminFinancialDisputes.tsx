@@ -18,6 +18,11 @@ interface FinancialDispute {
   status: "open" | "investigating" | "resolved" | "rejected";
   raisedAt: string;
   resolutionNotes?: string;
+  applicationId?: string | null;
+  jobTitle?: string | null;
+  worker?: string | null;
+  workerPayoutAmount?: number | null;
+  employerRefundAmount?: number | null;
 }
 
 type ResolveOutcome = "resolved" | "rejected";
@@ -39,6 +44,7 @@ function AdminFinancialDisputesContent() {
   const [search, setSearch] = useState("");
   const [resolveTarget, setResolveTarget] = useState<{ dispute: FinancialDispute; outcome: ResolveOutcome } | null>(null);
   const [resolveNotes, setResolveNotes] = useState("");
+  const [workerPayoutAmount, setWorkerPayoutAmount] = useState("");
   const [resolveError, setResolveError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -79,6 +85,7 @@ function AdminFinancialDisputesContent() {
   const openResolve = (dispute: FinancialDispute, outcome: ResolveOutcome) => {
     setResolveTarget({ dispute, outcome });
     setResolveNotes("");
+    setWorkerPayoutAmount(String(dispute.amount));
     setResolveError(null);
   };
 
@@ -90,8 +97,23 @@ function AdminFinancialDisputesContent() {
       return;
     }
     const { dispute, outcome } = resolveTarget;
+    const payoutAmount = Number(workerPayoutAmount);
+    if (dispute.applicationId && (
+      workerPayoutAmount.trim() === ""
+      || !Number.isFinite(payoutAmount)
+      || payoutAmount < 0
+      || payoutAmount > dispute.amount
+      || Math.round(payoutAmount * 100) !== payoutAmount * 100
+    )) {
+      setResolveError(t("disputes.resolveDialog.payoutInvalid", { amount: formatCurrency(dispute.amount) }));
+      return;
+    }
     try {
-      const { dispute: updated } = await updateAdminFinancialDispute(dispute.id, { status: outcome, resolutionNotes: notes });
+      const { dispute: updated } = await updateAdminFinancialDispute(dispute.id, {
+        status: outcome,
+        resolutionNotes: notes,
+        ...(dispute.applicationId ? { workerPayoutAmount: payoutAmount } : {}),
+      });
       setDisputes((current) => current.map((item) => (item.id === dispute.id ? { ...item, ...updated, id: item.id } : item)));
       toast.success(
         outcome === "resolved"
@@ -106,6 +128,16 @@ function AdminFinancialDisputesContent() {
 
   return (
     <div className="mx-auto max-w-[1341px] space-y-6">
+      <section className="rounded-card border border-brand-200 bg-brand-50 p-5">
+        <h2 className="text-base font-bold text-brand-950">{t("disputes.demo.title")}</h2>
+        <p className="mt-1 text-sm text-brand-900">{t("disputes.demo.description")}</p>
+        <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-brand-900">
+          <li>{t("disputes.demo.stepWorker")}</li>
+          <li>{t("disputes.demo.stepEmployer")}</li>
+          <li>{t("disputes.demo.stepAdmin")}</li>
+        </ol>
+        <p className="mt-3 text-xs font-medium text-brand-900">{t("disputes.demo.seedHint")}</p>
+      </section>
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <article className="rounded-card border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-800">
@@ -189,8 +221,18 @@ function AdminFinancialDisputesContent() {
                     >
                       <td className="px-3 py-4">
                         <p className="font-semibold text-slate-950">{dispute.subject}</p>
+                        {dispute.jobTitle ? <p className="mt-1 text-xs text-slate-600">{t("disputes.table.job")}: {dispute.jobTitle}</p> : null}
+                        {dispute.worker ? <p className="mt-1 text-xs text-slate-600">{t("disputes.table.worker")}: {dispute.worker}</p> : null}
                         <p className="mt-1 text-xs text-slate-500">{dispute.reason}</p>
                         {dispute.resolutionNotes ? <p className="mt-1 text-xs text-slate-500">{dispute.resolutionNotes}</p> : null}
+                        {dispute.workerPayoutAmount !== null && dispute.workerPayoutAmount !== undefined ? (
+                          <p className="mt-1 text-xs font-medium text-slate-600">
+                            {t("disputes.table.finalSplit", {
+                              worker: formatCurrency(dispute.workerPayoutAmount),
+                              employer: formatCurrency(dispute.employerRefundAmount || 0),
+                            })}
+                          </p>
+                        ) : null}
                       </td>
                       <td className="px-3 py-4 font-bold text-slate-950">{formatCurrency(dispute.amount)}</td>
                       <td className="px-3 py-4 text-slate-600">{dispute.raisedBy}</td>
@@ -212,9 +254,9 @@ function AdminFinancialDisputesContent() {
                               <Button onClick={() => openResolve(dispute, "resolved")} className="!bg-emerald-700 hover:!bg-emerald-800">
                                 {t("disputes.actions.resolve")}
                               </Button>
-                              <Button onClick={() => openResolve(dispute, "rejected")} className="!bg-white !text-red-700 ring-1 ring-red-300 hover:!bg-red-50">
+                              {!dispute.applicationId ? <Button onClick={() => openResolve(dispute, "rejected")} className="!bg-white !text-red-700 ring-1 ring-red-300 hover:!bg-red-50">
                                 {t("disputes.actions.reject")}
-                              </Button>
+                              </Button> : null}
                             </>
                           ) : null}
                         </div>
@@ -234,6 +276,29 @@ function AdminFinancialDisputesContent() {
         description={resolveTarget ? t("disputes.resolveDialog.description", { subject: resolveTarget.dispute.subject }) : ""}
         onClose={() => setResolveTarget(null)}
       >
+        {resolveTarget?.dispute.applicationId ? (
+          <div className="mb-4">
+            <label htmlFor="dispute-worker-payout" className="block text-sm font-semibold text-slate-700">
+              {t("disputes.resolveDialog.workerPayoutLabel")}
+            </label>
+            <input
+              id="dispute-worker-payout"
+              type="number"
+              min="0"
+              max={resolveTarget.dispute.amount}
+              step="0.01"
+              value={workerPayoutAmount}
+              onChange={(event) => { setWorkerPayoutAmount(event.target.value); setResolveError(null); }}
+              className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-sm font-normal"
+            />
+            <p className="mt-1 text-xs text-slate-600">
+              {t("disputes.resolveDialog.employerRefundHint", {
+                amount: formatCurrency(Math.max(0, resolveTarget.dispute.amount - Number(workerPayoutAmount || 0))),
+              })}
+            </p>
+            <p className="mt-1 text-xs text-amber-800">{t("disputes.resolveDialog.settlementHint")}</p>
+          </div>
+        ) : null}
         <Textarea
           label={t("disputes.resolveDialog.notesLabel")}
           value={resolveNotes}

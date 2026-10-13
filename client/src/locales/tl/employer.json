@@ -481,7 +481,19 @@
       "authorizePayment": "Pahintulutan ang Bayad",
       "approveAndPay": "Aprubahan at Bayaran",
       "requestChanges": "Humiling ng Pagbabago",
-      "changeReasonPlaceholder": "Ano ang kailangang baguhin?"
+      "changeReasonPlaceholder": "Ano ang kailangang baguhin?",
+      "openDispute": "Magbukas ng dispute sa bayad",
+      "paymentOnHold": "Naka-hold ang bayad habang sinusuri ang dispute na ito."
+    },
+    "disputeDialog": {
+      "title": "Magbukas ng dispute sa bayad",
+      "description": "Ipaliwanag ang isyu sa bayad para sa {{subject}}. Ihihinto muna ang bayad habang sinusuri ng finance team.",
+      "reasonLabel": "Dahilan",
+      "reasonRequired": "Kinakailangan ang dahilan.",
+      "holdNotice": "Naka-hold ang bayad sa manggagawa at refund sa employer hanggang maresolba ng finance admin ang kaso.",
+      "opened": "Nabuksan ang dispute sa bayad.",
+      "cancel": "Kanselahin",
+      "submit": "Isumite ang dispute"
     },
     "confirmOffer": {
       "title": "Magpadala ng Pormal na Alok",

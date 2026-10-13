@@ -46,6 +46,18 @@
     "submitWork": {
       "button": "Isumite ang natapos na trabaho"
     },
+    "paymentDispute": {
+      "openButton": "Magbukas ng dispute sa bayad",
+      "onHold": "Naka-hold ang bayad habang sinusuri ito ng finance team.",
+      "title": "Magbukas ng dispute sa bayad",
+      "description": "Ipaliwanag ang isyu sa bayad para sa {{subject}}. Ihihinto muna ang bayad habang sinusuri ng finance team.",
+      "reasonLabel": "Dahilan",
+      "reasonRequired": "Kinakailangan ang dahilan.",
+      "holdNotice": "Mananatiling naka-secure ang bayad hanggang masuri ng finance admin ang kaso.",
+      "opened": "Nabuksan ang dispute sa bayad.",
+      "cancel": "Kanselahin",
+      "submit": "Isumite ang dispute"
+    },
     "card": {
       "unavailableJob": "Hindi available na trabaho",
       "employerFallback": "Employer",

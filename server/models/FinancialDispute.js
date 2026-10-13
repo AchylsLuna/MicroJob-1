@@ -4,10 +4,13 @@ const FinancialDisputeSchema = new mongoose.Schema(
   {
     subject: { type: String, required: true, trim: true, maxlength: 200 },
     raisedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    application: { type: mongoose.Schema.Types.ObjectId, ref: 'JobApplication', default: null },
     amount: { type: Number, required: true, min: 0 },
     reason: { type: String, required: true, trim: true, maxlength: 2000 },
     status: { type: String, enum: ['open', 'investigating', 'resolved', 'rejected'], default: 'open', index: true },
     resolutionNotes: { type: String, default: null, trim: true, maxlength: 2000 },
+    workerPayoutAmount: { type: Number, default: null, min: 0 },
+    employerRefundAmount: { type: Number, default: null, min: 0 },
     resolvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     resolvedAt: { type: Date, default: null },
   },
@@ -15,5 +18,6 @@ const FinancialDisputeSchema = new mongoose.Schema(
 );
 
 FinancialDisputeSchema.index({ raisedAt: -1 });
+FinancialDisputeSchema.index({ application: 1 }, { unique: true, partialFilterExpression: { application: { $type: 'objectId' } } });
 
 export default mongoose.model('FinancialDispute', FinancialDisputeSchema);

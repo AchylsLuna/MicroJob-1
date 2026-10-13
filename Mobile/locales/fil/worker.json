@@ -205,6 +205,19 @@
       "submitWork": "Isumite ang Trabaho",
       "message": "Mensahe"
     },
+    "paymentDispute": {
+      "openButton": "Magbukas ng dispute sa bayad",
+      "onHold": "Naka-hold ang bayad habang sinusuri ng finance team ang dispute na ito.",
+      "title": "Magbukas ng dispute sa bayad",
+      "description": "Ipaliwanag ang isyu sa bayad para sa {{title}}.",
+      "reasonPlaceholder": "Ilarawan ang isyu sa bayad",
+      "reasonRequired": "Kinakailangan ang dahilan.",
+      "submitFailed": "Hindi mabuksan ang dispute sa bayad.",
+      "holdNotice": "Mananatiling naka-secure ang bayad hanggang masuri ng finance admin ang kaso.",
+      "opened": "Nabuksan ang dispute sa bayad.",
+      "cancel": "Kanselahin",
+      "submit": "Isumite ang dispute"
+    },
     "withdrawButton": {
       "label": "Bawiin"
     },

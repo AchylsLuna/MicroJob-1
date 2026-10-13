@@ -18,6 +18,9 @@ export async function settleApplicationPayment({ applicationId, employerId }) {
         result = { application, job, deduplicated: true };
         return;
       }
+      if (application.paymentStatus === 'Disputed') {
+        throw Object.assign(new Error('Payment is on hold while the dispute is reviewed.'), { status: 409 });
+      }
       if (application.workStatus !== 'Submitted') throw Object.assign(new Error('The worker must submit finished work before payment.'), { status: 409 });
       const reference = `application-payout:${application._id}`;
       const existing = await Transaction.findOne({ reference, status: 'COMPLETED' }).session(session);

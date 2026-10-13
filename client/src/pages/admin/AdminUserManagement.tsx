@@ -188,13 +188,23 @@ function AdminUserManagementContent() {
       const phone = user.phoneNumber ? String(user.phoneNumber).toLowerCase() : "";
       const role = String(user.role || "work").toLowerCase();
       const isMarketplaceUser = ["work", "hire", "both"].includes(role);
+      // `superadmin` counts as staff everywhere else on this page -- the
+      // "Admins" stat tile below tallies `admin || superadmin` -- but this tab
+      // used to match `role === "admin"` alone. A superadmin is not a
+      // marketplace user either, so the owner account appeared on no tab at
+      // all while the stat insisted it existed.
+      const isStaffUser = role === "admin" || role === "superadmin";
+      // "Privileged" selects exactly the roles the users tab otherwise
+      // excludes, so it has to widen what that tab admits rather than narrow
+      // within it. Left as a pure narrowing it could never match a row.
+      const wantsPrivileged = activeTab === "users" && roleFilter === "privileged";
       const matchesTab = activeTab === "users"
-        ? isMarketplaceUser
+        ? (wantsPrivileged ? isStaffUser : isMarketplaceUser)
         : activeTab === "admins"
-          ? role === "admin"
+          ? isStaffUser
           : isMarketplaceUser && user.suspiciousFlagged === true;
       const matchesRole = activeTab !== "users" || roleFilter === "all"
-        || (roleFilter === "privileged" && (role === "admin" || role === "superadmin"))
+        || wantsPrivileged
         || role === roleFilter;
       return matchesTab && matchesRole && (
         !normalizedSearch ||
@@ -558,6 +568,12 @@ function AdminUserManagementContent() {
                     className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-brand-600"
                   >
                     <option value="all">{t("userManagement.manage.roleFilterOptions.all")}</option>
+                    {/* The one way to list staff from this tab. The state type,
+                        the filter and the translations in both locales all
+                        carried `privileged` already -- only the option itself
+                        was missing, so admins and the superadmin could not be
+                        surfaced here at all. */}
+                    <option value="privileged">{t("userManagement.manage.roleFilterOptions.privileged")}</option>
                     <option value="work">{t("userManagement.manage.roleFilterOptions.work")}</option>
                     <option value="hire">{t("userManagement.manage.roleFilterOptions.hire")}</option>
                     <option value="both">{t("userManagement.manage.roleFilterOptions.both")}</option>

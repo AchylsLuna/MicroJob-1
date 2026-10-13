@@ -30,6 +30,7 @@ import {
   cancelJobOffer,
   confirmOfferHire,
   authorizePayment,
+  openPaymentDispute,
   requestChanges as requestWorkChanges,
   settlePayment,
   type ApplicationStatus,
@@ -206,6 +207,7 @@ function ApplicationCard({
   onAuthorizePayment,
   onReleasePayment,
   onRequestChanges,
+  onOpenDispute,
 }: {
   application: EmployerApplication;
   selected: boolean;
@@ -224,6 +226,7 @@ function ApplicationCard({
   onAuthorizePayment: (application: EmployerApplication) => void;
   onReleasePayment: (application: EmployerApplication) => void;
   onRequestChanges: (application: EmployerApplication, reason: string) => void;
+  onOpenDispute: (application: EmployerApplication) => void;
   onRate: (application: EmployerApplication) => void;
 }) {
   const { t } = useTranslation("employer");
@@ -344,6 +347,7 @@ function ApplicationCard({
           onAuthorizePayment={() => onAuthorizePayment(application)}
           onReleasePayment={() => onReleasePayment(application)}
           onRequestChanges={(reason) => onRequestChanges(application, reason)}
+          onOpenDispute={() => onOpenDispute(application)}
         />
 
         <div className="grid grid-cols-2 gap-2">
@@ -443,6 +447,9 @@ export function ApplicationsManagement() {
   const [isScheduling, setIsScheduling] = useState(false);
   const [reviewEligibility, setReviewEligibility] = useState<Record<string, ReviewEligibilityItem>>({});
   const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
+  const [disputeTarget, setDisputeTarget] = useState<EmployerApplication | null>(null);
+  const [disputeReason, setDisputeReason] = useState("");
+  const [disputeError, setDisputeError] = useState<string | null>(null);
   const [offerBusyId, setOfferBusyId] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     title: string;
@@ -732,6 +739,28 @@ export function ApplicationsManagement() {
     void runOfferAction(application._id, () => requestWorkChanges(application._id, reason));
   };
 
+  const handleOpenDispute = (application: EmployerApplication) => {
+    setDisputeTarget(application);
+    setDisputeReason("");
+    setDisputeError(null);
+  };
+
+  const handleSubmitDispute = async () => {
+    if (!disputeTarget) return;
+    const reason = disputeReason.trim();
+    if (!reason) {
+      setDisputeError(t("applicationsManagement.disputeDialog.reasonRequired"));
+      return;
+    }
+    const application = disputeTarget;
+    setDisputeTarget(null);
+    await runOfferAction(
+      application._id,
+      () => openPaymentDispute(application._id, reason),
+      t("applicationsManagement.disputeDialog.opened"),
+    );
+  };
+
   const handleConfirmDialogConfirm = () => {
     if (!confirmAction) return;
     const action = confirmAction;
@@ -923,6 +952,7 @@ export function ApplicationsManagement() {
                         onAuthorizePayment={handleAuthorizePayment}
                         onReleasePayment={handleReleasePayment}
                         onRequestChanges={handleRequestChanges}
+                        onOpenDispute={handleOpenDispute}
                       />
                     </motion.div>
                   ))
@@ -1179,6 +1209,37 @@ export function ApplicationsManagement() {
           </div>
         </Dialog>
       ) : null}
+      <Dialog
+        open={Boolean(disputeTarget)}
+        title={t("applicationsManagement.disputeDialog.title")}
+        description={t("applicationsManagement.disputeDialog.description", {
+          subject: disputeTarget?.job.title || "",
+        })}
+        onClose={() => setDisputeTarget(null)}
+      >
+        <div className="space-y-4">
+          <label className="block text-body-sm text-[#374151]">
+            {t("applicationsManagement.disputeDialog.reasonLabel")}
+            <textarea
+              rows={4}
+              maxLength={2000}
+              value={disputeReason}
+              onChange={(event) => { setDisputeReason(event.target.value); setDisputeError(null); }}
+              className="mt-2 w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-body-sm text-[#111827]"
+            />
+            {disputeError ? <span className="mt-1 block text-xs text-red-700">{disputeError}</span> : null}
+          </label>
+          <p className="text-xs text-amber-800">{t("applicationsManagement.disputeDialog.holdNotice")}</p>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setDisputeTarget(null)} className="min-h-11 rounded-control border border-[#D1D5DB] px-4 text-body">
+              {t("applicationsManagement.disputeDialog.cancel")}
+            </button>
+            <button type="button" disabled={!disputeReason.trim()} onClick={() => void handleSubmitDispute()} className="min-h-11 rounded-control bg-red-700 px-4 text-body font-medium text-white disabled:opacity-60">
+              {t("applicationsManagement.disputeDialog.submit")}
+            </button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

@@ -833,6 +833,13 @@ export function requestChanges(applicationId: string, reason: string) {
   });
 }
 
+export function openPaymentDispute(applicationId: string, reason: string) {
+  return request<{ message: string; dispute: any }>(`/applications/${applicationId}/payment/disputes`, {
+    method: 'POST',
+    body: { reason },
+  });
+}
+
 export function settlePayment(applicationId: string) {
   return request<{ message: string; application: any; job: any }>(`/applications/${applicationId}/payment/settle`, {
     method: 'POST',
@@ -1490,7 +1497,7 @@ export function getAdminFinancialDisputes() {
 
 export function updateAdminFinancialDispute(
   disputeId: string,
-  payload: { status: 'open' | 'investigating' | 'resolved' | 'rejected'; resolutionNotes?: string },
+  payload: { status: 'open' | 'investigating' | 'resolved' | 'rejected'; resolutionNotes?: string; workerPayoutAmount?: number },
 ) {
   return request<{ message: string; dispute: any }>(`/admin/finance/disputes/${disputeId}`, { method: 'PATCH', body: payload });
 }

@@ -205,6 +205,19 @@
       "submitWork": "Submit Work",
       "message": "Message"
     },
+    "paymentDispute": {
+      "openButton": "Open payment dispute",
+      "onHold": "Payment is on hold while the finance team reviews this dispute.",
+      "title": "Open payment dispute",
+      "description": "Explain the payment issue for {{title}}.",
+      "reasonPlaceholder": "Describe the payment issue",
+      "reasonRequired": "A reason is required.",
+      "submitFailed": "Unable to open the payment dispute.",
+      "holdNotice": "Payment remains secured until a finance admin reviews the case.",
+      "opened": "Payment dispute opened.",
+      "cancel": "Cancel",
+      "submit": "Submit dispute"
+    },
     "withdrawButton": {
       "label": "Withdraw"
     },

@@ -14,6 +14,7 @@ export type OfferActionsApplication = {
   agreedAmount?: number;
   workStatus?: string;
   paymentStatus?: string;
+  paymentDisputeStatus?: string;
 };
 
 const inputClass =
@@ -34,6 +35,7 @@ export function OfferActions({
   onAuthorizePayment,
   onReleasePayment,
   onRequestChanges,
+  onOpenDispute,
 }: {
   application: OfferActionsApplication;
   busy: boolean;
@@ -43,6 +45,7 @@ export function OfferActions({
   onAuthorizePayment: () => void;
   onReleasePayment: () => void;
   onRequestChanges: (reason: string) => void;
+  onOpenDispute: () => void;
 }) {
   const { t } = useTranslation("employer");
   const [offerAmount, setOfferAmount] = useState("");
@@ -115,7 +118,7 @@ export function OfferActions({
         (() => {
           const paymentStatus = application.paymentStatus || "Secured";
           const workStatus = application.workStatus || "In Progress";
-          const canRequestChanges = workStatus === "Submitted" && paymentStatus !== "Paid";
+          const canRequestChanges = workStatus === "Submitted" && !["Paid", "Disputed"].includes(paymentStatus);
           return (
             <div className="rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-3 space-y-2">
               <p className="text-caption font-semibold text-[#111827]">{t("applicationsManagement.hiredPanel.title")}</p>
@@ -126,14 +129,24 @@ export function OfferActions({
                   paymentStatus,
                 })}
               </p>
-              {!["Authorized", "Paid"].includes(paymentStatus) ? (
+              {!["Authorized", "Paid", "Disputed"].includes(paymentStatus) ? (
                 <button type="button" disabled={busy} onClick={onAuthorizePayment} className={secondaryButtonClass}>
                   {t("applicationsManagement.hiredPanel.authorizePayment")}
                 </button>
               ) : null}
-              {workStatus === "Submitted" && paymentStatus !== "Paid" ? (
+              {workStatus === "Submitted" && !["Paid", "Disputed"].includes(paymentStatus) ? (
                 <button type="button" disabled={busy} onClick={onReleasePayment} className={primaryButtonClass}>
                   {t("applicationsManagement.hiredPanel.approveAndPay")}
+                </button>
+              ) : null}
+              {workStatus === "Submitted" && paymentStatus === "Disputed" ? (
+                <p className="rounded-lg bg-amber-50 p-2 text-[11px] text-amber-900">
+                  {t("applicationsManagement.hiredPanel.paymentOnHold")}
+                </p>
+              ) : null}
+              {workStatus === "Submitted" && !["Paid", "Disputed"].includes(paymentStatus) ? (
+                <button type="button" disabled={busy} onClick={onOpenDispute} className={dangerOutlineButtonClass}>
+                  {t("applicationsManagement.hiredPanel.openDispute")}
                 </button>
               ) : null}
               {canRequestChanges ? (

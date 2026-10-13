@@ -481,7 +481,19 @@
       "authorizePayment": "Authorize Payment",
       "approveAndPay": "Approve & Pay",
       "requestChanges": "Request Changes",
-      "changeReasonPlaceholder": "What needs to change?"
+      "changeReasonPlaceholder": "What needs to change?",
+      "openDispute": "Open payment dispute",
+      "paymentOnHold": "Payment is on hold while this dispute is reviewed."
+    },
+    "disputeDialog": {
+      "title": "Open payment dispute",
+      "description": "Explain the payment issue for {{subject}}. The payment will be held for finance review.",
+      "reasonLabel": "Reason",
+      "reasonRequired": "A reason is required.",
+      "holdNotice": "The worker payout and employer refund will remain on hold until a finance admin resolves the case.",
+      "opened": "Payment dispute opened.",
+      "cancel": "Cancel",
+      "submit": "Submit dispute"
     },
     "confirmOffer": {
       "title": "Send Formal Offer",

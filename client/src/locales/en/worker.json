@@ -46,6 +46,18 @@
     "submitWork": {
       "button": "Submit finished work"
     },
+    "paymentDispute": {
+      "openButton": "Open payment dispute",
+      "onHold": "Payment is on hold while this dispute is reviewed by the finance team.",
+      "title": "Open payment dispute",
+      "description": "Explain the payment issue for {{subject}}. The payment will be held for finance review.",
+      "reasonLabel": "Reason",
+      "reasonRequired": "A reason is required.",
+      "holdNotice": "The payment remains secured until a finance admin reviews the case.",
+      "opened": "Payment dispute opened.",
+      "cancel": "Cancel",
+      "submit": "Submit dispute"
+    },
     "card": {
       "unavailableJob": "Unavailable job",
       "employerFallback": "Employer",

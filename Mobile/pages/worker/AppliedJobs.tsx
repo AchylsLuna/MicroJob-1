@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Modal, Platform, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { FlatList, Modal, Platform, View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -75,6 +75,9 @@ export default function AppliedJobs(props: AppliedJobsProps) {
   const [ratingTarget, setRatingTarget] = useState<MobileRatingTarget | null>(null);
   const [withdrawTarget, setWithdrawTarget] = useState<AppliedJob | null>(null);
   const [withdrawing, setWithdrawing] = useState(false);
+  const [paymentDisputeTarget, setPaymentDisputeTarget] = useState<AppliedJob | null>(null);
+  const [paymentDisputeReason, setPaymentDisputeReason] = useState('');
+  const [submittingDispute, setSubmittingDispute] = useState(false);
 
   const filters = ['All', ...APPLICATION_STATUSES] as const;
 
@@ -195,6 +198,40 @@ export default function AppliedJobs(props: AppliedJobsProps) {
       await fetchApplications();
     } catch (error: any) { toast.error(error?.message || t('appliedJobs.apiFallback.submitWorkFailed')); }
     finally { setIsLoading(false); }
+  };
+
+  const submitPaymentDispute = async () => {
+    if (!paymentDisputeTarget || submittingDispute) return;
+    const reason = paymentDisputeReason.trim();
+    if (!reason) {
+      toast.error(t('appliedJobs.paymentDispute.reasonRequired'));
+      return;
+    }
+    setSubmittingDispute(true);
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const result = await apiRequest(
+        `${API_URL}/applications/${paymentDisputeTarget.id}/payment/disputes`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ reason }),
+        },
+        t('appliedJobs.paymentDispute.submitFailed'),
+      );
+      if (!result.ok) throw new Error(result.message || t('appliedJobs.paymentDispute.submitFailed'));
+      setPaymentDisputeTarget(null);
+      setPaymentDisputeReason('');
+      await fetchApplications();
+      toast.success(t('appliedJobs.paymentDispute.opened'));
+    } catch (error: any) {
+      toast.error(error?.message || t('appliedJobs.paymentDispute.submitFailed'));
+    } finally {
+      setSubmittingDispute(false);
+    }
   };
 
   return (
@@ -328,6 +365,19 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                       <Text style={styles.messageButtonText}>{t('appliedJobs.messageButton.submitWork')}</Text>
                     </TouchableOpacity>
                   ) : null}
+                  {job.status === 'Hired' && job.workStatus === 'Submitted' && job.paymentStatus === 'Disputed' ? (
+                    <Text style={styles.disputeHoldText}>{t('appliedJobs.paymentDispute.onHold')}</Text>
+                  ) : null}
+                  {job.status === 'Hired' && job.workStatus === 'Submitted' && !['Paid', 'Disputed'].includes(job.paymentStatus || '') ? (
+                    <TouchableOpacity
+                      style={styles.disputeButton}
+                      onPress={() => { setPaymentDisputeTarget(job); setPaymentDisputeReason(''); }}
+                      accessibilityRole="button"
+                    >
+                      <Ionicons name="alert-circle-outline" size={16} color="#b91c1c" />
+                      <Text style={styles.disputeButtonText}>{t('appliedJobs.paymentDispute.openButton')}</Text>
+                    </TouchableOpacity>
+                  ) : null}
                   {onMessageEmployer && job.employerId ? (
                     <TouchableOpacity
                       style={styles.messageButton}
@@ -378,6 +428,42 @@ export default function AppliedJobs(props: AppliedJobsProps) {
               </TouchableOpacity>
               <TouchableOpacity style={[styles.modalWithdrawButton, withdrawing && styles.disabledButton]} onPress={handleWithdraw} disabled={withdrawing}>
                 {withdrawing ? <ActivityIndicator color={tokens.colors.surface} /> : <Text style={styles.modalWithdrawText}>{t('appliedJobs.modal.withdrawButton')}</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        visible={Boolean(paymentDisputeTarget)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { if (!submittingDispute) setPaymentDisputeTarget(null); }}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.disputeModalCard}>
+            <Text style={styles.modalTitle}>{t('appliedJobs.paymentDispute.title')}</Text>
+            <Text style={styles.modalText}>{t('appliedJobs.paymentDispute.description', { title: paymentDisputeTarget?.title || '' })}</Text>
+            <TextInput
+              style={styles.disputeInput}
+              value={paymentDisputeReason}
+              onChangeText={setPaymentDisputeReason}
+              placeholder={t('appliedJobs.paymentDispute.reasonPlaceholder')}
+              placeholderTextColor={tokens.colors.textSubtle}
+              multiline
+              maxLength={2000}
+              textAlignVertical="top"
+            />
+            <Text style={styles.disputeHoldText}>{t('appliedJobs.paymentDispute.holdNotice')}</Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.modalCancelButton} onPress={() => setPaymentDisputeTarget(null)} disabled={submittingDispute}>
+                <Text style={styles.modalCancelText}>{t('appliedJobs.paymentDispute.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalWithdrawButton, (!paymentDisputeReason.trim() || submittingDispute) && styles.disabledButton]}
+                onPress={() => void submitPaymentDispute()}
+                disabled={!paymentDisputeReason.trim() || submittingDispute}
+              >
+                {submittingDispute ? <ActivityIndicator color={tokens.colors.surface} /> : <Text style={styles.modalWithdrawText}>{t('appliedJobs.paymentDispute.submit')}</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -549,6 +635,9 @@ const styles = StyleSheet.create({
   cardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   messageButton: { flex: 1, minWidth: 110, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: '#bfdbfe', backgroundColor: '#eff6ff', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   messageButtonText: { color: tokens.colors.brand, fontSize: 12, fontWeight: '800' },
+  disputeButton: { minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: '#fecaca', backgroundColor: '#fef2f2', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 12 },
+  disputeButtonText: { color: '#b91c1c', fontSize: 12, fontWeight: '800' },
+  disputeHoldText: { color: '#92400e', fontSize: 12, lineHeight: 17 },
   withdrawButton: { flex: 1, minWidth: 110, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: '#fecaca', backgroundColor: '#fef2f2', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   withdrawButtonText: { color: '#b91c1c', fontSize: 12, fontWeight: '800' },
   rateButton: { marginTop: 10, minHeight: 44, borderRadius: 12, backgroundColor: '#FEF3C7', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
@@ -556,6 +645,8 @@ const styles = StyleSheet.create({
   reviewedText: { marginTop: 10, textAlign: 'center', color: '#047857', fontSize: 12, fontWeight: '700' },
   modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.55)', padding: 20 },
   modalCard: { width: '100%', maxWidth: 420, alignItems: 'center', borderRadius: 22, backgroundColor: tokens.colors.surface, padding: 22 },
+  disputeModalCard: { width: '100%', maxWidth: 420, borderRadius: 22, backgroundColor: tokens.colors.surface, padding: 22 },
+  disputeInput: { minHeight: 120, marginTop: 16, borderRadius: 12, borderWidth: 1, borderColor: tokens.colors.border, padding: 12, color: tokens.colors.text, fontSize: 14 },
   modalIcon: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fee2e2' },
   modalTitle: { marginTop: 15, color: tokens.colors.text, fontSize: 19, fontWeight: '800' },
   modalText: { marginTop: 8, color: tokens.colors.textMuted, fontSize: 13, lineHeight: 20, textAlign: 'center' },

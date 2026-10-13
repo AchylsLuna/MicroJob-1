@@ -14,7 +14,7 @@ import {
   scheduleInterview,
   updateInterview,
 } from '../controllers/JobApplicationController.js';
-import { authorizePayment, requestChanges, settleDirect, submitWork } from '../controllers/ApplicationPaymentController.js';
+import { authorizePayment, openPaymentDispute, requestChanges, settleDirect, submitWork } from '../controllers/ApplicationPaymentController.js';
 import { cancelJobOffer, confirmOfferHire, createJobOffer, respondToJobOffer } from '../controllers/JobOfferController.js';
 import authenticateToken from '../middleware/auth.js';
 
@@ -40,6 +40,7 @@ router.post('/job-offers/:offerId/confirm-hire', authenticateToken, confirmOffer
 router.post('/applications/:applicationId/payment/authorize', authenticateToken, authorizePayment);
 router.post('/applications/:applicationId/work/submit', authenticateToken, submitWork);
 router.post('/applications/:applicationId/work/request-changes', authenticateToken, requestChanges);
+router.post('/applications/:applicationId/payment/disputes', authenticateToken, openPaymentDispute);
 router.post('/applications/:applicationId/payment/settle', authenticateToken, settleDirect);
 
 export default router;

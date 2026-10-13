@@ -125,6 +125,14 @@
   "disputes": {
     "title": "Mga Financial Dispute",
     "subtitle": "Imbestigahan at lutasin ang mga alitan sa pagbabayad.",
+    "demo": {
+      "title": "Subukan ang proseso ng hindi pagkakaunawaan sa bayad",
+      "description": "Gumagamit ang demo para lamang sa development ng PHP 500 kunwaring bayad sa trabahong limang araw kung saan tatlong araw ang natapos. Gumagamit ito ng kunwaring escrow at mga hiwalay na test account.",
+      "stepWorker": "Mag-sign in bilang demo worker at magbukas ng hindi pagkakaunawaan sa bayad mula sa Applied Jobs.",
+      "stepEmployer": "Mag-sign in bilang demo employer upang makita ang abiso at pagpigil ng bayad habang sinusuri ang kaso.",
+      "stepAdmin": "Bumalik dito bilang finance admin upang siyasatin at lutasin ang kaso, at pumili ng bayad sa worker mula PHP 0 hanggang PHP 500.",
+      "seedHint": "Ihanda o i-reset nang lokal: itakda ang ENABLE_PAYMENT_DISPUTE_DEMO_SEED=true at PAYMENT_DISPUTE_DEMO_PASSWORD sa server/.env, pagkatapos patakbuhin ang npm --prefix server run seed:payment-dispute-demo. Ipapakita ng command ang mga email ng test account."
+    },
     "cards": {
       "open": "Bukas",
       "investigating": "Iniimbestigahan"
@@ -140,6 +148,9 @@
       "case": "Kaso",
       "amount": "Halaga",
       "raisedBy": "Iniangat ni",
+      "job": "Trabaho",
+      "worker": "Manggagawa",
+      "finalSplit": "Hatian: {{worker}} sa manggagawa, {{employer}} ibabalik sa employer",
       "date": "Petsa",
       "status": "Status",
       "actions": "Mga Aksyon"
@@ -165,6 +176,10 @@
       "description": "Itala ang resulta para sa \"{{subject}}\".",
       "notesLabel": "Mga tala sa resolusyon",
       "notesRequired": "Kinakailangan ang mga tala sa resolusyon.",
+      "workerPayoutLabel": "Halagang ibibigay sa manggagawa",
+      "employerRefundHint": "{{amount}} ang ibabalik sa employer.",
+      "settlementHint": "Ang pagsusumite ng desisyong ito ay magse-settle sa escrow at magsasara sa assignment.",
+      "payoutInvalid": "Maglagay ng halagang PHP 0 hanggang {{amount}}, hanggang dalawang decimal place lamang.",
       "cancel": "Kanselahin"
     },
     "toast": {

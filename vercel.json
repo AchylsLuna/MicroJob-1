@@ -2,6 +2,12 @@
   "buildCommand": "npm run build",
   "outputDirectory": "client/dist",
   "regions": ["hkg1", "sin1"],
+  "crons": [
+    {
+      "path": "/api/cron/payment-review-reminders",
+      "schedule": "*/15 * * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

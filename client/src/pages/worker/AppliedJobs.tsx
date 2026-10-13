@@ -4,10 +4,10 @@ import type { TFunction } from "i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { BriefcaseBusiness, CalendarDays, MapPin, Star } from "lucide-react";
 import { jobsAPI } from "../../services/jobs";
-import { getEligibleReviews, type ApplicationStatus, type JobOffer, type ReviewEligibilityItem } from "../../services/api";
+import { getEligibleReviews, openPaymentDispute, type ApplicationStatus, type JobOffer, type ReviewEligibilityItem } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
 import { RatingDialog, type RatingTarget } from "../../components/reviews/RatingDialog";
-import { ConfirmDialog } from "../../components/ui/index";
+import { ConfirmDialog, Dialog } from "../../components/ui/index";
 import { toast } from "../../lib/toast";
 import { formatCurrency, formatDate } from "../../lib/formatters";
 
@@ -32,6 +32,7 @@ interface Application {
   offer?: JobOffer | null;
   workStatus?: string;
   paymentStatus?: string;
+  agreedAmount?: number;
 }
 
 const FILTER_OPTIONS: Array<"All" | ApplicationStatus> = [
@@ -82,6 +83,9 @@ const AppliedJobs: React.FC = () => {
   const [reviewEligibility, setReviewEligibility] = useState<Record<string, ReviewEligibilityItem>>({});
   const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
+  const [disputeTarget, setDisputeTarget] = useState<Application | null>(null);
+  const [disputeReason, setDisputeReason] = useState("");
+  const [disputeError, setDisputeError] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     title: string;
     description: string;
@@ -177,6 +181,28 @@ const AppliedJobs: React.FC = () => {
 
   const handleSubmitWork = (application: Application) => {
     void runOfferAction(application._id, () => jobsAPI.submitWork(application._id), t("appliedJobs.toast.workSubmitted"));
+  };
+
+  const handleOpenDispute = (application: Application) => {
+    setDisputeTarget(application);
+    setDisputeReason("");
+    setDisputeError(null);
+  };
+
+  const handleSubmitDispute = async () => {
+    if (!disputeTarget) return;
+    const reason = disputeReason.trim();
+    if (!reason) {
+      setDisputeError(t("appliedJobs.paymentDispute.reasonRequired"));
+      return;
+    }
+    const target = disputeTarget;
+    setDisputeTarget(null);
+    await runOfferAction(
+      target._id,
+      () => openPaymentDispute(target._id, reason),
+      t("appliedJobs.paymentDispute.opened"),
+    );
   };
 
   const getStatusColor = (status: string) => {
@@ -340,6 +366,23 @@ const AppliedJobs: React.FC = () => {
                         </button>
                       </div>
                     ) : null}
+                    {application.status === "Hired" && application.workStatus === "Submitted" && application.paymentStatus === "Disputed" ? (
+                      <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+                        {t("appliedJobs.paymentDispute.onHold")}
+                      </p>
+                    ) : null}
+                    {application.status === "Hired" && application.workStatus === "Submitted" && !["Paid", "Disputed"].includes(application.paymentStatus || "") ? (
+                      <div className="mt-4">
+                        <button
+                          type="button"
+                          disabled={actionBusyId === application._id}
+                          onClick={() => handleOpenDispute(application)}
+                          className="inline-flex h-10 items-center justify-center rounded-xl border border-red-200 px-4 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          {t("appliedJobs.paymentDispute.openButton")}
+                        </button>
+                      </div>
+                    ) : null}
 
                     <div className="mt-5 flex flex-col gap-4 border-t border-slate-100 pt-4">
                       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
@@ -435,6 +478,35 @@ const AppliedJobs: React.FC = () => {
       {ratingTarget ? (
         <RatingDialog target={ratingTarget} onClose={() => setRatingTarget(null)} onSubmitted={loadReviewEligibility} />
       ) : null}
+      <Dialog
+        open={Boolean(disputeTarget)}
+        title={t("appliedJobs.paymentDispute.title")}
+        description={t("appliedJobs.paymentDispute.description", { subject: disputeTarget?.job.title || "" })}
+        onClose={() => setDisputeTarget(null)}
+      >
+        <div className="space-y-4">
+          <label className="block text-sm font-semibold text-slate-700">
+            {t("appliedJobs.paymentDispute.reasonLabel")}
+            <textarea
+              rows={4}
+              maxLength={2000}
+              value={disputeReason}
+              onChange={(event) => { setDisputeReason(event.target.value); setDisputeError(null); }}
+              className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-normal"
+            />
+            {disputeError ? <span className="mt-1 block text-xs text-red-700">{disputeError}</span> : null}
+          </label>
+          <p className="text-xs text-amber-800">{t("appliedJobs.paymentDispute.holdNotice")}</p>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setDisputeTarget(null)} className="min-h-11 rounded-xl border border-slate-300 px-4 text-sm font-semibold">
+              {t("appliedJobs.paymentDispute.cancel")}
+            </button>
+            <button type="button" disabled={!disputeReason.trim()} onClick={() => void handleSubmitDispute()} className="min-h-11 rounded-xl bg-red-700 px-4 text-sm font-semibold text-white disabled:opacity-60">
+              {t("appliedJobs.paymentDispute.submit")}
+            </button>
+          </div>
+        </div>
+      </Dialog>
       <ConfirmDialog
         open={Boolean(confirmAction)}
         title={confirmAction?.title || ""}

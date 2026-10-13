@@ -14,6 +14,9 @@ test('Vercel routes API and uploads to the Express function before the SPA fallb
     { source: '/uploads/(.*)', destination: '/api' },
     { source: '/((?!api(?:/|$)|uploads(?:/|$)).*)', destination: '/index.html' },
   ]);
+  assert.deepEqual(config.crons, [
+    { path: '/api/cron/payment-review-reminders', schedule: '*/15 * * * *' },
+  ]);
   assert.equal(existsSync(resolve(repositoryRoot, 'api/index.js')), true);
   assert.equal(existsSync(resolve(repositoryRoot, 'api/[...path].js')), false);
 });

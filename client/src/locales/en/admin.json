@@ -125,6 +125,14 @@
   "disputes": {
     "title": "Financial Disputes",
     "subtitle": "Investigate and resolve payment disputes.",
+    "demo": {
+      "title": "Try the payment dispute flow",
+      "description": "A development-only demo assignment simulates a PHP 500 payment dispute for a five-day job where three days were completed. It uses synthetic escrow and dedicated test accounts.",
+      "stepWorker": "Sign in with the demo worker account and open a payment dispute from Applied Jobs.",
+      "stepEmployer": "Sign in with the demo employer account to verify the dispute notice and payment hold.",
+      "stepAdmin": "Return here as finance admin to investigate and resolve the case with a worker payout from PHP 0 to PHP 500.",
+      "seedHint": "Prepare or restart locally: set ENABLE_PAYMENT_DISPUTE_DEMO_SEED=true and PAYMENT_DISPUTE_DEMO_PASSWORD in server/.env, then run npm --prefix server run seed:payment-dispute-demo. The command prints the test account emails."
+    },
     "cards": {
       "open": "Open",
       "investigating": "Investigating"
@@ -140,6 +148,9 @@
       "case": "Case",
       "amount": "Amount",
       "raisedBy": "Raised by",
+      "job": "Job",
+      "worker": "Worker",
+      "finalSplit": "Final split: {{worker}} to worker, {{employer}} refunded",
       "date": "Date",
       "status": "Status",
       "actions": "Actions"
@@ -165,6 +176,10 @@
       "description": "Record the outcome for \"{{subject}}\".",
       "notesLabel": "Resolution notes",
       "notesRequired": "Resolution notes are required.",
+      "workerPayoutLabel": "Amount awarded to worker",
+      "employerRefundHint": "{{amount}} will be refunded to the employer.",
+      "settlementHint": "Submitting this decision will settle the escrow and close the assignment.",
+      "payoutInvalid": "Enter an amount from PHP 0 to {{amount}}, with no more than two decimal places.",
       "cancel": "Cancel"
     },
     "toast": {

@@ -191,6 +191,8 @@ export default function EmployerApplications({
   const [changeReasons, setChangeReasons] = useState<Record<string, string>>(
     {},
   );
+  const [paymentDisputeTarget, setPaymentDisputeTarget] = useState<ApplicationItem | null>(null);
+  const [paymentDisputeReason, setPaymentDisputeReason] = useState('');
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(
     null,
   );
@@ -762,6 +764,10 @@ export default function EmployerApplications({
                       { reason: changeReasons[item._id] },
                     )
                   }
+                  onOpenDispute={() => {
+                    setPaymentDisputeTarget(item);
+                    setPaymentDisputeReason('');
+                  }}
                 />
               ))
             )}
@@ -940,6 +946,27 @@ export default function EmployerApplications({
             );
         }}
         footer={{ primaryLabel: t('employerApplications.interviewModal.calendarSetDate'), onPrimary: () => setDatePicker(false) }}
+      />
+      <PaymentDisputeModal
+        item={paymentDisputeTarget}
+        reason={paymentDisputeReason}
+        busy={Boolean(busyId)}
+        onReasonChange={setPaymentDisputeReason}
+        onClose={() => setPaymentDisputeTarget(null)}
+        onSubmit={async () => {
+          if (!paymentDisputeTarget || !paymentDisputeReason.trim()) return;
+          const target = paymentDisputeTarget;
+          const opened = await request(
+            target._id,
+            `applications/${target._id}/payment/disputes`,
+            { reason: paymentDisputeReason.trim() },
+          );
+          if (opened) {
+            setPaymentDisputeTarget(null);
+            setPaymentDisputeReason('');
+            toast.success(t('employerApplications.disputeDialog.opened'));
+          }
+        }}
       />
       {timePicker ? (
         <DateTimePicker
@@ -1147,7 +1174,7 @@ function CandidateCard(props: any) {
                   paymentStatus: item.paymentStatus || t('employerApplications.hiredPanel.paymentStatusDefault'),
                 })}
               </Text>
-              {!["Authorized", "Paid"].includes(
+              {!["Authorized", "Paid", "Disputed"].includes(
                 item.paymentStatus || "Secured",
               ) ? (
                 <TouchableOpacity
@@ -1161,7 +1188,7 @@ function CandidateCard(props: any) {
                 </TouchableOpacity>
               ) : null}
               {item.workStatus === "Submitted" &&
-              item.paymentStatus !== "Paid" ? (
+              !["Paid", "Disputed"].includes(item.paymentStatus || "") ? (
                 <TouchableOpacity
                   style={styles.primaryButton}
                   disabled={busy}
@@ -1171,7 +1198,7 @@ function CandidateCard(props: any) {
                 </TouchableOpacity>
               ) : null}
               {item.workStatus === "Submitted" &&
-              item.paymentStatus !== "Paid" ? (
+              !["Paid", "Disputed"].includes(item.paymentStatus || "") ? (
                 <View style={styles.inputAction}>
                   <TextInput
                     style={styles.compactInput}
@@ -1193,6 +1220,14 @@ function CandidateCard(props: any) {
                     </Text>
                   </TouchableOpacity>
                 </View>
+              ) : null}
+              {item.workStatus === "Submitted" && item.paymentStatus === "Disputed" ? (
+                <Text style={styles.disputeHoldText}>{t('employerApplications.hiredPanel.paymentOnHold')}</Text>
+              ) : null}
+              {item.workStatus === "Submitted" && !["Paid", "Disputed"].includes(item.paymentStatus || "") ? (
+                <TouchableOpacity style={styles.dangerOutline} disabled={busy} onPress={props.onOpenDispute}>
+                  <Text style={styles.dangerText}>{t('employerApplications.hiredPanel.openDispute')}</Text>
+                </TouchableOpacity>
               ) : null}
             </View>
           ) : null}
@@ -1578,6 +1613,60 @@ function InterviewModal({
               <Text style={styles.primaryButtonText}>{t('employerApplications.interviewModal.saveButton')}</Text>
             )}
           </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function PaymentDisputeModal({
+  item,
+  reason,
+  busy,
+  onReasonChange,
+  onClose,
+  onSubmit,
+}: {
+  item: ApplicationItem | null;
+  reason: string;
+  busy: boolean;
+  onReasonChange: (value: string) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  const { t } = useTranslation('employer');
+  return (
+    <Modal visible={Boolean(item)} transparent animationType="fade" onRequestClose={() => { if (!busy) onClose(); }}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.disputeModalCard}>
+          <Text style={styles.panelTitle}>{t('employerApplications.disputeDialog.title')}</Text>
+          <Text style={styles.panelHelp}>
+            {t('employerApplications.disputeDialog.description', { subject: item?.job.title || '' })}
+          </Text>
+          <Text style={styles.fieldLabel}>{t('employerApplications.disputeDialog.reasonLabel')}</Text>
+          <TextInput
+            style={styles.disputeInput}
+            value={reason}
+            onChangeText={onReasonChange}
+            placeholder={t('employerApplications.disputeDialog.reasonPlaceholder')}
+            placeholderTextColor={tokens.colors.textSubtle}
+            multiline
+            maxLength={2000}
+            textAlignVertical="top"
+          />
+          <Text style={styles.disputeHoldText}>{t('employerApplications.disputeDialog.holdNotice')}</Text>
+          <View style={styles.twoActions}>
+            <TouchableOpacity style={styles.secondaryButton} disabled={busy} onPress={onClose}>
+              <Text style={styles.secondaryButtonText}>{t('employerApplications.disputeDialog.cancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.primaryButton, (!reason.trim() || busy) && styles.disabled]}
+              disabled={!reason.trim() || busy}
+              onPress={onSubmit}
+            >
+              {busy ? <ActivityIndicator color={tokens.colors.surface} /> : <Text style={styles.primaryButtonText}>{t('employerApplications.disputeDialog.submit')}</Text>}
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -2048,6 +2137,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  disputeModalCard: {
+    width: "100%",
+    maxWidth: 520,
+    borderRadius: 22,
+    backgroundColor: tokens.colors.surface,
+    padding: 20,
+  },
+  disputeInput: {
+    minHeight: 120,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+    padding: 12,
+    color: tokens.colors.text,
+    fontSize: 14,
+  },
+  disputeHoldText: { marginTop: 10, color: "#92400e", fontSize: 12, lineHeight: 17 },
   filterSheet: {
     width: "100%",
     maxWidth: 520,

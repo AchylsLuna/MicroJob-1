@@ -585,7 +585,19 @@
       "authorizePayment": "Authorize Payment · Held Until Approval",
       "approveAndPay": "Approve and Pay",
       "changeReasonPlaceholder": "Required change reason",
-      "requestChanges": "Request Changes"
+      "requestChanges": "Request Changes",
+      "openDispute": "Open payment dispute",
+      "paymentOnHold": "Payment is on hold while the finance team reviews this dispute."
+    },
+    "disputeDialog": {
+      "title": "Open payment dispute",
+      "description": "Explain the payment issue for {{subject}}.",
+      "reasonLabel": "Reason",
+      "reasonPlaceholder": "Describe the payment issue",
+      "holdNotice": "Payment remains secured until a finance admin reviews the case.",
+      "opened": "Payment dispute opened.",
+      "cancel": "Cancel",
+      "submit": "Submit dispute"
     },
     "rejectCandidate": "Reject Candidate",
     "removeFromList": "Remove from employer list",

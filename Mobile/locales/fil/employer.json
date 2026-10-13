@@ -585,7 +585,19 @@
       "authorizePayment": "Awtorisahan ang Bayad · Nakalaan Hanggang sa Pag-apruba",
       "approveAndPay": "Aprubahan at Bayaran",
       "changeReasonPlaceholder": "Kinakailangang dahilan ng pagbabago",
-      "requestChanges": "Humiling ng Pagbabago"
+      "requestChanges": "Humiling ng Pagbabago",
+      "openDispute": "Magbukas ng dispute sa bayad",
+      "paymentOnHold": "Naka-hold ang bayad habang sinusuri ng finance team ang dispute na ito."
+    },
+    "disputeDialog": {
+      "title": "Magbukas ng dispute sa bayad",
+      "description": "Ipaliwanag ang isyu sa bayad para sa {{subject}}.",
+      "reasonLabel": "Dahilan",
+      "reasonPlaceholder": "Ilarawan ang isyu sa bayad",
+      "holdNotice": "Mananatiling naka-secure ang bayad hanggang masuri ng finance admin ang kaso.",
+      "opened": "Nabuksan ang dispute sa bayad.",
+      "cancel": "Kanselahin",
+      "submit": "Isumite ang dispute"
     },
     "rejectCandidate": "Tanggihan ang Kandidato",
     "removeFromList": "Alisin sa listahan ng employer",
