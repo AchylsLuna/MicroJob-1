@@ -237,6 +237,8 @@ function RootApp() {
       navigationRef.navigate(employer ? 'EmployerEWallet' : 'WorkerTabs', employer ? { invoiceRequestId: entityId } : { screen: 'EWallet' });
     } else if (destination === 'support') {
       navigationRef.navigate(employer ? 'EmployerSupport' : 'WorkerSupport', { ticketId: entityId });
+    } else if (destination === 'disputes') {
+      navigationRef.navigate(employer ? 'EmployerFinancialDisputes' : 'WorkerFinancialDisputes');
     } else if (destination === 'settings') {
       navigationRef.navigate(employer ? 'EmployerSettings' : 'WorkerSettings');
     } else {

@@ -54,6 +54,7 @@ type JobItem = {
 type EmployerJobPostsProps = {
   onEditJob?: (job: JobItem) => void;
   onOpenWallet?: () => void;
+  onOpenJobHistory?: () => void;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
   headerSubtitle?: string;
@@ -70,6 +71,7 @@ type JobAction = 'complete' | 'close' | 'reopen' | 'delete';
 export default function EmployerJobPosts({
   onEditJob,
   onOpenWallet,
+  onOpenJobHistory,
   activeTab,
   onTabPress,
   headerSubtitle,
@@ -283,6 +285,7 @@ export default function EmployerJobPosts({
           <EmployerAction icon="people-outline" label={t('jobPosts.actions.reviewApplicants')} onPress={onOpenApplications} disabled={!onOpenApplications} />
           <EmployerAction icon="chatbubbles-outline" label={t('jobPosts.actions.messages')} onPress={onOpenMessages} disabled={!onOpenMessages} />
           <EmployerAction icon="wallet-outline" label={t('jobPosts.actions.employerWallet')} onPress={onOpenWallet} disabled={!onOpenWallet} />
+          <EmployerAction icon="time-outline" label="Job history" onPress={onOpenJobHistory} disabled={!onOpenJobHistory} />
         </View>
         <View style={styles.sectionHeadingRow}><Text style={styles.operationsTitle}>{t('jobPosts.openings.title')}</Text><Text style={styles.sectionCount}>{jobs.length}</Text></View>
 
