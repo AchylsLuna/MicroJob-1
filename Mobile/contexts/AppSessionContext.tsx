@@ -18,7 +18,7 @@ import { getUserInitials } from '../lib/userIdentity';
 import { registerPushDevice, subscribeNotificationResponses, takeInitialNotificationData, unregisterPushDevice } from '../lib/pushNotifications';
 import { PENDING_TOPUP_STORAGE_KEY } from '../lib/pendingPayment';
 import { queryClient } from '../lib/queryClient';
-import { disableBiometricLogin } from '../lib/biometricAuth';
+import { useTranslation } from 'react-i18next';
 
 type ViewMode = 'worker' | 'employer';
 type BootstrapIssue = {
@@ -176,6 +176,7 @@ const readSavedJobsCache = async (): Promise<SavedJobItem[]> => {
 
 export function AppSessionProvider({ children }: { children: React.ReactNode }) {
   const toast = useToast();
+  const { t } = useTranslation('worker');
   const [isReady, setIsReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [hasOnboarded, setHasOnboarded] = useState(false);
@@ -472,7 +473,8 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
         setSavedJobs(cachedSavedJobs);
       }
 
-      const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+      let token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+      const trustedDeviceToken = await AsyncStorage.getItem('trusted_device_token');
       const health = await apiRequest<any>(`${API_URL}/health`, undefined, 'Unable to reach the MicroJobs API.');
       if (!health.ok) {
         const kind = classifyApiFailure(health) === 'server' ? 'server' : 'unreachable';
@@ -502,6 +504,32 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
         });
         setIsReady(true);
         return;
+      }
+
+      if (!token && trustedDeviceToken) {
+        const trustedLogin = await apiRequest<any>(`${API_URL}/auth/login/trusted-device`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trustedDeviceToken }),
+        }, 'Trusted device login failed.');
+        if (trustedLogin.ok) {
+          const trustedPayload = asObject<any>(trustedLogin.data) || asObject<any>(trustedLogin.raw) || {};
+          if (trustedPayload.token && trustedPayload.refreshToken) {
+            await Promise.all([
+              AsyncStorage.setItem(AUTH_TOKEN_KEY, trustedPayload.token),
+              AsyncStorage.setItem(REFRESH_TOKEN_KEY, trustedPayload.refreshToken),
+              trustedPayload.user ? AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(trustedPayload.user)) : Promise.resolve(),
+              trustedPayload.trustedDeviceToken
+                ? AsyncStorage.setItem('trusted_device_token', String(trustedPayload.trustedDeviceToken))
+                : Promise.resolve(),
+              AsyncStorage.setItem(ACTIVE_VIEW_MODE_KEY, 'worker'),
+            ]);
+            token = trustedPayload.token;
+            setViewMode('worker');
+          }
+        } else if (trustedLogin.status === 401) {
+          await AsyncStorage.removeItem('trusted_device_token');
+        }
       }
 
       const authenticated = await refreshProfile();
@@ -634,7 +662,10 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
       const socket = io(SOCKET_URL, {
         path: SOCKET_PATH,
         auth: { token },
-        transports: ['websocket', 'polling'],
+        // Start with long-polling so the production Azure deployment remains
+        // usable when WebSocket upgrade is unavailable; Socket.IO can upgrade
+        // to WebSocket after the connection is established.
+        transports: ['polling', 'websocket'],
         timeout: 10000,
         reconnection: true,
         reconnectionAttempts: 3,
@@ -661,6 +692,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
         }
         socketFailureCountRef.current += 1;
         if (socketFailureCountRef.current >= 3) {
+          toast.info(t('jobs.apiFallback.realtimeUnavailable'));
           disconnectSocket();
         }
       });
@@ -722,7 +754,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     });
 
     return disconnectSocket;
-  }, [disconnectSocket, isAuthenticated, refreshNotifications, refreshProfile, refreshUnreadMessages]);
+  }, [disconnectSocket, isAuthenticated, refreshNotifications, refreshProfile, refreshUnreadMessages, t, toast]);
 
   const handleAuthSuccess = useCallback(async () => {
     await AsyncStorage.setItem(HAS_ONBOARDED_KEY, 'true');
@@ -765,9 +797,11 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
       await unregisterPushDevice();
       const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
       if (token) {
+        const trustedDeviceToken = await AsyncStorage.getItem('trusted_device_token');
         await apiRequest(`${API_URL}/auth/logout`, {
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trustedDeviceToken }),
         }, 'Failed to logout.');
       }
     } catch {
@@ -775,8 +809,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     }
 
     disconnectSocket();
-    await disableBiometricLogin();
-    await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY, AUTH_USER_KEY, ACTIVE_VIEW_MODE_KEY]);
+    await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY, AUTH_USER_KEY, ACTIVE_VIEW_MODE_KEY, 'trusted_device_token']);
     // Both voluntary and invalid-session logout route through here (the
     // 401 handler above calls the same logout()), so a single clear covers
     // both paths -- without it the next account signed in on this device

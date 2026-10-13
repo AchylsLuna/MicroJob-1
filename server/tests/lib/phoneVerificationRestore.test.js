@@ -4,7 +4,7 @@ import test from 'node:test';
 
 import { generateOtp, verifyOtp } from '../../lib/phone/otpPhone.js';
 import { isValidPhoneNumber, toCountryFormat } from '../../lib/phone/phoneUtils.js';
-import { sendSMS } from '../../lib/phone/sms.js';
+import { sendSMS, SmsProviderError } from '../../lib/phone/sms.js';
 
 test('restored phone verification utilities generate and validate Philippine SMS codes', () => {
   const otp = generateOtp();
@@ -48,6 +48,58 @@ test('Textbee sender uses E.164 recipients and the documented optional deviceId 
     deviceId: 'device-123',
   });
   assert.equal(result.smsBatchId, 'batch-123');
+});
+
+test('Textbee sender classifies provider failures without exposing provider details to callers', async (t) => {
+  const originalFetch = global.fetch;
+  const originalApiKey = process.env.TEXTBEE_API_KEY;
+  t.after(() => {
+    global.fetch = originalFetch;
+    if (originalApiKey === undefined) delete process.env.TEXTBEE_API_KEY;
+    else process.env.TEXTBEE_API_KEY = originalApiKey;
+  });
+
+  process.env.TEXTBEE_API_KEY = 'test-key';
+  global.fetch = async () => ({
+    ok: false,
+    status: 401,
+    text: async () => JSON.stringify({ message: 'sensitive provider response' }),
+  });
+
+  await assert.rejects(
+    sendSMS('+639171234567', 'Your code is 123456'),
+    (error) => {
+      assert.ok(error instanceof SmsProviderError);
+      assert.equal(error.status, 503);
+      assert.equal(error.code, 'provider_authentication_failed');
+      assert.doesNotMatch(error.message, /sensitive provider response/);
+      return true;
+    },
+  );
+});
+
+test('Textbee sender reports rate limiting distinctly', async (t) => {
+  const originalFetch = global.fetch;
+  const originalApiKey = process.env.TEXTBEE_API_KEY;
+  t.after(() => {
+    global.fetch = originalFetch;
+    if (originalApiKey === undefined) delete process.env.TEXTBEE_API_KEY;
+    else process.env.TEXTBEE_API_KEY = originalApiKey;
+  });
+
+  process.env.TEXTBEE_API_KEY = 'test-key';
+  global.fetch = async () => ({
+    ok: false,
+    status: 429,
+    text: async () => JSON.stringify({ message: 'rate limited' }),
+  });
+
+  await assert.rejects(
+    sendSMS('+639171234567', 'Your code is 123456'),
+    (error) => error instanceof SmsProviderError
+      && error.status === 429
+      && error.code === 'provider_rate_limited',
+  );
 });
 
 test('TextBee phone verification routes are available without the removed provider', () => {

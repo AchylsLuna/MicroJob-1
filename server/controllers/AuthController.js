@@ -41,6 +41,7 @@ import { getOtpChallenge, getTestOtpCode, verifyOtpChallenge } from '../lib/otpC
 import {
   issueTrustedDevice,
   consumeTrustedDevice,
+  consumeTrustedDeviceByToken,
   setTrustedDeviceCookie,
   getTrustedDeviceTokenFromRequest,
 } from '../lib/trustedDevice.js';
@@ -316,6 +317,40 @@ const loginUser = async (req, res) => {
   }
 };
 
+const loginTrustedDevice = async (req, res) => {
+  try {
+    const trustedDevice = await consumeTrustedDeviceByToken(getTrustedDeviceTokenFromRequest(req));
+    if (!trustedDevice) return sendError(res, 401, 'Trusted device expired. Please sign in again.');
+
+    const user = await User.findById(trustedDevice.device.user);
+    if (!user || user.status !== 'active') {
+      return sendError(res, 401, 'This trusted device is no longer valid.');
+    }
+
+    const authSession = await createSessionWithTokens(req, user);
+    const csrfToken = crypto.randomBytes(24).toString('hex');
+    setSessionCookies(res, {
+      refreshToken: authSession.refreshToken,
+      sessionId: authSession.sessionId,
+      accessToken: authSession.accessToken,
+      accessTokenExpiresAt: authSession.accessTokenExpiresAt,
+      expiresAt: authSession.expiresAt,
+      csrfToken,
+    });
+    setTrustedDeviceCookie(res, trustedDevice.token, trustedDevice.expiresAt);
+    return sendSuccess(res, 200, 'Trusted device login successful', {
+      ...buildAuthTokensPayload(req, authSession),
+      ...(isNativeAuthRequest(req)
+        ? { trustedDeviceToken: trustedDevice.token, trustedDeviceExpiresAt: trustedDevice.expiresAt }
+        : {}),
+      user: buildLoginPayload(user, false),
+    });
+  } catch (error) {
+    console.error('Trusted device login error:', error);
+    return sendError(res, 500, 'Unable to sign in with this trusted device.');
+  }
+};
+
 const selectLoginMethod = async (req, res) => {
   try {
     const { selectionToken, method } = req.body || {};
@@ -359,15 +394,19 @@ const googleLogin = async (req, res) => {
       return sendError(res, 400, 'Google credential is required.');
     }
 
-    const clientId = String(process.env.GOOGLE_CLIENT_ID || '').trim();
-    if (!clientId) {
+    const clientIds = [
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_ANDROID_CLIENT_ID,
+      process.env.GOOGLE_IOS_CLIENT_ID,
+    ].map((value) => String(value || '').trim()).filter(Boolean);
+    if (clientIds.length === 0) {
       console.error('Google login is not configured: GOOGLE_CLIENT_ID is missing.');
       return sendError(res, 503, 'Google sign-in is not configured.');
     }
 
     let ticket;
     try {
-      ticket = await googleClient.verifyIdToken({ idToken: credential, audience: clientId });
+      ticket = await googleClient.verifyIdToken({ idToken: credential, audience: clientIds });
     } catch {
       return sendError(res, 401, 'Google sign-in could not be verified. Please try again.');
     }
@@ -712,6 +751,7 @@ const debugCreditWallet = async (req, res) => {
 export {
   registerUser,
   loginUser,
+  loginTrustedDevice,
   selectLoginMethod,
   googleLogin,
   loginMfa,

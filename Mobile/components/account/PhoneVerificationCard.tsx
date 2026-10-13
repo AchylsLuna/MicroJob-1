@@ -20,7 +20,6 @@ const safeError = (status: number, message: string, fallback: string, translate:
   if (status === 0) return translate('personalInformation.phoneVerification.errors.connection');
   if (status === 401) return translate('personalInformation.phoneVerification.errors.sessionExpired');
   if (status === 429) return translate('personalInformation.phoneVerification.errors.tooManyAttempts');
-  if (status === 400) return fallback;
   if (
     message
     && typeof message === 'string'

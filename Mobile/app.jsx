@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createNavigationContainerRef, DefaultTheme, NavigationContainer } from '@react-navigation/native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tokens } from './theme/tokens';
 import AuthNavigator from './navigation/AuthStack';
 import WorkerStackNavigator from './navigation/WorkerStack';
@@ -18,7 +18,6 @@ import './i18n';
 import { StatusBar } from 'expo-status-bar';
 import LaunchScreen from './components/LaunchScreen';
 import { resolveNotificationDestination } from './lib/notifications';
-import { isBiometricLoginEnabled, loginWithBiometrics, subscribeBiometricUnlock } from './lib/biometricAuth';
 
 const navigationRef = createNavigationContainerRef();
 
@@ -46,59 +45,7 @@ const parseResetLinkUrl = (linkUrl) => {
 
 
 
-function BiometricAppGate({ session }) {
-  const [locked, setLocked] = useState(false);
-  const appStateRef = useRef(AppState.currentState);
-  const attemptRef = useRef(false);
-  const initialSessionCheckedRef = useRef(false);
-
-  const requireBiometric = useCallback(async () => {
-    if (attemptRef.current || !session.isReady || !session.isAuthenticated) return;
-    if (!(await isBiometricLoginEnabled())) {
-      setLocked(false);
-      return;
-    }
-    attemptRef.current = true;
-    setLocked(true);
-    try {
-      await loginWithBiometrics();
-    } finally {
-      attemptRef.current = false;
-    }
-  }, [session.isAuthenticated, session.isReady]);
-
-  useEffect(() => {
-    const unsubscribe = subscribeBiometricUnlock(() => setLocked(false));
-    return unsubscribe;
-  }, []);
-
-  useEffect(() => {
-    if (!session.isReady || initialSessionCheckedRef.current) return;
-    initialSessionCheckedRef.current = true;
-    if (session.isAuthenticated) void requireBiometric();
-  }, [requireBiometric, session.isAuthenticated, session.isReady]);
-
-  useEffect(() => {
-    if (!session.isAuthenticated) {
-      setLocked(false);
-    }
-  }, [session.isAuthenticated]);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      const wasInactive = /inactive|background/.test(appStateRef.current);
-      appStateRef.current = nextState;
-      if (wasInactive && nextState === 'active' && session.isAuthenticated) {
-        void requireBiometric();
-      }
-    });
-    return () => subscription.remove();
-  }, [requireBiometric, session.isAuthenticated]);
-
-  return <AppNavigator forceLogin={locked} />;
-}
-
-function AppNavigator({ forceLogin = false }) {
+function AppNavigator() {
   const session = useAppSession();
 
   if (!session.isReady) {
@@ -109,7 +56,7 @@ function AppNavigator({ forceLogin = false }) {
     return <ApiConnectionScreen session={session} />;
   }
 
-  return !forceLogin && session.isAuthenticated
+  return session.isAuthenticated
     ? (session.viewMode === 'employer' && session.canAccessEmployer ? <EmployerStackNavigator key="employer-mode" /> : <WorkerStackNavigator key="worker-mode" />)
     : <AuthNavigator />;
 }
@@ -146,13 +93,25 @@ function ApiConnectionScreen({ session }) {
 
 function SessionOverlays() {
   const session = useAppSession();
+  const insets = useSafeAreaInsets();
 
   return (
     <>
       {session.showLogoutModal ? (
-        <View style={styles.logoutOverlay}>
-          <View style={styles.logoutCard}>
-            <TouchableOpacity style={styles.logoutClose} onPress={session.closeLogoutConfirm}>
+        <View style={styles.logoutOverlay} accessibilityViewIsModal>
+          <TouchableOpacity
+            style={styles.logoutBackdrop}
+            onPress={session.closeLogoutConfirm}
+            accessibilityRole="button"
+            accessibilityLabel="Close sign out confirmation"
+          />
+          <View style={[styles.logoutCard, { paddingBottom: Math.max(insets.bottom, 18) + 18 }]} accessibilityRole="alert">
+            <TouchableOpacity
+              style={styles.logoutClose}
+              onPress={session.closeLogoutConfirm}
+              accessibilityRole="button"
+              accessibilityLabel="Close sign out confirmation"
+            >
               <Ionicons name="close" size={20} color="#6B7280" />
             </TouchableOpacity>
             <View style={styles.logoutIconWrap}>
@@ -164,7 +123,12 @@ function SessionOverlays() {
               <TouchableOpacity style={styles.logoutSecondary} onPress={session.closeLogoutConfirm}>
                 <Text style={styles.logoutSecondaryText}>NO</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.logoutPrimary} onPress={() => void session.logout()}>
+              <TouchableOpacity
+                style={styles.logoutPrimary}
+                onPress={() => void session.logout()}
+                accessibilityRole="button"
+                accessibilityLabel="Sign out"
+              >
                 <Text style={styles.logoutPrimaryText}>SIGN OUT</Text>
               </TouchableOpacity>
             </View>
@@ -297,7 +261,7 @@ function RootApp() {
       >
         <NavigationContainer key={navigatorGeneration} ref={navigationRef} theme={navigationTheme} linking={linking} onReady={() => setNavigationReady(true)} onStateChange={() => session.registerActivity()}>
 
-          <BiometricAppGate session={session} />
+          <AppNavigator />
         </NavigationContainer>
       </ErrorBoundary>
       <SessionOverlays />
@@ -339,78 +303,38 @@ const styles = StyleSheet.create({
   connectionSecondary: { minHeight: 48, marginTop: 10, paddingHorizontal: 20, borderRadius: 14, borderWidth: 1, borderColor: tokens.colors.brand, alignItems: 'center', justifyContent: 'center' },
   connectionSecondaryText: { color: tokens.colors.brand, fontSize: 14, fontWeight: '800' },
   connectionHint: { maxWidth: 500, marginTop: 14, color: tokens.colors.textSubtle, fontSize: 11, lineHeight: 17, textAlign: 'center' },
-  biometricLockOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 20,
-    backgroundColor: '#F8FAFC',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  biometricLockCard: {
-    width: '100%',
-    maxWidth: 360,
-    borderRadius: 24,
-    backgroundColor: '#FFFFFF',
-    padding: 28,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  biometricLockTitle: {
-    marginTop: 18,
-    color: '#111827',
-    fontSize: 23,
-    fontWeight: '800',
-  },
-  biometricLockMessage: {
-    marginTop: 10,
-    color: '#6B7280',
-    fontSize: 14,
-    lineHeight: 21,
-    textAlign: 'center',
-  },
-  biometricUnlockButton: {
-    width: '100%',
-    marginTop: 24,
-    borderRadius: 14,
-    backgroundColor: tokens.colors.brand,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  biometricUnlockButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  biometricPasswordButton: {
-    marginTop: 16,
-    padding: 8,
-  },
-  biometricPasswordButtonText: {
-    color: tokens.colors.brand,
-    fontSize: 14,
-    fontWeight: '700',
-  },
   logoutOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.48)',
+  },
+  logoutBackdrop: {
+    ...StyleSheet.absoluteFillObject,
   },
   logoutCard: {
     width: '100%',
-    maxWidth: 360,
-    borderRadius: 24,
-    backgroundColor: '#fff',
-    padding: 24,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    backgroundColor: tokens.colors.surface,
+    paddingHorizontal: 28,
+    paddingTop: 28,
     alignItems: 'center',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 12,
   },
   logoutClose: {
     position: 'absolute',
-    right: 18,
+    right: 20,
     top: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colors.surfaceMuted,
   },
   logoutIconWrap: {
     width: 72,
@@ -419,50 +343,52 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEF2F7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: 4,
   },
   logoutTitle: {
-    marginTop: 18,
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#111827',
+    marginTop: 20,
+    fontSize: 24,
+    fontWeight: '800',
+    color: tokens.colors.text,
   },
   logoutSubtitle: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#6B7280',
+    marginTop: 10,
+    fontSize: 15,
+    color: tokens.colors.textMuted,
     textAlign: 'center',
   },
   logoutActions: {
-    marginTop: 22,
+    marginTop: 28,
     width: '100%',
     flexDirection: 'row',
-    gap: 12,
+    gap: 14,
   },
   logoutSecondary: {
     flex: 1,
-    borderRadius: 16,
+    minHeight: 56,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#D1D5DB',
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: 'center',
   },
   logoutSecondaryText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: 15,
+    fontWeight: '800',
+    color: tokens.colors.text,
   },
   logoutPrimary: {
     flex: 1,
-    borderRadius: 16,
+    minHeight: 56,
+    borderRadius: 18,
     backgroundColor: '#EF4444',
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: 'center',
   },
   logoutPrimaryText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+    color: tokens.colors.onBrand,
   },
   idleOverlay: {
     ...StyleSheet.absoluteFillObject,

@@ -5,7 +5,6 @@ import { Platform } from 'react-native';
 const AUTH_TOKEN_KEY = 'auth_token';
 const REFRESH_TOKEN_KEY = 'auth_refresh_token';
 const TRUSTED_DEVICE_TOKEN_KEY = 'trusted_device_token';
-export const BIOMETRIC_REFRESH_TOKEN_KEY = 'biometric_refresh_token';
 
 const usesSecureStorage = Platform.OS === 'android' || Platform.OS === 'ios';
 
@@ -77,40 +76,23 @@ export async function removeTrustedDeviceToken(): Promise<void> {
   await AsyncStorage.removeItem(TRUSTED_DEVICE_TOKEN_KEY);
 }
 
-export async function getBiometricRefreshToken(): Promise<string | null> {
-  if (!usesSecureStorage) return null;
-  return SecureStore.getItemAsync(BIOMETRIC_REFRESH_TOKEN_KEY);
-}
-
-export async function setBiometricRefreshToken(token: string): Promise<void> {
-  if (!usesSecureStorage) throw new Error('Biometric authentication is only available on a physical mobile device.');
-  await SecureStore.setItemAsync(BIOMETRIC_REFRESH_TOKEN_KEY, token);
-}
-
-export async function removeBiometricRefreshToken(): Promise<void> {
-  if (usesSecureStorage) await SecureStore.deleteItemAsync(BIOMETRIC_REFRESH_TOKEN_KEY);
-}
-
 const storage = {
   async getItem(key: string) {
     if (key === AUTH_TOKEN_KEY) return getToken();
     if (key === REFRESH_TOKEN_KEY) return getRefreshToken();
     if (key === TRUSTED_DEVICE_TOKEN_KEY) return getTrustedDeviceToken();
-    if (key === BIOMETRIC_REFRESH_TOKEN_KEY) return getBiometricRefreshToken();
     return AsyncStorage.getItem(key);
   },
   async setItem(key: string, value: string) {
     if (key === AUTH_TOKEN_KEY) return setToken(value);
     if (key === REFRESH_TOKEN_KEY) return setRefreshToken(value);
     if (key === TRUSTED_DEVICE_TOKEN_KEY) return setTrustedDeviceToken(value);
-    if (key === BIOMETRIC_REFRESH_TOKEN_KEY) return setBiometricRefreshToken(value);
     return AsyncStorage.setItem(key, value);
   },
   async removeItem(key: string) {
     if (key === AUTH_TOKEN_KEY) return removeToken();
     if (key === REFRESH_TOKEN_KEY) return removeRefreshToken();
     if (key === TRUSTED_DEVICE_TOKEN_KEY) return removeTrustedDeviceToken();
-    if (key === BIOMETRIC_REFRESH_TOKEN_KEY) return removeBiometricRefreshToken();
     return AsyncStorage.removeItem(key);
   },
   async multiRemove(keys: readonly string[]) {
@@ -118,7 +100,6 @@ const storage = {
       if (key === AUTH_TOKEN_KEY) return removeToken();
       if (key === REFRESH_TOKEN_KEY) return removeRefreshToken();
       if (key === TRUSTED_DEVICE_TOKEN_KEY) return removeTrustedDeviceToken();
-      if (key === BIOMETRIC_REFRESH_TOKEN_KEY) return removeBiometricRefreshToken();
       return AsyncStorage.removeItem(key);
     }));
   },

@@ -35,6 +35,9 @@ export const tokens = {
     successSoft: '#ECFDF5',
     dangerSoft: '#FEF2F2',
     warningSoft: '#FEF3C7',
+    highlightedSurface: '#FFF9E8',
+    highlightedBorder: '#F3D38A',
+    highlightedBadge: '#FFF1CC',
     infoSoft: '#E0F2FE',
     white: '#FFFFFF',
     // Floating glass navigation bar. The bar blurs whatever scrolls behind it, so
@@ -43,6 +46,8 @@ export const tokens = {
     navGlassBorder: 'rgba(255,255,255,0.75)',
     navMutedIcon: '#5A6474',
     navSheen: 'rgba(255,255,255,0.85)',
+    profileMutedIcon: '#64748B',
+    profileDangerStrong: '#B91C1C',
   },
   radius: {
     sm: 10,

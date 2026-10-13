@@ -37,7 +37,13 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
 	return context.resolveRequest(context, moduleName, platform);
 };
 
-const apiProxyTarget = new URL(process.env.MICROJOBS_METRO_API_TARGET || 'http://127.0.0.1:5050');
+const productionApiOrigin = 'https://microjobs-api-test.azurewebsites.net';
+const configuredProxyTarget = process.env.MICROJOBS_METRO_API_TARGET || productionApiOrigin;
+const apiProxyTarget = new URL(configuredProxyTarget);
+const localProxyHost = /^(?:localhost|127(?:\.\d{1,3}){3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}|0\.0\.0\.0|::1)$/i;
+if (localProxyHost.test(apiProxyTarget.hostname)) {
+	throw new Error('Local Metro API targets are disabled. Use the deployed production API.');
+}
 const proxyPrefixes = [
 	['/microjobs-api', ''],
 	['/microjobs-socket', '/socket.io'],
@@ -70,7 +76,7 @@ config.server = {
 			});
 			proxyRequest.on('error', () => {
 				if (!response.headersSent) response.writeHead(502, { 'Content-Type': 'application/json' });
-				response.end(JSON.stringify({ message: 'The local MicroJobs API is unavailable.' }));
+				response.end(JSON.stringify({ message: 'The production MicroJobs API is unavailable.' }));
 			});
 			request.pipe(proxyRequest);
 		};

@@ -9,9 +9,9 @@ import {
   Platform,
   useWindowDimensions,
 } from 'react-native';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { API_URL, GOOGLE_CLIENT_ID } from '../config';
+import { API_URL } from '../config';
 import ScrollView from '../components/ui/SmoothScrollView';
 import CanvasBackButton from '../components/ui/CanvasBackButton';
 import MicroJobsLogo from '../components/auth/MicroJobsLogo';
@@ -19,14 +19,9 @@ import AsyncStorage from '../lib/storage';
 import { apiRequest, asObject } from '../lib/api';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri, ResponseType } from 'expo-auth-session';
-import * as Google from 'expo-auth-session/providers/google';
 import { AUTH_COLORS, clamp, getAuthMetrics } from '../theme/authTheme';
-import { GoogleAuthButton } from '../components/auth/AuthControls';
 import { useToast } from '../contexts/ToastContext';
 import { isValidEmail, normalizeEmail } from '../lib/authValidation';
-import { isBiometricLoginEnabled, loginWithBiometrics } from '../lib/biometricAuth';
 
 export default function SignIn({
   onBack,
@@ -39,17 +34,10 @@ export default function SignIn({
   onBack: () => void;
   onNavigateToSignUp?: () => void;
   onNavigateToForgot?: () => void;
-  onNavigateToVerify?: (params?: { mode?: 'emailVerification' | 'loginOtp'; email?: string; otpToken?: string }) => void;
+  onNavigateToVerify?: (params?: { mode?: 'emailVerification' | 'loginOtp'; email?: string; otpToken?: string; rememberDevice?: boolean }) => void;
   onNavigateToGuestBrowse?: () => void;
   onLogin?: () => void;
 }) {
-  WebBrowser.maybeCompleteAuthSession();
-  const [googleRequest, , promptGoogle] = Google.useAuthRequest({
-    clientId: GOOGLE_CLIENT_ID,
-    responseType: ResponseType.IdToken,
-    scopes: ['openid', 'profile', 'email'],
-    redirectUri: makeRedirectUri({ scheme: 'microjobs' }),
-  });
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight, fontScale } = useWindowDimensions();
   const metrics = getAuthMetrics(screenWidth, screenHeight, fontScale);
@@ -80,29 +68,10 @@ export default function SignIn({
   const [requiresMethodSelection, setRequiresMethodSelection] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [rememberDevice, setRememberDevice] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string; mfa?: string }>({});
   const toast = useToast();
   const { t } = useTranslation('auth');
-
-  useEffect(() => {
-    void isBiometricLoginEnabled().then(setBiometricEnabled).catch(() => setBiometricEnabled(false));
-  }, []);
-
-  const handleBiometricSignIn = async () => {
-    setIsLoading(true);
-    try {
-      const result = await loginWithBiometrics();
-      if (result.ok) {
-        toast.success(t('signIn.toast.loginSuccess'));
-        onLogin?.();
-      } else if (result.reason !== 'cancelled') {
-        toast.error(result.message || t('signIn.toast.biometricFailed'));
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const getSignInAlert = (status: number, message?: string) => {
     const normalizedMessage = String(message || '').toLowerCase();
@@ -114,33 +83,6 @@ export default function SignIn({
     if (/disabled|deleted/.test(normalizedMessage)) return t('signIn.toast.accountUnavailable');
     if (status === 401 || /incorrect|invalid credentials|password/.test(normalizedMessage)) return t('signIn.toast.incorrectPassword');
     return message && !/https?:\/\//i.test(message) ? message : t('signIn.toast.signInFailed');
-  };
-
-  const handleGoogleSignIn = async () => {
-    if (!GOOGLE_CLIENT_ID || !googleRequest) {
-      toast.error('Google sign-in is not configured.');
-      return;
-    }
-    const result = await promptGoogle();
-    if (result.type !== 'success' || !result.params?.id_token) {
-      if (result.type !== 'cancel' && result.type !== 'dismiss') toast.error('Google sign-in failed.');
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const response = await apiRequest(`${API_URL}/auth/google`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential: result.params.id_token }),
-      }, 'Google sign-in failed.');
-      const data = asObject<any>(response.data) || asObject<any>(response.raw) || {};
-      if (!response.ok || !data.token || !data.user) throw new Error(response.message);
-      await continueAfterPrimaryAuth(data.token, data.user, data.refreshToken);
-    } catch (error: any) {
-      toast.error(error?.message || 'Google sign-in failed.');
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const continueAfterPrimaryAuth = async (token: string, user: any, refreshToken?: string) => {
@@ -230,7 +172,7 @@ export default function SignIn({
         setMfaCode('');
         toast.info(t('signIn.toast.mfaChallenge'));
       } else if (result.ok && nextOtpRequired && nextOtpToken) {
-        onNavigateToVerify?.({ mode: 'loginOtp', email: normalizedEmail, otpToken: nextOtpToken });
+        onNavigateToVerify?.({ mode: 'loginOtp', email: normalizedEmail, otpToken: nextOtpToken, rememberDevice });
       } else if (result.ok && token) {
         if (rotatedTrustedDeviceToken) {
           await AsyncStorage.setItem('trusted_device_token', String(rotatedTrustedDeviceToken));
@@ -279,7 +221,7 @@ export default function SignIn({
         setMfaCode('');
         toast.info(t('signIn.toast.mfaChallenge'));
       } else if (data.otpRequired && data.otpToken) {
-        onNavigateToVerify?.({ mode: 'loginOtp', email: normalizeEmail(email), otpToken: data.otpToken });
+        onNavigateToVerify?.({ mode: 'loginOtp', email: normalizeEmail(email), otpToken: data.otpToken, rememberDevice });
       } else {
         toast.error(t('signIn.toast.signInFailed'));
       }
@@ -424,6 +366,18 @@ export default function SignIn({
           </View>
           {errors.password ? <Text style={styles.inlineError}>{errors.password}</Text> : null}
 
+          <TouchableOpacity
+            style={styles.rememberDeviceRow}
+            onPress={() => setRememberDevice((current) => !current)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: rememberDevice }}
+          >
+            <View style={[styles.checkbox, rememberDevice && styles.checkboxChecked]}>
+              {rememberDevice ? <Feather name="check" size={14} color="#FFFFFF" /> : null}
+            </View>
+            <Text style={styles.rememberDeviceText}>{t('signIn.trustDevice')}</Text>
+          </TouchableOpacity>
+
           {requiresMethodSelection ? (
             <View style={styles.methodSelection}>
               <Text style={styles.mfaHelpText}>{t('signIn.methodSelectionTitle')}</Text>
@@ -431,7 +385,7 @@ export default function SignIn({
                 <Text style={styles.methodButtonText}>{t('signIn.methodSelectionMfa')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.methodButtonSecondary} onPress={() => handleSelectMethod('gmail_otp')} disabled={isLoading}>
-                <Text style={styles.methodButtonSecondaryText}>{t('signIn.methodSelectionGmail')}</Text>
+                <Text style={styles.methodButtonSecondaryText}>{t('signIn.methodSelectionEmailOtp')}</Text>
               </TouchableOpacity>
             </View>
           ) : requiresMfa ? (
@@ -477,24 +431,6 @@ export default function SignIn({
               </Text>
             )}
           </TouchableOpacity>
-
-          {biometricEnabled && !requiresMfa && !requiresMethodSelection ? (
-            <TouchableOpacity
-              style={styles.biometricButton}
-              onPress={handleBiometricSignIn}
-              disabled={isLoading}
-              accessibilityRole="button"
-              accessibilityLabel={t('signIn.biometricButton')}
-            >
-              <Feather name="command" size={18} color={AUTH_COLORS.primary} />
-              <Text style={styles.biometricButtonText}>{t('signIn.biometricButton')}</Text>
-            </TouchableOpacity>
-          ) : null}
-
-          <View style={styles.googleSection}>
-            <View style={styles.divider}><View style={styles.dividerLine} /><Text style={styles.dividerText}>or continue with</Text><View style={styles.dividerLine} /></View>
-            <GoogleAuthButton onPress={handleGoogleSignIn} loading={isLoading} disabled={!googleRequest} />
-          </View>
 
           <View style={styles.bottomRow}>
             <Text style={[styles.bottomText, { fontSize: helperFontSize }]}>
@@ -593,6 +529,31 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingVertical: 10,
   },
+  rememberDeviceRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 10,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: AUTH_COLORS.inputLightBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    borderColor: AUTH_COLORS.primary,
+    backgroundColor: AUTH_COLORS.primary,
+  },
+  rememberDeviceText: {
+    color: AUTH_COLORS.textMuted,
+    fontSize: 13,
+    fontWeight: '500',
+  },
   inlineError: { color: AUTH_COLORS.danger, fontSize: 12, marginTop: -7, marginBottom: 10, fontWeight: '500' },
   eyeButton: {
     minWidth: 44,
@@ -631,22 +592,6 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
   },
-  biometricButton: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: AUTH_COLORS.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 10,
-  },
-  biometricButtonText: {
-    color: AUTH_COLORS.primary,
-    fontSize: 15,
-    fontWeight: '700',
-  },
   primaryButtonText: {
     color: AUTH_COLORS.primaryText,
     fontSize: 16,
@@ -683,7 +628,6 @@ const styles = StyleSheet.create({
     minHeight: 44,
     justifyContent: 'center',
   },
-  googleSection: { marginTop: 2, marginBottom: 16 },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
   dividerLine: { flex: 1, height: 1, backgroundColor: AUTH_COLORS.cardBorder },
   dividerText: { color: AUTH_COLORS.textSecondary, fontSize: 12, fontWeight: '600' },

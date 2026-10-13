@@ -2,8 +2,9 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { toast } from "../lib/toast";
 import { useAuth } from "../contexts/AuthContext";
-import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
+import { getPostAuthLandingPath, isAdmin } from "../utils/dashboardRoutes";
 import { LAYER_Z } from "./ui/layers";
 
 interface OTPVerificationProps {
@@ -16,7 +17,7 @@ interface OTPVerificationProps {
 
 export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerificationProps) {
   const { t } = useTranslation("auth");
-  const { verifyOTP, resendOTP, verifyLoginOtpCode, resendLoginOtpCode, devVerificationCode } = useAuth();
+  const { verifyOTP, resendOTP, verifyLoginOtpCode, resendLoginOtpCode, devVerificationCode, logout } = useAuth();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [isVerifying, setIsVerifying] = useState(false);
   const verifyInFlightRef = useRef(false);
@@ -137,6 +138,12 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
     try {
       if (mode === "signin") {
         const loggedInUser = await verifyLoginOtpCode(otpCode, rememberDevice, { suppressToast: true });
+        if (isAdmin(loggedInUser)) {
+          logout({ silent: true });
+          onClose();
+          toast.error(t("signIn.toast.adminSignInRequired"));
+          return;
+        }
         const destination =
           sessionStorage.getItem("post_verify_redirect") || getPostAuthLandingPath(loggedInUser);
         sessionStorage.removeItem("post_verify_redirect");

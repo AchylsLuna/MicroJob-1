@@ -24,6 +24,8 @@ export type Job = {
   salary: string;
   jobType: string;
   urgent?: boolean;
+  highlighted?: boolean;
+  discoveryPriority?: number;
   skills?: string[];
   createdAt?: string;
   deadline?: string;

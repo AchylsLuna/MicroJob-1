@@ -1,6 +1,6 @@
 import { isValidPhoneNumber, toCountryFormat } from '../lib/phone/phoneUtils.js';
 import { generateOtp, verifyOtp } from '../lib/phone/otpPhone.js';
-import { sendSMS } from '../lib/phone/sms.js';
+import { sendSMS, SmsProviderError } from '../lib/phone/sms.js';
 import crypto from 'node:crypto';
 import User from '../models/User.js';
 import PhoneVerification from '../models/PhoneVerification.js';
@@ -40,8 +40,23 @@ export async function sendPhoneCode(req, res) {
       expiresInSec: OTP_TTL_MS / 1000,
     });
   } catch (error) {
+    if (error instanceof SmsProviderError) {
+      console.error('Error sending phone code:', error.code);
+      const messages = {
+        provider_not_configured: 'Phone verification is temporarily unavailable. Please contact support.',
+        provider_authentication_failed: 'Phone verification is temporarily unavailable. Please contact support.',
+        provider_rejected_request: 'The SMS provider rejected this phone number. Check the number and try again.',
+        provider_rate_limited: 'Too many code requests. Please wait a few minutes and try again.',
+        provider_timeout: 'The SMS service took too long to respond. Please try again.',
+        provider_network_error: 'The SMS service could not be reached. Please try again shortly.',
+        provider_unavailable: 'The SMS service is temporarily unavailable. Please try again shortly.',
+      };
+      return res.status(error.status).json({
+        message: messages[error.code] || 'The SMS service is temporarily unavailable. Please try again shortly.',
+      });
+    }
     console.error('Error sending phone code:', error);
-    return res.status(500).json({ message: 'Error. Please try again later.' });
+    return res.status(500).json({ message: 'Unable to send the verification code. Please try again later.' });
   }
 }
 
