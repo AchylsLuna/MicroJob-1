@@ -26,7 +26,28 @@ const formatDate = (value) => {
   }).format(date);
 };
 
-const formatPaymentMethod = (provider) => {
+const formatPayoutMethod = (destination) => {
+  const methodType = String(destination?.methodType || '').trim().toLowerCase();
+  const institutionName = String(destination?.institutionName || '').trim();
+  const methodLabels = {
+    bank_transfer: 'Bank transfer',
+    gcash: 'GCash',
+    maya: 'Maya',
+  };
+  const methodLabel = methodLabels[methodType] || institutionName || 'Withdrawal destination';
+
+  if (!institutionName || methodLabel.toLowerCase() === institutionName.toLowerCase()) {
+    return methodLabel;
+  }
+  return `${methodLabel} via ${institutionName}`;
+};
+
+const formatPaymentMethod = (transaction) => {
+  if (transaction.type === 'PAYOUT' && transaction.payoutRequest?.destinationSnapshot) {
+    return formatPayoutMethod(transaction.payoutRequest.destinationSnapshot);
+  }
+
+  const provider = transaction.provider;
   const normalized = String(provider || '').trim().toLowerCase();
   if (normalized === 'paymongo') return 'PayMongo';
   if (normalized === 'xendit') return 'Xendit';
@@ -120,7 +141,7 @@ export const getReceiptSections = (transaction, user) => {
     ['Account ID', maskReceiptIdentifier(user._id)],
     ['Wallet Type', formatWalletType(transaction.balanceTarget)],
     ['Amount', formatMoney(transaction.amount)],
-    ['Payment Method', formatPaymentMethod(transaction.provider)],
+    ['Payment Method', formatPaymentMethod(transaction)],
     ['Transaction Status', formatStatus(transaction)],
     ['Transaction Date and Time', formatDate(transaction.createdAt)],
   ];

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "../lib/toast";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
+import { getPostAuthLandingPath, isAdmin } from "../utils/dashboardRoutes";
 import { getPostSignInPath } from "../utils/authRedirects";
 import { isCredentialLoginError } from "../utils/authSession";
 import { isValidEmail, normalizeEmail } from "../lib/authValidation";
@@ -38,6 +38,7 @@ export function SignIn() {
     verifyMfaLogin,
     cancelMfaLogin,
     cancelLoginOtp,
+    logout,
   } = useAuth();
   const landingPath = getPostAuthLandingPath(user);
   const [email, setEmail] = useState("");
@@ -94,7 +95,7 @@ export function SignIn() {
   };
 
   if (!isLoading && isAuthenticated && user?.role) {
-    return <Navigate to={redirectPath} replace />;
+    return <Navigate to={isAdmin(user) ? ROUTES.adminSignIn : redirectPath} replace />;
   }
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -150,6 +151,9 @@ export function SignIn() {
         }
         setShowOTP(true);
         toast.success(t("signIn.toast.otpSent"));
+      } else if (isAdmin(result.user)) {
+        logout({ silent: true });
+        setSignInErrors({ form: t("signIn.toast.adminSignInRequired") });
       }
     } catch (error: any) {
       const failure = getSignInFailure(error);
@@ -165,7 +169,11 @@ export function SignIn() {
   const handleMfaSignIn = async (code: string) => {
     setIsLoading(true);
     try {
-      await verifyMfaLogin(code);
+      const loggedInUser = await verifyMfaLogin(code);
+      if (isAdmin(loggedInUser)) {
+        logout({ silent: true });
+        toast.error(t("signIn.toast.adminSignInRequired"));
+      }
     } catch (error: any) {
       toast.error(error?.message || t("signIn.toast.mfaVerificationFailed"));
     } finally {
@@ -185,7 +193,11 @@ export function SignIn() {
   const handleGoogleSignIn = async (credential: string) => {
     setIsLoading(true);
     try {
-      await googleSignIn(credential);
+      const loggedInUser = await googleSignIn(credential);
+      if (isAdmin(loggedInUser)) {
+        logout({ silent: true });
+        toast.error(t("signIn.toast.adminSignInRequired"));
+      }
     } catch (error: any) {
       toast.error(error?.message || t("signIn.toast.googleFailed"));
     } finally {

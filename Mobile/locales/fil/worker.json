@@ -548,15 +548,6 @@
     "toast": {
       "privacySaved": "Na-save ang employer privacy setting."
     },
-    "biometric": {
-      "title": "Fingerprint login",
-      "description": "Gamitin ang fingerprint o biometric unlock ng device sa halip na password.",
-      "accessibilityLabel": "I-enable ang fingerprint login",
-      "enabled": "Na-enable ang fingerprint login.",
-      "disabled": "Na-disable ang fingerprint login.",
-      "enableFailed": "Hindi na-enable ang fingerprint login.",
-      "sessionUnavailable": "Mag-sign in muli bago i-enable ang fingerprint login."
-    },
     "menu": {
       "businessInformation": "Impormasyon ng Negosyo",
       "paymentMethods": "Mga Paraan ng Pagbabayad",
@@ -780,7 +771,10 @@
       "viewAccessibility": "Tingnan ang {{title}} malapit sa {{location}}"
     },
     "jobCard": {
-      "messageEmployerButton": "Mensahihan ang Employer"
+      "messageEmployerButton": "Mensahihan ang Employer",
+      "highlightedByEmployer": "I-highlight ng employer",
+      "highlightedLabel": "Naka-highlight",
+      "viewJob": "Tingnan ang {{title}}"
     },
     "common": {
       "employerFallback": "Employer"
@@ -793,6 +787,7 @@
       "loadApplicationsFailed": "Hindi na-load ang mga aplikasyon.",
       "loadJobsFailed": "Hindi na-load ang mga trabaho.",
       "loadRecommendedFailed": "Hindi na-load ang mga inirerekomendang trabaho.",
+      "realtimeUnavailable": "Pansamantalang hindi available ang live updates. Mare-refresh ang iyong data kapag binuksan o ni-refresh mo muli ang page.",
       "loadProfileLocationFailed": "Hindi na-load ang lokasyon ng profile.",
       "openConversationFailed": "Hindi mabuksan ang usapan sa employer na ito.",
       "saveJobPreferencesFailed": "Hindi na-save ang mga kagustuhan sa trabaho."

@@ -727,17 +727,17 @@ export default function Profile({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         bounces
-        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#1C4D8D" colors={["#1C4D8D"]} />}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={tokens.colors.brand} colors={[tokens.colors.brand]} />}
       >
         {isProfileLoading && !profile ? (
           <View style={styles.loadingCard} accessibilityRole="progressbar" accessibilityLabel="Loading your profile">
-            <ActivityIndicator color="#1C4D8D" />
+            <ActivityIndicator color={tokens.colors.brand} />
             <Text style={styles.loadingCardText}>Loading your profile...</Text>
           </View>
         ) : null}
         {profileError ? (
           <TouchableOpacity style={styles.errorCard} onPress={handleRefresh} accessibilityRole="button" accessibilityLabel="Retry loading profile" accessibilityLiveRegion="assertive">
-            <Ionicons name="alert-circle-outline" size={18} color="#B91C1C" />
+            <Ionicons name="alert-circle-outline" size={18} color={tokens.colors.profileDangerStrong} />
             <Text style={styles.errorCardText}>{profileError} Tap to retry.</Text>
           </TouchableOpacity>
         ) : null}
@@ -747,7 +747,7 @@ export default function Profile({
               {avatarUrl ? <Image source={{ uri: avatarUrl }} style={styles.avatarImage} accessibilityLabel="Current profile photo" /> : <Text style={styles.avatarInitials}>{initials}</Text>}
               {isUploadingAvatar ? (
                 <View style={styles.avatarLoadingOverlay}>
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={tokens.colors.onBrand} />
                 </View>
               ) : null}
             </TouchableOpacity>
@@ -762,14 +762,14 @@ export default function Profile({
               accessibilityLabel="Edit profile photo"
               accessible={false}
             >
-              <Ionicons name="create-outline" size={16} color="#FFFFFF" />
+              <Ionicons name="create-outline" size={16} color={tokens.colors.onBrand} />
             </TouchableOpacity>
           </View>
 
           <Text style={styles.profileName}>{displayName}</Text>
 
           <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={16} color="#64748B" />
+            <Ionicons name="location-outline" size={16} color={tokens.colors.profileMutedIcon} />
             <Text style={styles.locationText}>{locationLabel}</Text>
           </View>
         </View>
@@ -800,7 +800,7 @@ export default function Profile({
         <View style={styles.verificationCard}>
           <View style={styles.verificationHeader}>
             <View style={styles.verificationIconWrap}>
-              <Ionicons name="shield-checkmark-outline" size={22} color="#1C4D8D" />
+              <Ionicons name="shield-checkmark-outline" size={22} color={tokens.colors.brand} />
             </View>
             <View style={styles.verificationTextBlock}>
               <View style={styles.verificationTitleRow}>

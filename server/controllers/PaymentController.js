@@ -96,10 +96,16 @@ async function sendReceiptWithoutBlockingPayment(transactionId, userId, eventNam
   try {
     const result = await sendPaymentReceiptEmail({ transactionId, userId });
     if (!result.sent) {
-      console.warn(`${eventName} completed, but no receipt could be sent`, {
-        reason: result.reason,
-        transactionId: String(transactionId),
-      });
+      if (result.reason === 'smtp_unconfigured') {
+        console.warn(`${eventName} completed, but the receipt email was skipped because SMTP is not configured. Configure SMTP before enabling receipt delivery.`, {
+          transactionId: String(transactionId),
+        });
+      } else {
+        console.warn(`${eventName} completed, but no receipt could be sent`, {
+          reason: result.reason,
+          transactionId: String(transactionId),
+        });
+      }
     }
   } catch (error) {
     console.warn(`${eventName} completed, but the receipt email failed`, {

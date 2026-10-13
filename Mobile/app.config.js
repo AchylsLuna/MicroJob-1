@@ -15,7 +15,6 @@ const expo = {
   plugins: [
     '@react-native-community/datetimepicker',
     'expo-font',
-    'expo-local-authentication',
     'expo-secure-store',
     'expo-notifications',
     'expo-localization',

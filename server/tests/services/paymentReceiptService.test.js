@@ -44,3 +44,48 @@ test('a top-up receipt uses professional sections and a public receipt number', 
   assert.match(rendered, /Wallet Type: Employer wallet/);
   assert.doesNotMatch(rendered, /Transaction ID|TOPUP-6aae75ac/);
 });
+
+test('a withdrawal receipt identifies the actual payment destination', () => {
+  const transaction = {
+    _id: '6aae75acb9ef713e37c31abc',
+    type: 'PAYOUT',
+    status: 'PENDING',
+    balanceTarget: 'WORKER',
+    amount: 1500,
+    provider: 'manual_admin_review',
+    createdAt: new Date('2026-09-20T08:00:00.000Z'),
+    payoutRequest: {
+      destinationSnapshot: {
+        methodType: 'bank_transfer',
+        institutionName: 'BPI',
+      },
+    },
+  };
+  const sections = getReceiptSections(transaction, {
+    _id: '6aae75acb9ef12713e37',
+    firstName: 'Jonas',
+    lastName: 'Enriquez',
+  });
+  const rendered = sections.flatMap((section) => section.rows).map(([label, value]) => `${label}: ${value}`).join('\n');
+
+  assert.match(rendered, /Payment Method: Bank transfer via BPI/);
+  assert.doesNotMatch(rendered, /manual_admin_review/);
+});
+
+test('a digital wallet withdrawal uses its recipient-facing method name', () => {
+  const sections = getReceiptSections({
+    _id: '6aae75acb9ef713e37c31abc',
+    type: 'PAYOUT',
+    status: 'COMPLETED',
+    amount: 500,
+    payoutRequest: {
+      destinationSnapshot: {
+        methodType: 'gcash',
+        institutionName: 'GCash',
+      },
+    },
+  }, { _id: 'user-1', firstName: 'Jonas', lastName: 'Enriquez' });
+  const details = sections[0].rows;
+
+  assert.equal(details.find(([label]) => label === 'Payment Method')?.[1], 'GCash');
+});

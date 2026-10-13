@@ -16,6 +16,7 @@ export type JobCardData = {
   salaryLabel: string;
   skills: string[];
   urgent: boolean;
+  highlighted: boolean;
   /** Relative posting age, e.g. "2d ago". Empty when the job has no createdAt. */
   postedLabel: string;
   matchPercentage?: number;
@@ -30,6 +31,7 @@ type RawJob = {
   salary?: unknown;
   jobType?: string;
   urgent?: boolean;
+  highlighted?: boolean;
   skills?: string[];
   deadline?: string;
   createdAt?: string;
@@ -57,6 +59,7 @@ export function toJobCardData(job: RawJob): JobCardData {
     salaryLabel: formatMinimumPay(job.salary),
     skills: job.skills || [],
     urgent: Boolean(job.urgent),
+    highlighted: Boolean(job.highlighted),
     postedLabel: job.createdAt ? formatNotificationTime(job.createdAt) : '',
     matchPercentage: job.match?.percentage,
     matchLevel: job.match?.level,

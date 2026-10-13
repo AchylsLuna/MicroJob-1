@@ -122,6 +122,7 @@ function VerifyEmailScreen() {
       mode={routeParams.mode || 'emailVerification'}
       email={routeParams.email}
       otpToken={routeParams.otpToken}
+      rememberDevice={Boolean(routeParams.rememberDevice)}
       onBack={() => navigation.canGoBack() ? navigation.goBack() : navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] })}
       onVerified={async (code) => {
         if (routeParams.mode === 'passwordReset') {

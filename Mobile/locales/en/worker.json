@@ -548,15 +548,6 @@
     "toast": {
       "privacySaved": "Employer privacy setting saved."
     },
-    "biometric": {
-      "title": "Fingerprint login",
-      "description": "Use your device fingerprint or biometric unlock instead of entering your password.",
-      "accessibilityLabel": "Enable fingerprint login",
-      "enabled": "Fingerprint login enabled.",
-      "disabled": "Fingerprint login disabled.",
-      "enableFailed": "Fingerprint login could not be enabled.",
-      "sessionUnavailable": "Please sign in again before enabling fingerprint login."
-    },
     "menu": {
       "businessInformation": "Business Information",
       "paymentMethods": "Payment Methods",
@@ -780,7 +771,10 @@
       "viewAccessibility": "View {{title}} near {{location}}"
     },
     "jobCard": {
-      "messageEmployerButton": "Message Employer"
+      "messageEmployerButton": "Message Employer",
+      "highlightedByEmployer": "Highlighted by the employer",
+      "highlightedLabel": "Highlighted",
+      "viewJob": "View {{title}}"
     },
     "common": {
       "employerFallback": "Employer"
@@ -793,6 +787,7 @@
       "loadApplicationsFailed": "Failed to load applications.",
       "loadJobsFailed": "Failed to load jobs.",
       "loadRecommendedFailed": "Failed to load recommended jobs.",
+      "realtimeUnavailable": "Live updates are temporarily unavailable. Your data will refresh when you reopen or refresh the page.",
       "loadProfileLocationFailed": "Failed to load profile location.",
       "openConversationFailed": "Failed to open a conversation with this employer.",
       "saveJobPreferencesFailed": "Failed to save job preferences."
