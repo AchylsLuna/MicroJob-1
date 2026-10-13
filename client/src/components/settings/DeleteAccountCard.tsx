@@ -7,7 +7,8 @@ import { Card, Dialog } from "../ui";
 
 export function DeleteAccountCard() {
   const { t } = useTranslation("worker");
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const isSuperadmin = String(user?.systemRole ?? "").toLowerCase() === "superadmin";
   const [isOpen, setIsOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -26,6 +27,10 @@ export function DeleteAccountCard() {
 
   const handleDelete = async () => {
     if (isDeleting) return;
+    if (isSuperadmin) {
+      setDeletionError(t("settings.deleteAccount.toast.superadminProtected"));
+      return;
+    }
     if (!currentPassword) {
       setDeletionError(t("settings.deleteAccount.toast.enterPassword"));
       return;
@@ -60,6 +65,20 @@ export function DeleteAccountCard() {
       setIsDeleting(false);
     }
   };
+
+  if (isSuperadmin) {
+    return (
+      <Card>
+        <h3 className="text-section font-semibold text-slate-900">{t("settings.deleteAccount.title")}</h3>
+        <p className="mt-1 text-body-sm text-slate-500">
+          {t("settings.deleteAccount.description")}
+        </p>
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-body-sm font-medium text-slate-600">
+          {t("settings.deleteAccount.superadminDisabled")}
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card>

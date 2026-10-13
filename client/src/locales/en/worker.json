@@ -1264,12 +1264,14 @@
       "typeDeleteLabel": "Type DELETE to confirm",
       "confirmWarning": "This permanently deletes your account and everything in it. There is no way to recover it.",
       "deleteButton": "Delete account",
+      "superadminDisabled": "Superadmin accounts cannot be deleted to protect platform ownership and access.",
       "deletingButton": "Deleting...",
       "confirmButton": "Delete my account",
       "cancelButton": "Cancel",
       "toast": {
         "enterPassword": "Enter your current password.",
         "typeDeleteConfirm": "Type DELETE to confirm.",
+        "superadminProtected": "Superadmin accounts cannot be deleted.",
         "deleteSuccess": "Your account has been deleted.",
         "deleteFailed": "Could not delete your account."
       }

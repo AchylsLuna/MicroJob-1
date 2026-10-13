@@ -1264,12 +1264,14 @@
       "typeDeleteLabel": "I-type ang DELETE para kumpirmahin",
       "confirmWarning": "Permanenteng buburahin nito ang iyong account at ang lahat ng nasa loob nito. Walang paraan para mabawi ito.",
       "deleteButton": "Burahin ang account",
+      "superadminDisabled": "Hindi maaaring burahin ang mga Superadmin account para maprotektahan ang pagmamay-ari at access ng platform.",
       "deletingButton": "Binubura...",
       "confirmButton": "Burahin ang aking account",
       "cancelButton": "Kanselahin",
       "toast": {
         "enterPassword": "Ilagay ang iyong kasalukuyang password.",
         "typeDeleteConfirm": "I-type ang DELETE para kumpirmahin.",
+        "superadminProtected": "Hindi maaaring burahin ang mga Superadmin account.",
         "deleteSuccess": "Nabura na ang iyong account.",
         "deleteFailed": "Hindi nabura ang iyong account."
       }
