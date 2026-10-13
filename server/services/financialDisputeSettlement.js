@@ -230,6 +230,8 @@ export async function approveAndProcessDisputeSettlement({ disputeId, approverId
       else if (totalWorkerPaidCents >= toCents(settlement.agreedAmount)) {
         application.paymentStatus = 'Paid';
         application.workStatus = 'Completed';
+        application.paymentReminderClaimedAt = null;
+        application.paymentReminderClaimedStage = null;
         application.paidAt ||= settlement.processedAt;
         application.completedAt ||= settlement.processedAt;
       } else application.paymentStatus = 'Partially Paid';

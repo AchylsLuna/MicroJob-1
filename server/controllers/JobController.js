@@ -662,7 +662,7 @@ export async function changeJobStatus(req, res){
                     ], { session });
                     payoutsProcessed += 1;
                     remainingEscrow = Number((remainingEscrow - payoutAmount).toFixed(2));
-                    if (candidate.applicationId) await JobApplication.updateOne({ _id: candidate.applicationId }, { $set: { workStatus: 'Completed', paymentStatus: 'Paid', completedAt: new Date(), paidAt: new Date() } }, { session });
+                    if (candidate.applicationId) await JobApplication.updateOne({ _id: candidate.applicationId }, { $set: { workStatus: 'Completed', paymentStatus: 'Paid', completedAt: new Date(), paidAt: new Date(), paymentReminderClaimedAt: null, paymentReminderClaimedStage: null } }, { session });
 
                     await createNotification({
                         userId: worker._id,

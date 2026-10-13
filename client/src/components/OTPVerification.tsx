@@ -141,7 +141,7 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
         if (isAdmin(loggedInUser)) {
           logout({ silent: true });
           onClose();
-          toast.error(t("signIn.toast.adminSignInRequired"));
+          toast.error(t("signIn.toast.credentialsIncorrect"));
           return;
         }
         const destination =
