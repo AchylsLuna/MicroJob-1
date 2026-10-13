@@ -8,6 +8,9 @@ const TrustedDeviceSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   lastUsedAt: { type: Date, default: Date.now },
   expiresAt: { type: Date, required: true },
+  // Sign-out ends automatic session restoration but keeps the OTP exemption
+  // for a subsequent login that verifies the password.
+  requiresPassword: { type: Boolean, default: false },
 });
 
 // TTL index to remove expired trusted devices automatically after `expiresAt`.

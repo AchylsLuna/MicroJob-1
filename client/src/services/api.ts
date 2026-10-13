@@ -1,5 +1,5 @@
 import { handleInvalidSession, isInvalidTokenError } from "../utils/authSession";
-import { getBearerAccessToken, getBearerRefreshToken, storeBearerTokens, usesBearerAuthTransport } from '../utils/authTransport';
+import { getBearerAccessToken, getBearerRefreshToken, getBearerTrustedDeviceToken, storeBearerTokens, usesBearerAuthTransport } from '../utils/authTransport';
 
 const trimTrailingSlash = (value: string) => value.replace(/\/$/, '');
 
@@ -516,7 +516,8 @@ export function registerUser(payload: { username?: string; firstName?: string; l
 }
 
 export function loginUser(payload: { emailOrUsername: string; password: string; requireOtp?: boolean }) {
-  return request<LoginResponse>('/auth/login', { method: 'POST', body: payload });
+  const trustedDeviceToken = getBearerTrustedDeviceToken();
+  return request<LoginResponse>('/auth/login', { method: 'POST', body: { ...payload, ...(trustedDeviceToken ? { trustedDeviceToken } : {}) } });
 }
 
 export function selectLoginMethod(payload: { selectionToken: string; method: "mfa" | "gmail_otp" }) {
@@ -557,7 +558,8 @@ export function verifyOtp(payload: { email: string; code: string }) {
 }
 
 export function logoutUser() {
-  return request('/auth/logout', { method: 'POST' });
+  const trustedDeviceToken = getBearerTrustedDeviceToken();
+  return request('/auth/logout', { method: 'POST', ...(trustedDeviceToken ? { body: { trustedDeviceToken } } : {}) });
 }
 
 export function requestPasswordResetOtp(payload: { email: string }) {
@@ -1379,6 +1381,14 @@ export function startJobInquiry(
 
 export function getConversations() {
   return request<any[]>('/messages/conversations', { method: 'GET' });
+}
+
+export type MessageRecipient = { id: string; name: string; email: string; role: string; isStaff: boolean };
+export type MessageRecipientDirectory = { recipients: MessageRecipient[]; total: number; page: number; pageCount: number; pageSize: number };
+
+export async function getMessageRecipients(query: { search: string; audience: 'all' | 'admins' | 'users'; page: number }, signal?: AbortSignal) {
+  const response = await request<MessageRecipientDirectory | { data: MessageRecipientDirectory }>(`/messages/recipients${buildQuery(query)}`, { method: 'GET', signal });
+  return 'data' in response ? response.data : response;
 }
 
 

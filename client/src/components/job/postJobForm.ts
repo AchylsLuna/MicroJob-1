@@ -46,16 +46,19 @@ export const getJobTypeOptions = (t: TFn) =>
       value: "Short-term",
       label: t("postJob.jobType.shortTerm.label"),
       description: t("postJob.jobType.shortTerm.description"),
+      examples: t("postJob.jobType.shortTerm.examples"),
     },
     {
       value: "Side hustle",
       label: t("postJob.jobType.sideHustle.label"),
       description: t("postJob.jobType.sideHustle.description"),
+      examples: t("postJob.jobType.sideHustle.examples"),
     },
     {
       value: "Recruiting",
       label: t("postJob.jobType.recruiting.label"),
       description: t("postJob.jobType.recruiting.description"),
+      examples: t("postJob.jobType.recruiting.examples"),
     },
   ] as const;
 

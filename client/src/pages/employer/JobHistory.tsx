@@ -6,15 +6,22 @@ import { formatCurrency, formatDate } from "../../lib/formatters";
 import { Dialog } from "../../components/ui";
 import { ApplicationsManagement } from "./ApplicationsManagement";
 
+const PAGE_SIZE = 10;
+
 export function JobHistory() {
   const { t } = useTranslation("employer");
   const [jobs, setJobs] = useState<EmployerJobHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
   const selected = jobs.find((job) => job._id === selectedId);
+  const pageCount = Math.max(1, Math.ceil(jobs.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pageJobs = jobs.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const load = useCallback(async () => {
+    setPage(1);
     setLoading(true);
     setError("");
     try {
@@ -27,6 +34,7 @@ export function JobHistory() {
   }, [t]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { setPage((current) => Math.min(current, pageCount)); }, [pageCount]);
 
   const statusLabel = (status: string) => t(`jobHistory.statuses.${status}`, { defaultValue: status });
 
@@ -47,21 +55,44 @@ export function JobHistory() {
         {loading ? <p role="status" className="py-10 text-center text-slate-500">{t("jobHistory.loading")}</p> : null}
         {!loading && !error && !jobs.length ? <p className="py-10 text-center text-slate-500">{t("jobHistory.empty")}</p> : null}
         {!loading && !error && jobs.length > 0 ? (
-          <div className="mt-5 overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-body-sm">
-              <thead><tr className="border-b border-slate-200 text-slate-500">
-                {["jobTitle", "status", "amountHeld", "amountPaid", "details"].map((key) => <th key={key} scope="col" className="px-3 py-3 font-medium">{t(`jobHistory.${key}`)}</th>)}
-              </tr></thead>
-              <tbody>{jobs.map((job) => (
-                <tr key={job._id} className="border-b border-slate-100">
-                  <th scope="row" className="px-3 py-4 font-semibold text-slate-900">{job.title}</th>
-                  <td className="px-3 py-4"><span className={`inline-flex rounded-full px-3 py-1 text-caption font-semibold ${job.status === "In Progress" ? "bg-amber-50 text-amber-800" : job.status === "Completed" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-700"}`}>{statusLabel(job.status)}</span></td>
-                  <td className="px-3 py-4 tabular-nums">{formatCurrency(job.amountHeld)}</td>
-                  <td className="px-3 py-4 tabular-nums">{formatCurrency(job.amountPaid)}</td>
-                  <td className="px-3 py-4"><button type="button" onClick={() => setSelectedId(job._id)} aria-label={t("jobHistory.viewDetailsFor", { title: job.title })} className="min-h-11 rounded-control border border-brand/20 px-3 font-semibold text-brand hover:bg-brand/[0.06]">{t("jobHistory.viewDetails")}</button></td>
-                </tr>
-              ))}</tbody>
-            </table>
+          <div className="mt-5">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-left text-body-sm">
+                <thead><tr className="border-b border-slate-200 text-slate-500">
+                  {["jobTitle", "status", "amountHeld", "amountPaid", "details"].map((key) => <th key={key} scope="col" className="px-3 py-3 font-medium">{t(`jobHistory.${key}`)}</th>)}
+                </tr></thead>
+                <tbody>{pageJobs.map((job) => (
+                  <tr key={job._id} className="border-b border-slate-100">
+                    <th scope="row" className="px-3 py-4 font-semibold text-slate-900">{job.title}</th>
+                    <td className="px-3 py-4"><span className={`inline-flex rounded-full px-3 py-1 text-caption font-semibold ${job.status === "In Progress" ? "bg-amber-50 text-amber-800" : job.status === "Completed" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-700"}`}>{statusLabel(job.status)}</span></td>
+                    <td className="px-3 py-4 tabular-nums">{formatCurrency(job.amountHeld)}</td>
+                    <td className="px-3 py-4 tabular-nums">{formatCurrency(job.amountPaid)}</td>
+                    <td className="px-3 py-4"><button type="button" onClick={() => setSelectedId(job._id)} aria-label={t("jobHistory.viewDetailsFor", { title: job.title })} className="min-h-11 rounded-control border border-brand/20 px-3 font-semibold text-brand hover:bg-brand/[0.06]">{t("jobHistory.viewDetails")}</button></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+            {jobs.length > PAGE_SIZE ? (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <p role="status" className="text-body-sm text-slate-500">
+                  {t("jobHistory.pagination.showing", { from: (currentPage - 1) * PAGE_SIZE + 1, to: Math.min(currentPage * PAGE_SIZE, jobs.length), total: jobs.length })}
+                </p>
+                <nav aria-label={t("jobHistory.pagination.pageAria")} className="flex max-w-full flex-wrap gap-2">
+                  <button type="button" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)} className="min-h-11 rounded-control border border-brand/20 px-3 text-body-sm font-semibold text-brand hover:bg-brand/[0.06] disabled:opacity-50">
+                    {t("jobHistory.pagination.previous")}
+                  </button>
+                  {Array.from({ length: pageCount }, (_, index) => index + 1).map((number) => (
+                    <button key={number} type="button" onClick={() => setPage(number)} aria-label={t("jobHistory.pagination.goToPage", { page: number })} aria-current={currentPage === number ? "page" : undefined}
+                      className={`min-h-11 rounded-control border border-brand/20 px-3 text-body-sm font-semibold ${currentPage === number ? "bg-brand text-white" : "text-brand hover:bg-brand/[0.06]"}`}>
+                      {number}
+                    </button>
+                  ))}
+                  <button type="button" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)} className="min-h-11 rounded-control border border-brand/20 px-3 text-body-sm font-semibold text-brand hover:bg-brand/[0.06] disabled:opacity-50">
+                    {t("jobHistory.pagination.next")}
+                  </button>
+                </nav>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>

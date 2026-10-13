@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { motionTokens, seconds } from "@/constants/motion";
 import {
   Calendar,
   CheckSquare,
+  ClipboardList,
   Eye,
   Filter,
   Mail,
@@ -77,6 +78,7 @@ const PIPELINE_STATUSES: ApplicationStatus[] = [
 const EDITABLE_STATUSES: ApplicationStatus[] = PIPELINE_STATUSES.filter(
   (status) => status !== "Hired",
 );
+const ACTION_STEP_KEYS = ["statusStep", "reviewStep", "hireStep", "paymentStep"] as const;
 
 type EmployerApplication = {
   _id: string;
@@ -1062,43 +1064,64 @@ export function ApplicationsManagement({ historyJobId, onHistoryChange }: { hist
       {activeApplication ? (
         <Dialog open={!confirmAction && !ratingTarget} title={t("applicationsManagement.workflow.title")}
           description={`${getApplicantName(activeApplication, t("applicationsManagement.card.applicantFallback"))} · ${activeApplication.job.title}`}
-          onClose={() => setActionsTarget(null)} closeDisabled={Boolean(offerBusyId) || statusBusy} size="lg">
+          onClose={() => setActionsTarget(null)} closeDisabled={Boolean(offerBusyId) || statusBusy} size="xl">
           <div className="space-y-5" aria-busy={Boolean(offerBusyId) || statusBusy}>
-            <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label={t("applicationsManagement.workflow.stepsLabel")}>
-              {["statusStep", "reviewStep", "hireStep", "paymentStep"].map((label, index) => (
+            <ol className="flex items-center justify-center" aria-label={t("applicationsManagement.workflow.stepsLabel")}>
+              {ACTION_STEP_KEYS.map((label, index) => (
                 <li key={label} aria-current={actionStep === index + 1 ? "step" : undefined}
-                  className={`border-b-2 pb-2 text-caption ${actionStep === index + 1 ? "border-brand font-semibold text-brand" : "border-slate-200 text-slate-500"}`}>
-                  {index + 1}. {t(`applicationsManagement.workflow.${label}`)}
+                  className="flex items-center">
+                  <span className="-mx-3 flex h-11 w-11 shrink-0 items-center justify-center">
+                    <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${index + 1 <= actionStep ? "bg-brand" : "bg-slate-200"}`} />
+                    <span className="sr-only">{index + 1}. {t(`applicationsManagement.workflow.${label}`)}</span>
+                  </span>
+                  {index < ACTION_STEP_KEYS.length - 1 ? <span aria-hidden="true" className="h-px w-8 shrink-0 bg-slate-200" /> : null}
                 </li>
               ))}
             </ol>
+            <p className="text-center text-xs font-semibold uppercase tracking-[0.14em] text-brand">
+              {t("applicationsManagement.workflow.stepCaption", { step: actionStep, total: ACTION_STEP_KEYS.length, title: t(`applicationsManagement.workflow.${ACTION_STEP_KEYS[actionStep - 1]}`) })}
+            </p>
             {loadError ? <p role="alert" className="text-body-sm text-red-700">{loadError}</p> : null}
-            {actionStep === 1 ? (
-              <div>
-                <label htmlFor="application-status" className="mb-2 block text-body-sm font-semibold text-slate-900">{t("applicationsManagement.workflow.changeStatus")}</label>
-                <select id="application-status" value={activeApplication.status} disabled={statusBusy || Boolean(offerBusyId)}
-                  onChange={(event) => void handleStatusChange(activeApplication._id, event.target.value as ApplicationStatus)}
-                  className="h-11 w-full rounded-control border border-[#E5E7EB] bg-white px-3 text-body-sm focus:outline-none focus:ring-2 focus:ring-brand">
-                  {EDITABLE_STATUSES.map((status) => <option key={status} value={status}>{getStatusLabel(t, status)}</option>)}
-                </select>
-                {activeApplication.offer?.status === "rejected" ? <p role="status" className="mt-3 text-body-sm text-slate-600">{t("applicationsManagement.workflow.offerDeclined")}</p> : null}
-                {activeApplication.status === "Rejected" ? <p className="mt-3 text-body-sm text-slate-600">{t("applicationsManagement.workflow.rejectedHelp")}</p> : null}
-              </div>
-            ) : null}
-            <OfferActions key={activeApplication._id} stepped application={activeApplication} busy={Boolean(offerBusyId) || statusBusy}
-              onSendOffer={(amount) => handleSendOffer(activeApplication, amount)}
-              onCancelOffer={() => handleCancelOffer(activeApplication)}
-              onConfirmHire={() => handleConfirmHire(activeApplication)}
-              onReject={() => handleRejectApplicant(activeApplication)}
-              onAuthorizePayment={() => handleAuthorizePayment(activeApplication)}
-              onReleasePayment={() => handleReleasePayment(activeApplication)}
-              onRequestChanges={(reason) => handleRequestChanges(activeApplication, reason)} />
-            <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 pt-4">
-              <button type="button" onClick={() => handleMessage(activeApplication)} className="inline-flex items-center gap-2 text-body-sm font-semibold text-brand">
+            <AnimatePresence mode="wait">
+              <motion.div key={`${activeApplication._id}:${actionStep}`} className="space-y-5"
+                initial={prefersReducedMotion ? false : { opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={prefersReducedMotion ? undefined : { opacity: 0, x: -16 }}
+                transition={{ duration: prefersReducedMotion ? 0 : seconds(motionTokens.duration.fast) }}>
+                {actionStep === 1 ? (
+                  <section className="space-y-5 rounded-card border border-slate-200 bg-slate-50/60 p-4 md:p-6">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-brand-600 shadow-sm ring-1 ring-slate-200"><ClipboardList size={20} aria-hidden="true" /></div>
+                      <div><h3 className="font-bold text-slate-900">{t("applicationsManagement.workflow.changeStatus")}</h3><p className="mt-0.5 text-sm text-slate-500">{t("applicationsManagement.workflow.statusSubtitle")}</p></div>
+                    </div>
+                    <div>
+                      <label htmlFor="application-status" className="mb-2 block text-sm font-semibold text-slate-700">{t("applicationsManagement.workflow.changeStatus")}</label>
+                      <select id="application-status" value={activeApplication.status} disabled={statusBusy || Boolean(offerBusyId)}
+                        onChange={(event) => void handleStatusChange(activeApplication._id, event.target.value as ApplicationStatus)}
+                        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                        {EDITABLE_STATUSES.map((status) => <option key={status} value={status}>{getStatusLabel(t, status)}</option>)}
+                      </select>
+                    </div>
+                    {activeApplication.offer?.status === "rejected" ? <p role="status" className="mt-3 text-body-sm text-slate-600">{t("applicationsManagement.workflow.offerDeclined")}</p> : null}
+                    {activeApplication.status === "Rejected" ? <p className="mt-3 text-body-sm text-slate-600">{t("applicationsManagement.workflow.rejectedHelp")}</p> : null}
+                  </section>
+                ) : null}
+                <OfferActions key={activeApplication._id} stepped application={activeApplication} busy={Boolean(offerBusyId) || statusBusy}
+                  onSendOffer={(amount) => handleSendOffer(activeApplication, amount)}
+                  onCancelOffer={() => handleCancelOffer(activeApplication)}
+                  onConfirmHire={() => handleConfirmHire(activeApplication)}
+                  onReject={() => handleRejectApplicant(activeApplication)}
+                  onAuthorizePayment={() => handleAuthorizePayment(activeApplication)}
+                  onReleasePayment={() => handleReleasePayment(activeApplication)}
+                  onRequestChanges={(reason) => handleRequestChanges(activeApplication, reason)} />
+              </motion.div>
+            </AnimatePresence>
+            <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 pt-5">
+              <button type="button" onClick={() => handleMessage(activeApplication)} className="inline-flex min-h-11 items-center gap-2 text-body-sm font-semibold text-brand">
                 <MessageSquare className="h-4 w-4" />{t("applicationsManagement.card.message")}
               </button>
               {reviewEligibility[activeApplication._id]?.canReview ? (
-                <button type="button" onClick={() => handleRateWorker(activeApplication)} className="inline-flex items-center gap-2 text-body-sm font-semibold text-amber-700">
+                <button type="button" onClick={() => handleRateWorker(activeApplication)} className="inline-flex min-h-11 items-center gap-2 text-body-sm font-semibold text-amber-700">
                   <Star className="h-4 w-4" />{t("applicationsManagement.card.rateWorker")}
                 </button>
               ) : reviewEligibility[activeApplication._id]?.existingReview ? <span className="text-caption text-emerald-700">{t("applicationsManagement.card.reviewSubmitted")}</span> : null}

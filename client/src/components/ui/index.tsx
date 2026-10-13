@@ -352,3 +352,5 @@ export function AlertCard({ title, titleId, message, messageId, dismissLabel, ac
     </div>
   );
 }
+
+export { Tabs } from "./Tabs";

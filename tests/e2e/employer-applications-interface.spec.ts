@@ -100,6 +100,10 @@ test("Actions progresses from status and offer through applicant response, hire 
   await page.goto("/employer/applications");
   await page.getByRole("button", { name: "Actions", exact: true }).click();
   const actions = page.getByRole("dialog", { name: "Applicant Actions" });
+  const steps = actions.getByRole("list", { name: "Application steps" });
+  await expect(steps.getByRole("button")).toHaveCount(0);
+  await expect(steps.locator('[aria-current="step"]')).toHaveText("1. Status & offer");
+  await expect(actions.getByText("Step 1 of 4 · Status & offer", { exact: true })).toBeVisible();
   await actions.getByLabel("Change Status", { exact: true }).selectOption("Shortlisted");
   await expect(page.getByRole("row", { name: /Maria Santos/ })).toContainText("Shortlisted");
   await expect(actions.getByLabel("Change Status").locator('option[value="Hired"]')).toHaveCount(0);
@@ -110,10 +114,12 @@ test("Actions progresses from status and offer through applicant response, hire 
   expect(state.mutations.filter((call) => call.path.endsWith("/offers"))).toHaveLength(0);
   await page.getByRole("dialog", { name: "Send Formal Offer", exact: true }).getByRole("button", { name: "Send Offer", exact: true }).click();
   await expect(actions.getByRole("status")).toHaveText("Applicant is reviewing your offer");
+  await expect(steps.locator('[aria-current="step"]')).toHaveText("2. Offer review");
   await expect(actions.getByRole("button", { name: "Hire", exact: true })).toHaveCount(0);
   state.respond();
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(actions.getByText("Do you wish to hire this applicant?", { exact: true })).toBeVisible();
+  await expect(steps.locator('[aria-current="step"]')).toHaveText("3. Hire decision");
   await expect(actions.getByRole("note")).toHaveText("Hiring an applicant will put the job in progress and you won't be able to delete it");
   await expect(actions.getByRole("button", { name: "Reject", exact: true })).toBeVisible();
   await actions.getByRole("button", { name: "Hire", exact: true }).click();
@@ -161,11 +167,19 @@ test("table and Actions dialog fit desktop and phone viewports", async ({ page }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/employer/applications");
   await expect(page.getByRole("table")).toBeVisible();
-  await page.screenshot({ path: "docs/assets/11-employer-applications.png", fullPage: true });
+  await page.screenshot({ path: ".agent/employer-applications-desktop.png", fullPage: true });
   await page.getByRole("button", { name: "Actions", exact: true }).click();
   const actions = page.getByRole("dialog", { name: "Applicant Actions" });
   await expect(actions.getByRole("button", { name: "Hire", exact: true })).toBeVisible();
   await page.screenshot({ path: ".agent/employer-applicant-actions-desktop.png" });
+  for (const width of [375, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    const steps = actions.getByRole("list", { name: "Application steps" });
+    const dots = await steps.getByRole("listitem").all();
+    const bounds = await Promise.all(dots.map((dot) => dot.boundingBox()));
+    expect(new Set(bounds.map((bound) => bound!.y)).size).toBe(1);
+    expect(await actions.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  }
   await page.setViewportSize({ width: 375, height: 667 });
   const bounds = await actions.boundingBox();
   expect(bounds).not.toBeNull();

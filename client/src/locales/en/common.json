@@ -177,6 +177,10 @@
     }
   },
   "landing": {
+    "opportunities": {
+      "title": "Work that fits your plans",
+      "subtitle": "From a one-day task to a longer-term role, choose the opportunity that suits you."
+    },
     "benefits": {
       "ariaLabel": "Make the most of MicroJobs",
       "profile": {

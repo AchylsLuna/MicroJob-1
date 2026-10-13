@@ -1,4 +1,44 @@
 {
+  "messageDirectory": {
+    "newMessage": "Bagong mensahe",
+    "title": "Pumili ng tatanggap",
+    "description": "Hanapin ang mga aktibong admin at user, at pumili ng taong direktang kakausapin.",
+    "searchLabel": "Maghanap ng tao",
+    "searchPlaceholder": "Pangalan, email, o username",
+    "groupLabel": "Pangkat ng tatanggap",
+    "groups": {
+      "all": "Lahat ng tao",
+      "admins": "Mga admin",
+      "users": "Mga user"
+    },
+    "loading": "Nilo-load ang mga tatanggap…",
+    "loadFailed": "Hindi ma-load ang mga tatanggap. Subukan muli.",
+    "retry": "Subukan muli",
+    "empty": "Walang taong tumugma sa iyong paghahanap.",
+    "tableCaption": "Mga maaaring padalhan ng mensahe",
+    "person": "Tao",
+    "role": "Tungkulin",
+    "action": "Aksyon",
+    "message": "Mensahe",
+    "messagePerson": "Magpadala ng mensahe kay {{name}}",
+    "showing": "Ipinapakita ang {{from}}–{{to}} sa {{total}}",
+    "paginationLabel": "Mga pahina ng tatanggap",
+    "previous": "Nakaraan",
+    "next": "Susunod",
+    "page": "Pahina {{page}} sa {{total}}",
+    "roles": {
+      "work": "Manggagawa",
+      "hire": "Employer",
+      "both": "Manggagawa at employer",
+      "admin": "Admin",
+      "superadmin": "Superadmin",
+      "admin_team": "Admin team",
+      "moderator": "Moderator",
+      "finance_team": "Finance team",
+      "analytics_team": "Analytics team",
+      "support_staff": "Support staff"
+    }
+  },
   "gate": {
     "toast": {
       "accessDenied": "Wala kang access sa admin section na ito."

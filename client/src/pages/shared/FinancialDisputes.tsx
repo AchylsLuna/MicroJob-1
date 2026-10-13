@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, FileUp, MessageSquareText, Scale } from "lucide-react";
-import { Badge, Button, Card, Input, Select, StatusState, Textarea } from "../../components/ui";
+import { Badge, Button, Card, Input, Select, StatusState, Tabs, Textarea } from "../../components/ui";
 import { useAuth } from "../../hooks/useAuth";
 import { toAbsoluteAssetUrl } from "../../lib/assetUrl";
 import { formatCurrency, formatDateTime } from "../../lib/formatters";
@@ -25,6 +25,7 @@ const statusTone = (status: string) =>
 
 const label = (value?: string | null) => String(value || "Not set").replace(/_/g, " ");
 const personName = (person: any) => [person?.firstName, person?.lastName].filter(Boolean).join(" ") || person?.companyName || person?.email || "Unknown";
+type DetailTab = "Overview" | "Evidence" | "Conversation" | "Settlement";
 
 export function FinancialDisputes() {
   const { user } = useAuth();
@@ -43,6 +44,7 @@ export function FinancialDisputes() {
   const [evidenceDescription, setEvidenceDescription] = useState("");
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [appealReason, setAppealReason] = useState("");
+  const [activeTab, setActiveTab] = useState<DetailTab>("Overview");
 
   const load = async () => {
     const payload = await getFinancialDisputes();
@@ -66,6 +68,10 @@ export function FinancialDisputes() {
   }, [isEmployer]);
 
   const selected = useMemo(() => disputes.find((item) => item.id === selectedId) || null, [disputes, selectedId]);
+  const canAppeal = selected?.investigationStatus === "RESOLVED" && !selected.appealSubmittedAt;
+  const hasSettlement = Boolean(selected?.financeSettlement || selected?.settlementHistory?.length || canAppeal);
+  useEffect(() => { setActiveTab("Overview"); }, [selectedId]);
+
   const replaceSelected = (updated: FinancialDispute) => {
     setDisputes((current) => current.map((item) => item.id === updated.id ? updated : item));
   };
@@ -152,8 +158,8 @@ export function FinancialDisputes() {
         </Card>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
-        <Card className="self-start">
+      <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+        <Card className="min-w-0 self-start">
           <h2 className="font-bold text-slate-950">Cases</h2>
           <div className="mt-4 space-y-3">
             {disputes.length === 0 ? <p className="text-sm text-slate-500">No financial disputes yet.</p> : disputes.map((item) => (
@@ -167,44 +173,49 @@ export function FinancialDisputes() {
         </Card>
 
         {selected ? (
-          <div className="space-y-6">
-            <Card>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div><p className="text-sm font-semibold text-brand-700">{selected.ticketId}</p><h2 className="text-xl font-bold text-slate-950">{selected.job?.title || selected.subject}</h2></div>
-                <div className="flex flex-wrap gap-2"><Badge className={statusTone(selected.investigationStatus)}>Investigation: {label(selected.investigationStatus)}</Badge><Badge className={statusTone(selected.paymentStatus)}>Payment: {label(selected.paymentStatus)}</Badge></div>
-              </div>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                {[
-                  ["Agreed", selected.agreedJobAmount], ["Already paid", selected.alreadyPaidAmount], ["Disputed", selected.disputedAmount], ["Actually held", selected.fundsHeldAmount], ["Outstanding", selected.outstandingAmount],
-                ].map(([name, value]) => <div key={String(name)} className="rounded-xl bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-500">{name}</p><p className="mt-1 font-bold text-slate-950">{formatCurrency(Number(value))}</p></div>)}
-              </div>
-              <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><p className="font-bold">Funds classification: {label(selected.fundStatus)}</p><p className="mt-1">Only “funds held” are controlled by MicroJobs. Outstanding payment is recorded as an external employer obligation, not presented as escrow.</p></div>
-              <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2"><div><dt className="font-semibold text-slate-500">Worker</dt><dd>{personName(selected.worker)}</dd></div><div><dt className="font-semibold text-slate-500">Employer</dt><dd>{personName(selected.employer)}</dd></div></dl>
-              <div className="mt-5"><h3 className="font-bold text-slate-900">Worker claim</h3><p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{selected.workerClaim}</p></div>
-              {selected.employerResponse ? <div className="mt-5"><h3 className="font-bold text-slate-900">Employer response</h3><p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{selected.employerResponse}</p></div> : null}
-            </Card>
+          <Tabs<DetailTab> label="Case details" value={activeTab} onChange={setActiveTab} tabs={[
+            { id: "Overview", label: "Overview", content: (<>
+              <Card>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div><p className="text-sm font-semibold text-brand-700">{selected.ticketId}</p><h2 className="text-xl font-bold text-slate-950">{selected.job?.title || selected.subject}</h2></div>
+                  <div className="flex flex-wrap gap-2"><Badge className={statusTone(selected.investigationStatus)}>Investigation: {label(selected.investigationStatus)}</Badge><Badge className={statusTone(selected.paymentStatus)}>Payment: {label(selected.paymentStatus)}</Badge></div>
+                </div>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+                  {[
+                    ["Agreed", selected.agreedJobAmount], ["Already paid", selected.alreadyPaidAmount], ["Disputed", selected.disputedAmount], ["Actually held", selected.fundsHeldAmount], ["Outstanding", selected.outstandingAmount],
+                  ].map(([name, value]) => <div key={String(name)} className="rounded-xl bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-500">{name}</p><p className="mt-1 font-bold text-slate-950">{formatCurrency(Number(value))}</p></div>)}
+                </div>
+                <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><p className="font-bold">Funds classification: {label(selected.fundStatus)}</p><p className="mt-1">Only “funds held” are controlled by MicroJobs. Outstanding payment is recorded as an external employer obligation, not presented as escrow.</p></div>
+                <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2"><div><dt className="font-semibold text-slate-500">Worker</dt><dd>{personName(selected.worker)}</dd></div><div><dt className="font-semibold text-slate-500">Employer</dt><dd>{personName(selected.employer)}</dd></div></dl>
+                <div className="mt-5"><h3 className="font-bold text-slate-900">Worker claim</h3><p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{selected.workerClaim}</p></div>
+                {selected.employerResponse ? <div className="mt-5"><h3 className="font-bold text-slate-900">Employer response</h3><p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{selected.employerResponse}</p></div> : null}
+              </Card>
 
-            {isEmployer && !selected.employerResponse && selected.investigationStatus !== "RESOLVED" ? <Card><h3 className="font-bold text-slate-950">Respond to the investigation</h3><div className="mt-4"><Textarea label="Employer explanation" value={response} onChange={(event) => setResponse(event.target.value)} /></div><Button className="mt-4" disabled={busy} onClick={submitResponse}>Submit response</Button></Card> : null}
+              {isEmployer && !selected.employerResponse && selected.investigationStatus !== "RESOLVED" ? <Card><h3 className="font-bold text-slate-950">Respond to the investigation</h3><div className="mt-4"><Textarea label="Employer explanation" value={response} onChange={(event) => setResponse(event.target.value)} /></div><Button className="mt-4" disabled={busy} onClick={submitResponse}>Submit response</Button></Card> : null}
+            </>) },
+            { id: "Evidence", label: "Evidence", content: (<>
+              <Card>
+                <div className="flex items-center gap-2"><FileUp className="h-5 w-5 text-brand-700"/><h3 className="font-bold text-slate-950">Evidence</h3></div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2"><Select label="Evidence type" value={evidenceType} onChange={(event) => setEvidenceType(event.target.value)}>{["OTHER","PAYMENT_RECEIPT","SCREENSHOT","WORK_PHOTO","DOCUMENT","ATTENDANCE_RECORD","JOB_LOG","CHAT_REFERENCE"].map((type) => <option key={type} value={type}>{label(type)}</option>)}</Select><Input label="File (optional for chat reference)" type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.doc,.docx" onChange={(event) => setEvidenceFile(event.target.files?.[0] || null)} /></div>
+                <div className="mt-4"><Textarea label="Evidence description" value={evidenceDescription} onChange={(event) => setEvidenceDescription(event.target.value)} /></div><Button className="mt-4" disabled={busy || selected.investigationStatus === "RESOLVED"} onClick={uploadEvidence}>Add evidence</Button>
+                <div className="mt-5 space-y-3">{(selected.evidence || []).map((item: any) => <div key={item._id} className="rounded-xl border border-slate-200 p-3 text-sm"><p className="font-semibold text-slate-900">{label(item.evidenceType)} · {item.uploaderRole}</p><p className="mt-1 text-slate-600">{item.description || item.fileName || "Evidence"}</p>{item.fileUrl ? <a className="mt-2 inline-block font-semibold text-brand-700 underline" href={toAbsoluteAssetUrl(item.fileUrl) || "#"} target="_blank" rel="noreferrer">Open evidence file</a> : null}</div>)}</div>
+              </Card>
+            </>) },
+            { id: "Conversation", label: "Conversation", content: (<>
+              <Card>
+                <div className="flex items-center gap-2"><MessageSquareText className="h-5 w-5 text-brand-700"/><h3 className="font-bold text-slate-950">Ticket conversation</h3></div>
+                <div className="mt-4 max-h-80 space-y-3 overflow-y-auto">{(selected.messages || []).map((item: any) => <div key={item._id} className="rounded-xl bg-slate-50 p-3 text-sm"><p className="font-semibold text-slate-900">{item.authorRole} · {formatDateTime(item.createdAt)}</p><p className="mt-1 whitespace-pre-wrap text-slate-700">{item.body}</p></div>)}</div>
+                <div className="mt-4"><Textarea label="Response" value={message} onChange={(event) => setMessage(event.target.value)} /></div><Button className="mt-4" disabled={busy} onClick={sendMessage}>Send response</Button>
+              </Card>
+            </>) },
+            ...(hasSettlement ? [{ id: "Settlement" as const, label: "Settlement", content: (<>
+              {selected.financeSettlement ? <Card><div className="flex items-center gap-2"><Scale className="h-5 w-5 text-brand-700"/><h3 className="font-bold text-slate-950">Finance settlement</h3></div><p className="mt-3 text-lg font-bold text-slate-950">{label(selected.financeSettlement.settlementType)}</p><p className="mt-1 text-sm text-slate-700">{selected.financeSettlement.decisionReason}</p><div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3"><div>Worker: <strong>{formatCurrency(selected.financeSettlement.workerSettlementAmount)}</strong></div><div>Employer: <strong>{formatCurrency(selected.financeSettlement.employerRefundAmount)}</strong></div><div>Outstanding: <strong>{formatCurrency(selected.financeSettlement.outstandingAmount)}</strong></div></div></Card> : null}
 
-            <Card>
-              <div className="flex items-center gap-2"><FileUp className="h-5 w-5 text-brand-700"/><h3 className="font-bold text-slate-950">Evidence</h3></div>
-              <div className="mt-4 grid gap-4 md:grid-cols-2"><Select label="Evidence type" value={evidenceType} onChange={(event) => setEvidenceType(event.target.value)}>{["OTHER","PAYMENT_RECEIPT","SCREENSHOT","WORK_PHOTO","DOCUMENT","ATTENDANCE_RECORD","JOB_LOG","CHAT_REFERENCE"].map((type) => <option key={type} value={type}>{label(type)}</option>)}</Select><Input label="File (optional for chat reference)" type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.doc,.docx" onChange={(event) => setEvidenceFile(event.target.files?.[0] || null)} /></div>
-              <div className="mt-4"><Textarea label="Evidence description" value={evidenceDescription} onChange={(event) => setEvidenceDescription(event.target.value)} /></div><Button className="mt-4" disabled={busy || selected.investigationStatus === "RESOLVED"} onClick={uploadEvidence}>Add evidence</Button>
-              <div className="mt-5 space-y-3">{(selected.evidence || []).map((item: any) => <div key={item._id} className="rounded-xl border border-slate-200 p-3 text-sm"><p className="font-semibold text-slate-900">{label(item.evidenceType)} · {item.uploaderRole}</p><p className="mt-1 text-slate-600">{item.description || item.fileName || "Evidence"}</p>{item.fileUrl ? <a className="mt-2 inline-block font-semibold text-brand-700 underline" href={toAbsoluteAssetUrl(item.fileUrl) || "#"} target="_blank" rel="noreferrer">Open evidence file</a> : null}</div>)}</div>
-            </Card>
+              {(selected.settlementHistory || []).length > 0 ? <Card><h3 className="font-bold text-slate-950">Previous Finance decisions</h3><div className="mt-4 space-y-3">{(selected.settlementHistory || []).map((settlement: any) => <div key={settlement.settlementId} className="rounded-xl border border-slate-200 p-3 text-sm"><p className="font-semibold text-slate-950">{label(settlement.settlementType)} · {settlement.settlementId}</p><p className="mt-1 text-slate-700">{settlement.decisionReason}</p><p className="mt-2 text-xs text-slate-500">Worker {formatCurrency(settlement.workerSettlementAmount)} · Employer {formatCurrency(settlement.employerRefundAmount)} · Outstanding {formatCurrency(settlement.outstandingAmount)}</p></div>)}</div></Card> : null}
 
-            <Card>
-              <div className="flex items-center gap-2"><MessageSquareText className="h-5 w-5 text-brand-700"/><h3 className="font-bold text-slate-950">Ticket conversation</h3></div>
-              <div className="mt-4 max-h-80 space-y-3 overflow-y-auto">{(selected.messages || []).map((item: any) => <div key={item._id} className="rounded-xl bg-slate-50 p-3 text-sm"><p className="font-semibold text-slate-900">{item.authorRole} · {formatDateTime(item.createdAt)}</p><p className="mt-1 whitespace-pre-wrap text-slate-700">{item.body}</p></div>)}</div>
-              <div className="mt-4"><Textarea label="Response" value={message} onChange={(event) => setMessage(event.target.value)} /></div><Button className="mt-4" disabled={busy} onClick={sendMessage}>Send response</Button>
-            </Card>
-
-            {selected.financeSettlement ? <Card><div className="flex items-center gap-2"><Scale className="h-5 w-5 text-brand-700"/><h3 className="font-bold text-slate-950">Finance settlement</h3></div><p className="mt-3 text-lg font-bold text-slate-950">{label(selected.financeSettlement.settlementType)}</p><p className="mt-1 text-sm text-slate-700">{selected.financeSettlement.decisionReason}</p><div className="mt-4 grid gap-3 sm:grid-cols-3"><div>Worker: <strong>{formatCurrency(selected.financeSettlement.workerSettlementAmount)}</strong></div><div>Employer: <strong>{formatCurrency(selected.financeSettlement.employerRefundAmount)}</strong></div><div>Outstanding: <strong>{formatCurrency(selected.financeSettlement.outstandingAmount)}</strong></div></div></Card> : null}
-
-            {(selected.settlementHistory || []).length > 0 ? <Card><h3 className="font-bold text-slate-950">Previous Finance decisions</h3><div className="mt-4 space-y-3">{(selected.settlementHistory || []).map((settlement: any) => <div key={settlement.settlementId} className="rounded-xl border border-slate-200 p-3 text-sm"><p className="font-semibold text-slate-950">{label(settlement.settlementType)} · {settlement.settlementId}</p><p className="mt-1 text-slate-700">{settlement.decisionReason}</p><p className="mt-2 text-xs text-slate-500">Worker {formatCurrency(settlement.workerSettlementAmount)} · Employer {formatCurrency(settlement.employerRefundAmount)} · Outstanding {formatCurrency(settlement.outstandingAmount)}</p></div>)}</div></Card> : null}
-
-            {selected.investigationStatus === "RESOLVED" && !selected.appealSubmittedAt ? <Card><div className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-700"/><h3 className="font-bold text-slate-950">Appeal decision</h3></div><div className="mt-4"><Textarea label="Why should this decision be reviewed?" value={appealReason} onChange={(event) => setAppealReason(event.target.value)} /></div><Button className="mt-4 !bg-amber-700" disabled={busy} onClick={submitAppeal}>Submit appeal</Button></Card> : null}
-          </div>
+              {canAppeal ? <Card><div className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-700"/><h3 className="font-bold text-slate-950">Appeal decision</h3></div><div className="mt-4"><Textarea label="Why should this decision be reviewed?" value={appealReason} onChange={(event) => setAppealReason(event.target.value)} /></div><Button className="mt-4 !bg-amber-700" disabled={busy} onClick={submitAppeal}>Submit appeal</Button></Card> : null}
+            </>) }] : []),
+          ]} />
         ) : <StatusState title="Select a case" description="Choose a financial dispute to view its investigation and payment status." />}
       </div>
     </div>

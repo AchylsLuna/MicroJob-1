@@ -591,6 +591,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await verifyOtp({ email: verificationEmail, code: otp });
+      storeBearerTokens(getResponseContainer(response));
       const { user: apiUser } = getAuthPayload(response);
       if (!apiUser) {
         throw new Error("Invalid verification response from server.");

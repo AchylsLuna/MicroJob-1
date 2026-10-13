@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Briefcase, ChevronRight, MapPin, Menu, Pause, Play, Search, ShieldCheck, Target, UserRound, X } from "lucide-react";
+import { ArrowRight, Briefcase, CalendarDays, ChevronRight, ClipboardCheck, Code2, Database, FileText, MapPin, Menu, Monitor, Pause, Play, Search, ShieldCheck, Target, UserRound, X, Zap } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from "motion/react";
@@ -13,6 +13,7 @@ import { getCategories, getJobs } from "../services/api";
 import { openCookiePreferences } from "../lib/cookieConsent";
 import { toAbsoluteAssetUrl } from "../lib/assetUrl";
 import { Skeleton } from "./ui/Skeleton";
+import { getJobTypeOptions } from "./job/postJobForm";
 
 type LandingCategory = { _id: string; name: string };
 type HeroIntent = "work" | "hire";
@@ -154,6 +155,8 @@ function AnimatedCounter({
 
 export function LandingPageBlue() {
   const { t } = useTranslation("common");
+  const { t: tEmployer } = useTranslation("employer");
+  const opportunityTypes = useMemo(() => getJobTypeOptions(tEmployer), [tEmployer]);
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const appEntryPath = getPostAuthLandingPath(user);
@@ -1006,6 +1009,31 @@ export function LandingPageBlue() {
         </div>
       </section>
 
+      <section aria-labelledby="opportunity-types-heading" className="border-t border-slate-100 bg-slate-50 px-6 py-16 sm:py-20">
+        <div className="mx-auto max-w-7xl">
+          <div className="mx-auto mb-10 max-w-2xl text-center">
+            <h2 id="opportunity-types-heading" className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">{t("landing.opportunities.title")}</h2>
+            <p className="mt-3 text-body leading-6 text-slate-600">{t("landing.opportunities.subtitle")}</p>
+          </div>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+            {opportunityTypes.map((option, index) => {
+              const Icon = [CalendarDays, Zap, Briefcase][index];
+              return (
+                <article key={option.value} className="flex flex-col rounded-card border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
+                  <span aria-hidden="true" className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand"><Icon className="h-5 w-5" /></span>
+                  <h3 className="text-xl font-bold text-slate-900">{option.label}</h3>
+                  <p className="mb-5 mt-2 text-sm leading-6 text-slate-600">{option.description}</p>
+                  <div className="mt-auto rounded-xl bg-slate-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-brand">{tEmployer("postJob.jobType.examplesLabel")}</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-700">{option.examples}</p>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
       {/* How it works — one intent at a time. The toggle swaps the copy and the
           media together, so the section never explains both sides at once. */}
       <section className="scroll-mt-24 border-t border-slate-100 bg-white px-6 py-20" id="help">
@@ -1333,71 +1361,51 @@ export function LandingPageBlue() {
         </div>
       </section>
 
-      {/* Team Section
-          PLACEHOLDER CONTENT — the photo slots are deliberately empty and the
-          names/roles/quotes below are stand-ins. Fill each `photo` with a path
-          under /media/ once real images are approved, and no real name should
-          go in here until it is cleared with the person. */}
-      <section className="bg-slate-50 px-6 py-20">
-        <div className="max-w-7xl mx-auto">
+      {/* Team Section */}
+      <section className="border-t border-slate-100 bg-gradient-to-b from-slate-50 to-white px-6 py-16 sm:py-20">
+        <div className="mx-auto max-w-5xl">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-16"
+            className="mb-10 text-center sm:mb-12"
           >
-            <h2 className="text-[36px] font-bold text-gray-900 mb-2">Meet the team behind</h2>
-            <p className="text-[36px] font-bold text-brand">
-              Micro Jobs
-            </p>
+            <h2 className="text-3xl font-bold leading-tight tracking-tight text-slate-900 sm:text-4xl">
+              Meet the team behind
+              <span className="mt-2 block text-brand">Micro Jobs</span>
+            </h2>
+            <div aria-hidden="true" className="mx-auto mt-5 h-1 w-12 rounded-full bg-brand/20" />
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-4 lg:grid-cols-12">
             {[
-              {
-                name: "Team member",
-                role: "Add role",
-                photo: null as string | null,
-                text: '"We wanted work near you to be easy to find, whether you are hiring for an afternoon or looking for your next shift."',
-              },
-              {
-                name: "Team member",
-                role: "Add role",
-                photo: null as string | null,
-                text: '"Every job is funded before it goes live, so the pay is real and the person doing the work actually gets it."',
-              },
-            ].map((member, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, x: index === 0 ? -50 : 50 }}
-                whileInView={{ opacity: 1, x: 0 }}
+              { name: "Jonas", role: "Lead Developer", secondaryRole: "QA Tester", Icon: Code2 },
+              { name: "Winona", role: "Document Writer", Icon: FileText },
+              { name: "Nicholas", role: "Backend Developer", secondaryRole: "QA Tester", Icon: Database },
+              { name: "Ashriel", role: "Project Manager", secondaryRole: "QA Tester", Icon: ClipboardCheck },
+              { name: "Elijah", role: "Frontend Developer", secondaryRole: "QA Tester", Icon: Monitor },
+            ].map(({ name, role, secondaryRole, Icon }, index) => (
+              <motion.article
+                key={name}
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                whileHover={{ y: -10, boxShadow: "0 20px 40px rgba(73, 136, 196, 0.2)" }}
-                className="bg-white/80 backdrop-blur-sm rounded-[24px] p-8 shadow-lg border border-white/50"
+                transition={{ duration: prefersReducedMotion ? 0 : 0.24, delay: prefersReducedMotion ? 0 : index * 0.04 }}
+                whileHover={prefersReducedMotion ? undefined : { y: -4 }}
+                className={`flex flex-col items-center rounded-card border border-slate-200 bg-white p-7 text-center shadow-sm transition-shadow hover:border-brand/20 hover:shadow-md sm:col-span-2 lg:col-span-4 ${index === 3 ? "lg:col-start-3" : index === 4 ? "sm:col-start-2 lg:col-start-7" : ""}`}
               >
-                <div className="mb-5 flex items-center gap-4">
-                  {member.photo ? (
-                    <img
-                      src={member.photo}
-                      alt=""
-                      loading="lazy"
-                      className="h-16 w-16 shrink-0 rounded-card object-cover"
-                    />
-                  ) : (
-                    <div
-                      aria-hidden="true"
-                      className="h-16 w-16 shrink-0 rounded-card border border-slate-200 bg-slate-100"
-                    />
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-[17px] font-bold text-[#0F2954]">{member.name}</p>
-                    <p className="mt-1 text-body-sm text-gray-600">{member.role}</p>
+                <div aria-hidden="true" className="relative mb-5">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-50 text-2xl font-bold text-brand ring-1 ring-brand/10">
+                    {name.charAt(0)}
                   </div>
+                  <span className="absolute -bottom-2 -right-2 flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-brand shadow-sm">
+                    <Icon className="h-4 w-4" />
+                  </span>
                 </div>
-                <p className="text-body text-gray-600 leading-relaxed">
-                  {member.text}
-                </p>
-              </motion.div>
+                <h3 className="text-xl font-bold text-slate-900">{name}</h3>
+                <p className="mt-1.5 text-sm text-slate-600">{role}</p>
+                {secondaryRole ? <span className="mt-3 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand">{secondaryRole}</span> : null}
+              </motion.article>
             ))}
           </div>
         </div>

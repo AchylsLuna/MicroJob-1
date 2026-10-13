@@ -1,5 +1,7 @@
 import express from 'express';
 import auth from '../middleware/auth.js';
+import { requirePermission } from '../middleware/admin.js';
+import { getMessageRecipients } from '../controllers/MessageRecipientController.js';
 import MessageController from '../controllers/MessageController.js';
 import { reportConversation } from '../controllers/MessageReportController.js';
 import { createRateLimiter, buildUserRateLimitKey } from '../lib/rateLimiters.js';
@@ -11,6 +13,8 @@ const messageWriteLimiter = createRateLimiter({
   message: { message: 'Too many message requests. Please wait and try again.' },
   keyGenerator: buildUserRateLimitKey('message-write'),
 });
+// Directory access is separate from reading one's own conversations.
+router.get('/recipients', auth, requirePermission('messages.recipients.view'), getMessageRecipients);
 // Send a message
 router.post('/', auth, messageWriteLimiter, MessageController.sendMessage);
 // Backward-compatible alias for older deployed clients; new clients use POST /api/messages.

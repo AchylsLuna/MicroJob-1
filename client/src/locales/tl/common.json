@@ -177,6 +177,10 @@
     }
   },
   "landing": {
+    "opportunities": {
+      "title": "Trabahong akma sa iyong mga plano",
+      "subtitle": "Mula sa isang araw na gawain hanggang sa pangmatagalang trabaho, piliin ang oportunidad na bagay sa iyo."
+    },
     "benefits": {
       "ariaLabel": "Sulitin ang MicroJobs",
       "profile": {

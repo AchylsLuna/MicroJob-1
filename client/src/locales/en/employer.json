@@ -22,6 +22,13 @@
     "skills": "Skills",
     "requirements": "Requirements",
     "responsibilities": "Responsibilities",
+    "pagination": {
+      "showing": "Showing {{from}}–{{to}} of {{total}}",
+      "previous": "Prev",
+      "next": "Next",
+      "pageAria": "Job history pages",
+      "goToPage": "Go to page {{page}}"
+    },
     "statuses": { "Available": "Available", "In Progress": "In Progress", "Completed": "Completed", "Cancelled": "Cancelled", "Closed": "Closed", "Full refund": "Full refund", "Resolved": "Resolved" }
   },
   "postJob": {
@@ -30,17 +37,21 @@
       "subtitle": "Create job posts, track their status, and manage your listings."
     },
     "jobType": {
+      "examplesLabel": "Examples",
       "shortTerm": {
         "label": "Short-term",
-        "description": "One-time or temporary work with a clear finish."
+        "description": "One-time or temporary work with a clear finish.",
+        "examples": "Event setup, one-day cleaning, and moving help."
       },
       "sideHustle": {
         "label": "Side hustle",
-        "description": "Flexible work someone can take on for extra income."
+        "description": "Flexible work someone can take on for extra income.",
+        "examples": "Evening tutoring, weekend delivery, and freelance design."
       },
       "recruiting": {
         "label": "Recruiting",
-        "description": "Hire for an ongoing or longer-term role."
+        "description": "Hire for an ongoing or longer-term role.",
+        "examples": "Ongoing shop assistant, receptionist, and customer support roles."
       }
     },
     "requiredFields": {
@@ -489,6 +500,12 @@
       }
     },
     "workflow": {
+      "stepCaption": "Step {{step}} of {{total}} · {{title}}",
+      "statusSubtitle": "Update the application stage before sending an offer.",
+      "offerSubtitle": "Set the agreed amount and send it to the applicant for review.",
+      "reviewSubtitle": "Wait for the applicant to accept or decline your formal offer.",
+      "hireSubtitle": "Confirm the hire or reject the accepted offer.",
+      "paymentSubtitle": "Manage the agreed payment and approve submitted work.",
       "title": "Applicant Actions",
       "stepsLabel": "Application steps",
       "statusStep": "Status & offer",
