@@ -28,7 +28,7 @@ import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy
 import { clearPhoneVerificationCode } from "./PhoneVerificationController.js";
 import { getAdminUserCreationError, getAdminUserMutationError } from "../lib/adminUserPolicy.js";
 import { getReviewSummary } from "../lib/reviewSummary.js";
-import { buildAuthTokensPayload, createSessionWithTokens, setSessionCookies, isNativeAuthRequest } from "../lib/authSession.js";
+import { buildAuthTokensPayload, createSessionWithTokens, setSessionCookies, isNativeAuthRequest, isBearerAuthRequest } from "../lib/authSession.js";
 import { issueTrustedDevice, setTrustedDeviceCookie, clearTrustedDevicesForUser } from "../lib/trustedDevice.js";
 import crypto from "node:crypto";
 import { clearOtpChallenges, clearUserOtpChallenges, issueOtpChallenge, rememberTestOtpCode, verifyOtpChallenge } from "../lib/otpChallenges.js";
@@ -1135,7 +1135,7 @@ export async function verifyOtp(req, res) {
         return res.status(200).json({
             message: "Email verified and login successful.",
             ...buildAuthTokensPayload(req, authSession),
-            ...(isNativeAuthRequest(req)
+            ...(isNativeAuthRequest(req) || isBearerAuthRequest(req)
                 ? { trustedDeviceToken: trustedDevice.token, trustedDeviceExpiresAt: trustedDevice.expiresAt }
                 : {}),
             user: {

@@ -25,6 +25,7 @@ import {
   normalizeUsername,
   normalizeDisplayName,
   isNativeAuthRequest,
+  isBearerAuthRequest,
 } from '../lib/authSession.js';
 import {
   createMfaChallengeToken,
@@ -308,9 +309,9 @@ const loginUser = async (req, res) => {
     const userPayload = buildLoginPayload(user, includePhone);
     return sendSuccess(res, 200, 'Login successful', {
       ...buildAuthTokensPayload(req, authSession),
-      // Native has no persistent cookie jar across app restarts, so the
-      // rotated token travels in the body the same way refreshToken does.
-      ...(trustedDevice && isNativeAuthRequest(req)
+      // Native and cross-site bearer browsers cannot depend on cookies, so
+      // rotated device trust travels in the body alongside the session tokens.
+      ...(trustedDevice && (isNativeAuthRequest(req) || isBearerAuthRequest(req))
         ? { trustedDeviceToken: trustedDevice.token, trustedDeviceExpiresAt: trustedDevice.expiresAt }
         : {}),
       user: userPayload,
@@ -331,6 +332,9 @@ const loginTrustedDevice = async (req, res) => {
       return sendError(res, 401, 'This trusted device is no longer valid.');
     }
     if (isAdminRole(user.role)) return sendError(res, 401, 'Staff must sign in with their primary email and password.');
+    if (user.mfaEnabled && !isAdminRole(user.role)) {
+      return sendError(res, 401, 'Sign in with your password to complete two-factor authentication.');
+    }
 
     const authSession = await createSessionWithTokens(req, user);
     const csrfToken = crypto.randomBytes(24).toString('hex');
@@ -345,7 +349,7 @@ const loginTrustedDevice = async (req, res) => {
     setTrustedDeviceCookie(res, trustedDevice.token, trustedDevice.expiresAt);
     return sendSuccess(res, 200, 'Trusted device login successful', {
       ...buildAuthTokensPayload(req, authSession),
-      ...(isNativeAuthRequest(req)
+      ...(isNativeAuthRequest(req) || isBearerAuthRequest(req)
         ? { trustedDeviceToken: trustedDevice.token, trustedDeviceExpiresAt: trustedDevice.expiresAt }
         : {}),
       user: buildLoginPayload(user, false),
@@ -637,7 +641,7 @@ const loginOtpVerify = async (req, res) => {
     const payload = buildLoginPayload(user, includePhone);
     return sendSuccess(res, 200, 'Login successful', {
       ...buildAuthTokensPayload(req, authSession),
-      ...(trustedDevice && isNativeAuthRequest(req)
+      ...(trustedDevice && (isNativeAuthRequest(req) || isBearerAuthRequest(req))
         ? { trustedDeviceToken: trustedDevice.token, trustedDeviceExpiresAt: trustedDevice.expiresAt }
         : {}),
       user: payload,

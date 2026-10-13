@@ -33,6 +33,46 @@
     "passwordSent": "Password change OTP sent to your verified secondary email",
     "passwordDestination": "Your password change OTP will be sent to {{email}}."
   },
+  "messageDirectory": {
+    "newMessage": "New message",
+    "title": "Choose a recipient",
+    "description": "Search active admins and users, then choose a person to start a direct conversation.",
+    "searchLabel": "Search people",
+    "searchPlaceholder": "Name, email, or username",
+    "groupLabel": "Recipient group",
+    "groups": {
+      "all": "All people",
+      "admins": "Admins",
+      "users": "Users"
+    },
+    "loading": "Loading recipients…",
+    "loadFailed": "Unable to load recipients. Please try again.",
+    "retry": "Try again",
+    "empty": "No people match your search.",
+    "tableCaption": "Available message recipients",
+    "person": "Person",
+    "role": "Role",
+    "action": "Action",
+    "message": "Message",
+    "messagePerson": "Message {{name}}",
+    "showing": "Showing {{from}}–{{to}} of {{total}}",
+    "paginationLabel": "Recipient pages",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {{page}} of {{total}}",
+    "roles": {
+      "work": "Worker",
+      "hire": "Employer",
+      "both": "Worker & employer",
+      "admin": "Admin",
+      "superadmin": "Superadmin",
+      "admin_team": "Admin team",
+      "moderator": "Moderator",
+      "finance_team": "Finance team",
+      "analytics_team": "Analytics team",
+      "support_staff": "Support staff"
+    }
+  },
   "gate": {
     "toast": {
       "accessDenied": "You don't have access to this admin section."

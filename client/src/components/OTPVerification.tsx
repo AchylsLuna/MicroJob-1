@@ -254,7 +254,7 @@ export function OTPVerification({ onClose, email, mode = "signup", redirectPath 
 
         {/* Header */}
         <h2 id="otp-verification-title" className="text-[28px] font-bold text-[#111827] text-center mt-2 mb-3">
-          {t("otpVerification.title")}
+          {t(mode === "signin" || mode === "staff-signin" ? "otpVerification.signInTitle" : "otpVerification.title")}
         </h2>
         <p className="text-body text-[#6B7280] text-center mb-8">
           {mode === "staff-signin" ? tAdmin("staffOtp.description") : t("otpVerification.description")}<br />

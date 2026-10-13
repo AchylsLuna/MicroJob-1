@@ -1,23 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Badge, Dialog, StatusState } from "../../components/ui";
+import { Badge, StatusState } from "../../components/ui";
 import { WalletSectionPager, type WalletSection } from "../../components/wallet/WalletSectionPager";
 import {
   ArrowDownLeft,
   ArrowUpRight,
   CreditCard,
   Landmark,
-  Loader2,
   Wallet,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "../../lib/toast";
-import { safeExternalUrl } from "../../utils/safeExternalUrl";
 import { useAuth } from "../../hooks/useAuth";
 import { formatCurrency } from "../../lib/formatters";
 import {
   cancelPayoutRequest,
   createPayoutRequest,
-  createTopUpSession,
   getPaymentTransactions,
   getPayoutRequests,
   getProfile,
@@ -43,13 +40,8 @@ export function EWallet() {
   const [walletSectionId, setWalletSectionId] = useState("withdraw");
   const payoutIdempotencyKeyRef = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreatingTopUp, setIsCreatingTopUp] = useState(false);
-  const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [isSubmittingPayout, setIsSubmittingPayout] = useState(false);
   const [cancellingPayoutId, setCancellingPayoutId] = useState<string | null>(null);
-  const [topUpAmount, setTopUpAmount] = useState("");
-  const topUpTotal = toAmount(topUpAmount);
-  const [employerBalance, setEmployerBalance] = useState(0);
   const [workerBalance, setWorkerBalance] = useState(0);
   const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
   const [payoutRequests, setPayoutRequests] = useState<PayoutRequest[]>([]);
@@ -61,16 +53,8 @@ export function EWallet() {
     accountNumber: "",
   });
 
-  const accountType = user?.accountType || "worker";
-  const accountOptions = user?.accountOptions || ["worker"];
-  const isBothRole =
-    user?.role === "both" ||
-    (accountOptions.includes("worker") && accountOptions.includes("employer"));
-  const isEmployerWalletView = !isBothRole && accountType === "employer";
-  const canUseWorkerWallet =
-    isBothRole ||
-    (!isEmployerWalletView && (accountOptions.includes("worker") || accountType === "worker"));
-  const isWorkerWalletView = isBothRole || (!isEmployerWalletView && canUseWorkerWallet);
+  const isWorkerWalletView = user?.role === "both" ||
+    Boolean(user?.accountOptions?.includes("worker")) || user?.accountType === "worker";
 
   const loadWallet = useCallback(async (skipLoader = false) => {
     if (!skipLoader) setIsLoading(true);
@@ -84,10 +68,8 @@ export function EWallet() {
       ]);
 
       const profile = (profileResponse as any)?.profile ?? (profileResponse as any);
-      const nextEmployerBalance = toAmount((profile as any)?.employerBalance);
       const nextWorkerBalance = toAmount((profile as any)?.workerBalance);
 
-      setEmployerBalance(nextEmployerBalance);
       setWorkerBalance(nextWorkerBalance);
 
       const txList = Array.isArray((txResponse as any)?.transactions)
@@ -130,11 +112,6 @@ export function EWallet() {
     };
   }, [isWorkerWalletView, loadWallet]);
 
-  const activeBalance = isBothRole
-    ? employerBalance + workerBalance
-    : isEmployerWalletView
-    ? employerBalance
-    : workerBalance;
   const walletOwnerId = String(user?.id || "");
 
   const totalMoneyIn = useMemo(
@@ -158,34 +135,6 @@ export function EWallet() {
         .reduce((sum, item) => sum + toAmount(item.amount), 0),
     [payoutRequests],
   );
-
-  const handleTopUpSubmit = async () => {
-    if (!(isEmployerWalletView || isBothRole)) {
-      return;
-    }
-
-    const amount = Number(topUpAmount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      toast.error(t("eWallet.toast.invalidAmount"));
-      return;
-    }
-
-    setIsCreatingTopUp(true);
-    try {
-      const response = await createTopUpSession({ amount, target: "EMPLOYER" });
-      const checkoutUrl = safeExternalUrl(response?.checkoutUrl, { purpose: "payment" });
-      if (!checkoutUrl) throw new Error("The payment provider returned an unsafe checkout link.");
-
-      if (response?.checkoutId) {
-        sessionStorage.setItem("topup_checkout_id", response.checkoutId);
-      }
-
-      window.location.assign(checkoutUrl);
-    } catch (error: any) {
-      toast.error(error?.message || t("eWallet.toast.topUpInitFailed"));
-      setIsCreatingTopUp(false);
-    }
-  };
 
   const handlePayoutSubmit = async () => {
     if (!isWorkerWalletView) return;
@@ -283,11 +232,10 @@ export function EWallet() {
 
   // Sections are built as data so `WalletSectionPager` can render them either
   // stacked or one-at-a-time behind its tab strip, from a single copy of each
-  // block. The withdrawal pair only exists for wallets that can withdraw, so
-  // an employer-only wallet ends up with one section and the pager degrades to
-  // plain stacking on its own.
+  // block. Withdrawal sections are available to worker accounts, including
+  // accounts with both roles when they use the worker dashboard.
   const walletSections: WalletSection[] = [
-    ...(isWorkerWalletView || isBothRole
+    ...(isWorkerWalletView
       ? [
           { id: "withdraw", label: t("eWallet.form.title"), content: (
                   <div ref={attachPayoutCard} className="ui-card p-6">
@@ -455,12 +403,12 @@ export function EWallet() {
       : []),
     {
       id: "transactions",
-      label: isEmployerWalletView ? t("eWallet.transactions.titlePayment") : t("eWallet.transactions.titleRecent"),
+      label: t("eWallet.transactions.titleRecent"),
       content: (
               <div className="ui-card p-6">
                 <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
                   <h3 className="text-section font-semibold text-[#111827]">
-                    {isEmployerWalletView ? t("eWallet.transactions.titlePayment") : t("eWallet.transactions.titleRecent")}
+                    {t("eWallet.transactions.titleRecent")}
                   </h3>
                   <div className="text-caption text-[#6B7280]">{t("eWallet.transactions.helper")}</div>
                 </div>
@@ -539,21 +487,13 @@ export function EWallet() {
           <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
             <div>
               <p className="text-body opacity-80 mb-2">
-                {isBothRole
-                  ? t("eWallet.balanceCard.combinedBalance")
-                  : t("eWallet.balanceCard.currentBalance", {
-                      role: isEmployerWalletView ? t("eWallet.role.employer") : t("eWallet.role.worker"),
-                    })}
+                {t("eWallet.balanceCard.currentBalance", { role: t("eWallet.role.worker") })}
               </p>
               <h2 className="text-[28px] sm:text-[42px] font-bold tracking-tight">
-                {isLoading ? t("eWallet.balanceCard.loading") : formatCurrency(activeBalance)}
+                {isLoading ? t("eWallet.balanceCard.loading") : formatCurrency(workerBalance)}
               </h2>
               <p className="text-body text-white/75 mt-3">
-                {isBothRole
-                  ? t("eWallet.balanceCard.descriptionBoth")
-                  : isEmployerWalletView
-                  ? t("eWallet.balanceCard.descriptionEmployer")
-                  : t("eWallet.balanceCard.descriptionWorker")}
+                {t("eWallet.balanceCard.descriptionWorker")}
               </p>
             </div>
             <div className="bg-white/20 backdrop-blur-sm rounded-card p-4">
@@ -562,66 +502,21 @@ export function EWallet() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            {isBothRole ? (
-              <>
-                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-                  <p className="text-caption opacity-80">{t("eWallet.balanceCard.employerBalance")}</p>
-                  <p className="text-[20px] font-semibold mt-1">{isLoading ? "—" : formatCurrency(employerBalance)}</p>
-                </div>
-                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-                  <p className="text-caption opacity-80">{t("eWallet.balanceCard.workerBalance")}</p>
-                  <p className="text-[20px] font-semibold mt-1">{isLoading ? "—" : formatCurrency(workerBalance)}</p>
-                </div>
-              </>
-            ) : isEmployerWalletView ? (
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-                <p className="text-caption opacity-80">{t("eWallet.balanceCard.employerBalance")}</p>
-                <p className="text-[20px] font-semibold mt-1">{formatCurrency(employerBalance)}</p>
-              </div>
-            ) : (
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-                <p className="text-caption opacity-80">{t("eWallet.balanceCard.workerBalance")}</p>
-                <p className="text-[20px] font-semibold mt-1">{formatCurrency(workerBalance)}</p>
-              </div>
-            )}
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+              <p className="text-caption opacity-80">{t("eWallet.balanceCard.workerBalance")}</p>
+              <p className="text-[20px] font-semibold mt-1">{isLoading ? "—" : formatCurrency(workerBalance)}</p>
+            </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
               <p className="text-caption opacity-80">{t("eWallet.balanceCard.pendingWithdrawals")}</p>
               <p className="text-[20px] font-semibold mt-1">{formatCurrency(pendingPayoutTotal)}</p>
             </div>
-            {!isBothRole && (
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-                <p className="text-caption opacity-80">{t("eWallet.balanceCard.totalTransactions")}</p>
-                <p className="text-[20px] font-semibold mt-1">{transactions.length}</p>
-              </div>
-            )}
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+              <p className="text-caption opacity-80">{t("eWallet.balanceCard.totalTransactions")}</p>
+              <p className="text-[20px] font-semibold mt-1">{transactions.length}</p>
+            </div>
           </div>
 
-          {isBothRole ? (
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => setIsTopUpOpen(true)}
-                className="w-full md:w-auto bg-white text-brand font-semibold py-3 px-6 rounded-xl hover:bg-gray-100 transition"
-              >
-                {t("eWallet.balanceCard.topUp")}
-              </button>
-              <button
-                type="button"
-                onClick={handleWithdrawClick}
-                className="w-full md:w-auto bg-white/20 text-white font-semibold py-3 px-6 rounded-xl hover:bg-white/30 transition"
-              >
-                {t("eWallet.balanceCard.withdrawWorkerFunds")}
-              </button>
-            </div>
-          ) : isEmployerWalletView ? (
-            <button
-              type="button"
-              onClick={() => setIsTopUpOpen(true)}
-              className="w-full md:w-auto bg-white text-brand font-semibold py-3 px-6 rounded-xl hover:bg-gray-100 transition"
-            >
-              {t("eWallet.balanceCard.topUp")}
-            </button>
-          ) : isWorkerWalletView ? (
+          {isWorkerWalletView ? (
             <button
               type="button"
               onClick={handleWithdrawClick}
@@ -673,67 +568,6 @@ export function EWallet() {
         activeId={walletSectionId}
         onActiveIdChange={setWalletSectionId}
       />
-
-      {(isEmployerWalletView || isBothRole) && isTopUpOpen ? (
-        <Dialog
-          open
-          title={t("eWallet.topUpModal.title")}
-          onClose={() => {
-            if (isCreatingTopUp) return;
-            setIsTopUpOpen(false);
-            setTopUpAmount("");
-          }}
-          closeDisabled={isCreatingTopUp}
-        >
-          <label htmlFor="topup-amount" className="text-body-sm text-[#374151] mb-2 block">{t("eWallet.topUpModal.amountLabel")}</label>
-          <input
-            id="topup-amount"
-            type="number"
-            min="1"
-            step="0.01"
-            className="w-full border border-[#D1D5DB] rounded-control px-3 py-2 text-body mb-4"
-            value={topUpAmount}
-            onChange={(event) => setTopUpAmount(event.target.value)}
-            placeholder="1000"
-          />
-          <p className="text-body-sm text-[#6B7280] mb-6">
-            {t("eWallet.topUpModal.description")}
-          </p>
-          <div className="rounded-control bg-[#F8FAFC] border border-[#E2E8F0] p-3 mb-6 text-body-sm text-[#374151] space-y-1">
-            <div className="flex justify-between"><span>{t("eWallet.topUpModal.depositAmount")}</span><span>{formatCurrency(toAmount(topUpAmount))}</span></div>
-            <div className="flex justify-between font-semibold text-[#111827] pt-1 border-t border-[#E2E8F0]"><span>{t("eWallet.topUpModal.totalAmountCharged")}</span><span>{formatCurrency(topUpTotal)}</span></div>
-          </div>
-
-          <div className="flex flex-col-reverse items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
-            <button
-              type="button"
-              className="min-h-11 px-4 rounded-control border border-[#D1D5DB] text-body"
-              onClick={() => {
-                if (isCreatingTopUp) return;
-                setIsTopUpOpen(false);
-                setTopUpAmount("");
-              }}
-              disabled={isCreatingTopUp}
-            >
-              {t("eWallet.topUpModal.cancel")}
-            </button>
-            <button
-              type="button"
-              className="inline-flex min-h-11 items-center justify-center px-4 rounded-control bg-brand text-white text-body font-medium transition hover:opacity-90 disabled:opacity-60"
-              onClick={handleTopUpSubmit}
-              disabled={isCreatingTopUp}
-            >
-              {isCreatingTopUp ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" /> {t("eWallet.topUpModal.redirecting")}
-                </span>
-              ) : (
-                t("eWallet.topUpModal.proceed")
-              )}
-            </button>
-          </div>
-        </Dialog>
-      ) : null}
     </div>
   );
 }

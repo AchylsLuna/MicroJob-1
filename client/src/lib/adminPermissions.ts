@@ -44,6 +44,8 @@ export type AdminPermission =
   | "users.ban"
   | "users.resetPassword"
   | "users.unlock"
+  // Direct messaging recipient directory
+  | "messages.recipients.view"
   // Moderation
   | "verification.review"
   | "moderation.review"
@@ -79,6 +81,7 @@ export const ROLE_PERMISSIONS: Record<AdminStaffRole, readonly AdminPermission[]
   superadmin: [],
 
   admin_team: [
+    "messages.recipients.view",
     "staff.view",
     "staff.create",
     "staff.assignRole",
@@ -99,6 +102,7 @@ export const ROLE_PERMISSIONS: Record<AdminStaffRole, readonly AdminPermission[]
   ],
 
   moderator: [
+    "messages.recipients.view",
     "users.view",
     "users.staff.view",
     "users.flags.view",
@@ -113,6 +117,7 @@ export const ROLE_PERMISSIONS: Record<AdminStaffRole, readonly AdminPermission[]
   ],
 
   finance_team: [
+    "messages.recipients.view",
     "users.view",
     "users.flags.view",
     "users.flag",
@@ -129,15 +134,15 @@ export const ROLE_PERMISSIONS: Record<AdminStaffRole, readonly AdminPermission[]
     "analytics.export",
   ],
 
-  // Deliberately analytics-only: the spec is "no write access to user data,
-  // jobs, or transactions." No `users.view`, so User Management never appears
-  // in this role's navigation at all.
-  analytics_team: ["analytics.view", "analytics.export"],
+  // Messaging is available to every staff role. User Management still
+  // requires users.view, which analytics staff do not hold.
+  analytics_team: ["messages.recipients.view", "analytics.view", "analytics.export"],
 
   // Deliberately read-only on people and jobs: `users.view` and `jobs.view`
   // without `users.suspend`. This role's write surface is tickets, password
   // resets, and unlocks — anything heavier gets escalated.
   support_staff: [
+    "messages.recipients.view",
     "users.view",
     "users.flag",
     "users.resetPassword",

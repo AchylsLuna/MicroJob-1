@@ -4,7 +4,7 @@ import User from '../models/User.js';
 import TrustedDevice from '../models/TrustedDevice.js';
 import { disconnectSession } from '../lib/socket.js';
 import { createAccessToken, cookieSecurityOptions, isBearerAuthRequest, isNativeAuthRequest, SESSION_TTL_MS } from '../lib/authSession.js';
-import { clearTrustedDevicesForUser, listTrustedDevicesForUser, revokeTrustedDeviceToken } from '../lib/trustedDevice.js';
+import { clearTrustedDevicesForUser, listTrustedDevicesForUser, requirePasswordForTrustedDevice } from '../lib/trustedDevice.js';
 import monitor from '../lib/monitor.js';
 
 export const SELF_SERVICE_ROLES = new Set(['hire', 'work', 'both']);
@@ -233,7 +233,9 @@ const logout = async (req, res) => {
       console.warn('Failed to update session on logout', err);
     }
   }
-  await revokeTrustedDeviceToken({
+  // A normal sign-out ends this session, not the user's 30-day OTP exemption.
+  // Require a password before the retained device can restore a session.
+  await requirePasswordForTrustedDevice({
     token: req.cookies?.trustedDevice || req.body?.trustedDeviceToken,
     userId: req.user?.id,
   });
@@ -242,7 +244,6 @@ const logout = async (req, res) => {
   res.clearCookie('sessionId', { ...cookieSecurityOptions, httpOnly: true });
   res.clearCookie('csrfToken', { ...cookieSecurityOptions, httpOnly: false });
   res.clearCookie('token', { ...cookieSecurityOptions, httpOnly: true });
-  res.clearCookie('trustedDevice', { ...cookieSecurityOptions, httpOnly: true });
   res.status(200).json({ message: 'Logout successful' });
 };
 

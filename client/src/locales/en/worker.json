@@ -1220,7 +1220,7 @@
     },
     "mfa": {
       "title": "Two-factor authentication",
-      "description": "Add a second step at sign-in so a stolen password alone is not enough to reach your account.",
+      "description": "Add an authenticator or backup-code verification step at sign-in. Trusted devices skip the usual email code, but this setting still requires verification.",
       "statusDisabled": "Off",
       "statusEnabled": "On",
       "statusLoading": "Checking...",

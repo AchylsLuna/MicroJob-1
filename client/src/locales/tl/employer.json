@@ -22,6 +22,13 @@
     "skills": "Mga kasanayan",
     "requirements": "Mga kinakailangan",
     "responsibilities": "Mga responsibilidad",
+    "pagination": {
+      "showing": "Ipinapakita ang {{from}}–{{to}} sa {{total}}",
+      "previous": "Nakaraan",
+      "next": "Susunod",
+      "pageAria": "Mga pahina ng kasaysayan ng trabaho",
+      "goToPage": "Pumunta sa pahina {{page}}"
+    },
     "statuses": { "Available": "Bukas", "In Progress": "Isinasagawa", "Completed": "Nakumpleto", "Cancelled": "Kinansela", "Closed": "Sarado", "Full refund": "Buong refund", "Resolved": "Nalutas" }
   },
   "postJob": {
@@ -30,17 +37,21 @@
       "subtitle": "Gumawa ng job post, subaybayan ang status, at pamahalaan ang iyong mga listing."
     },
     "jobType": {
+      "examplesLabel": "Mga halimbawa",
       "shortTerm": {
         "label": "Panandaliang trabaho",
-        "description": "Minsanang o pansamantalang trabaho na may malinaw na katapusan."
+        "description": "Minsanang o pansamantalang trabaho na may malinaw na katapusan.",
+        "examples": "Pag-aayos para sa event, isang araw na paglilinis, at tulong sa paglilipat."
       },
       "sideHustle": {
         "label": "Side hustle",
-        "description": "Flexible na trabaho na puwedeng gawin para sa dagdag na kita."
+        "description": "Flexible na trabaho na puwedeng gawin para sa dagdag na kita.",
+        "examples": "Pagtuturo sa gabi, delivery tuwing weekend, at freelance design."
       },
       "recruiting": {
         "label": "Recruiting",
-        "description": "Mag-hire para sa isang tuluy-tuloy o mas matagalang tungkulin."
+        "description": "Mag-hire para sa isang tuluy-tuloy o mas matagalang tungkulin.",
+        "examples": "Tuloy-tuloy na trabaho bilang tindero, receptionist, o customer support."
       }
     },
     "requiredFields": {
@@ -489,6 +500,12 @@
       }
     },
     "workflow": {
+      "stepCaption": "Hakbang {{step}} sa {{total}} · {{title}}",
+      "statusSubtitle": "Baguhin ang yugto ng aplikasyon bago magpadala ng alok.",
+      "offerSubtitle": "Itakda ang napagkasunduang halaga at ipadala ito sa aplikante para suriin.",
+      "reviewSubtitle": "Hintaying tanggapin o tanggihan ng aplikante ang iyong pormal na alok.",
+      "hireSubtitle": "Kumpirmahin ang pag-hire o tanggihan ang tinanggap na alok.",
+      "paymentSubtitle": "Pamahalaan ang napagkasunduang bayad at aprubahan ang naisumiteng trabaho.",
       "title": "Mga Aksyon sa Aplikante",
       "stepsLabel": "Mga hakbang ng aplikasyon",
       "statusStep": "Status at alok",

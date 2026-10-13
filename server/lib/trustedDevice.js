@@ -36,7 +36,7 @@ export const consumeTrustedDevice = async ({ token, userId }) => {
 
   const device = await TrustedDevice.findOneAndUpdate(
     { user: userId, tokenHash: hashDeviceToken(token), expiresAt: { $gt: now } },
-    { $set: { tokenHash: hashDeviceToken(nextToken), lastUsedAt: now, expiresAt } },
+    { $set: { tokenHash: hashDeviceToken(nextToken), lastUsedAt: now, expiresAt, requiresPassword: false } },
     { returnDocument: 'after' },
   );
   if (!device) return null;
@@ -49,7 +49,7 @@ export const consumeTrustedDeviceByToken = async (token) => {
   const expiresAt = new Date(now.getTime() + TRUSTED_DEVICE_TTL_MS);
   const nextToken = crypto.randomBytes(32).toString('hex');
   const device = await TrustedDevice.findOneAndUpdate(
-    { tokenHash: hashDeviceToken(token), expiresAt: { $gt: now } },
+    { tokenHash: hashDeviceToken(token), expiresAt: { $gt: now }, requiresPassword: { $ne: true } },
     { $set: { tokenHash: hashDeviceToken(nextToken), lastUsedAt: now, expiresAt } },
     { returnDocument: 'after' },
   );
@@ -77,6 +77,14 @@ export const clearTrustedDevicesForUser = (userId) => TrustedDevice.deleteMany({
 export const revokeTrustedDeviceToken = ({ token, userId }) => {
   if (!token || !userId) return Promise.resolve({ deletedCount: 0 });
   return TrustedDevice.deleteOne({ user: userId, tokenHash: hashDeviceToken(token) });
+};
+
+export const requirePasswordForTrustedDevice = ({ token, userId }) => {
+  if (!token || !userId) return Promise.resolve({ matchedCount: 0 });
+  return TrustedDevice.updateOne(
+    { user: userId, tokenHash: hashDeviceToken(token) },
+    { $set: { requiresPassword: true } },
+  );
 };
 
 export const listTrustedDevicesForUser = (userId) =>

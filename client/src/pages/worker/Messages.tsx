@@ -11,6 +11,7 @@ import {
   MoreVertical,
   Search,
   Send,
+  SquarePen,
   Trash2,
 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
@@ -30,6 +31,8 @@ import { formatCurrency, formatDate, getActiveDateLocale } from "../../lib/forma
 import { ConfirmDialog } from "../../components/ui/index";
 import { ConversationReportDialog } from "../../components/messaging/ConversationReportDialog";
 import { MessagingSafetyNotice } from "../../components/messaging/MessagingSafetyNotice";
+import { RecipientDirectoryDialog } from "../../components/messaging/RecipientDirectoryDialog";
+import { useAdminPermissions } from "../../hooks/useAdminPermissions";
 import {
   getConversationWithUser,
   sendMessage,
@@ -42,6 +45,7 @@ import {
   respondToJobOffer,
   cancelJobOffer,
   confirmOfferHire,
+  type MessageRecipient,
 } from "../../services/api";
 
 // Consecutive messages from the same sender inside this window collapse into
@@ -130,6 +134,9 @@ const getEntityId = (value: unknown): string => {
 
 export function Messages() {
   const { t } = useTranslation("worker");
+  const { t: tAdmin } = useTranslation("admin");
+  const { can } = useAdminPermissions();
+  const canBrowseRecipients = can('messages.recipients.view');
   const navigate = useNavigate();
   const { user } = useAuth();
   const {
@@ -160,6 +167,7 @@ export function Messages() {
   const [sending, setSending] = useState(false);
   const [showListMenu, setShowListMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showRecipientDirectory, setShowRecipientDirectory] = useState(false);
   const [reportTarget, setReportTarget] = useState<Contact | null>(null);
   const reportTriggerRef = useRef<HTMLButtonElement>(null);
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
@@ -1045,6 +1053,33 @@ export function Messages() {
     );
   }
 
+  const selectDirectoryRecipient = (recipient: MessageRecipient) => {
+    const conversationId = conversationIdOf(recipient.id);
+    const existing = namedContacts.find((contact) => contact.conversationId === conversationId);
+    const contact: Contact = existing ? { ...existing, otherUserName: recipient.name, otherUserIsStaff: recipient.isStaff } : {
+      conversationId,
+      otherUserId: recipient.id,
+      otherUserName: recipient.name,
+      otherUserIsStaff: recipient.isStaff,
+      jobId: null,
+      jobTitle: null,
+      lastMessage: "",
+      lastMessageAt: new Date().toISOString(),
+      unreadCount: 0,
+    };
+    startChatHandledRef.current = true;
+    setShowRecipientDirectory(false);
+    setConversationFilter("inbox");
+    setSearchQuery("");
+    setMessageText("");
+    setMessages([]);
+    setEditingMessageId(null);
+    setEditingText("");
+    setSearchParams({ contact: conversationId });
+    void handleSelectContact(contact);
+    requestAnimationFrame(() => composerRef.current?.focus());
+  };
+
   return (
     <div className="mx-auto h-[calc(100dvh-120px)] min-h-[28rem] max-w-[1341px] pt-1 lg:h-[calc(100dvh-160px)]">
       <div className="flex h-full overflow-hidden rounded-card border border-slate-200 bg-white shadow-sm">
@@ -1119,6 +1154,11 @@ export function Messages() {
                 className="w-full rounded-full border border-slate-200 bg-white py-3 pl-11 pr-4 text-body text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand focus:ring-2 focus:ring-brand/20"
               />
             </div>
+            {canBrowseRecipients ? (
+              <button type="button" onClick={() => setShowRecipientDirectory(true)} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">
+                <SquarePen className="h-4 w-4" aria-hidden="true" />{tAdmin("messageDirectory.newMessage")}
+              </button>
+            ) : null}
           </div>
 
           <div className="flex-1 overflow-y-auto bg-white">
@@ -1665,6 +1705,7 @@ export function Messages() {
           </motion.div>
         ) : null}
       </AnimatePresence>
+      {canBrowseRecipients && showRecipientDirectory ? <RecipientDirectoryDialog onClose={() => setShowRecipientDirectory(false)} onSelect={selectDirectoryRecipient} /> : null}
       {reportTarget ? <ConversationReportDialog contact={reportTarget} onClose={() => setReportTarget(null)} restoreFocusRef={reportTriggerRef} /> : null}
       <ConfirmDialog
         open={Boolean(offerConfirmAction)}

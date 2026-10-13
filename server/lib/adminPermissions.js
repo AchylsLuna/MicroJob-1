@@ -20,6 +20,7 @@ export const ROLE_PERMISSIONS = {
   superadmin: [],
 
   admin_team: [
+    'messages.recipients.view',
     'staff.view',
     'staff.create',
     'staff.assignRole',
@@ -40,6 +41,7 @@ export const ROLE_PERMISSIONS = {
   ],
 
   moderator: [
+    'messages.recipients.view',
     'users.view',
     'users.staff.view',
     'users.flags.view',
@@ -54,6 +56,7 @@ export const ROLE_PERMISSIONS = {
   ],
 
   finance_team: [
+    'messages.recipients.view',
     'users.view',
     'users.flags.view',
     'users.flag',
@@ -70,9 +73,10 @@ export const ROLE_PERMISSIONS = {
     'analytics.export',
   ],
 
-  analytics_team: ['analytics.view', 'analytics.export'],
+  analytics_team: ['messages.recipients.view', 'analytics.view', 'analytics.export'],
 
   support_staff: [
+    'messages.recipients.view',
     'users.view',
     'users.flag',
     'users.resetPassword',

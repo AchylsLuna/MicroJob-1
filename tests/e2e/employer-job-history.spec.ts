@@ -4,7 +4,7 @@ const employer = { id: "507f1f77bcf86cd799439011", email: "history@example.com",
 const job = { _id: "history-job", title: "Park cleanup", description: "Clean the park grounds", location: "Pasig", salary: 500, status: "Completed", positionsNeeded: 1, hiredCount: 1, amountHeld: 0, amountPaid: 600, canDelete: false };
 const application = { _id: "history-app", status: "Hired", job, applicant: { _id: "worker-one", firstName: "Maria", lastName: "Santos", email: "maria@example.com" }, coverLetter: "I have cleanup experience.", agreedAmount: 600, workStatus: "Completed", paymentStatus: "Paid", employerHidden: true };
 
-async function mockEmployer(page: Page, mode: "history" | "hire" = "history") {
+async function mockEmployer(page: Page, mode: "history" | "hire" = "history", historyJobs = [job]) {
   let reviewed = false;
   let hireCalls = 0;
   const applicationQueries: URL[] = [];
@@ -16,7 +16,7 @@ async function mockEmployer(page: Page, mode: "history" | "hire" = "history") {
     const url = new URL(route.request().url());
     let body: unknown = [];
     if (url.pathname.endsWith("/auth/me")) body = { data: employer };
-    if (url.pathname.endsWith("/jobs/history")) body = [job];
+    if (url.pathname.endsWith("/jobs/history")) body = historyJobs;
     if (url.pathname.endsWith("/jobs/mine")) body = [job, { ...job, _id: "ongoing-job", title: "Ongoing cleanup", status: "In Progress" }];
     if (url.pathname.endsWith("/applications/employer")) {
       applicationQueries.push(url);
@@ -30,8 +30,51 @@ async function mockEmployer(page: Page, mode: "history" | "hire" = "history") {
     if (url.pathname.endsWith("/confirm-hire")) { hireCalls += 1; body = { application }; }
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   });
-  return { applicationQueries, hireCalls: () => hireCalls };
+  return { applicationQueries, hireCalls: () => hireCalls, setHistory: (items: typeof historyJobs) => { historyJobs = items; } };
 }
+
+test("job history paginates ten rows, refreshes to page one, and handles a smaller history", async ({ page }) => {
+  const jobs = Array.from({ length: 23 }, (_, index) => ({ ...job, _id: `job-${index}`, title: `Cleanup ${index + 1}` }));
+  const state = await mockEmployer(page, "history", jobs);
+  await page.goto("/employer/job-history");
+  const rows = page.getByRole("table").locator("tbody tr");
+  const pagination = page.getByRole("navigation", { name: "Job history pages" });
+  await expect(rows).toHaveCount(10);
+  await expect(page.getByRole("status")).toHaveText("Showing 1–10 of 23");
+  await expect(pagination.getByRole("button", { name: "Prev", exact: true })).toBeDisabled();
+  await pagination.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(rows.first()).toContainText("Cleanup 11");
+  await expect(page.getByRole("status")).toHaveText("Showing 11–20 of 23");
+  await pagination.getByRole("button", { name: "Go to page 3", exact: true }).click();
+  await expect(rows).toHaveCount(3);
+  await expect(page.getByRole("status")).toHaveText("Showing 21–23 of 23");
+  await expect(pagination.getByRole("button", { name: "Go to page 3" })).toHaveAttribute("aria-current", "page");
+  await expect(pagination.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
+  await pagination.getByRole("button", { name: "Prev", exact: true }).click();
+  await expect(rows.first()).toContainText("Cleanup 11");
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Showing 1–10 of 23");
+  await pagination.getByRole("button", { name: "Go to page 3", exact: true }).click();
+  state.setHistory(jobs.slice(0, 5));
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(rows).toHaveCount(5);
+  await expect(rows.first()).toContainText("Cleanup 1");
+  await expect(pagination).toHaveCount(0);
+});
+
+test("paginated job history fits phone, tablet, and desktop widths", async ({ page }) => {
+  await mockEmployer(page, "history", Array.from({ length: 47 }, (_, index) => ({ ...job, _id: `job-${index}` })));
+  await page.goto("/employer/job-history");
+  for (const width of [375, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    const pagination = page.getByRole("navigation", { name: "Job history pages" });
+    await expect(pagination).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    for (const button of await pagination.getByRole("button").all()) {
+      expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+  }
+});
 
 test("job history shows money, scoped application details, and saves a worker rating", async ({ page }) => {
   const state = await mockEmployer(page);
@@ -45,6 +88,9 @@ test("job history shows money, scoped application details, and saves a worker ra
   await expect(details).toContainText("Clean the park grounds");
   await expect(details).toContainText("Maria Santos");
   await expect(details).toContainText("I have cleanup experience.");
+  const compactPayment = details.locator("p").filter({ hasText: /^Hired$/ }).locator("..");
+  await expect(compactPayment).toHaveClass("rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-3 space-y-2");
+  await expect(compactPayment.getByRole("heading")).toHaveCount(0);
   expect(state.applicationQueries.at(-1)?.searchParams.get("jobId")).toBe(job._id);
   expect(state.applicationQueries.at(-1)?.searchParams.get("includeHidden")).toBe("true");
   await details.getByRole("button", { name: "Rate Worker", exact: false }).click();

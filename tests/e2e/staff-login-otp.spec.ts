@@ -62,7 +62,7 @@ async function enterCode(dialog: Locator, code: string) {
 test('primary email credentials open secondary-email OTP, then authenticate into the admin dashboard', async ({ page }) => {
   const mutations = await mockStaff(page, { otp: true });
   await signIn(page);
-  const dialog = page.getByRole('dialog', { name: 'Verify your email' });
+  const dialog = page.getByRole('dialog', { name: 'Verify your sign-in' });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('secondary@example.com');
   await expect(dialog.getByRole('checkbox')).toHaveCount(0);
@@ -98,7 +98,7 @@ test('invalid OTP can be retried; resend uses the renewed token and stays on sec
   await page.clock.install();
   const mutations = await mockStaff(page, { otp: true, failCode: true });
   await signIn(page);
-  const dialog = page.getByRole('dialog', { name: 'Verify your email' });
+  const dialog = page.getByRole('dialog', { name: 'Verify your sign-in' });
   await enterCode(dialog, '123456');
   await expect(page.getByText('Invalid or expired OTP code.', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Got it', exact: true }).click();
@@ -145,7 +145,7 @@ test('phone secondary-email OTP fits the screen and cancel leaves the staff memb
   const mutations = await mockStaff(page, { otp: true });
   await page.setViewportSize({ width: 375, height: 812 });
   await signIn(page);
-  const dialog = page.getByRole('dialog', { name: 'Verify your email' });
+  const dialog = page.getByRole('dialog', { name: 'Verify your sign-in' });
   await expect(dialog).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: '.agent/staff-login-otp-phone.png', fullPage: true });

@@ -483,6 +483,9 @@ export default function PostJobWizard({
                           {option.label}
                         </span>
                         <span className="mt-1 block text-xs leading-5 text-slate-500">{option.description}</span>
+                        <span className="mt-3 block border-t border-slate-200 pt-3 text-xs leading-5 text-slate-600">
+                          <span className="font-semibold">{t("postJob.jobType.examplesLabel")}:</span> {option.examples}
+                        </span>
                       </button>
                     );
                   })}

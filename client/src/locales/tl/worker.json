@@ -1220,7 +1220,7 @@
     },
     "mfa": {
       "title": "Two-factor authentication",
-      "description": "Magdagdag ng pangalawang hakbang sa pag-sign in para hindi sapat ang nanakaw na password para makapasok sa iyong account.",
+      "description": "Magdagdag ng beripikasyon gamit ang authenticator o backup code sa pag-sign in. Nilalaktawan ng trusted device ang karaniwang email code, pero nangangailangan pa rin ng beripikasyon ang setting na ito.",
       "statusDisabled": "Naka-off",
       "statusEnabled": "Naka-on",
       "statusLoading": "Sinusuri...",
