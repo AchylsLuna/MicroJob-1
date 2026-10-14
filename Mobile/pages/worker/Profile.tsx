@@ -325,7 +325,7 @@ export default function Profile({
     ? 'verified'
     : rawIdentityStatus === 'rejected'
       ? 'rejected'
-      : (rawIdentityStatus === 'in-review' || rawIdentityStatus === 'pending' || hasIdentityDoc)
+      : hasIdentityDoc
         ? 'in-review'
         : 'unsubmitted';
 
@@ -335,7 +335,7 @@ export default function Profile({
     ? 'verified'
     : rawAddressStatus === 'rejected'
       ? 'rejected'
-      : (rawAddressStatus === 'in-review' || rawAddressStatus === 'pending' || hasAddressDoc)
+      : hasAddressDoc
         ? 'in-review'
         : 'unsubmitted';
 
