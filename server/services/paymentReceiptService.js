@@ -43,23 +43,31 @@ const formatPayoutMethod = (destination) => {
 };
 
 const formatPaymentMethod = (transaction) => {
-  if (transaction.type === 'PAYOUT' && transaction.payoutRequest?.destinationSnapshot) {
-    return formatPayoutMethod(transaction.payoutRequest.destinationSnapshot);
+  if (transaction.type === 'PAYOUT') {
+    if (transaction.payoutRequest?.destinationSnapshot) return formatPayoutMethod(transaction.payoutRequest.destinationSnapshot);
+    return transaction.payoutRequest ? 'Withdrawal to your selected account (method unavailable)' : 'MicroJobs wallet credit';
   }
 
-  const provider = transaction.provider;
-  const normalized = String(provider || '').trim().toLowerCase();
-  if (normalized === 'paymongo') return 'PayMongo';
-  if (normalized === 'xendit') return 'Xendit';
-  if (normalized === 'xendit-link') return 'Xendit Payment Link';
+  // The processor is known; the customer's chosen checkout method is not stored.
+  const normalized = String(transaction.provider || '').trim().toLowerCase();
+  if (normalized === 'paymongo') return 'Online payment processed by PayMongo';
+  if (normalized === 'xendit' || normalized === 'xendit-link') return 'Online payment processed by Xendit';
   if (normalized === 'dev-webhook') return 'Development payment simulator';
-  return provider || 'Online payment';
+  return 'Online payment (method not recorded)';
 };
 
-const formatStatus = (transaction) =>
-  transaction.type === 'TOP_UP' && transaction.status === 'COMPLETED'
-    ? 'Successful'
-    : transaction.status || 'COMPLETED';
+const formatStatus = (transaction) => ({
+  COMPLETED: 'Successful',
+  PENDING: 'Pending',
+  FAILED: 'Failed',
+  CANCELLED: 'Cancelled',
+}[transaction.status] || 'Not available');
+
+const maskAccountNumber = (destination) => {
+  const value = String(destination?.accountNumberMasked || destination?.accountNumber || '').replace(/\s/g, '');
+  if (!value) return 'Not available';
+  return value.length > 4 ? `****${value.slice(-4)}` : '****';
+};
 
 const formatWalletType = (target) => {
   const labels = {
@@ -124,40 +132,49 @@ const isRetryableEmailError = (error) => {
 
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
+// This email receipt covers money transferred into a wallet and payouts only.
+const supportsPaymentReceipt = (transaction) => ['TOP_UP', 'PAYOUT'].includes(transaction.type);
+
 const getReceiptTitle = (transaction) => {
   if (transaction.type === 'TOP_UP') return 'Wallet top-up receipt';
+  if (transaction.type === 'PAYOUT' && !transaction.payoutRequest) return 'Wallet credit receipt';
   if (transaction.type === 'PAYOUT' && transaction.status === 'PENDING') return 'Withdrawal request receipt';
   if (transaction.type === 'PAYOUT') return 'Withdrawal receipt';
-  if (transaction.type === 'ESCROW') return 'Escrow payment receipt';
-  if (transaction.type === 'REFUND') return 'Refund receipt';
   return 'Payment receipt';
 };
 
 export const getReceiptSections = (transaction, user) => {
+  if (!supportsPaymentReceipt(transaction)) return [];
   const payout = transaction.payoutRequest;
   const destination = payout?.destinationSnapshot;
   const transactionDetails = [
     ['Account Holder', `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Not available'],
-    ['Account ID', maskReceiptIdentifier(user._id)],
-    ['Wallet Type', formatWalletType(transaction.balanceTarget)],
+    ['Wallet Type', transaction.type === 'TOP_UP' && transaction.meta?.target === 'BOTH'
+      ? 'Employer and worker wallets' : formatWalletType(transaction.balanceTarget)],
     ['Amount', formatMoney(transaction.amount)],
     ['Payment Method', formatPaymentMethod(transaction)],
     ['Transaction Status', formatStatus(transaction)],
-    ['Transaction Date and Time', formatDate(transaction.createdAt)],
+    ['Transaction Date and Time (Asia/Manila)', formatDate(transaction.createdAt)],
   ];
   const paymentReference = [
     ['Receipt Number', getPublicReceiptNumber(transaction)],
   ];
 
-  if (transaction.providerReference && transaction.providerReference !== transaction.reference) {
-    paymentReference.push(['Provider Reference', maskReceiptIdentifier(transaction.providerReference, { visibleStart: 11, visibleEnd: 5 })]);
+  // Support can use the public receipt number. Internal references and
+  // operational labels do not belong in customer emails.
+  if (transaction.type === 'TOP_UP') {
+    const fee = transaction.meta?.processingFee;
+    const total = transaction.meta?.totalAmountCharged;
+    if (typeof fee === 'number' && Number.isFinite(fee) && fee >= 0) transactionDetails.push(['Processing Fee', formatMoney(fee)]);
+    if (typeof total === 'number' && Number.isFinite(total) && total >= Number(transaction.amount)) transactionDetails.push(['Total Charged', formatMoney(total)]);
   }
-  if (transaction.label) transactionDetails.push(['Description', transaction.label]);
+  if (transaction.type === 'PAYOUT' && transaction.status === 'COMPLETED' && payout?.paidAt) {
+    transactionDetails.push(['Transfer Completed (Asia/Manila)', formatDate(payout.paidAt)]);
+  }
   if (transaction.jobReference?.title) transactionDetails.push(['Related Job', transaction.jobReference.title]);
   if (destination) {
-    transactionDetails.push(['Withdrawal Method', destination.institutionName || destination.methodType || 'Not available']);
     if (destination.accountName) transactionDetails.push(['Account Name', destination.accountName]);
-    if (destination.accountNumberMasked) transactionDetails.push(['Account Number', destination.accountNumberMasked]);
+    if (destination.accountNumberMasked || destination.accountNumber) transactionDetails.push(['Account Number', maskAccountNumber(destination)]);
   }
 
   return [
@@ -174,18 +191,15 @@ const findReceiptTransaction = (transactionId, userId) =>
     .populate('jobReference', 'title')
     .populate('payoutRequest', 'status destinationSnapshot createdAt reviewedAt paidAt');
 
-export async function sendPaymentReceiptEmail({ transactionId, userId }) {
-  const [user, transaction] = await Promise.all([
-    User.findById(userId).select('firstName lastName email'),
-    findReceiptTransaction(transactionId, userId),
-  ]);
-
-  if (!user || !transaction) return { sent: false, reason: 'not_found' };
-
-  const transporter = getEmailTransporter();
-  if (!transporter) return { sent: false, reason: 'smtp_unconfigured' };
-
+export const buildPaymentReceiptMessage = (transaction, user, fromAddress) => {
+  if (!supportsPaymentReceipt(transaction)) return null;
   const title = getReceiptTitle(transaction);
+  const statusMessage = {
+    COMPLETED: 'Your transaction was completed successfully.',
+    PENDING: 'Your transaction is pending. This receipt confirms the request, not a completed payment.',
+    FAILED: 'Your transaction failed. This receipt is not confirmation of a completed payment.',
+    CANCELLED: 'Your transaction was cancelled. This receipt is not confirmation of a completed payment.',
+  }[transaction.status] || 'The transaction status is unavailable. Check your wallet history for details.';
   const recipientName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'there';
   const sections = getReceiptSections(transaction, user);
   const textRows = sections.map(({ title: sectionTitle, rows }) => (
@@ -202,13 +216,11 @@ export async function sendPaymentReceiptEmail({ transactionId, userId }) {
     </tr>`).join('')}</tbody>
       </table>
     </section>`).join('');
-  const fromAddress = getMailFrom();
-
-  const message = {
+  return {
     from: `MicroJobs <${fromAddress}>`,
     to: user.email,
     subject: `MicroJobs ${title}`,
-    text: `Hi ${recipientName},\n\nYour ${title.toLowerCase()} is below.\n\n${textRows}\n\nKeep this email for your records.`,
+    text: `Hi ${recipientName},\n\n${statusMessage}\n\n${title}\n\n${textRows}\n\nKeep this email for your records.`,
     html: `
       <div style="max-width: 620px; margin: 0 auto; font-family: Arial, sans-serif; color: #102a43;">
         <div style="padding: 24px; background: #1c4d8d; color: #ffffff;">
@@ -217,12 +229,27 @@ export async function sendPaymentReceiptEmail({ transactionId, userId }) {
         </div>
         <div style="padding: 24px; border: 1px solid #d9e2ec; border-top: 0;">
           <p>Hi ${escapeHtml(recipientName)},</p>
-          <p>Here is the breakdown for your transaction. Sensitive identifiers are masked for your protection.</p>
+          <p>${escapeHtml(statusMessage)}</p>
           ${htmlSections}
           <p style="margin: 0; color: #52606d; font-size: 13px;">This is an automatically generated receipt from MicroJobs.</p>
         </div>
       </div>`,
   };
+};
+
+export async function sendPaymentReceiptEmail({ transactionId, userId }) {
+  const [user, transaction] = await Promise.all([
+    User.findById(userId).select('firstName lastName email'),
+    findReceiptTransaction(transactionId, userId),
+  ]);
+
+  if (!user || !transaction) return { sent: false, reason: 'not_found' };
+  if (!supportsPaymentReceipt(transaction)) return { sent: false, reason: 'unsupported_transaction_type' };
+
+  const transporter = getEmailTransporter();
+  if (!transporter) return { sent: false, reason: 'smtp_unconfigured' };
+
+  const message = buildPaymentReceiptMessage(transaction, user, getMailFrom());
 
   const maxAttempts = 3;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {

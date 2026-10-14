@@ -310,8 +310,8 @@ export default function EmployerJobPosts({
           return (
           <View style={styles.jobCard}>
             <View style={styles.jobHeader}>
-              <View>
-                <Text style={styles.jobTitle}>{job.title}</Text>
+              <View style={styles.jobHeaderCopy}>
+                <Text style={styles.jobTitle} numberOfLines={2} ellipsizeMode="tail">{job.title}</Text>
                 <Text style={styles.jobLocation}>{job.location}</Text>
                 {job.category?.name ? (
                   <Text style={styles.categoryTag}>{job.category.name}</Text>
@@ -593,8 +593,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    gap: 10,
   },
-  statusColumn: { alignItems: 'flex-end', gap: 6 },
+  jobHeaderCopy: { flex: 1, minWidth: 0 },
+  statusColumn: { flexShrink: 0, alignItems: 'flex-end', gap: 6 },
   jobTitle: { fontSize: 16, fontWeight: '700', color: tokens.colors.brandDark },
   jobLocation: { fontSize: 13, color: tokens.colors.textMuted, marginTop: 4 },
   categoryTag: {
@@ -616,10 +618,12 @@ const styles = StyleSheet.create({
   },
   urgentText: { color: '#b91c1c', fontSize: 11, fontWeight: '700' },
   statusTag: {
+    minWidth: 88,
     backgroundColor: '#dcfce7',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
+    alignItems: 'center',
   },
   statusText: { color: '#15803d', fontSize: 11, fontWeight: '700' },
   metaRow: {

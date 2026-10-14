@@ -382,6 +382,9 @@ export async function emailTransactionReceipt(req, res) {
     });
     if (!result.sent) {
       if (result.reason === 'not_found') return res.status(404).json({ message: 'Transaction not found' });
+      if (result.reason === 'unsupported_transaction_type') {
+        return res.status(400).json({ message: 'Email receipts are available only for wallet transfers and withdrawals.' });
+      }
       if (result.reason === 'smtp_unconfigured') {
         return res.status(503).json({ message: 'Receipt email is not configured. Please contact support.' });
       }

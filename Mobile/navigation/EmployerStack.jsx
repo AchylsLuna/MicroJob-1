@@ -63,7 +63,7 @@ function EmployerApplicationsScreen() {
       onMessageWorker={({ workerId, workerName }) => {
         if (!workerId) return;
         session.setInitialEmployerChatTarget({ id: String(workerId), name: workerName || 'Worker' });
-        navigateToEmployerTab(navigation, 'Messages');
+        employerTabPress('Messages');
       }}
     />
   );
@@ -76,7 +76,7 @@ function EmployerPostJobScreen() {
   const session = useAppSession();
   return (
     <EmployerPostJob
-      onPosted={() => navigateToEmployerTab(navigation, 'Home')}
+      onPosted={() => employerTabPress('Home')}
       onOpenWallet={() => navigation.navigate('EmployerEWallet')}
       onOpenProfile={() => navigation.navigate('EmployerAccountInformation', { initialSection: 'profile' })}
       currentUser={session.user}
