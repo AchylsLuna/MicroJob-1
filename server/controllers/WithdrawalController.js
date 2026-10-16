@@ -1,8 +1,10 @@
 import crypto from 'node:crypto';
 import PayoutRequest from '../models/PayoutRequest.js';
+import { withdrawalPolicy } from '../lib/withdrawalPolicy.js';
 import { confirmWithdrawal, previewWithdrawal, receivingInstitutions, reconcileWithdrawal } from '../services/withdrawals.js';
 const id = (req) => String(req.user?.id || req.user?.userId || '');
 const handle = (fn) => async (req, res) => { try { return await fn(req, res); } catch (error) { return res.status(error.status || 500).json({ message: error.status ? error.message : 'Withdrawal service is unavailable. Please try again.' }); } };
+export const getPolicy = handle(async (req, res) => res.json(withdrawalPolicy(req.query.sourceWallet === 'EMPLOYER' ? 'EMPLOYER' : 'WORKER')));
 export const getInstitutions = handle(async (req, res) => res.json({ institutions: await receivingInstitutions() }));
 export const preview = handle(async (req, res) => res.json(await previewWithdrawal(id(req), req.body || {})));
 export const confirm = handle(async (req, res) => { const payoutRequest = await confirmWithdrawal(id(req), req.body || {}); return res.status(payoutRequest.$locals.created ? 201 : 200).json({ payoutRequest }); });

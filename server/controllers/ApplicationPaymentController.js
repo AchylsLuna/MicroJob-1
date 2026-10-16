@@ -12,6 +12,7 @@ import { settleApplicationPayment } from '../services/applicationSettlement.js';
 import { activeDispute } from '../services/jobLifecycle.js';
 import { queueNotification } from '../services/notificationOutbox.js';
 import { httpError, requireReason, HOUR, canFileNonpayment, EVIDENCE_WINDOW_MS } from '../lib/lifecyclePolicy.js';
+import { hasValidDisputeEvidenceFileSignature, removeUploadFile } from '../middleware/uploadConfig.js';
 
 const id = (req) => String(req.user?.id || req.user?.userId || '');
 const handle = (fn) => async (req, res) => { try { return await fn(req, res); } catch (error) { return res.status(error.status || 500).json({ message: error.status ? error.message : 'Unable to complete this action.' }); } };
@@ -21,8 +22,9 @@ export const previewPayment = handle(async (req, res) => {
   if (!job || String(job.jobPoster) !== id(req)) throw httpError(403, 'You cannot review this payment.');
   if (!['Hired', 'Accepted'].includes(application.status) || application.paymentStatus === 'Paid' || application.cancellationPending || job.cancellationPending || await activeDispute(application._id)) throw httpError(409, 'This payment is unavailable or held.');
   const payment = await getDisputeMoneySnapshot({ application, job });
+  const worker = await User.findById(application.applicant).select('firstName lastName');
   await queueNotification(`payment-review:${application._id}:${application.workSubmittedAt?.getTime() || 0}`, { userId: id(req), audience: 'employer', type: 'payment', title: 'Review before releasing funds', message: `Confirm PHP ${payment.remainingAgreedAmount.toFixed(2)} from secured funds for ${job.title}. No additional wallet debit is required.`, entityType: 'application', entityId: String(application._id) });
-  return res.json({ application, amount: payment.remainingAgreedAmount, source: 'Secured job funds', walletDebit: 0 });
+  return res.json({ application, jobTitle: job.title, recipient: { id: String(application.applicant), name: `${worker?.firstName || ''} ${worker?.lastName || ''}`.trim() }, amount: payment.remainingAgreedAmount, source: 'Secured job funds', walletDebit: 0 });
 });
 
 async function transition(req, kind) {
@@ -43,6 +45,11 @@ async function transition(req, kind) {
         title = 'Payment authorized'; message = 'Your payment remains secured until the employer approves submitted work.';
       } else if (kind === 'submit') {
         if (!['In Progress', 'Changes Requested'].includes(application.workStatus)) throw httpError(409, 'Start work before submitting it.');
+        const statement = String(req.body?.statement || '').trim();
+        if ((!statement && !req.file) || statement.length > 4000) throw httpError(400, 'Describe the completed work (up to 4000 characters) or attach completion evidence.');
+        if (req.file && !hasValidDisputeEvidenceFileSignature(req.file)) throw httpError(400, 'The evidence file content does not match its file type.');
+        application.completionEvidence.push({ statement, fileUrl: req.file ? `/uploads/${req.file.filename}` : undefined, fileName: req.file?.originalname, actor: id(req), submittedAt: new Date() });
+        application.timeline.push({ type: 'work_submitted', actor: id(req), note: statement || 'Completion evidence attached.' });
         application.workStatus = 'Submitted'; application.workSubmittedAt = new Date(); application.firstSubmittedAt ||= application.workSubmittedAt;
         if (!application.reminderStages.includes(48)) application.nextPaymentReminderAt = new Date(application.firstSubmittedAt.getTime() + (application.reminderStages.includes(24) ? 48 : 24) * HOUR);
         title = 'Work submitted'; message = `Work for ${job.title} awaits your review and payment.`;
@@ -61,7 +68,14 @@ async function transition(req, kind) {
   } finally { await session.endSession(); }
 }
 export const authorizePayment = handle(async (req, res) => res.json({ application: await transition(req, 'authorize') }));
-export const submitWork = handle(async (req, res) => res.json({ application: await transition(req, 'submit') }));
+export const submitWork = handle(async (req, res) => {
+  let saved = false;
+  try {
+    const application = await transition(req, 'submit');
+    saved = true;
+    return res.json({ application });
+  } finally { if (!saved && req.file?.filename) await removeUploadFile(req.file.filename); }
+});
 export const requestChanges = handle(async (req, res) => res.json({ application: await transition(req, 'changes') }));
 export const settleDirect = handle(async (req, res) => {
   if (req.body?.confirmed !== true) throw httpError(400, 'Confirm the recipient and amount before releasing funds.');

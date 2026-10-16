@@ -166,7 +166,7 @@ export function FinancialDisputes() {
               <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} className={`w-full rounded-xl border p-3 text-left ${selectedId === item.id ? "border-brand-500 bg-brand-50" : "border-slate-200 bg-white"}`}>
                 <p className="text-sm font-bold text-slate-950">{item.ticketId}</p>
                 <p className="mt-1 truncate text-sm text-slate-600">{item.job?.title || item.subject}</p>
-                <div className="mt-2 flex flex-wrap gap-2"><Badge className={statusTone(item.investigationStatus)}>{label(item.investigationStatus)}</Badge><Badge className={statusTone(item.paymentStatus)}>{label(item.paymentStatus)}</Badge></div>
+                <div className="mt-2 flex flex-wrap gap-2"><Badge className={statusTone(item.investigationStatus)}>{item.displayStatus || label(item.investigationStatus)}</Badge><Badge className={statusTone(item.paymentStatus)}>{label(item.paymentStatus)}</Badge></div>
               </button>
             ))}
           </div>
@@ -178,7 +178,7 @@ export function FinancialDisputes() {
               <Card>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div><p className="text-sm font-semibold text-brand-700">{selected.ticketId}</p><h2 className="text-xl font-bold text-slate-950">{selected.job?.title || selected.subject}</h2></div>
-                  <div className="flex flex-wrap gap-2"><Badge className={statusTone(selected.investigationStatus)}>Investigation: {label(selected.investigationStatus)}</Badge><Badge className={statusTone(selected.paymentStatus)}>Payment: {label(selected.paymentStatus)}</Badge></div>
+                  <div className="flex flex-wrap gap-2"><Badge className={statusTone(selected.investigationStatus)}>Investigation: {selected.displayStatus || label(selected.investigationStatus)}</Badge><Badge className={statusTone(selected.paymentStatus)}>Payment: {label(selected.paymentStatus)}</Badge></div>
                 </div>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
                   {[

@@ -4,6 +4,14 @@ import mongoose from 'mongoose';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import axios from 'axios';
 import crypto from 'node:crypto';
+import express from 'express';
+import jwt from 'jsonwebtoken';
+import Session from '../../models/Session.js';
+import StoredUpload from '../../models/StoredUpload.js';
+import { getJwtSecret } from '../../lib/jwtSecret.js';
+import JobApplicationRoute from '../../routes/JobApplicationRoute.js';
+import FinancialDisputeRoute from '../../routes/FinancialDisputeRoute.js';
+import { createUploadsRouter } from '../../routes/UploadRoute.js';
 import Job from '../../models/Job.js';
 import User from '../../models/User.js';
 import JobApplication from '../../models/JobApplication.js';
@@ -13,6 +21,7 @@ import PayoutRequest from '../../models/PayoutRequest.js';
 import Cancellation from '../../models/Cancellation.js';
 import NotificationOutbox from '../../models/NotificationOutbox.js';
 import Notification from '../../models/Notification.js';
+import FinancialDispute from '../../models/FinancialDispute.js';
 import { requestCancellation, respondCancellation } from '../../services/jobLifecycle.js';
 import { remainingJobFunds } from '../../services/jobFunds.js';
 import { settleApplicationPayment } from '../../services/applicationSettlement.js';
@@ -32,6 +41,8 @@ import { updateInterview } from '../../controllers/JobApplicationController.js';
 import { MongoRateLimitStore } from '../../lib/mongoRateLimitStore.js';
 import AuthRateBucket from '../../models/AuthRateBucket.js';
 import { transferWebhook } from '../../controllers/WithdrawalController.js';
+import { submitWork, settleDirect } from '../../controllers/ApplicationPaymentController.js';
+import { escalateOverdueDisputes } from '../../services/disputeEscalation.js';
 import { csvCell, exportLifecycleReport } from '../../controllers/LifecycleReportController.js';
 
 let mongo;
@@ -49,6 +60,114 @@ async function fixture(workStatus = 'Not started', positionsNeeded = 1) {
   return { employer, worker, job, application };
 }
 const cancel = (f, extra = {}) => requestCancellation({ applicationId: f.application._id, actor: f.worker._id, reason: 'Cannot attend', policyAcknowledged: true, ...extra });
+
+test('configurable withdrawal bounds and large employer review reuse Finance without dispatch or duplicate reservation', async () => {
+  const names = ['WITHDRAWAL_MIN_AMOUNT', 'WITHDRAWAL_EMPLOYER_MAX_AMOUNT', 'WITHDRAWAL_REVIEW_THRESHOLD'];
+  const previous = names.map((name) => process.env[name]);
+  try {
+    Object.assign(process.env, { WITHDRAWAL_MIN_AMOUNT: '10', WITHDRAWAL_EMPLOYER_MAX_AMOUNT: '90000', WITHDRAWAL_REVIEW_THRESHOLD: '1000' });
+    const employer = await person('hire', 80000);
+    const body = { sourceWallet: 'EMPLOYER', amount: 60000, destinationSnapshot: { methodType: 'bank_transfer', institutionName: 'Test bank', accountName: 'Employer', accountNumber: '12345678' } };
+    await assert.rejects(previewWithdrawal(employer._id, { ...body, amount: 9 }), /at least PHP 10/);
+    await assert.rejects(previewWithdrawal(employer._id, { ...body, amount: 90001 }), /maximum/);
+    await assert.rejects(previewWithdrawal(employer._id, { ...body, amount: 85000 }), /available wallet balance/);
+    const preview = await previewWithdrawal(employer._id, body);
+    assert.equal(preview.processingMode, 'manual'); assert.match(preview.reviewReason, /1000.00/);
+    const request = { previewToken: preview.previewToken, detailsConfirmed: true };
+    const [first, retry] = await Promise.all([confirmWithdrawal(employer._id, request), confirmWithdrawal(employer._id, request)]);
+    assert.equal(String(first._id), String(retry._id)); assert.equal(first.status, 'requested');
+    assert.equal(first.policySnapshot.reviewThreshold, 1000);
+    assert.equal(first.dispatchStartedAt, undefined);
+    assert.equal((await User.findById(employer._id)).employerBalance, 20000);
+    assert.equal(await Transaction.countDocuments({ payoutRequest: first._id }), 1);
+    // Retrying an already reserved request still works after policy changes.
+    process.env.WITHDRAWAL_EMPLOYER_MAX_AMOUNT = '100';
+    assert.equal(String((await confirmWithdrawal(employer._id, request))._id), String(first._id));
+  } finally { names.forEach((name, index) => { if (previous[index] === undefined) delete process.env[name]; else process.env[name] = previous[index]; }); }
+});
+
+test('withdrawal confirmation revalidates policy and rejects another account before reserving funds', async () => {
+  const worker = await person('work', 500); const other = await person('work', 500);
+  const preview = await previewWithdrawal(worker._id, { amount: 100, destinationSnapshot: { methodType: 'bank_transfer', institutionName: 'Test bank', accountName: 'Worker', accountNumber: '12345678' } });
+  const request = { previewToken: preview.previewToken, detailsConfirmed: true };
+  await assert.rejects(confirmWithdrawal(other._id, request), /Invalid withdrawal preview/);
+  const previous = process.env.WITHDRAWAL_WORKER_MAX_AMOUNT;
+  try { process.env.WITHDRAWAL_WORKER_MAX_AMOUNT = '50'; await assert.rejects(confirmWithdrawal(worker._id, request), /maximum/); }
+  finally { if (previous === undefined) delete process.env.WITHDRAWAL_WORKER_MAX_AMOUNT; else process.env.WITHDRAWAL_WORKER_MAX_AMOUNT = previous; }
+  assert.equal((await User.findById(worker._id)).workerBalance, 500); assert.equal(await PayoutRequest.countDocuments(), 0);
+});
+
+test('completion submission requires evidence, rejects employers, and preserves resubmission history', async () => {
+  const f = await fixture('In Progress');
+  const req = { params: { applicationId: f.application._id }, user: { id: String(f.worker._id) }, body: {} };
+  const missing = response(); await submitWork(req, missing); assert.equal(missing.statusCode, 400);
+  const denied = response(); await submitWork({ ...req, user: { id: String(f.employer._id) }, body: { statement: 'Done' } }, denied); assert.equal(denied.statusCode, 403);
+  const submitted = response(); await submitWork({ ...req, body: { statement: 'Installed the shelves and cleaned the work area.' } }, submitted); assert.equal(submitted.statusCode, 200);
+  assert.equal(submitted.body.application.completionEvidence.length, 1);
+  const retry = response(); await submitWork({ ...req, body: { statement: 'Duplicate submission' } }, retry); assert.equal(retry.statusCode, 409);
+  await JobApplication.updateOne({ _id: f.application._id }, { $set: { workStatus: 'Changes Requested' } });
+  const revised = response(); await submitWork({ ...req, body: { statement: 'Completed requested adjustments.' } }, revised);
+  assert.equal(revised.body.application.completionEvidence.length, 2);
+  assert.equal(revised.body.application.firstSubmittedAt.getTime(), submitted.body.application.firstSubmittedAt.getTime());
+  assert.equal((await User.findById(f.worker._id)).workerBalance, 0);
+});
+
+test('real evidence endpoints accept photos/documents, preserve legacy statements, protect downloads and clean rejected uploads', async () => {
+  const f = await fixture('In Progress'); const stranger = await person('work');
+  const tokenFor = async (user) => { const session = await Session.create({ user: user._id }); return jwt.sign({ userId: String(user._id), sessionId: String(session._id) }, getJwtSecret()); };
+  const workerToken = await tokenFor(f.worker); const employerToken = await tokenFor(f.employer); const strangerToken = await tokenFor(stranger);
+  const app = express(); app.use(express.json()); app.use('/api', JobApplicationRoute); app.use('/api/financial-disputes', FinancialDisputeRoute); app.use('/uploads', createUploadsRouter());
+  const server = app.listen(0, '127.0.0.1'); await new Promise((resolve) => server.once('listening', resolve));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const upload = (path, token, contents = '%PDF-1.4\nTest work evidence') => { const form = new FormData(); form.append('evidence', new Blob([contents], { type: 'application/pdf' }), 'proof.pdf'); form.append('statement', 'Work completed with attached evidence.'); return fetch(`${origin}${path}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }); };
+  try {
+    const completion = await upload(`/api/applications/${f.application._id}/work/submit`, workerToken); assert.equal(completion.status, 200);
+    const body = await completion.json(); const url = body.application.completionEvidence[0].fileUrl;
+    assert.equal((await fetch(`${origin}${url}`)).status, 401);
+    assert.equal((await fetch(`${origin}${url}`, { headers: { Authorization: `Bearer ${strangerToken}` } })).status, 403);
+    const downloaded = await fetch(`${origin}${url}`, { headers: { Authorization: `Bearer ${employerToken}` } }); assert.equal(downloaded.status, 200); assert.match(await downloaded.text(), /%PDF/);
+    const opened = response(); await openDispute({ params: { applicationId: f.application._id }, user: { id: String(f.worker._id) }, body: { reason: 'Payment issue' } }, opened);
+    const path = `/api/financial-disputes/${opened.body.dispute._id}/evidence`;
+    const evidence = await upload(path, workerToken); assert.equal(evidence.status, 201, 'the multipart dispute route must not be shadowed by the legacy statement route');
+    assert.ok((await evidence.json()).evidence.fileUrl);
+    const legacy = await fetch(`${origin}${path}`, { method: 'POST', headers: { Authorization: `Bearer ${employerToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ statement: 'Employer evidence statement', noEvidence: false }) }); assert.equal(legacy.status, 201);
+    const count = await StoredUpload.countDocuments();
+    assert.equal((await upload(path, strangerToken)).status, 403);
+    assert.equal((await upload(path, workerToken, 'not a PDF')).status, 400);
+    assert.equal(await StoredUpload.countDocuments(), count);
+  } finally { await new Promise((resolve) => server.close(resolve)); }
+});
+
+test('unauthorized and unconfirmed release fail; concurrent confirmed releases credit once and notify both parties', async () => {
+  const f = await fixture('Submitted');
+  const unauthorized = response(); await settleDirect({ params: { applicationId: f.application._id }, user: { id: String(f.worker._id) }, body: { confirmed: true } }, unauthorized); assert.equal(unauthorized.statusCode, 403);
+  const unconfirmed = response(); await settleDirect({ params: { applicationId: f.application._id }, user: { id: String(f.employer._id) }, body: {} }, unconfirmed); assert.equal(unconfirmed.statusCode, 400);
+  await Promise.all([settleApplicationPayment({ applicationId: f.application._id, employerId: f.employer._id }), settleApplicationPayment({ applicationId: f.application._id, employerId: f.employer._id })]);
+  assert.equal((await User.findById(f.worker._id)).workerBalance, 600);
+  assert.equal(await Transaction.countDocuments({ reference: `application-payout:${f.application._id}` }), 1);
+  assert.equal(await NotificationOutbox.countDocuments({ key: { $in: [`job-paid:${f.application._id}`, `job-paid-employer:${f.application._id}`] } }), 2);
+});
+
+test('overdue disputes escalate once, preserve evidence deadlines and pending approvals, and never move funds', async () => {
+  const f = await fixture('Submitted'); const now = new Date();
+  const previous = process.env.FINANCIAL_DISPUTE_REVIEW_HOURS;
+  try {
+    process.env.FINANCIAL_DISPUTE_REVIEW_HOURS = '24';
+    const res = response(); await openDispute({ params: { applicationId: f.application._id }, user: { id: String(f.worker._id) }, body: { reason: 'Payment disputed' } }, res);
+    assert.equal(res.statusCode, 201);
+    const dispute = res.body.dispute;
+    await FinancialDispute.collection.updateOne({ _id: dispute._id }, { $set: { raisedAt: new Date(now.getTime() - 48 * HOUR) } });
+    assert.equal(await escalateOverdueDisputes({ now }), 0, 'the evidence window is still open');
+    await FinancialDispute.updateOne({ _id: dispute._id }, { $set: { evidenceDueAt: new Date(now.getTime() - HOUR) } });
+    const counts = await Promise.all([escalateOverdueDisputes({ now }), escalateOverdueDisputes({ now })]); assert.equal(counts.reduce((a,b) => a+b), 1);
+    assert.equal((await FinancialDispute.findById(dispute._id)).investigationStatus, 'ESCALATED');
+    await assert.rejects(settleApplicationPayment({ applicationId: f.application._id, employerId: f.employer._id }), /held/);
+    assert.equal((await User.findById(f.worker._id)).workerBalance, 0); assert.equal((await remainingJobFunds(f.job._id)).remaining, 600);
+    await FinancialDispute.updateOne({ _id: dispute._id }, { $set: { escalatedAt: null, investigationStatus: 'PENDING_FINANCE_APPROVAL' } });
+    assert.equal(await escalateOverdueDisputes({ now }), 1);
+    assert.equal((await FinancialDispute.findById(dispute._id)).investigationStatus, 'PENDING_FINANCE_APPROVAL');
+  } finally { if (previous === undefined) delete process.env.FINANCIAL_DISPUTE_REVIEW_HOURS; else process.env.FINANCIAL_DISPUTE_REVIEW_HOURS = previous; }
+});
 
 async function completeInvestigation(dispute) {
   const support = await person('admin');

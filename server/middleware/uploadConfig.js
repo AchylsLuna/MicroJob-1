@@ -188,6 +188,7 @@ export const uploadVerificationFile = withUploadErrors(multerDocument.single('do
 // Same image rules and signature check as avatars -- see hasValidAvatarFileSignature.
 export const uploadExperienceMediaFile = withUploadErrors(multerExperienceMedia.single('media'), 'experience-media', '.jpg');
 export const uploadDisputeEvidenceFile = withUploadErrors(multerDisputeEvidence.single('evidence'), 'dispute-evidence', '.bin');
+export const uploadCompletionEvidenceFile = withUploadErrors(multerDisputeEvidence.single('evidence'), 'completion-evidence', '.bin');
 
 export const removeUploadFile = async (value) => {
   try {

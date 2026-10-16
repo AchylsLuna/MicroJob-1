@@ -8,6 +8,7 @@ import { activeDispute, escalateCancellation } from './jobLifecycle.js';
 import { queueNotification, deliverOutbox } from './notificationOutbox.js';
 import { dispatchWithdrawal, reconcileWithdrawal, automaticWithdrawalsEnabled } from './withdrawals.js';
 import { HOUR } from '../lib/lifecyclePolicy.js';
+import { escalateOverdueDisputes } from './disputeEscalation.js';
 
 export async function runMaintenance() {
   let reminders = 0; let escalations = 0; let transferErrors = 0;
@@ -55,6 +56,7 @@ export async function runMaintenance() {
       catch { transferErrors += 1; }
     }
   }
+  const disputeEscalations = Date.now() < deadline ? await escalateOverdueDisputes({ deadline }) : 0;
   const delivered = Date.now() < deadline ? await deliverOutbox(20, deadline) : 0;
-  return { reminders, escalations, delivered, transferErrors, notificationBacklog: await NotificationOutbox.countDocuments({ status: { $ne: 'delivered' } }), failedDeliveries: await NotificationOutbox.countDocuments({ lastError: { $exists: true } }), uncertainTransfers: await PayoutRequest.countDocuments({ processingMode: 'automatic', status: 'processing', failureReason: { $exists: true } }) };
+  return { reminders, escalations, disputeEscalations, delivered, transferErrors, notificationBacklog: await NotificationOutbox.countDocuments({ status: { $ne: 'delivered' } }), failedDeliveries: await NotificationOutbox.countDocuments({ lastError: { $exists: true } }), uncertainTransfers: await PayoutRequest.countDocuments({ processingMode: 'automatic', status: 'processing', failureReason: { $exists: true } }) };
 }

@@ -242,6 +242,7 @@ export type PayoutRequest = {
   status: 'requested' | 'approved' | 'processing' | 'failed' | 'rejected' | 'paid' | 'cancelled';
   sourceWallet?: 'EMPLOYER' | 'WORKER';
   processingMode?: 'manual' | 'automatic';
+  reviewReason?: string | null;
   providerTransferId?: string;
   providerRailReference?: string;
   providerFee?: number;
@@ -869,8 +870,11 @@ export function authorizePayment(applicationId: string) {
   return request<{ application: any }>(`/applications/${applicationId}/payment/authorize`, { method: 'POST', body: { confirmed: true } });
 }
 
-export function submitWork(applicationId: string) {
-  return request<{ application: any }>(`/applications/${applicationId}/work/submit`, { method: 'POST' });
+export function submitWork(applicationId: string, evidence?: { statement: string; file?: File | null }) {
+  const body = new FormData();
+  body.append('statement', evidence?.statement || '');
+  if (evidence?.file) body.append('evidence', evidence.file);
+  return request<{ application: any }>(`/applications/${applicationId}/work/submit`, { method: 'POST', body });
 }
 
 export function requestChanges(applicationId: string, reason: string) {
@@ -888,6 +892,7 @@ export function openPaymentDispute(applicationId: string, reason: string, disput
 }
 
 export type FinancialDispute = {
+  displayStatus?: string;
   id: string;
   _id?: string;
   ticketId: string;
@@ -1666,9 +1671,11 @@ export function approveFinancialDisputeSettlement(disputeId: string) {
 }
 
 export type WithdrawalPreview = {
+  reviewReason?: string | null; requiresReview?: boolean; minimum: number; maximum: number | null; reviewThreshold: number;
   previewToken: string; sourceWallet: 'EMPLOYER' | 'WORKER'; amount: number; fee: number; totalDebit: number; remainingBalance: number;
   destination: { institutionName: string; accountName: string; accountNumberMasked: string };
 };
+export const getWithdrawalPolicy = (sourceWallet: string) => request<{ minimum: number; maximum: number | null; reviewThreshold: number }>(`/payment/withdrawals/policy?sourceWallet=${sourceWallet}`, { method: 'GET' });
 export const getWithdrawalInstitutions = () => request<{ institutions: Array<{ bic: string; name: string }> }>('/payment/withdrawals/institutions', { method: 'GET' });
 export const previewWithdrawal = (body: { sourceWallet: string; amount: number; destinationSnapshot: Record<string, string> }) => request<WithdrawalPreview>('/payment/withdrawals/preview', { method: 'POST', body });
 export const confirmWithdrawal = (previewToken: string) => request<{ payoutRequest: PayoutRequest }>('/payment/withdrawals/confirm', { method: 'POST', body: { previewToken, detailsConfirmed: true } });

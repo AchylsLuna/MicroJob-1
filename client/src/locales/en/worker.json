@@ -400,8 +400,8 @@
     },
     "txLabel": {
       "topUp": "Top-up",
-      "escrow": "Escrow",
-      "payout": "Payout",
+      "escrow": "Payment on Hold",
+      "payout": "Payment",
       "refund": "Refund",
       "transaction": "Transaction"
     },
@@ -426,8 +426,8 @@
       "loadFailed": "Failed to load wallet data.",
       "invalidAmount": "Please enter a valid amount.",
       "topUpInitFailed": "Failed to initialize top-up.",
-      "invalidPayoutAmount": "Enter a valid payout amount.",
-      "payoutExceedsBalance": "Payout amount cannot exceed your worker balance.",
+      "invalidPayoutAmount": "Enter a valid payment amount.",
+      "payoutExceedsBalance": "Payment amount cannot exceed your worker balance.",
       "incompleteDestination": "Complete the destination details before submitting your withdrawal.",
       "withdrawalSubmitted": "Withdrawal submitted.",
       "withdrawalSubmitFailed": "Failed to submit withdrawal.",
@@ -439,8 +439,8 @@
       "currentBalance": "Current Balance ({{role}})",
       "loading": "Loading...",
       "descriptionBoth": "Your combined employer and worker balance. Top up your wallet to fund jobs, and withdraw your earned balance.",
-      "descriptionEmployer": "Employers add funds here to pay into escrow and cover worker earnings.",
-      "descriptionWorker": "Workers can only withdraw completed earnings here once payouts are available.",
+      "descriptionEmployer": "Employers add funds here to pay into reserved funds and cover worker earnings.",
+      "descriptionWorker": "Workers can only withdraw completed earnings here once payments are available.",
       "employerBalance": "Employer Balance",
       "workerBalance": "Worker Balance",
       "pendingWithdrawals": "Pending Withdrawals",
@@ -451,9 +451,9 @@
     },
     "stats": {
       "moneyIn": "Money In",
-      "moneyInHelper": "Completed top-ups, payouts, and refunds received",
+      "moneyInHelper": "Completed top-ups, payments, and refunds received",
       "moneyOut": "Money Out",
-      "moneyOutHelper": "Completed job escrow and wallet withdrawals",
+      "moneyOutHelper": "Completed job reserved funds and wallet withdrawals",
       "withdrawals": "Withdrawals",
       "withdrawalsHelper": "Requested, approved, and paid withdrawal requests"
     },
@@ -497,7 +497,7 @@
     "transactions": {
       "titlePayment": "Payment History",
       "titleRecent": "Recent Transactions",
-      "helper": "Linked transaction status and payout references included",
+      "helper": "Linked transaction status and payment references included",
       "loading": "Loading transactions...",
       "empty": "No transactions yet.",
       "columns": {
@@ -621,7 +621,7 @@
     "offerCard": {
       "eyebrow": "Job offer",
       "fallbackTitle": "Job offer",
-      "escrowHint": "Backed by escrow until the job is confirmed done.",
+      "escrowHint": "Backed by reserved funds until the job is confirmed done.",
       "accept": "Accept",
       "decline": "Decline",
       "cancel": "Cancel offer",
@@ -645,7 +645,7 @@
       },
       "confirmCancel": {
         "title": "Cancel offer",
-        "description": "Cancel this job offer? The worker will be notified and the escrowed amount will be refunded.",
+        "description": "Cancel this job offer? The worker will be notified and the held for jobs amount will be refunded.",
         "confirm": "Cancel offer"
       },
       "confirmHireDialog": {
@@ -795,8 +795,8 @@
         "answer": "Go to settings and complete your identity details. Verification items remain visible until they are reviewed."
       },
       "payoutTime": {
-        "question": "How long do payouts take?",
-        "answer": "Payout requests are reviewed manually. Once approved, you can track each request in your wallet history."
+        "question": "How long do payments take?",
+        "answer": "Withdrawal requests are reviewed manually. Once approved, you can track each request in your wallet history."
       },
       "applicationStatus": {
         "question": "Why did my application stage change?",
@@ -855,7 +855,7 @@
       },
       "securityEscalation": {
         "title": "Security Escalation",
-        "description": "Account compromise, payout disputes, and identity concerns.",
+        "description": "Account compromise, payment disputes, and identity concerns.",
         "escalate": "Escalate Issue",
         "subjectDefault": "Security escalation"
       }
@@ -872,7 +872,7 @@
     },
     "ticketForm": {
       "title": "Submit a Support Ticket",
-      "subtitle": "Create a ticket for payout issues, account access, application disputes, or platform bugs.",
+      "subtitle": "Create a ticket for payment issues, account access, application disputes, or platform bugs.",
       "subjectLabel": "Subject",
       "subjectPlaceholder": "Brief description of the issue",
       "categoryLabel": "Category",

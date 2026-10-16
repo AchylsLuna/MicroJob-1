@@ -1,3 +1,6 @@
+import CompletionEvidence from '../../components/CompletionEvidence';
+import { walletRequest } from '../../lib/lifecycleApi';
+import { formatCurrency } from '../../lib/formatters';
 import PostingActions from '../../components/PostingActions';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -90,7 +93,7 @@ export default function EmployerJobPosts({
   const [jobs, setJobs] = useState<JobItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionJobId, setActionJobId] = useState<string | null>(null);
-  const [confirmAction, setConfirmAction] = useState<{ action: JobAction; job: JobItem } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ action: JobAction; job: JobItem; payments?: any[] } | null>(null);
   const [viewingJob, setViewingJob] = useState<JobItem | null>(null);
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
   const [balanceErrorMessage, setBalanceErrorMessage] = useState('');
@@ -141,7 +144,16 @@ export default function EmployerJobPosts({
     void fetchJobs();
   }, [fetchJobs]));
 
-  const requestAction = (job: JobItem, action: JobAction) => setConfirmAction({ job, action });
+  const requestAction = async (job: JobItem, action: JobAction) => {
+    if (action !== 'complete') { setConfirmAction({ job, action }); return; }
+    try {
+      const result = await apiRequest(`${API_URL}/applications/employer`);
+      if (!result.ok) throw new Error(result.message);
+      const unpaid = asList<any>(result.data || result.raw).filter((app) => String(app.job?._id || app.job) === job._id && ['Hired', 'Accepted'].includes(app.status) && app.paymentStatus !== 'Paid');
+      const payments = await Promise.all(unpaid.map((app) => walletRequest(`/applications/${app._id}/payment/preview`, {})));
+      setConfirmAction({ job, action, payments });
+    } catch (caught: any) { toast.error(caught.message); }
+  };
 
   const actionFailureKeys: Record<JobAction, string> = {
     complete: 'jobPosts.errors.completeFailed',
@@ -428,6 +440,7 @@ export default function EmployerJobPosts({
             <Text style={styles.modalTitle}>{actionCopy?.title}</Text>
             <Text style={styles.modalText}>{actionCopy?.question}</Text>
             <Text style={styles.modalInfo}>{actionCopy?.detail}</Text>
+            {confirmAction?.payments && <ScrollView style={{ maxHeight: 320 }}>{confirmAction.payments.map((payment) => <View key={payment.application._id}><Text style={styles.modalText}>{payment.recipient.name}: {formatCurrency(payment.amount)}</Text><CompletionEvidence items={payment.application.completionEvidence} /></View>)}</ScrollView>}
 
             <View style={styles.modalActions}>
               <TouchableOpacity

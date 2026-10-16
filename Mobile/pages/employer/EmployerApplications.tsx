@@ -386,7 +386,7 @@ export default function EmployerApplications({
       setConfirmAction({
         title: t('employerApplications.confirm.pay.title'),
         question: t('employerApplications.confirm.pay.question', { amount: formatCurrency(preview.amount), name: nameOf(t, item) }),
-        detail: `${t('employerApplications.confirm.pay.detail')} ${tc('lifecycle.releaseAmount', { amount: formatCurrency(preview.amount) })}`,
+        detail: `${preview.jobTitle}. ${t('employerApplications.confirm.pay.detail')} ${tc('lifecycle.releaseAmount', { amount: formatCurrency(preview.amount) })}`,
         label: t('employerApplications.confirm.pay.label'),
         run: async () => { if (await request(item._id, `applications/${item._id}/payment/${action}`)) {
           if (action === 'settle') toast.success(t('employerApplications.toast.workerPaid'));

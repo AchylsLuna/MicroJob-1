@@ -45,7 +45,7 @@
       "accessibilityLabel": "Formal job offer, {{amount}}, {{status}}",
       "eyebrow": "FORMAL JOB OFFER",
       "fallbackTitle": "Local job",
-      "escrowHint": "Escrow-backed guaranteed pay",
+      "escrowHint": "Guaranteed pay from reserved funds",
       "decline": "Decline",
       "accept": "Accept Offer",
       "cancel": "Cancel",
@@ -77,17 +77,17 @@
       "deleteFailed": "Failed to delete job."
     },
     "toast": {
-      "completed": "Job completed. Worker payouts were triggered automatically from escrow.",
+      "completed": "Job completed. Confirmed worker payments remain recorded in payment history.",
       "closed": "Job closed. New applications are paused.",
       "reopened": "Job reopened. Workers can apply again.",
-      "deleted": "Job deleted. Any eligible escrow refund was returned to your wallet."
+      "deleted": "Job deleted. Any eligible reserved funds refund was returned to your wallet."
     },
     "confirm": {
       "cancelLabel": "Cancel",
-      "complete": { "title": "Mark Job as Done", "question": "Complete \"{{title}}\"?", "detail": "Escrow funds will automatically be paid to hired workers. This action should only be used after the work is finished.", "button": "Confirm Done" },
-      "close": { "title": "Close Job", "question": "Pause new applications for \"{{title}}\"?", "detail": "The secured funds stay in escrow, and you can reopen this job later.", "button": "Close Job" },
-      "reopen": { "title": "Reopen Job", "question": "Reopen \"{{title}}\"?", "detailEscrow": "The required amount will be secured in escrow again before workers can apply.", "detailDefault": "Workers will be able to submit applications again.", "button": "Reopen Job" },
-      "delete": { "title": "Delete Job", "question": "Permanently delete \"{{title}}\"?", "detail": "Associated applications will be removed. Any eligible unused escrow is refunded automatically.", "button": "Delete Job" }
+      "complete": { "title": "Mark Job as Done", "question": "Complete \"{{title}}\"?", "detail": "Confirming releases the listed payments from reserved job funds. Check each worker, amount, and completion evidence before continuing.", "button": "Confirm Done" },
+      "close": { "title": "Close Job", "question": "Pause new applications for \"{{title}}\"?", "detail": "The secured funds stay on hold, and you can reopen this job later.", "button": "Close Job" },
+      "reopen": { "title": "Reopen Job", "question": "Reopen \"{{title}}\"?", "detailEscrow": "The required amount will be reserved for payment again before workers can apply.", "detailDefault": "Workers will be able to submit applications again.", "button": "Reopen Job" },
+      "delete": { "title": "Delete Job", "question": "Permanently delete \"{{title}}\"?", "detail": "Eligible unused funds are returned to their original wallet; payment and application history is retained.", "button": "Delete Job" }
     },
     "header": { "title": "Home" },
     "banner": { "title": "Hiring operations", "detail": "Manage local job posts, candidates, conversations, and secured employer funds." },
@@ -112,7 +112,7 @@
       "reopen": "Reopen",
       "markDone": "Mark Done",
       "delete": "Delete",
-      "autoPayHintReady": "Marking this job done automatically releases escrow to hired workers.",
+      "autoPayHintReady": "Confirming releases the listed payments from reserved job funds. Check each worker, amount, and completion evidence before continuing.",
       "autoPayHintBlocked": "Hire at least one worker before marking this job as done."
     },
     "details": {
@@ -165,7 +165,7 @@
       "actionLabel": "Top Up",
       "quickActionLabel": "Scan to Pay"
     },
-    "metrics": { "credited": "Total credited", "spent": "Spent / escrowed", "pending": "Pending" },
+    "metrics": { "credited": "Total credited", "spent": "Spent / held for jobs", "pending": "Pending" },
     "topup": {
       "accordionTitle": "Top up employer funds",
       "accordionSubtitle": "Minimum PHP 100 through secure checkout.",
@@ -410,7 +410,7 @@
       "skillsPlaceholder": "React, TypeScript, GraphQL",
       "salaryLabel": "Minimum Guaranteed Pay per Worker (PHP)",
       "salaryPlaceholder": "e.g. 1500",
-      "salaryHelper": "This is the minimum amount guaranteed to each hired worker and secured in escrow."
+      "salaryHelper": "This is the minimum amount guaranteed to each hired worker and reserved for payment."
     },
     "location": {
       "accordionTitle": "Philippine work location",
@@ -589,16 +589,16 @@
       "otherMode": "other"
     },
     "offerPanel": {
-      "title": "Formal escrow-backed offer",
+      "title": "Formal funded offer",
       "guaranteedMinimum": "Guaranteed minimum {{amount}}",
       "amountPlaceholder": "PHP amount",
       "reviewOffer": "Review Offer",
-      "additionalEscrow": "Additional escrow: {{amount}}"
+      "additionalEscrow": "Additional reserved funds: {{amount}}"
     },
     "offerActive": {
       "accepted": "Offer accepted",
       "awaiting": "Awaiting worker",
-      "escrowBacked": "{{amount}} escrow-backed offer",
+      "escrowBacked": "{{amount}} funded offer",
       "confirmHire": "Confirm Hire",
       "cancelOffer": "Cancel Offer"
     },
@@ -643,19 +643,19 @@
       "offer": {
         "title": "Send formal offer?",
         "question": "Offer {{name}} {{amount}}?",
-        "detail": "Advertised minimum: {{minimum}}. Additional escrow: {{escrow}}.",
+        "detail": "Advertised minimum: {{minimum}}. Additional reserved funds: {{escrow}}.",
         "label": "Send Offer"
       },
       "cancelOffer": {
         "title": "Cancel offer?",
         "question": "Cancel the {{amount}} offer?",
-        "detail": "Any additional negotiated escrow will be returned safely.",
+        "detail": "Any additional negotiated reserved funds will be returned safely.",
         "label": "Cancel Offer"
       },
       "confirmHire": {
         "title": "Confirm hiring?",
         "question": "Hire {{name}} for {{amount}}?",
-        "detail": "This starts the worker assignment using the accepted escrow-backed terms.",
+        "detail": "This starts the worker assignment using the accepted funded terms.",
         "label": "Confirm Hire"
       },
       "pay": {

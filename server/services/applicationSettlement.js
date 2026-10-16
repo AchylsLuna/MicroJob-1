@@ -50,6 +50,7 @@ export async function settleApplicationPayment({ applicationId, employerId, sess
       const unpaid = await JobApplication.countDocuments({ job: job._id, status: 'Hired', $or: [{ paymentStatus: { $ne: 'Paid' } }, { workStatus: { $ne: 'Completed' } }] }).session(session);
       if (unpaid === 0 && (job.closedManually || Number(job.hiredCount || 0) >= Number(job.positionsNeeded || 1))) { job.status = 'Completed'; await job.save({ session }); const remaining = (await remainingJobFunds(job._id, session)).remaining; await refundJobFunds({ job, amount: remaining, reference: `completion-refund:${job._id}`, actor: employerId, session }); }
       await queueNotification(`job-paid:${application._id}`, { userId: String(application.applicant), audience: 'worker', type: 'payment', title: 'Job payment completed', message: `PHP ${amount.toFixed(2)} was added to your worker balance.`, entityType: 'application', entityId: String(application._id) }, session);
+      await queueNotification(`job-paid-employer:${application._id}`, { userId: String(employerId), audience: 'employer', type: 'payment', title: 'Payment sent', message: `PHP ${amount.toFixed(2)} was released to the worker for ${job.title}.`, entityType: 'application', entityId: String(application._id) }, session);
       result = { application, job, transaction, deduplicated: false };
     };
     if (providedSession) await settle(); else await session.withTransaction(settle);

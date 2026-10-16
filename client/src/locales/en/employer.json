@@ -13,7 +13,7 @@
     "loading": "Loading job history…",
     "empty": "You have no job history yet.",
     "loadFailed": "Failed to load job history.",
-    "moneyNote": "Held funds are remaining escrow after payments and refunds. Posting and highlight fees are excluded.",
+    "moneyNote": "Held funds are remaining reserved funds after payments and refunds. Posting and highlight fees are excluded.",
     "ratingAfterCompletion": "You can rate this worker after the job is completed.",
     "location": "Location",
     "jobType": "Job type",
@@ -206,7 +206,7 @@
         "label": "Minimum Guaranteed Pay per Worker (PHP)",
         "ariaLabel": "Minimum guaranteed pay per worker",
         "placeholder": "e.g. 1500",
-        "helper": "Enter the minimum amount guaranteed to each hired worker. This amount is secured in escrow."
+        "helper": "Enter the minimum amount guaranteed to each hired worker. This amount is reserved for payment."
       },
       "deadline": {
         "label": "Deadline *"
@@ -303,7 +303,7 @@
   },
   "eWallet": {
     "balanceLabel": "Available employer balance",
-    "description": "Use this balance to fund jobs or withdraw uncommitted funds to your bank or e-wallet. Pending job escrow cannot be withdrawn.",
+    "description": "Use this balance to fund jobs or withdraw uncommitted funds to your bank or e-wallet. Pending job reserved funds cannot be withdrawn.",
     "topUp": "Top Up",
     "withdraw": "Withdraw Funds",
     "topUpDescription": "Add funds through secure checkout.",
@@ -360,7 +360,7 @@
     "transactions": {
       "title": "Employer Transactions",
       "empty": "No employer transactions yet.",
-      "helper": "Linked transaction status and payout references included",
+      "helper": "Linked transaction status and payment references included",
       "loading": "Loading transactions...",
       "columns": {
         "type": "Type",
@@ -391,8 +391,8 @@
     },
     "txLabel": {
       "topUp": "Top-up",
-      "escrow": "Escrow",
-      "payout": "Payout",
+      "escrow": "Payment on Hold",
+      "payout": "Payment",
       "refund": "Refund",
       "transaction": "Transaction"
     },
@@ -529,7 +529,7 @@
       "hire": "Hire",
       "reject": "Reject",
       "rejectTitle": "Reject applicant",
-      "rejectDescription": "Cancel the {{amount}} offer and reject {{name}}? Any additional escrow will be refunded to your balance.",
+      "rejectDescription": "Cancel the {{amount}} offer and reject {{name}}? Any additional reserved funds will be refunded to your balance.",
       "offerDeclined": "The applicant declined your offer. You may change the status or send a new offer.",
       "rejectedHelp": "This applicant is rejected. Change the status before sending a new offer.",
       "paymentHelp": "Authorize the agreed payment for this applicant. Funds remain secured until submitted work is approved and paid.",
@@ -568,12 +568,12 @@
       "guaranteedMinimum": "Guaranteed minimum: {{amount}}",
       "amountPlaceholder": "Offer amount",
       "reviewOffer": "Review Offer",
-      "additionalEscrow": "Additional {{amount}} will be held in escrow."
+      "additionalEscrow": "Additional {{amount}} will be reserved for payment."
     },
     "offerActive": {
       "accepted": "Offer accepted",
       "awaiting": "Offer awaiting response",
-      "escrowBacked": "{{amount}} held in escrow",
+      "escrowBacked": "{{amount}} reserved for payment",
       "confirmHire": "Confirm Hire",
       "cancelOffer": "Cancel Offer"
     },
@@ -592,25 +592,25 @@
       "description": "Explain the payment issue for {{subject}}. The payment will be held for finance review.",
       "reasonLabel": "Reason",
       "reasonRequired": "A reason is required.",
-      "holdNotice": "The worker payout and employer refund will remain on hold until a finance admin resolves the case.",
+      "holdNotice": "The worker payment and employer refund will remain on hold until a finance admin resolves the case.",
       "opened": "Payment dispute opened.",
       "cancel": "Cancel",
       "submit": "Submit dispute"
     },
     "confirmOffer": {
       "title": "Send Formal Offer",
-      "description": "Send {{name}} an offer of {{amount}} (minimum {{minimum}}, {{escrow}} additional escrow)?",
+      "description": "Send {{name}} an offer of {{amount}} (minimum {{minimum}}, {{escrow}} additional reserved funds)?",
       "confirm": "Send Offer"
     },
     "confirmCancelOffer": {
       "title": "Cancel Offer",
-      "description": "Cancel the {{amount}} offer? Any additional escrow will be refunded to your balance.",
+      "description": "Cancel the {{amount}} offer? Any additional reserved funds will be refunded to your balance.",
       "confirm": "Cancel Offer"
     },
     "confirmHire": {
       "title": "Confirm Hire",
       "warning": "Cannot delete the job after confirming the hire.",
-      "description": "Confirm hiring {{name}} for {{amount}}? This reserves the position and secures escrow.",
+      "description": "Confirm hiring {{name}} for {{amount}}? This reserves the position and secures reserved funds.",
       "confirm": "Confirm Hire"
     },
     "confirmPay": {
@@ -775,7 +775,7 @@
       "reopening": "Reopening...",
       "reopen": "Reopen",
       "markDoneTooltipBlocked": "Move at least one worker application to Hired first",
-      "markDoneTooltip": "Mark done and auto-pay workers from escrow",
+      "markDoneTooltip": "Review submitted work and confirm worker payments",
       "markDoneBlockedHelper": "You need at least one hired worker, and that worker must submit finished work, before you can mark this job done.",
       "marking": "Marking...",
       "markAsDone": "Mark as Done",
@@ -783,11 +783,11 @@
       "deleting": "Deleting...",
       "delete": "Delete",
       "viewDetails": "View details",
-      "escrowNote": "Completing the job automatically releases escrow to hired workers' e-wallets."
+      "escrowNote": "Review each worker's submitted evidence and confirm their payment before completing the job."
     },
     "toast": {
       "alreadyCompleted": "This job is already marked as completed.",
-      "markedDoneSuccess": "Job marked as done. Worker payouts were triggered automatically from escrow.",
+      "markedDoneSuccess": "Job completed. Confirmed worker payments remain recorded in payment history.",
       "markDoneFailed": "Failed to mark job as done.",
       "alreadyOpen": "This job is already open.",
       "cannotReopenInProgress": "Cannot reopen a job that is currently in progress.",
@@ -819,20 +819,20 @@
     "confirmDone": {
       "title": "Mark Job as Done",
       "body": "You are about to complete <b>{{title}}</b>.",
-      "info": "Once completed, escrow funds are automatically released to hired workers' e-wallets.",
+      "info": "Confirming releases the listed payments from reserved job funds. Check each worker, amount, and completion evidence before continuing.",
       "confirm": "Confirm Done"
     },
     "confirmReopen": {
       "title": "Reopen Job",
       "body": "You are about to reopen <b>{{title}}</b>.",
-      "infoRecollect": "Reopening will re-collect the escrow from your employer balance. Workers will be able to apply again.",
+      "infoRecollect": "Reopening will re-collect the reserved funds from your employer balance. Workers will be able to apply again.",
       "infoSimple": "The job will be set back to open and workers will be able to apply again.",
       "confirm": "Reopen Job"
     },
     "confirmDelete": {
       "title": "Delete Job",
       "body": "Are you sure you want to delete <b>{{title}}</b>? This action cannot be undone.",
-      "info": "All applications for this job will also be removed. Any unspent escrow will be refunded to your employer balance.",
+      "info": "Cancel this posting with a reason. Eligible unused funds are returned to their original wallet; payment and application history is retained.",
       "confirm": "Delete Job"
     }
   },

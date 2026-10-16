@@ -89,6 +89,13 @@ const JobApplicationSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    completionEvidence: [{
+      statement: { type: String, maxlength: 4000 },
+      fileUrl: String,
+      fileName: String,
+      actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+      submittedAt: { type: Date, default: Date.now },
+    }],
     coverLetter: {
       type: String,
       default: null,

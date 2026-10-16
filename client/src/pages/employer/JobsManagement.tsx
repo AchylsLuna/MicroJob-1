@@ -1,3 +1,4 @@
+import { CompletionEvidence } from '../../components/CompletionEvidence';
 import { PostingActions } from '../../components/PostingActions';
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -13,7 +14,7 @@ import {
   Pencil,
   X
 } from "lucide-react";
-import { changeJobStatus, deleteJob as apiDeleteJob, getMyJobs, reopenJob as apiReopenJob, getEmployerApplications } from "../../services/api";
+import { lifecycleRequest, changeJobStatus, deleteJob as apiDeleteJob, getMyJobs, reopenJob as apiReopenJob, getEmployerApplications } from "../../services/api";
 import { toast } from "../../lib/toast";
 import { ROUTES } from "../../utils/routes";
 import { formatCurrency, formatDate } from "../../lib/formatters";
@@ -201,13 +202,19 @@ export function JobsManagement() {
     void loadJobs();
   }, [loadJobs]);
 
+  const [completionPayments, setCompletionPayments] = useState<any[]>([]);
   const handleMarkJobDone = async (job: JobPosting) => {
     if (job.backendStatus === "Completed") {
       toast.info(t("jobsManagement.toast.alreadyCompleted"));
       return;
     }
 
-    setConfirmDoneJob(job);
+    try {
+      const applications = await getEmployerApplications();
+      const unpaid = applications.filter((app: any) => String(app.job?._id || app.job) === job.id && ['Hired', 'Accepted'].includes(app.status) && app.paymentStatus !== 'Paid');
+      const previews = await Promise.all(unpaid.map((app: any) => lifecycleRequest(`/applications/${app._id}/payment/preview`, {})));
+      setCompletionPayments(previews); setConfirmDoneJob(job);
+    } catch (error: any) { toast.error(error.message); }
   };
 
   const confirmMarkJobDone = async () => {
@@ -709,6 +716,7 @@ export function JobsManagement() {
           <p className="mt-3 rounded-xl bg-brand-50 px-3 py-2 text-sm text-brand-700 border border-brand-100">
             {t("jobsManagement.confirmDone.info")}
           </p>
+          {completionPayments.map((payment) => <div key={payment.application._id} className="my-3 rounded-xl border p-3"><p>{payment.recipient.name}: {formatCurrency(payment.amount)}</p><CompletionEvidence items={payment.application.completionEvidence} /></div>)}
           <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
             <button
               type="button"

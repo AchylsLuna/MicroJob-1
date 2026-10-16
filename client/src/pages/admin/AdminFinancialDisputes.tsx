@@ -1,3 +1,4 @@
+import { CompletionEvidence } from '../../components/CompletionEvidence';
 import { useEffect, useMemo, useState } from "react";
 import { ClipboardCheck, FileSearch, FileUp, MessageSquareText, Scale, ShieldCheck } from "lucide-react";
 import { AdminGate } from "./admin/AdminGate";
@@ -115,6 +116,7 @@ function AdminFinancialDisputesContent() {
             </Card>
           </>) },
           { id: "Evidence", label: "Evidence", content: (<>
+            <CompletionEvidence items={selected.application?.completionEvidence} />
             {canInvestigate && selected.investigationStatus !== "RESOLVED" && selected.investigationStatus !== "FOR_FINANCE_REVIEW" && selected.investigationStatus !== "PENDING_FINANCE_APPROVAL" ? <Card><div className="flex items-center gap-2"><FileSearch className="h-5 w-5 text-brand-700"/><h3 className="font-bold">Support investigation</h3></div><p className="mt-1 text-sm text-slate-600">Support may collect and document facts, but cannot select or process the settlement.</p>
               {!selected.assignedSupportUserId ? <Button className="mt-4" disabled={busy} onClick={() => void run(() => assignFinancialDisputeSupport(selected.id))}>Assign to me and investigate</Button> : <p className="mt-4 text-sm font-semibold text-slate-700">Assigned to {personName(selected.assignedSupportUserId)}</p>}
               <div className="mt-5 grid gap-4 md:grid-cols-[180px_1fr] lg:grid-cols-1 xl:grid-cols-[180px_1fr]"><Select label="Request from" value={requestTarget} onChange={(event) => setRequestTarget(event.target.value as "worker" | "employer")}><option value="worker">Worker</option><option value="employer">Employer</option></Select><Textarea label="Evidence request" value={requestMessage} onChange={(event) => setRequestMessage(event.target.value)} /></div><Button className="mt-3 !bg-white !text-brand-700 ring-1 ring-brand-300" disabled={busy || !requestMessage.trim()} onClick={() => void run(() => requestFinancialDisputeEvidence(selected.id, requestTarget, requestMessage.trim())).then((result) => result && setRequestMessage(""))}>Request evidence</Button>

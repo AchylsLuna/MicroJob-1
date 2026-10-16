@@ -221,10 +221,10 @@
     "subtitle": "Investigate and resolve payment disputes.",
     "demo": {
       "title": "Try the payment dispute flow",
-      "description": "A development-only demo assignment simulates a PHP 500 payment dispute for a five-day job where three days were completed. It uses synthetic escrow and dedicated test accounts.",
+      "description": "A development-only demo assignment simulates a PHP 500 payment dispute for a five-day job where three days were completed. It uses synthetic reserved funds and dedicated test accounts.",
       "stepWorker": "Sign in with the demo worker account and open a payment dispute from Applied Jobs.",
       "stepEmployer": "Sign in with the demo employer account to verify the dispute notice and payment hold.",
-      "stepAdmin": "Return here as finance admin to investigate and resolve the case with a worker payout from PHP 0 to PHP 500.",
+      "stepAdmin": "Return here as finance admin to investigate and resolve the case with a worker payment from PHP 0 to PHP 500.",
       "seedHint": "Prepare or restart locally: set ENABLE_PAYMENT_DISPUTE_DEMO_SEED=true and PAYMENT_DISPUTE_DEMO_PASSWORD in server/.env, then run npm --prefix server run seed:payment-dispute-demo. The command prints the test account emails."
     },
     "cards": {
@@ -272,7 +272,7 @@
       "notesRequired": "Resolution notes are required.",
       "workerPayoutLabel": "Amount awarded to worker",
       "employerRefundHint": "{{amount}} will be refunded to the employer.",
-      "settlementHint": "Submitting this decision will settle the escrow and close the assignment.",
+      "settlementHint": "Submitting this decision will settle the reserved funds and close the assignment.",
       "payoutInvalid": "Enter an amount from PHP 0 to {{amount}}, with no more than two decimal places.",
       "cancel": "Cancel"
     },
@@ -366,7 +366,7 @@
     "badge": "Platform operations",
     "header": {
       "title": "Everything requiring attention, in one place",
-      "description": "Review account approvals, platform activity, jobs, and completed payouts without duplicating the detailed admin tools.",
+      "description": "Review account approvals, platform activity, jobs, and completed payments without duplicating the detailed admin tools.",
       "reportsLink": "View platform reports"
     },
     "error": {
@@ -376,10 +376,10 @@
     "pendingBanner": {
       "title": "Items need your review",
       "reviewAccounts": "Review accounts",
-      "reviewPayouts": "Review payouts",
+      "reviewPayouts": "Review payments",
       "reviewSupport": "Review support"
     },
-    "pendingSummary": "{{pendingUsers}} pending users, {{pendingPayouts}} payout requests, and {{openSupportTickets}} open support tickets.",
+    "pendingSummary": "{{pendingUsers}} pending users, {{pendingPayouts}} withdrawal requests, and {{openSupportTickets}} open support tickets.",
     "summary": {
       "title": "Platform summary",
       "subtitle": "Current totals from the administration services."
@@ -400,8 +400,8 @@
       },
       "completedValue": {
         "label": "Completed value",
-        "detail_one": "{{count}} completed payout",
-        "detail_other": "{{count}} completed payouts"
+        "detail_one": "{{count}} completed payment",
+        "detail_other": "{{count}} completed payments"
       },
       "loading": "Loading current data…"
     },
@@ -421,8 +421,8 @@
         "description": "Inspect platform and operational reports"
       },
       "reviewPayouts": {
-        "label": "Review payouts",
-        "description": "Approve, reject, and complete payout requests"
+        "label": "Review payments",
+        "description": "Approve, reject, and complete withdrawal requests"
       }
     },
     "recentJobs": {
@@ -436,11 +436,11 @@
       "statusUnknown": "Unknown"
     },
     "recentPayouts": {
-      "title": "Recent completed payouts",
+      "title": "Recent completed payments",
       "subtitle": "Latest completed wallet activity.",
       "viewWallet": "View wallet",
-      "loading": "Loading payout activity…",
-      "empty": "No completed payouts are available yet.",
+      "loading": "Loading payment activity…",
+      "empty": "No completed payments are available yet.",
       "platformUser": "Platform user"
     }
   },
@@ -586,7 +586,7 @@
     },
     "deleteDialog": {
       "title": "Delete user",
-      "description": "Delete {{name}}? Their account will be anonymized and they will lose access. Accounts with active balances, payouts, jobs, or applications cannot be deleted.",
+      "description": "Delete {{name}}? Their account will be anonymized and they will lose access. Accounts with active balances, payments, jobs, or applications cannot be deleted.",
       "fallbackName": "this user",
       "confirmLabel": "Delete user",
       "blockedPrefix": "This account can't be deleted yet:"
@@ -735,13 +735,13 @@
   },
   "eWallet": {
     "cards": {
-      "completedPayouts": "Completed Payouts",
+      "completedPayouts": "Completed Payments",
       "completedTotal": "Completed Total"
     },
     "viewAction": "View",
-    "viaEscrow": "via escrow",
-    "escrowSystem": "Escrow (System)",
-    "autoPayEscrow": "Auto-Pay (Escrow)",
+    "viaEscrow": "via reserved funds",
+    "escrowSystem": "Payment on Hold (System)",
+    "autoPayEscrow": "Auto-Pay (Payment on Hold)",
     "receipt": {
       "title": "Transaction Receipt",
       "amount": "Amount",
@@ -763,23 +763,23 @@
         "reference": "Reference"
       },
       "paidBySender": "Paid By (Sender)",
-      "employerViaEscrow": "Employer · via escrow",
-      "escrowOrSystem": "Escrow / System",
+      "employerViaEscrow": "Employer · via reserved funds",
+      "escrowOrSystem": "Payment on Hold / System",
       "systemOrExternal": "System / External",
       "paymentDestination": "Payment Destination",
       "jobReference": "Job Reference",
       "linkedTransaction": "Linked Transaction"
     },
     "payouts": {
-      "subtitle": "All payout transactions — includes auto-pay from job completion and manual withdrawal requests.",
-      "loading": "Loading payouts…",
-      "empty": "No payout transactions yet.",
-      "count_one": "{{count}} payout transaction",
-      "count_other": "{{count}} payout transactions"
+      "subtitle": "All payment transactions — includes auto-pay from job completion and manual withdrawal requests.",
+      "loading": "Loading payments…",
+      "empty": "No payment transactions yet.",
+      "count_one": "{{count}} payment transaction",
+      "count_other": "{{count}} payment transactions"
     },
     "logs": {
       "title": "Transaction Logs",
-      "subtitle": "All platform transactions — top-ups, escrow, payouts, refunds. Click <strong>View</strong> for the full receipt.",
+      "subtitle": "All platform transactions — top-ups, reserved funds, payments, refunds. Click <strong>View</strong> for the full receipt.",
       "loading": "Loading transactions…",
       "empty": "No transactions match your filters.",
       "searchPlaceholder": "Search name, email, ref…",
@@ -787,8 +787,8 @@
       "typeOptions": {
         "all": "All Types",
         "topUp": "Top-Up",
-        "escrow": "Escrow",
-        "payout": "Payout",
+        "escrow": "Payment on Hold",
+        "payout": "Payment",
         "refund": "Refund"
       },
       "statusOptions": {
@@ -858,7 +858,7 @@
       "approvedForPayment": "Approved for payment",
       "paidInView": "Paid in this view"
     },
-    "title": "Payout requests",
+    "title": "withdrawal requests",
     "subtitle": "Approve requests, record completed transfers, or reject and return funds.",
     "filters": {
       "statusLabel": "Status",
@@ -875,14 +875,14 @@
       "refresh": "Refresh"
     },
     "states": {
-      "loading": "Loading payout requests…",
-      "errorTitle": "Payout requests could not be loaded",
+      "loading": "Loading withdrawal requests…",
+      "errorTitle": "withdrawal requests could not be loaded",
       "retry": "Try again",
-      "emptyTitle": "No payout requests found",
+      "emptyTitle": "No withdrawal requests found",
       "emptyDescription": "Try changing the status or search filters."
     },
     "table": {
-      "caption": "Payout requests and available review actions",
+      "caption": "withdrawal requests and available review actions",
       "requester": "Requester",
       "destination": "Destination",
       "amount": "Amount",
@@ -897,9 +897,9 @@
       "reject": "Reject"
     },
     "reviewDialog": {
-      "titlePaid": "Confirm completed payout",
-      "titleApproved": "Approve payout",
-      "titleRejected": "Reject payout",
+      "titlePaid": "Confirm completed payment",
+      "titleApproved": "Approve payment",
+      "titleRejected": "Reject payment",
       "descriptionPaid": "Only mark this request paid after confirming the external transfer was completed.",
       "descriptionRejected": "The reserved amount will be returned to the worker balance.",
       "descriptionApproved": "Approval moves this request into the payment-ready queue.",
@@ -913,12 +913,12 @@
       "rejectAndRefund": "Reject and refund"
     },
     "toast": {
-      "loadFailed": "Failed to load payout requests.",
-      "rejectReasonRequired": "Explain why this payout is being rejected.",
-      "markedPaid": "Payout marked as paid.",
-      "approved": "Payout approved.",
-      "rejectedRefunded": "Payout rejected and refunded.",
-      "updateFailed": "Failed to update payout request."
+      "loadFailed": "Failed to load withdrawal requests.",
+      "rejectReasonRequired": "Explain why this payment is being rejected.",
+      "markedPaid": "Payment marked as paid.",
+      "approved": "Payment approved.",
+      "rejectedRefunded": "Payment rejected and refunded.",
+      "updateFailed": "Failed to update withdrawal request."
     }
   },
   "jobMonitoring": {
@@ -977,14 +977,14 @@
   "analytics": {
     "overview": {
       "cards": {
-        "payoutVolume": "Completed Payout Volume",
+        "payoutVolume": "Completed Payment Volume",
         "activeJobs": "Active Jobs",
         "totalUsers": "Total Users",
         "conversionRate": "Conversion Rate"
       },
       "changeFromLastMonth": "{{sign}}{{value}}% from last month",
       "monthlyActivity": "Monthly Activity",
-      "payoutTrend": "Completed Payout Trend",
+      "payoutTrend": "Completed Payment Trend",
       "jobsByCategory": "Jobs by Category",
       "userGrowth": "User Growth",
       "othersCategory": "Others",

@@ -1,3 +1,4 @@
+import WorkSubmission from '../../components/WorkSubmission';
 import AssignmentPanel from '../../components/AssignmentPanel';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Modal, Platform, View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
@@ -189,17 +190,6 @@ export default function AppliedJobs(props: AppliedJobsProps) {
     externalOnTabPress?.(tab);
   };
 
-  const submitFinishedWork = async (applicationId: string) => {
-    setIsLoading(true);
-    try {
-      const token = await AsyncStorage.getItem('auth_token');
-      const result = await apiRequest(`${API_URL}/applications/${applicationId}/work/submit`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : undefined }, t('appliedJobs.apiFallback.submitWorkFailed'));
-      if (!result.ok) throw new Error(result.message);
-      toast.success(t('appliedJobs.toast.submitWorkSuccess'));
-      await fetchApplications();
-    } catch (error: any) { toast.error(error?.message || t('appliedJobs.apiFallback.submitWorkFailed')); }
-    finally { setIsLoading(false); }
-  };
 
   const submitPaymentDispute = async () => {
     if (!paymentDisputeTarget || submittingDispute) return;
@@ -362,10 +352,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                 {['Hired', 'Cancelled', 'Position filled'].includes(job.status) && <AssignmentPanel applicationId={job.id} />}
                 <View style={styles.cardActions}>
                   {job.status === 'Hired' && ['In Progress', 'Changes Requested'].includes(job.workStatus || 'In Progress') ? (
-                    <TouchableOpacity style={styles.messageButton} onPress={() => void submitFinishedWork(job.id)} accessibilityRole="button">
-                      <Ionicons name="checkmark-done-outline" size={16} color={tokens.colors.brand} />
-                      <Text style={styles.messageButtonText}>{t('appliedJobs.messageButton.submitWork')}</Text>
-                    </TouchableOpacity>
+                    <WorkSubmission applicationId={job.id} onChanged={() => void fetchApplications()} />
                   ) : null}
                   {job.status === 'Hired' && job.workStatus === 'Submitted' && job.paymentStatus === 'Disputed' ? (
                     <Text style={styles.disputeHoldText}>{t('appliedJobs.paymentDispute.onHold')}</Text>

@@ -14,6 +14,7 @@ type Dispute = {
   ticketId?: string;
   subject?: string;
   investigationStatus?: string;
+  displayStatus?: string;
   settlementStatus?: string;
   paymentStatus?: string;
   workerClaim?: string;
@@ -86,7 +87,7 @@ export default function FinancialDisputes({ onBack, isEmployer = false }: Props)
           {items.map((item) => (
             <TouchableOpacity key={idOf(item)} style={[styles.card, selected && idOf(selected) === idOf(item) && styles.selectedCard]} onPress={() => setSelected(item)}>
               <Text style={styles.cardTitle}>{item.ticketId || item.subject || 'Financial dispute'}</Text>
-              <Text style={styles.muted}>{item.investigationStatus || 'Pending'} · {item.paymentStatus || item.settlementStatus || 'Under review'}</Text>
+              <Text style={styles.muted}>{(item.displayStatus || item.investigationStatus) || 'Pending'} · {item.paymentStatus || item.settlementStatus || 'Under review'}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -105,7 +106,7 @@ export default function FinancialDisputes({ onBack, isEmployer = false }: Props)
                 <TouchableOpacity style={styles.secondary} onPress={() => void update('/employer-response', { response: response.trim() }, 'Response submitted.')} disabled={busy || !response.trim()}><Text style={styles.secondaryText}>Submit employer response</Text></TouchableOpacity>
               </>
             ) : null}
-            {!isEmployer && selected.investigationStatus === 'RESOLVED' && !selected.settlementStatus?.includes('PAID') ? (
+            {!isEmployer && (selected.displayStatus || selected.investigationStatus) === 'RESOLVED' && !selected.settlementStatus?.includes('PAID') ? (
               <>
                 <TextInput value={appeal} onChangeText={setAppeal} placeholder="Appeal reason" style={styles.input} multiline />
                 <TouchableOpacity style={styles.secondary} onPress={() => void update('/appeal', { reason: appeal.trim() }, 'Appeal submitted.')} disabled={busy || !appeal.trim()}><Text style={styles.secondaryText}>Submit appeal</Text></TouchableOpacity>

@@ -29,7 +29,7 @@ const populateDispute = (query) => query
   .populate('employer', 'firstName lastName email companyName avatarUrl')
   .populate('raisedBy', 'firstName lastName email')
   .populate('job', 'title description salary status')
-  .populate('application', 'agreedAmount workStatus paymentStatus timeline')
+  .populate('application', 'agreedAmount workStatus paymentStatus timeline completionEvidence')
   .populate('assignedSupportUserId', 'firstName lastName email')
   .populate('assignedFinanceUserId', 'firstName lastName email')
   .populate('evidence.uploadedBy', 'firstName lastName email')
@@ -57,7 +57,12 @@ export function shapeFinancialDispute(dispute, { staff = false } = {}) {
       timestamp: entry.timestamp,
     }));
   }
-  return { ...doc, id: String(doc._id) };
+  const displayStatus = !doc.active || ['resolved', 'rejected'].includes(doc.status)
+    ? doc.status === 'rejected' ? 'Closed' : 'Resolved'
+    : doc.escalatedAt || doc.investigationStatus === 'ESCALATED' ? 'Escalated'
+      : String(doc.investigationStatus).startsWith('AWAITING_') ? 'Awaiting Evidence'
+        : doc.investigationStatus === 'OPEN' || doc.status === 'open' ? 'Open' : 'Under Review';
+  return { ...doc, displayStatus, id: String(doc._id) };
 }
 
 export async function listMyFinancialDisputes(req, res) {
@@ -110,8 +115,11 @@ export async function addFinancialDisputeEvidence(req, res) {
     }
     if (!dispute.active) return res.status(409).json({ message: 'This financial dispute is already resolved.' });
     if (isParticipant && dispute.evidenceDueAt && new Date(dispute.evidenceDueAt) <= new Date()) return res.status(409).json({ message: 'The seven-day evidence period has ended.' });
-    const description = String(req.body?.description || '').trim();
-    if (!req.file && !description) return res.status(400).json({ message: 'Choose a file or describe the evidence reference.' });
+    const statement = String(req.body?.statement || '').trim();
+    const description = String(req.body?.description || statement.slice(0, 1000)).trim();
+    const noEvidence = req.body?.noEvidence === true || req.body?.noEvidence === 'true';
+    if (statement.length > 4000 || description.length > 1000) return res.status(400).json({ message: 'Evidence statements allow up to 4000 characters and descriptions up to 1000.' });
+    if (!req.file && !description && !noEvidence) return res.status(400).json({ message: 'Choose a file, describe the evidence reference, or state that no evidence is available.' });
     if (req.file && !hasValidDisputeEvidenceFileSignature(req.file)) {
       await removeUploadFile(req.file.filename);
       storedFileName = null;
@@ -127,6 +135,8 @@ export async function addFinancialDisputeEvidence(req, res) {
       fileName: req.file?.originalname || null,
       contentType: req.file?.mimetype || null,
       description,
+      statement,
+      noEvidence: noEvidence && !req.file,
     });
     const previousStatus = dispute.investigationStatus;
     if (['AWAITING_WORKER_EVIDENCE', 'AWAITING_EMPLOYER_EVIDENCE'].includes(previousStatus)) {
@@ -138,10 +148,9 @@ export async function addFinancialDisputeEvidence(req, res) {
     await notifyParticipants(dispute, 'Financial dispute evidence submitted', `New evidence was added to ${dispute.ticketId}.`, userId(req));
     return res.status(201).json({ message: 'Evidence added. Submitted evidence is append-only.', evidence: dispute.evidence.at(-1), dispute: shapeFinancialDispute(dispute) });
   } catch (error) {
-    if (storedFileName) await removeUploadFile(storedFileName);
     console.error('Add financial dispute evidence error:', error);
     return res.status(error?.name === 'ValidationError' ? 400 : 500).json({ message: error?.message || 'Failed to add evidence.' });
-  }
+  } finally { if (storedFileName) await removeUploadFile(storedFileName); }
 }
 
 export async function addFinancialDisputeMessage(req, res) {

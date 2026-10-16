@@ -1,3 +1,8 @@
+import * as DocumentPicker from 'expo-document-picker';
+import { uploadFile } from '../lib/uploadFile';
+import AsyncStorage from '../lib/storage';
+import { API_URL } from '../config';
+import CompletionEvidence from './CompletionEvidence';
 import React, { useRef, useState } from 'react';
 import { Modal, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +13,7 @@ import { formatCurrency } from '../lib/formatters';
 
 export default function AssignmentPanel({ applicationId, employer = false, onChanged }: { applicationId: string; employer?: boolean; onChanged?: () => void }) {
   const { t } = useTranslation('common'); const [open, setOpen] = useState(false); const [data, setData] = useState<any>(null);
+  const [evidenceFile, setEvidenceFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [command, setCommand] = useState(''); const [reason, setReason] = useState(''); const [amount, setAmount] = useState('0'); const [checked, setChecked] = useState(false); const [nonpayment, setNonpayment] = useState(false);
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const lock = useRef(false);
   const load = async () => setData(await walletRequest(`/applications/${applicationId}/lifecycle`));
@@ -23,6 +29,14 @@ export default function AssignmentPanel({ applicationId, employer = false, onCha
     if (command === 'start') return walletRequest(`/applications/${applicationId}/work/start`, {});
     if (command === 'cancel') return walletRequest(`/applications/${applicationId}/cancel`, { reason, workerPayment: Number(amount), policyAcknowledged: checked });
     if (command === 'dispute') return walletRequest(`/applications/${applicationId}/disputes`, { reason, kind: nonpayment ? 'nonpayment' : 'other' });
+    if (command === 'evidence' && evidenceFile) {
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) throw new Error(t('lifecycle.signInRequired'));
+      if ((evidenceFile.size || 0) > 5 * 1024 * 1024) throw new Error(t('lifecycle.evidenceTooLarge'));
+      const result = await uploadFile({ url: `${API_URL}/financial-disputes/${dispute._id}/evidence`, fileUri: evidenceFile.uri, fieldName: 'evidence', mimeType: evidenceFile.mimeType || 'application/octet-stream', token, parameters: { description: reason.slice(0, 1000), statement: reason, evidenceType: 'OTHER' } });
+      if (!result.ok) { let message = t('lifecycle.submissionFailed'); try { message = JSON.parse(result.body).message || message; } catch { /* Keep fallback. */ } throw new Error(message); }
+      setEvidenceFile(null); return;
+    }
     if (command === 'evidence') return walletRequest(`/financial-disputes/${dispute._id}/evidence`, { statement: reason, noEvidence: checked });
     if (['accept', 'reject'].includes(command)) return walletRequest(`/cancellations/${pending._id}/respond`, { action: command });
   };
@@ -34,12 +48,14 @@ export default function AssignmentPanel({ applicationId, employer = false, onCha
       {app && <>
         <Text style={styles.text}>{app.status} · {t(`lifecycle.work.${app.workStatus}`, { defaultValue: app.workStatus })} · {pending || (dispute && Number(dispute.amount) > 0) ? t('lifecycle.held') : app.paymentStatus}</Text>
         <Text style={styles.text}>{t('lifecycle.agreed')}: {formatCurrency(app.agreedAmount || data.job.salary)}</Text><Text style={styles.text}>{(data.job.requirements || []).join(' · ')}</Text><Text style={styles.text}>{t('lifecycle.terms')}</Text>
+        <CompletionEvidence items={app.completionEvidence} />
         {command ? <>
           <Text style={styles.title}>{t(`lifecycle.${command}`)}</Text>
           {['cancel', 'dispute', 'evidence'].includes(command) && <TextInput style={styles.input} accessibilityLabel={t('lifecycle.reason')} placeholder={t('lifecycle.reason')} value={reason} onChangeText={setReason} multiline maxLength={command === 'evidence' ? 4000 : 2000} />}
+          {command === 'evidence' && button(evidenceFile?.name || t('lifecycle.completionFile'), () => void run(async () => { const picked = await DocumentPicker.getDocumentAsync({ type: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'], copyToCacheDirectory: true }); if (!picked.canceled) { setEvidenceFile(picked.assets[0]); setChecked(false); } }, false))}
           {command === 'cancel' && app.workStatus !== 'Not started' && <><Text style={styles.text}>{t('lifecycle.proposed')}</Text><TextInput accessibilityLabel={t('lifecycle.proposed')} keyboardType="decimal-pad" value={amount} onChangeText={setAmount} style={styles.input} /></>}
           {command === 'dispute' && <View style={styles.check}><Switch value={nonpayment} onValueChange={setNonpayment} disabled={!data.canFileNonpayment} accessibilityLabel={t('lifecycle.nonpayment')} /><Text style={styles.text}>{t('lifecycle.nonpayment')}</Text></View>}
-          {['cancel', 'evidence'].includes(command) && <View style={styles.check}><Switch value={checked} onValueChange={setChecked} accessibilityLabel={t(command === 'evidence' ? 'lifecycle.noEvidence' : 'lifecycle.acknowledge')} /><Text style={styles.text}>{t(command === 'evidence' ? 'lifecycle.noEvidence' : 'lifecycle.acknowledge')}</Text></View>}
+          {(command === 'cancel' || (command === 'evidence' && !evidenceFile)) && <View style={styles.check}><Switch value={checked} onValueChange={setChecked} accessibilityLabel={t(command === 'evidence' ? 'lifecycle.noEvidence' : 'lifecycle.acknowledge')} /><Text style={styles.text}>{t(command === 'evidence' ? 'lifecycle.noEvidence' : 'lifecycle.acknowledge')}</Text></View>}
           {['accept', 'reject'].includes(command) && <Text style={styles.text}>{t('lifecycle.respondNotice', { amount: formatCurrency(pending?.workerPayment || 0) })}</Text>}
           {button(t('lifecycle.confirm'), () => void run(act), command === 'cancel' && !checked)}{button(t('wallet.back'), () => setCommand(''))}
         </> : <>
@@ -47,10 +63,10 @@ export default function AssignmentPanel({ applicationId, employer = false, onCha
           {app.status === 'Hired' && !['Paid', 'Processing'].includes(app.paymentStatus) && !pending && !dispute && button(t('lifecycle.cancel'), () => { setChecked(false); setCommand('cancel'); })}
           {['Hired', 'Cancelled'].includes(app.status) && app.paymentStatus !== 'Processing' && !dispute && button(t('lifecycle.dispute'), () => { setNonpayment(false); setCommand('dispute'); })}
           {canRespond && !dispute && <>{button(t('lifecycle.accept'), () => setCommand('accept'))}{button(t('lifecycle.reject'), () => setCommand('reject'))}</>}
-          {dispute && button(t('lifecycle.evidence'), () => { setChecked(false); setCommand('evidence'); })}
+          {dispute && button(t('lifecycle.evidence'), () => { setEvidenceFile(null); setChecked(false); setCommand('evidence'); })}
         </>}
         {pending && <Text style={styles.text}>{pending.reason} · {pending.status} · {formatCurrency(pending.workerPayment)}</Text>}
-        {dispute && <><Text style={styles.text}>{t('lifecycle.evidenceNotice')}</Text><Text style={styles.text}>{t('lifecycle.evidenceDue')}: {new Date(dispute.evidenceDueAt).toLocaleString()}</Text>{dispute.evidence?.map((item: any, i: number) => <Text key={i} style={styles.text}>{item.statement || t('lifecycle.noEvidence')}</Text>)}</>}
+        {dispute && <><CompletionEvidence items={(dispute.evidence || []).filter((item: any) => item.fileUrl)} /><Text style={styles.text}>{t('lifecycle.evidenceNotice')}</Text><Text style={styles.text}>{t('lifecycle.evidenceDue')}: {new Date(dispute.evidenceDueAt).toLocaleString()}</Text>{dispute.evidence?.map((item: any, i: number) => <Text key={i} style={styles.text}>{item.statement || item.description || item.fileName || t('lifecycle.noEvidence')}</Text>)}</>}
         <Text style={styles.title}>{t('lifecycle.history')}</Text>{data.cancellations?.map((item: any) => <Text key={item._id} style={styles.text}>{item.reason} · {item.status}</Text>)}
       </>}
       {button(t('wallet.back'), () => setOpen(false))}

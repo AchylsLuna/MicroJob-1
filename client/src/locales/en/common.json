@@ -81,7 +81,7 @@
         "searchPlaceholder": "Search saved jobs..."
       },
       "payoutRequests": {
-        "title": "Payout Requests"
+        "title": "withdrawal requests"
       },
       "supportTickets": {
         "title": "Support Tickets"
@@ -123,7 +123,7 @@
       },
       "adminEWallet": {
         "title": "E-Wallet Monitoring",
-        "subtitle": "Track payout volume, pending balances, and recent completions"
+        "subtitle": "Track payment volume, pending balances, and recent completions"
       },
       "adminJobs": {
         "title": "Job Posting Monitoring",
@@ -238,17 +238,27 @@
     "topupFee": "Processing fee: {{fee}}. Total charged: {{total}}.",
     "error": "Unable to complete this action.",
     "status": {
-      "requested": "Awaiting Finance review",
+      "requested": "Withdrawal under review",
       "approved": "Approved; awaiting transfer",
       "processing": "Processing transfer",
       "paid": "Paid",
       "failed": "Failed; funds returned",
       "rejected": "Rejected; funds returned",
       "cancelled": "Cancelled; funds returned"
-    }
+    },
+    "limits": "Minimum: {{minimum}}. Maximum: {{maximum}}. Amounts above {{threshold}} require Finance review.",
+    "noMaximum": "Available balance"
   },
   "lifecycle": {
-    "paymentStatus": {"Funds secured": "Funds secured", "On hold": "Funds on hold", "Processing": "Processing payment", "Awaiting approval": "Awaiting work approval", "Paid": "Paid", "Partially paid": "Partially paid", "Refunded": "Refunded"},
+    "paymentStatus": {
+      "Funds secured": "Funds secured",
+      "On hold": "Funds on hold",
+      "Processing": "Processing payment",
+      "Awaiting approval": "Awaiting work approval",
+      "Paid": "Paid",
+      "Partially paid": "Partially paid",
+      "Refunded": "Refunded"
+    },
     "platformRecords": "Review platform records",
     "secured": "Funds secured",
     "details": "Assignment details",
@@ -298,7 +308,19 @@
       "Completed": "Completed",
       "Cancelled": "Cancelled"
     },
-    "repostNotice": "Create a new posting and secure the displayed funds from my wallet. Existing history will be preserved."
+    "repostNotice": "Create a new posting and secure the displayed funds from my wallet. Existing history will be preserved.",
+    "submitWork": "Submit completed work",
+    "completionStatement": "Describe the completed work and supporting evidence",
+    "completionFile": "Attach a photo or document (optional, up to 5 MB)",
+    "evidenceTooLarge": "The evidence file must be 5 MB or smaller.",
+    "signInRequired": "Sign in to submit completion evidence.",
+    "submissionFailed": "Unable to submit completed work.",
+    "removeFile": "Remove attached file",
+    "completionEvidence": "Completion evidence",
+    "downloadOnAndroid": "Use the Android app or web application to download evidence.",
+    "downloadFailed": "Unable to download the evidence file.",
+    "evidenceSaved": "Evidence saved to your selected folder.",
+    "saveEvidence": "Save evidence file"
   },
   "reports": {
     "type": "Report type",

@@ -41,6 +41,8 @@ const PayoutRequestSchema = new mongoose.Schema(
   {
     sourceWallet: { type: String, enum: ['EMPLOYER', 'WORKER'], default() { return this.balanceTarget || 'WORKER'; } },
     processingMode: { type: String, enum: ['manual', 'automatic'], default: 'manual' },
+    reviewReason: { type: String, default: null },
+    policySnapshot: { minimum: Number, maximum: Number, reviewThreshold: Number, requiresReview: Boolean },
     fee: { type: Number, default: 0, min: 0 },
     totalDebit: Number,
     transferReference: String,
@@ -61,7 +63,7 @@ const PayoutRequestSchema = new mongoose.Schema(
     amount: {
       type: Number,
       required: true,
-      min: 1,
+      min: 0.01,
     },
     // Existing records predate employer withdrawals, so they stay worker payouts.
     balanceTarget: {

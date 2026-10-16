@@ -1,3 +1,4 @@
+import { WorkSubmission } from '../../components/WorkSubmission';
 import { AssignmentPanel } from '../../components/AssignmentPanel';
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -183,9 +184,6 @@ const AppliedJobs: React.FC = () => {
     void action.run();
   };
 
-  const handleSubmitWork = (application: Application) => {
-    void runOfferAction(application._id, () => jobsAPI.submitWork(application._id), t("appliedJobs.toast.workSubmitted"));
-  };
 
   const handleOpenDispute = (application: Application) => {
     setDisputeTarget(application);
@@ -360,16 +358,7 @@ const AppliedJobs: React.FC = () => {
 
                     {['Hired', 'Cancelled', 'Position filled'].includes(application.status) && <AssignmentPanel applicationId={application._id} onChanged={() => void fetchApplications()} />}
                     {application.status === "Hired" && ["In Progress", "Changes Requested"].includes(application.workStatus || "In Progress") ? (
-                      <div className="mt-4">
-                        <button
-                          type="button"
-                          disabled={actionBusyId === application._id}
-                          onClick={() => handleSubmitWork(application)}
-                          className="inline-flex h-10 items-center justify-center rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {t("appliedJobs.submitWork.button")}
-                        </button>
-                      </div>
+                      <WorkSubmission applicationId={application._id} onChanged={() => void fetchApplications()} />
                     ) : null}
                     {application.status === "Hired" && application.workStatus === "Submitted" && application.paymentStatus === "Disputed" ? (
                       <div className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">

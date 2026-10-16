@@ -104,6 +104,7 @@ const FinancialDisputeSchema = new mongoose.Schema(
     disputeType: { type: String, default: 'INCORRECT_OR_MISSING_PAYMENT', trim: true },
     kind: { type: String, enum: ['nonpayment', 'cancellation', 'other'], default: 'other' },
     evidenceDueAt: Date,
+    escalatedAt: { type: Date, default: null },
     workerPayment: { type: Number, default: null },
     events: [{ actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, type: { type: String }, note: String, at: { type: Date, default: Date.now } }],
     subject: { type: String, required: true, trim: true, maxlength: 200 },

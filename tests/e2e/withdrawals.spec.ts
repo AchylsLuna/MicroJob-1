@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
-async function mockWallet(page: Page, employer: boolean) {
+async function mockWallet(page: Page, employer: boolean, requiresReview = false) {
   const user = { id: '507f1f77bcf86cd799439012', _id: '507f1f77bcf86cd799439012', email: 'wallet@example.com', firstName: 'Wallet', lastName: 'User', role: employer ? 'hire' : 'work', systemRole: employer ? 'hire' : 'work', accountType: employer ? 'employer' : 'worker', accountOptions: [employer ? 'employer' : 'worker'], status: 'active', isVerified: true, employerBalance: 500, workerBalance: 500 };
   await page.addInitScript((value) => { localStorage.setItem('auth_user', JSON.stringify(value)); localStorage.setItem('current_user', JSON.stringify(value)); }, user);
   let confirmed = 0; let previews = 0; let requests: Array<Record<string, unknown>> = []; let paid = false;
@@ -10,13 +10,14 @@ async function mockWallet(page: Page, employer: boolean) {
     if (path.endsWith('/auth/me')) body = { data: { ...user, employerBalance: confirmed ? 400 : 500, workerBalance: confirmed ? 400 : 500 } };
     else if (path.endsWith('/payment/transactions')) body = { transactions: [] };
     else if (path.endsWith('/payment/payout-requests')) body = { payoutRequests: requests.map((item) => ({ ...item, status: paid ? 'paid' : item.status })) };
+    else if (path.endsWith('/withdrawals/policy')) body = { minimum: 1, maximum: employer ? 50000 : null, reviewThreshold: requiresReview ? 50 : 50000 };
     else if (path.endsWith('/withdrawals/institutions')) body = { institutions: [{ bic: 'TESTPH', name: 'Test Bank' }] };
     else if (path.endsWith('/withdrawals/preview')) {
       previews += 1; const payload = req.postDataJSON();
-      body = { previewToken: `preview-${previews}`, sourceWallet: employer ? 'EMPLOYER' : 'WORKER', amount: Number(payload.amount), fee: 0, totalDebit: Number(payload.amount), remainingBalance: 500 - Number(payload.amount), destination: { institutionName: 'Test Bank', accountName: payload.destinationSnapshot.accountName, accountNumberMasked: `•••• ${payload.destinationSnapshot.accountNumber.slice(-4)}` } };
+      body = { reviewReason: requiresReview ? 'This withdrawal exceeds the configured review threshold and requires Finance approval before transfer.' : undefined, requiresReview, previewToken: `preview-${previews}`, sourceWallet: employer ? 'EMPLOYER' : 'WORKER', amount: Number(payload.amount), fee: 0, totalDebit: Number(payload.amount), remainingBalance: 500 - Number(payload.amount), destination: { institutionName: 'Test Bank', accountName: payload.destinationSnapshot.accountName, accountNumberMasked: `•••• ${payload.destinationSnapshot.accountNumber.slice(-4)}` } };
     } else if (path.endsWith('/withdrawals/confirm')) {
       confirmed += 1; expect(req.postDataJSON().detailsConfirmed).toBe(true);
-      const item = { _id: '507f1f77bcf86cd799439099', amount: 100, sourceWallet: employer ? 'EMPLOYER' : 'WORKER', processingMode: employer ? 'automatic' : 'manual', status: employer ? 'processing' : 'requested', providerTransferId: employer ? 'tr_test' : undefined, destinationSnapshot: { methodType: 'bank_transfer', institutionName: 'Test Bank', accountName: 'Wallet User', accountNumberMasked: '•••• 5678' } };
+      const item = { _id: '507f1f77bcf86cd799439099', amount: 100, sourceWallet: employer ? 'EMPLOYER' : 'WORKER', processingMode: employer && !requiresReview ? 'automatic' : 'manual', status: employer && !requiresReview ? 'processing' : 'requested', providerTransferId: employer ? 'tr_test' : undefined, destinationSnapshot: { methodType: 'bank_transfer', institutionName: 'Test Bank', accountName: 'Wallet User', accountNumberMasked: '•••• 5678' } };
       requests = [item]; body = { payoutRequest: item };
     }
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
@@ -66,4 +67,18 @@ test('employer confirms unused-fund withdrawal without a job or OTP and sees pro
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   wallet.markPaid(); await page.clock.fastForward(15001);
   await expect(wallet.panel.getByRole('status')).toContainText('Paid');
+});
+
+test('large employer withdrawals explain Finance review before confirmation', async ({ page }) => {
+  const wallet = await mockWallet(page, true, true);
+  await expect(wallet.panel.getByText('Amounts above', { exact: false })).toContainText('Finance review');
+  await wallet.panel.getByRole('button', { name: 'Withdraw', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
+  await expect(dialog.getByRole('status')).toContainText('requires Finance approval');
+  await dialog.getByRole('checkbox').check();
+  await dialog.getByRole('button', { name: 'Confirm withdrawal', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  expect(wallet.confirmed()).toBe(1);
+  await expect(wallet.panel.getByRole('status')).toContainText('Withdrawal under review');
 });

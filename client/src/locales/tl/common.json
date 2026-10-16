@@ -238,17 +238,27 @@
     "topupFee": "Bayad sa pagproseso: {{fee}}. Kabuuang sisingilin: {{total}}.",
     "error": "Hindi makumpleto ang aksyon.",
     "status": {
-      "requested": "Naghihintay ng pagsusuri ng Finance",
+      "requested": "Sinusuri ang withdrawal",
       "approved": "Aprubado; hinihintay ang transfer",
       "processing": "Pinoproseso ang transfer",
       "paid": "Nabayaran",
       "failed": "Nabigo; naibalik ang pondo",
       "rejected": "Tinanggihan; naibalik ang pondo",
       "cancelled": "Kinansela; naibalik ang pondo"
-    }
+    },
+    "limits": "Minimum: {{minimum}}. Maximum: {{maximum}}. Ang halagang higit sa {{threshold}} ay kailangang suriin ng Finance.",
+    "noMaximum": "Magagamit na balanse"
   },
   "lifecycle": {
-    "paymentStatus": {"Funds secured": "Nakaseguro ang pondo", "On hold": "Naka-hold ang pondo", "Processing": "Pinoproseso ang bayad", "Awaiting approval": "Naghihintay ng pag-apruba sa trabaho", "Paid": "Bayad na", "Partially paid": "Bahagyang bayad", "Refunded": "Naibalik ang pondo"},
+    "paymentStatus": {
+      "Funds secured": "Nakaseguro ang pondo",
+      "On hold": "Naka-hold ang pondo",
+      "Processing": "Pinoproseso ang bayad",
+      "Awaiting approval": "Naghihintay ng pag-apruba sa trabaho",
+      "Paid": "Bayad na",
+      "Partially paid": "Bahagyang bayad",
+      "Refunded": "Naibalik ang pondo"
+    },
     "platformRecords": "Suriin ang mga tala ng platform",
     "secured": "Nakalaang pondo",
     "details": "Detalye ng trabaho",
@@ -298,7 +308,19 @@
       "Completed": "Tapos na",
       "Cancelled": "Kinansela"
     },
-    "repostNotice": "Gumawa ng bagong job post at ilaan ang ipinakitang pondo mula sa aking wallet. Mananatili ang dating kasaysayan."
+    "repostNotice": "Gumawa ng bagong job post at ilaan ang ipinakitang pondo mula sa aking wallet. Mananatili ang dating kasaysayan.",
+    "submitWork": "Isumite ang natapos na trabaho",
+    "completionStatement": "Ilarawan ang natapos na trabaho at mga patunay",
+    "completionFile": "Mag-attach ng larawan o dokumento (opsyonal, hanggang 5 MB)",
+    "evidenceTooLarge": "Dapat 5 MB o mas maliit ang file ng patunay.",
+    "signInRequired": "Mag-sign in upang magsumite ng patunay ng pagkumpleto.",
+    "submissionFailed": "Hindi maisumite ang natapos na trabaho.",
+    "removeFile": "Alisin ang naka-attach na file",
+    "completionEvidence": "Patunay ng pagkumpleto",
+    "downloadOnAndroid": "Gamitin ang Android app o web application upang i-download ang patunay.",
+    "downloadFailed": "Hindi ma-download ang file ng patunay.",
+    "evidenceSaved": "Na-save ang patunay sa napiling folder.",
+    "saveEvidence": "I-save ang file ng patunay"
   },
   "reports": {
     "type": "Uri ng ulat",

@@ -25,6 +25,20 @@ export const createUploadsRouter = () => {
             }
             const uploadUrl = toUploadUrl(fileName);
             const storedUpload = await getStoredUpload(fileName);
+            if (storedUpload?.metadata?.kind === 'completion-evidence') {
+                const authContext = await getAuthContextFromRequest(req);
+                if (!authContext?.id) return res.status(401).json({ message: 'Authentication required.' });
+                const application = await JobApplication.findOne({ 'completionEvidence.fileUrl': uploadUrl }).select('applicant job');
+                const job = application && await Job.findById(application.job).select('jobPoster');
+                if (!application || !job) return res.sendStatus(404);
+                const participant = [String(application.applicant), String(job.jobPoster)].includes(String(authContext.id));
+                if (!participant && !hasPermission(resolveStaffRole(authContext), 'finance.disputes.view')) return res.sendStatus(403);
+                res.setHeader('Content-Type', storedUpload.contentType || 'application/octet-stream');
+                res.setHeader('X-Content-Type-Options', 'nosniff');
+                res.setHeader('Cache-Control', 'private, no-store');
+                res.setHeader('Content-Disposition', `attachment; filename="${fileName.replace(/["\\\r\n]/g, '_')}"`);
+                return res.send(Buffer.from(storedUpload.data || []));
+            }
             if (storedUpload?.metadata?.kind === 'dispute-evidence') {
                 const authContext = await getAuthContextFromRequest(req);
                 if (!authContext?.id) return res.status(401).json({ message: 'Authentication required.' });

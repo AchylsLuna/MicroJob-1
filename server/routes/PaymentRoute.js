@@ -1,5 +1,5 @@
 import express from 'express';
-import { getInstitutions, preview, confirm, transferWebhook } from '../controllers/WithdrawalController.js';
+import { getPolicy, getInstitutions, preview, confirm, transferWebhook } from '../controllers/WithdrawalController.js';
 import {
   createTopUpSession,
   handleWebhook,
@@ -43,6 +43,7 @@ router.patch('/methods/:paymentMethodId/default', verifyToken, setDefaultPayment
 router.delete('/methods/:paymentMethodId', verifyToken, removePaymentMethod);
 router.get('/payout-requests', verifyToken, listMyPayoutRequests);
 router.get('/withdrawals/institutions', verifyToken, getInstitutions);
+router.get('/withdrawals/policy', verifyToken, getPolicy);
 router.post('/withdrawals/preview', verifyToken, preview);
 router.post('/withdrawals/confirm', verifyToken, confirm);
 router.post('/payout-requests', verifyToken, confirm);

@@ -1,3 +1,4 @@
+import { CompletionEvidence } from './CompletionEvidence';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Dialog, Input, Select, Textarea } from './ui';
@@ -32,6 +33,7 @@ export function AssignmentPanel({ applicationId, onChanged }: { applicationId: s
         <p>{app.status} · {t(`lifecycle.work.${app.workStatus}`, { defaultValue: app.workStatus })} · {app.cancellationPending || (dispute && Number(dispute.amount) > 0) ? t('lifecycle.held') : app.paymentStatus}</p>
         <p>{t('lifecycle.agreed')}: {formatCurrency(app.agreedAmount || data.job.salary)} · {t('lifecycle.paid')}: {formatCurrency(app.paidAmount || (app.paymentStatus === 'Paid' ? app.agreedAmount : 0))}</p>
         <p>{(data.job.requirements || []).join(' · ')}</p>
+        <CompletionEvidence items={app.completionEvidence} />
         <p className="text-sm text-slate-600">{t('lifecycle.terms')}</p>
         {command ? <div className="space-y-3 border-t pt-4">
           <h3 className="font-semibold">{t(`lifecycle.${command}`)}</h3>
