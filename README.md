@@ -45,6 +45,9 @@ mode. The local API on port `5050` serves the web app. The launcher leaves
 explicit Metro proxy overrides must also point to a deployed API. Restart the unified
 launcher after changing networks, or bring the app to the foreground and use
 Retry while the new QR is loading.
+Metro readiness uses its local `/status` and `/microjobs-dev/health` endpoints.
+A deployed API outage does not stop the local development servers; mobile API
+features still require the configured deployed service to be available.
 If Expo Go reports a version mismatch after installing the SDK 54-compatible
 client, restart Metro with `npm run mobile:start:clear`. Compatible historical
 Expo Go clients can be installed on Android devices/emulators and iOS simulators

@@ -221,6 +221,13 @@
     "confirm": "Kumpirmahin ang withdrawal",
     "processing": "Pinoproseso…",
     "history": "Kasaysayan ng withdrawal",
+    "pagination": {
+      "showing": "Ipinapakita ang {{from}}–{{to}} sa {{total}} withdrawal",
+      "label": "Mga pahina ng kasaysayan ng withdrawal",
+      "previous": "Nakaraan",
+      "next": "Susunod",
+      "page": "Pahina {{page}} sa {{total}}"
+    },
     "cancelWithdrawal": "Kanselahin ang withdrawal",
     "cancelDescription": "Kanselahin ang kahilingang {{amount}} at ibalik ang pondo sa orihinal na wallet?",
     "loading": "Naglo-load…",

@@ -1,4 +1,5 @@
 import { WithdrawalPanel } from "../../components/wallet/WithdrawalPanel";
+import { WithdrawalHistory } from "../../components/wallet/WithdrawalHistory";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDownLeft, ArrowUpRight, Landmark, Wallet } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -189,6 +190,11 @@ export function EmployerEWallet() {
           )}
         </div>
       ),
+    },
+    {
+      id: "withdrawal-history",
+      label: t("common:wallet.history"),
+      content: <WithdrawalHistory sourceWallet="EMPLOYER" onChanged={() => void loadWallet()} />,
     },
   ];
 

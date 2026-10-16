@@ -144,15 +144,15 @@ const ensureWeb = async (environment) => {
 
 const ensureMetro = async (environment, npmCommand) => {
   const metroProbe = async () => {
-    const [status, api, socket] = await Promise.all([
+    const [status, identity] = await Promise.all([
       request(`${metroOrigin}/status`),
-      request(`${metroOrigin}/microjobs-api/api/health`),
-      request(`${metroOrigin}/microjobs-socket/?EIO=4&transport=polling`),
+      request(`${metroOrigin}/microjobs-dev/health`),
     ]);
     if (!status.ok || !status.body.includes('packager-status:running')) return null;
-    if (!api.ok || !api.body.includes('microjobs-api')) return null;
-    if (!socket.ok || !socket.body.includes('sid')) return null;
-    return true;
+    if (!identity.ok) return null;
+    try {
+      return JSON.parse(identity.body).service === 'microjobs-metro' ? true : null;
+    } catch { return null; }
   };
   if (await metroProbe()) {
     const ownerCommand = getPortOwnerCommand(metroPort);
@@ -162,9 +162,9 @@ const ensureMetro = async (environment, npmCommand) => {
     }
     return { reused: true };
   }
-  if (await isPortOpen(metroPort)) throw new Error(`Metro port ${metroPort} is occupied or has a stale MicroJobs proxy.\n${describePortOwner(metroPort)}\nRecovery: stop that process, then run npm run dev again.`);
+  if (await isPortOpen(metroPort)) throw new Error(`Metro port ${metroPort} is occupied or has a stale MicroJobs configuration.\n${describePortOwner(metroPort)}\nRecovery: stop that process, then run npm run dev again.`);
   start('expo', npmCommand, ['--prefix', 'Mobile', 'run', 'start', '--', tunnelMode ? '--tunnel' : '--lan'], environment);
-  await waitFor('Expo Metro and its API proxy', metroProbe, tunnelMode ? 120_000 : 60_000);
+  await waitFor('MicroJobs Expo Metro', metroProbe, tunnelMode ? 120_000 : 60_000);
   return { reused: false };
 };
 

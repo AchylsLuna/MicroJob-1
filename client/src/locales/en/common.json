@@ -221,6 +221,13 @@
     "confirm": "Confirm withdrawal",
     "processing": "Processing…",
     "history": "Withdrawal history",
+    "pagination": {
+      "showing": "Showing {{from}}–{{to}} of {{total}} withdrawals",
+      "label": "Withdrawal history pages",
+      "previous": "Previous",
+      "next": "Next",
+      "page": "Page {{page}} of {{total}}"
+    },
     "cancelWithdrawal": "Cancel withdrawal",
     "cancelDescription": "Cancel this {{amount}} request and return the reserved funds to the original wallet?",
     "loading": "Loading…",

@@ -61,6 +61,12 @@ config.server = {
 
 		return (request, response, next) => {
 			const requestUrl = String(request.url || '');
+			// Identify this Metro instance without depending on the deployed API.
+			if (requestUrl === '/microjobs-dev/health') {
+				response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+				response.end(JSON.stringify({ service: 'microjobs-metro' }));
+				return;
+			}
 			const mapping = proxyPrefixes.find(([prefix]) => requestUrl === prefix || requestUrl.startsWith(`${prefix}/`) || requestUrl.startsWith(`${prefix}?`));
 			if (!mapping) return fallbackMiddleware(request, response, next);
 

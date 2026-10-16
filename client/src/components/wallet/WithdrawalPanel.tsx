@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, ConfirmDialog, Dialog, Input, Select } from '../ui';
-import { confirmWithdrawal, getPayoutRequests, getWithdrawalInstitutions, previewWithdrawal, cancelPayoutRequest, type PayoutRequest, type WithdrawalPreview } from '../../services/api';
+import { confirmWithdrawal, getPayoutRequests, getWithdrawalInstitutions, previewWithdrawal, type PayoutRequest, type WithdrawalPreview } from '../../services/api';
 import { formatCurrency } from '../../lib/formatters';
 
 export function WithdrawalPanel({ sourceWallet, balance, onChanged }: { sourceWallet: 'EMPLOYER' | 'WORKER'; balance: number; onChanged: () => void }) {
   const { t } = useTranslation('common');
   const [form, setForm] = useState({ amount: '', institutionName: '', accountName: '', accountNumber: '', bic: '' });
   const [institutions, setInstitutions] = useState<Array<{ bic: string; name: string }>>([]);
-  const [requests, setRequests] = useState<PayoutRequest[]>([]);
   const [preview, setPreview] = useState<WithdrawalPreview | null>(null);
   const [step, setStep] = useState<'confirm' | 'verify' | null>(null);
   const [checked, setChecked] = useState(false);
@@ -16,10 +15,9 @@ export function WithdrawalPanel({ sourceWallet, balance, onChanged }: { sourceWa
   const submitting = useRef(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<PayoutRequest | null>(null);
-  const [cancel, setCancel] = useState<PayoutRequest | null>(null);
   const [providerReady, setProviderReady] = useState(sourceWallet === 'WORKER');
   const load = useCallback(async () => {
-    const data = await getPayoutRequests(); const next = data.payoutRequests.filter((item) => (item.sourceWallet || 'WORKER') === sourceWallet); setRequests(next); setResult((current) => current ? next.find((item) => item._id === current._id) || current : null);
+    const data = await getPayoutRequests(); const next = data.payoutRequests.filter((item) => (item.sourceWallet || 'WORKER') === sourceWallet); setResult((current) => current ? next.find((item) => item._id === current._id) || current : null);
   }, [sourceWallet]);
   useEffect(() => {
     let active = true;
@@ -68,8 +66,5 @@ export function WithdrawalPanel({ sourceWallet, balance, onChanged }: { sourceWa
       {preview && <div className="space-y-4"><p>{t(`wallet.${sourceWallet.toLowerCase()}`)} · {formatCurrency(preview.amount)}</p><p>{preview.destination.institutionName} · {preview.destination.accountName} · {preview.destination.accountNumberMasked}</p><p>{t('wallet.fee')}: {formatCurrency(preview.fee)}</p><p>{t('wallet.remaining')}: {formatCurrency(preview.remainingBalance)}</p><p className="text-sm">{t('wallet.detailsNotice')}</p><label className="flex items-center gap-3"><input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} disabled={busy} />{t('wallet.correct')}</label>{error && <p role="alert" className="text-red-700">{error}</p>}<div className="flex gap-3"><Button onClick={() => { setStep('confirm'); setChecked(false); }} disabled={busy}>{t('wallet.back')}</Button><Button onClick={() => void submit()} disabled={!checked || busy} aria-busy={busy}>{busy ? t('wallet.processing') : t('wallet.confirm')}</Button></div></div>}
     </Dialog>
     {result && <p role="status">{t(`wallet.status.${result.status}`)} · {result.providerTransferId || result._id}</p>}
-    <h3 className="font-semibold">{t('wallet.history')}</h3>
-    {requests.map((item) => <article key={item._id} className="rounded-xl border p-3 space-y-2"><p>{formatCurrency(item.amount)} · {t(`wallet.status.${item.status}`)}</p><p>{item.destinationSnapshot.institutionName} · {item.destinationSnapshot.accountNumberMasked}</p><p className="text-xs">{item.providerTransferId || item._id}</p>{item.reviewNotes && <p>{item.reviewNotes}</p>}{item.failureReason && <p>{item.failureReason}</p>}{item.status === 'requested' && item.processingMode !== 'automatic' && <Button onClick={() => setCancel(item)}>{t('wallet.cancelWithdrawal')}</Button>}</article>)}
-    <ConfirmDialog open={Boolean(cancel)} title={t('wallet.cancelWithdrawal')} description={t('wallet.cancelDescription', { amount: formatCurrency(cancel?.amount || 0) })} pending={busy} error={error} onClose={() => setCancel(null)} onConfirm={async () => { if (!cancel || submitting.current) return; submitting.current = true; setBusy(true); setError(''); try { await cancelPayoutRequest(cancel._id); setCancel(null); await load(); onChanged(); } catch (e: any) { setError(e.message); } finally { setBusy(false); submitting.current = false; } }} />
   </section>;
 }

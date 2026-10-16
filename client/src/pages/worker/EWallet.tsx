@@ -1,4 +1,5 @@
 import { WithdrawalPanel } from "../../components/wallet/WithdrawalPanel";
+import { WithdrawalHistory } from "../../components/wallet/WithdrawalHistory";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { WalletSectionPager, type WalletSection } from "../../components/wallet/WalletSectionPager";
 import {
@@ -236,6 +237,11 @@ export function EWallet() {
               </div>
       ),
     },
+    ...(isWorkerWalletView ? [{
+      id: "withdrawal-history",
+      label: t("common:wallet.history"),
+      content: <WithdrawalHistory sourceWallet="WORKER" onChanged={() => void loadWallet(true)} />,
+    }] : []),
   ];
 
   return (
