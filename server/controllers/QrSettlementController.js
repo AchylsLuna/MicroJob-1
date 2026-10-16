@@ -208,6 +208,7 @@ export async function resolveQrSettlementRequest(req, res) {
 }
 
 export async function settleQrSettlementRequest(req, res) {
+  if (req.body?.confirmed !== true) return res.status(400).json({ message: 'Confirm the recipient and agreed amount before payment.' });
   const userId = getUserId(req);
   let request;
   let settlementCommitted = false;

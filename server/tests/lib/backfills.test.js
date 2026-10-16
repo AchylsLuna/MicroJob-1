@@ -143,9 +143,9 @@ test('runDataBackfills canonicalizes application statuses and backfills missing 
   assert.equal(application.timeline[0].status, 'Applied');
   assert.equal(application.timeline[0].type, 'status_changed');
   assert.match(application.timeline[0].note, /Applied/);
-  assert.equal(interviewApplication.status, 'Interview Scheduled');
+  assert.equal(interviewApplication.status, 'Interviewed');
   assert.equal(interviewApplication.timeline.length, 1);
-  assert.equal(interviewApplication.timeline[0].status, 'Interview Scheduled');
+  assert.equal(interviewApplication.timeline[0].status, 'Interviewed');
 
   assert.equal(topupTransaction.status, 'COMPLETED');
   assert.equal(topupTransaction.balanceTarget, 'WORKER');
@@ -178,7 +178,7 @@ test('runDataBackfills canonicalizes application statuses and backfills missing 
 
   assert.equal(application.status, 'Applied');
   assert.equal(application.timeline.length, 1);
-  assert.equal(interviewApplication.status, 'Interview Scheduled');
+  assert.equal(interviewApplication.status, 'Interviewed');
   assert.equal(interviewApplication.timeline.length, 1);
   assert.equal(topupTransaction.balanceTarget, 'WORKER');
   assert.equal(topupTransaction.providerReference, 'chk_test_123');

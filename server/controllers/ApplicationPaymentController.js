@@ -1,16 +1,73 @@
-import mongoose from 'mongoose';
-import JobApplication from '../models/JobApplication.js';
 import FinancialDispute from '../models/FinancialDispute.js';
 import SupportTicket from '../models/SupportTicket.js';
 import User from '../models/User.js';
 import { getDisputeMoneySnapshot, parseMoney, fromCents } from '../services/financialDisputeMoney.js';
 import { hasPermission, resolveStaffRole } from '../lib/adminPermissions.js';
 import { createNotification } from '../lib/notificationService.js';
+import mongoose from 'mongoose';
+import Job from '../models/Job.js';
+import JobApplication from '../models/JobApplication.js';
 import Message from '../models/Message.js';
-import { emitToUser } from '../lib/socket.js';
 import { settleApplicationPayment } from '../services/applicationSettlement.js';
+import { activeDispute } from '../services/jobLifecycle.js';
+import { queueNotification } from '../services/notificationOutbox.js';
+import { httpError, requireReason, HOUR, canFileNonpayment, EVIDENCE_WINDOW_MS } from '../lib/lifecyclePolicy.js';
 
 const id = (req) => String(req.user?.id || req.user?.userId || '');
+const handle = (fn) => async (req, res) => { try { return await fn(req, res); } catch (error) { return res.status(error.status || 500).json({ message: error.status ? error.message : 'Unable to complete this action.' }); } };
+
+export const previewPayment = handle(async (req, res) => {
+  const application = await JobApplication.findById(req.params.applicationId); const job = application && await Job.findById(application.job);
+  if (!job || String(job.jobPoster) !== id(req)) throw httpError(403, 'You cannot review this payment.');
+  if (!['Hired', 'Accepted'].includes(application.status) || application.paymentStatus === 'Paid' || application.cancellationPending || job.cancellationPending || await activeDispute(application._id)) throw httpError(409, 'This payment is unavailable or held.');
+  const payment = await getDisputeMoneySnapshot({ application, job });
+  await queueNotification(`payment-review:${application._id}:${application.workSubmittedAt?.getTime() || 0}`, { userId: id(req), audience: 'employer', type: 'payment', title: 'Review before releasing funds', message: `Confirm PHP ${payment.remainingAgreedAmount.toFixed(2)} from secured funds for ${job.title}. No additional wallet debit is required.`, entityType: 'application', entityId: String(application._id) });
+  return res.json({ application, amount: payment.remainingAgreedAmount, source: 'Secured job funds', walletDebit: 0 });
+});
+
+async function transition(req, kind) {
+  const session = await mongoose.startSession(); let application;
+  try {
+    await session.withTransaction(async () => {
+      application = await JobApplication.findOne({ _id: req.params.applicationId, status: { $in: ['Hired', 'Accepted'] } }).session(session);
+      if (!application) throw httpError(404, 'Hired assignment not found.');
+      const job = await Job.findById(application.job).session(session);
+      const workerAction = kind === 'submit';
+      if (String(workerAction ? application.applicant : job?.jobPoster) !== id(req)) throw httpError(403, 'You cannot update this assignment.');
+      if (application.cancellationPending || job.cancellationPending || ['Cancelled', 'Completed'].includes(job.status) || await activeDispute(application._id, session) || ['Paid', 'Processing'].includes(application.paymentStatus)) throw httpError(409, 'This assignment is held or already paid.');
+      job.fundsVersion = Number(job.fundsVersion || 0) + 1; await job.save({ session });
+      let title; let message;
+      if (kind === 'authorize') {
+        if (req.body?.confirmed !== true) throw httpError(400, 'Confirm the recipient and amount before authorizing payment.');
+        application.paymentStatus = 'Authorized'; application.paymentAuthorizedAt ||= new Date();
+        title = 'Payment authorized'; message = 'Your payment remains secured until the employer approves submitted work.';
+      } else if (kind === 'submit') {
+        if (!['In Progress', 'Changes Requested'].includes(application.workStatus)) throw httpError(409, 'Start work before submitting it.');
+        application.workStatus = 'Submitted'; application.workSubmittedAt = new Date(); application.firstSubmittedAt ||= application.workSubmittedAt;
+        if (!application.reminderStages.includes(48)) application.nextPaymentReminderAt = new Date(application.firstSubmittedAt.getTime() + (application.reminderStages.includes(24) ? 48 : 24) * HOUR);
+        title = 'Work submitted'; message = `Work for ${job.title} awaits your review and payment.`;
+      } else {
+        if (application.workStatus !== 'Submitted') throw httpError(409, 'Only submitted work can receive change requests.');
+        const reason = requireReason(req.body?.reason);
+        application.workStatus = 'Changes Requested'; application.changesRequestedAt = new Date();
+        application.timeline.push({ type: 'changes_requested', actor: id(req), note: reason });
+        await Message.create([{ sender: id(req), receiver: application.applicant, job: job._id, content: `Changes requested: ${reason}`, clientMessageId: `changes:${application._id}:${application.changesRequestedAt.getTime()}` }], { session });
+        title = 'Changes requested'; message = reason;
+      }
+      await application.save({ session });
+      await queueNotification(`${kind}:${application._id}:${kind === 'submit' ? application.workSubmittedAt.getTime() : kind === 'changes' ? application.changesRequestedAt.getTime() : 'authorized'}`, { userId: String(workerAction ? job.jobPoster : application.applicant), audience: workerAction ? 'employer' : 'worker', type: kind === 'authorize' ? 'payment' : 'application', title, message, entityType: 'application', entityId: String(application._id) }, session);
+    });
+    return application;
+  } finally { await session.endSession(); }
+}
+export const authorizePayment = handle(async (req, res) => res.json({ application: await transition(req, 'authorize') }));
+export const submitWork = handle(async (req, res) => res.json({ application: await transition(req, 'submit') }));
+export const requestChanges = handle(async (req, res) => res.json({ application: await transition(req, 'changes') }));
+export const settleDirect = handle(async (req, res) => {
+  if (req.body?.confirmed !== true) throw httpError(400, 'Confirm the recipient and amount before releasing funds.');
+  const result = await settleApplicationPayment({ applicationId: req.params.applicationId, employerId: id(req) });
+  return res.json({ message: result.deduplicated ? 'Payment was already completed.' : 'Worker paid successfully.', application: result.application, job: result.job });
+});
 
 export async function openPaymentDispute(req, res) {
   const reason = String(req.body?.reason || '').trim();
@@ -44,6 +101,9 @@ export async function openPaymentDispute(req, res) {
       if (application.workStatus !== 'Submitted' || !['Secured', 'Authorized', 'Failed'].includes(application.paymentStatus)) {
         throw Object.assign(new Error('Only submitted work with pending payment can be disputed.'), { status: 409 });
       }
+      if (req.body?.kind === 'nonpayment' && !canFileNonpayment(application)) throw httpError(409, 'A nonpayment dispute becomes available 72 hours after the first submission.');
+      application.job.fundsVersion = Number(application.job.fundsVersion || 0) + 1;
+      await application.job.save({ session });
       const money = await getDisputeMoneySnapshot({ application, job: application.job, session });
       if (money.agreedAmount <= 0 || money.remainingAgreedAmount <= 0) {
         throw Object.assign(new Error('The agreed payment amount is unavailable.'), { status: 409 });
@@ -86,6 +146,8 @@ export async function openPaymentDispute(req, res) {
         investigationStatus: 'UNDER_INVESTIGATION',
         paymentStatus: money.alreadyPaidAmount > 0 ? 'PARTIALLY_PAID' : money.fundsHeldAmount > 0 ? 'FUNDS_HELD' : 'OUTSTANDING_PAYMENT',
         amount: disputedAmount,
+        kind: req.body?.kind === 'nonpayment' ? 'nonpayment' : 'other',
+        evidenceDueAt: new Date(Date.now() + EVIDENCE_WINDOW_MS),
         reason,
         status: 'investigating',
         messages: [{ author: id(req), authorRole: 'worker', body: reason, visibleToParties: true }],
@@ -110,6 +172,7 @@ export async function openPaymentDispute(req, res) {
       dispute.auditLogs.push({ userId: null, role: 'system', action: 'SUPPORT_TICKET_CREATED', newStatus: 'UNDER_INVESTIGATION', details: { supportTicketId: String(supportTicket._id) } });
       await dispute.save({ session });
       application.paymentStatus = 'Disputed';
+      application.disputePending = money.fundsHeldAmount > 0;
       application.timeline.push({
         type: 'payment_dispute_opened',
         note: reason,
@@ -152,51 +215,4 @@ export async function openPaymentDispute(req, res) {
     console.error('Failed to send financial dispute notices:', error);
   }
   return res.status(201).json({ message: 'Financial dispute submitted and support ticket created.', dispute, supportTicketId: supportTicket._id });
-}
-
-export async function authorizePayment(req, res) {
-  const app = await JobApplication.findOne({ _id: req.params.applicationId, status: 'Hired' }).populate('job');
-  if (!app) return res.status(404).json({ message: 'Hired application not found.' });
-  if (String(app.job?.jobPoster) !== id(req)) return res.status(403).json({ message: 'You cannot authorize this payment.' });
-  if (app.paymentStatus === 'Paid') return res.status(409).json({ message: 'This worker is already paid.' });
-  if (app.paymentStatus === 'Disputed') return res.status(409).json({ message: 'Payment is on hold while the dispute is reviewed.' });
-  app.paymentStatus = 'Authorized'; app.paymentAuthorizedAt ||= new Date(); await app.save();
-  await createNotification({ userId: app.applicant, audience: 'worker', type: 'payment', title: 'Payment authorized', message: 'Your payment is secured and will remain held until work approval.', entityType: 'application', entityId: app._id, actor: id(req), push: true });
-  return res.json({ application: app });
-}
-
-export async function submitWork(req, res) {
-  const app = await JobApplication.findOne({ _id: req.params.applicationId, applicant: id(req), status: 'Hired' }).populate('job');
-  if (!app) return res.status(404).json({ message: 'Hired application not found.' });
-  if (!['In Progress', 'Changes Requested'].includes(app.workStatus)) return res.status(409).json({ message: 'This work cannot be submitted now.' });
-  app.workStatus = 'Submitted'; app.workSubmittedAt = new Date();
-  app.paymentReminderClaimedAt = null;
-  app.paymentReminderClaimedStage = null;
-  app.paymentReminderSentAt = null;
-  app.paymentReminder3hSentAt = null;
-  app.paymentReminder5hSentAt = null;
-  app.paymentReminder24hSentAt = null;
-  await app.save();
-  await createNotification({ userId: app.job.jobPoster, audience: 'employer', type: 'application', title: 'Work submitted', message: `Finished work was submitted for ${app.job.title}.`, entityType: 'application', entityId: app._id, actor: id(req), push: true });
-  return res.json({ application: app });
-}
-
-export async function requestChanges(req, res) {
-  const reason = String(req.body?.reason || '').trim();
-  if (!reason) return res.status(400).json({ message: 'A reason is required.' });
-  const app = await JobApplication.findOne({ _id: req.params.applicationId, status: 'Hired' }).populate('job');
-  if (!app) return res.status(404).json({ message: 'Hired application not found.' });
-  if (String(app.job.jobPoster) !== id(req) || app.workStatus !== 'Submitted') return res.status(409).json({ message: 'Changes cannot be requested for this assignment.' });
-  if (app.paymentStatus === 'Disputed') return res.status(409).json({ message: 'Changes cannot be requested while payment is under dispute review.' });
-  app.workStatus = 'Changes Requested'; app.changesRequestedAt = new Date(); app.timeline.push({ type: 'changes_requested', note: reason, actor: id(req), createdAt: new Date() }); await app.save();
-  const message = await Message.create({ sender: id(req), receiver: app.applicant, job: app.job._id, content: `Changes requested: ${reason}`, clientMessageId: `changes:${app._id}:${app.changesRequestedAt.getTime()}` });
-  const hydrated = await Message.findById(message._id).populate('sender', 'firstName lastName').populate('receiver', 'firstName lastName').populate('job', 'title');
-  emitToUser(String(app.applicant), 'new_message', hydrated || message); emitToUser(id(req), 'new_message_echo', hydrated || message);
-  await createNotification({ userId: app.applicant, audience: 'worker', type: 'application', title: 'Changes requested', message: reason, entityType: 'application', entityId: app._id, actor: id(req), push: true });
-  return res.json({ application: app });
-}
-
-export async function settleDirect(req, res) {
-  try { const result = await settleApplicationPayment({ applicationId: req.params.applicationId, employerId: id(req) }); return res.json({ message: result.deduplicated ? 'Payment was already completed.' : 'Worker paid successfully.', application: result.application, job: result.job }); }
-  catch (error) { return res.status(error.status || 500).json({ message: error.message || 'Payment failed.' }); }
 }

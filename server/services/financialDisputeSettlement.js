@@ -1,4 +1,8 @@
 import crypto from 'crypto';
+import Cancellation from '../models/Cancellation.js';
+import { resolveCancelledAssignment, syncCapacity } from './jobLifecycle.js';
+import { refundJobFunds, jobSpendingSources } from './jobFunds.js';
+import { queueNotification } from './notificationOutbox.js';
 import mongoose from 'mongoose';
 import FinancialDispute from '../models/FinancialDispute.js';
 import Job from '../models/Job.js';
@@ -10,6 +14,14 @@ import { createNotification } from '../lib/notificationService.js';
 import { getDisputeMoneySnapshot, parseMoney, fromCents, toCents } from './financialDisputeMoney.js';
 
 const settlementId = () => `SET-${new Date().getFullYear()}-${crypto.randomBytes(5).toString('hex').toUpperCase()}`;
+
+export function requireEvidenceOpportunity(dispute) {
+  if (!dispute.evidenceDueAt || new Date(dispute.evidenceDueAt) <= new Date()) return;
+  const contributors = new Set((dispute.evidence || []).map((entry) => String(entry.actor || entry.uploadedBy)));
+  if (![dispute.worker, dispute.employer].every((id) => contributors.has(String(id)))) {
+    throw Object.assign(new Error('Allow both parties seven days to provide evidence or state that none is available.'), { status: 409 });
+  }
+}
 
 export async function proposeDisputeSettlement({ disputeId, financeUserId, settlementType, workerAmount, employerRefund, decisionReason }) {
   const reason = String(decisionReason || '').trim();
@@ -24,6 +36,7 @@ export async function proposeDisputeSettlement({ disputeId, financeUserId, settl
   if (dispute.investigationReport?.status !== 'COMPLETED' || dispute.investigationStatus !== 'FOR_FINANCE_REVIEW') {
     throw Object.assign(new Error('Finance cannot issue a settlement before the investigation report is completed.'), { status: 409 });
   }
+  requireEvidenceOpportunity(dispute);
   if (dispute.financeSettlement && !['FAILED'].includes(dispute.financeSettlement.settlementStatus)) {
     throw Object.assign(new Error('A settlement decision already exists for this dispute.'), { status: 409 });
   }
@@ -103,16 +116,19 @@ export async function approveAndProcessDisputeSettlement({ disputeId, approverId
       if (String(settlement.financeUserId) === String(approverId)) {
         throw Object.assign(new Error('A different authorized finance user must approve this settlement.'), { status: 403 });
       }
+      requireEvidenceOpportunity(dispute);
       const application = await JobApplication.findById(dispute.application).session(session);
       const job = await Job.findById(dispute.job).session(session);
       if (!application || !job) throw Object.assign(new Error('Linked job payment records are unavailable.'), { status: 409 });
+      job.fundsVersion = Number(job.fundsVersion || 0) + 1;
+      await job.save({ session });
       const money = await getDisputeMoneySnapshot({ application, job, session });
       if (toCents(money.alreadyPaidAmount) !== toCents(settlement.alreadyPaidAmount)) {
         throw Object.assign(new Error('Payment records changed after the proposal. Finance must create a new settlement.'), { status: 409 });
       }
       const workerCents = toCents(settlement.workerSettlementAmount);
       const refundCents = toCents(settlement.employerRefundAmount);
-      if (workerCents + refundCents > toCents(money.fundsHeldAmount)) {
+      if (workerCents + refundCents > Math.min(toCents(money.fundsHeldAmount), toCents(dispute.disputedAmount))) {
         throw Object.assign(new Error('Available held funds are no longer sufficient for this settlement.'), { status: 409 });
       }
 
@@ -126,7 +142,22 @@ export async function approveAndProcessDisputeSettlement({ disputeId, approverId
       dispute.auditLogs.push({ userId: approverId, role: 'finance', action: 'SETTLEMENT_APPROVED', previousStatus: 'PENDING_FINANCE_APPROVAL', newStatus: 'PROCESSING_SETTLEMENT' });
 
       const transactionIds = [];
-      if (workerCents > 0) {
+      const lifecycleCase = Boolean(dispute.evidenceDueAt);
+      const closedAssignment = lifecycleCase && (dispute.kind === 'cancellation' || (
+        refundCents > 0 && workerCents + refundCents === toCents(money.remainingAgreedAmount)
+      ));
+      if (closedAssignment) {
+        let cancellation = await Cancellation.findOne({ application: application._id, status: { $in: ['staff_review', 'pending'] } }).session(session);
+        if (!cancellation) [cancellation] = await Cancellation.create([{
+          job: job._id, application: application._id, scope: 'assignment', actor: approverId,
+          reason: settlement.decisionReason, status: 'staff_review',
+          events: [{ type: 'finance_decision', actor: approverId, note: settlement.decisionReason }],
+        }], { session });
+        await resolveCancelledAssignment({ application, job, cancellation, workerPayment: fromCents(workerCents), actor: approverId, session, retainBaseFunding: false });
+        const entries = await Transaction.find({ jobReference: job._id, reference: { $in: [`cancellation-payment:${application._id}`, `assignment-cancellation-refund:${application._id}`] } }).session(session);
+        transactionIds.push(...entries.map((entry) => entry._id));
+      }
+      if (workerCents > 0 && !closedAssignment) {
         const reference = `financial-dispute:${dispute._id}:${settlement.settlementId}:worker`;
         let transaction = await Transaction.findOne({ reference }).session(session);
         if (!transaction) {
@@ -144,7 +175,7 @@ export async function approveAndProcessDisputeSettlement({ disputeId, approverId
             relatedEntityType: 'financial_dispute',
             relatedEntityId: String(dispute._id),
             actor: approverId,
-            meta: { applicationId: String(dispute.application), settlementId: settlement.settlementId },
+            meta: { applicationId: String(dispute.application), settlementId: settlement.settlementId, fundingSources: await jobSpendingSources(job, fromCents(workerCents), session) },
           }], { session });
         }
         transactionIds.push(transaction._id);
@@ -157,36 +188,14 @@ export async function approveAndProcessDisputeSettlement({ disputeId, approverId
           details: { transactionId: String(transaction._id), amount: fromCents(workerCents) },
         });
       }
-      if (refundCents > 0) {
-        const reference = `financial-dispute:${dispute._id}:${settlement.settlementId}:employer`;
-        let transaction = await Transaction.findOne({ reference }).session(session);
-        if (!transaction) {
-          await User.updateOne({ _id: dispute.employer }, { $inc: { employerBalance: fromCents(refundCents) } }, { session });
-          [transaction] = await Transaction.create([{
-            sender: null,
-            receiver: dispute.employer,
-            amount: fromCents(refundCents),
-            type: 'REFUND',
-            status: 'COMPLETED',
-            balanceTarget: 'EMPLOYER',
-            jobReference: dispute.job,
-            reference,
-            label: `Financial dispute refund (${dispute.ticketId})`,
-            relatedEntityType: 'financial_dispute',
-            relatedEntityId: String(dispute._id),
-            actor: approverId,
-            meta: { applicationId: String(dispute.application), settlementId: settlement.settlementId },
-          }], { session });
-        }
+      if (refundCents > 0 && !closedAssignment) {
+        const transaction = await refundJobFunds({ job, amount: fromCents(refundCents),
+          reference: `financial-dispute:${dispute._id}:${settlement.settlementId}:employer`,
+          actor: approverId, application: application._id, session });
         transactionIds.push(transaction._id);
-        dispute.auditLogs.push({
-          userId: approverId,
-          role: 'finance',
-          action: 'REFUND_PROCESSED',
-          previousStatus: 'PROCESSING_SETTLEMENT',
-          newStatus: 'PROCESSING_SETTLEMENT',
-          details: { transactionId: String(transaction._id), amount: fromCents(refundCents) },
-        });
+        dispute.auditLogs.push({ userId: approverId, role: 'finance', action: 'REFUND_PROCESSED',
+          previousStatus: 'PROCESSING_SETTLEMENT', newStatus: 'PROCESSING_SETTLEMENT',
+          details: { transactionId: String(transaction._id), amount: fromCents(refundCents) } });
       }
 
       const outstandingCents = toCents(settlement.outstandingAmount);
@@ -225,16 +234,17 @@ export async function approveAndProcessDisputeSettlement({ disputeId, approverId
       });
 
       const totalWorkerPaidCents = toCents(settlement.alreadyPaidAmount) + workerCents;
-      if (outstandingCents > 0) application.paymentStatus = 'Outstanding';
-      else if (settlement.settlementType === 'FULL_REFUND') application.paymentStatus = 'Refunded';
-      else if (totalWorkerPaidCents >= toCents(settlement.agreedAmount)) {
-        application.paymentStatus = 'Paid';
-        application.workStatus = 'Completed';
-        application.paymentReminderClaimedAt = null;
-        application.paymentReminderClaimedStage = null;
-        application.paidAt ||= settlement.processedAt;
-        application.completedAt ||= settlement.processedAt;
-      } else application.paymentStatus = 'Partially Paid';
+      application.disputePending = false;
+      if (!closedAssignment && (!lifecycleCase || Number(dispute.disputedAmount) > 0)) {
+        if (outstandingCents > 0) application.paymentStatus = 'Outstanding';
+        else if (settlement.settlementType === 'FULL_REFUND') application.paymentStatus = 'Refunded';
+        else if (totalWorkerPaidCents >= toCents(settlement.agreedAmount)) {
+          application.paymentStatus = 'Paid'; application.workStatus = 'Completed';
+          application.paymentReminderClaimedAt = null; application.paymentReminderClaimedStage = null;
+          application.paidAt ||= settlement.processedAt; application.completedAt ||= settlement.processedAt;
+        } else application.paymentStatus = 'Partially Paid';
+        application.paidAmount = fromCents(totalWorkerPaidCents);
+      }
       application.timeline.push({
         type: 'financial_dispute_resolved',
         note: settlement.decisionReason,
@@ -250,11 +260,14 @@ export async function approveAndProcessDisputeSettlement({ disputeId, approverId
       });
       await application.save({ session });
       const previousJobStatus = job.status;
-      job.status = {
-        FULL_REFUND: 'Full refund',
-        COMPLETE_PAYMENT: 'Completed',
-        PARTIAL_PAYMENT: 'Resolved',
+      if (!lifecycleCase) job.status = {
+        FULL_REFUND: 'Full refund', COMPLETE_PAYMENT: 'Completed', PARTIAL_PAYMENT: 'Resolved',
       }[settlement.settlementType];
+      else if (!closedAssignment && application.paymentStatus === 'Paid') {
+        const unfinished = await JobApplication.exists({ job: job._id, status: { $in: ['Hired', 'Accepted'] }, workStatus: { $nin: ['Completed', 'Cancelled'] } }).session(session);
+        if (!unfinished && Number(job.hiredCount) >= Number(job.positionsNeeded)) job.status = 'Completed';
+        else await syncCapacity(job, session);
+      }
       await job.save({ session });
       dispute.auditLogs.push({
         userId: approverId,
@@ -266,6 +279,13 @@ export async function approveAndProcessDisputeSettlement({ disputeId, approverId
       });
       if (dispute.supportTicket) {
         await SupportTicket.updateOne({ _id: dispute.supportTicket }, { $set: { status: 'resolved', resolvedAt: settlement.processedAt } }, { session });
+      }
+      for (const [recipient, audience] of [[dispute.worker, 'worker'], [dispute.employer, 'employer']]) {
+        await queueNotification(`financial-resolution:${dispute._id}:${settlement.settlementId}:${recipient}`, {
+          userId: String(recipient), audience, type: 'payment', title: 'Financial dispute resolved',
+          message: `${dispute.ticketId}: ${settlement.decisionReason} Worker payment: PHP ${settlement.workerSettlementAmount}. Refund: PHP ${settlement.employerRefundAmount}.`,
+          entityType: 'financial_dispute', entityId: String(dispute._id),
+        }, session);
       }
       await dispute.save({ session });
       result = { dispute, application, job, deduplicated: false };

@@ -1,3 +1,4 @@
+import AssignmentPanel from '../../components/AssignmentPanel';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Modal, Platform, View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -358,6 +359,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                   </View>
                 ) : null}
 
+                {['Hired', 'Cancelled', 'Position filled'].includes(job.status) && <AssignmentPanel applicationId={job.id} />}
                 <View style={styles.cardActions}>
                   {job.status === 'Hired' && ['In Progress', 'Changes Requested'].includes(job.workStatus || 'In Progress') ? (
                     <TouchableOpacity style={styles.messageButton} onPress={() => void submitFinishedWork(job.id)} accessibilityRole="button">

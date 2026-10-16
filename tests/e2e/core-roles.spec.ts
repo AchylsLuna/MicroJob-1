@@ -299,10 +299,11 @@ test("profile settings support keyboard tabs and accessible validation", async (
 
 test("admin user management is real and responsive", async ({ page }) => {
   await page.goto("/admin-sign-in");
-  await page.getByPlaceholder("Enter your email").fill("e2e-admin@microjobs.local");
+  await page.getByPlaceholder("Enter your primary email").fill("e2e-admin@microjobs.local");
   await page.getByPlaceholder("Enter your password").fill("AdminPass123!");
   await page.getByRole("button", { name: /Sign In as Admin/i }).click();
   await page.waitForURL(/\/admin\/dashboard/);
+  await page.getByRole("button", { name: "Remind me next sign-in" }).click();
   await expect(page.getByTestId("header-context-action")).toHaveCount(0);
   for (const height of [600, 720, 768, 900]) {
     await page.setViewportSize({ width: 1280, height });
@@ -351,24 +352,22 @@ test("admin user management is real and responsive", async ({ page }) => {
   await createDialog.getByLabel("Role").selectOption("admin");
   await createDialog.getByRole("button", { name: "Create account" }).click();
   await expect(createDialog).toBeHidden();
+  await page.getByRole("tab", { name: "Admins", exact: true }).click();
   const createdAdminRow = page.getByRole("row").filter({ hasText: "created-admin@microjobs.local" });
   await expect(createdAdminRow).toBeVisible();
   await createdAdminRow.getByRole("button", { name: "Open user actions" }).click();
-  await page.getByRole("button", { name: "Delete User" }).click();
+  await page.getByRole("menuitem", { name: "Delete User" }).click();
   const deleteDialog = page.getByRole("dialog", { name: "Delete user" });
   await deleteDialog.getByRole("button", { name: "Delete user" }).click();
   await expect(deleteDialog).toBeHidden();
   await expect(createdAdminRow).toHaveCount(0);
-  const roleFilter = page.getByLabel("Filter accounts by role");
-  await roleFilter.selectOption("privileged");
-  await expect(page.getByText("Superadmin").first()).toBeVisible();
-  await roleFilter.selectOption("all");
+  await page.getByRole("tab", { name: "Users", exact: true }).click();
   await page.setViewportSize({ width: 320, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.setViewportSize({ width: 1280, height: 900 });
   const workerRow = page.getByRole("row").filter({ hasText: "e2e-user@microjobs.local" });
   await workerRow.getByRole("button", { name: "Open user actions" }).click();
-  await page.getByRole("button", { name: "Edit User" }).click();
+  await page.getByRole("menuitem", { name: "Edit User" }).click();
   const dialog = page.getByRole("dialog", { name: /Edit user/i });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Close dialog" })).toBeFocused();

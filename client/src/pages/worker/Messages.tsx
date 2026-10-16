@@ -1,3 +1,4 @@
+import { OfferCancellationDialog } from '../../components/OfferCancellationDialog';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
@@ -43,7 +44,6 @@ import {
   deleteConversation,
   markMessagesAsRead,
   respondToJobOffer,
-  cancelJobOffer,
   confirmOfferHire,
   type MessageRecipient,
 } from "../../services/api";
@@ -137,6 +137,8 @@ export function Messages() {
   const { t: tAdmin } = useTranslation("admin");
   const { can } = useAdminPermissions();
   const canBrowseRecipients = can('messages.recipients.view');
+  const { t: tc } = useTranslation("common");
+  const [cancelOfferId, setCancelOfferId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
   const {
@@ -852,7 +854,7 @@ export function Messages() {
   const openAcceptOfferConfirm = (offerId: string, amount: number) => {
     setOfferConfirmAction({
       title: t("messages.offerCard.confirmAccept.title"),
-      description: t("messages.offerCard.confirmAccept.description", { amount: formatCurrency(amount) }),
+      description: `${t("messages.offerCard.confirmAccept.description", { amount: formatCurrency(amount) })} ${tc("lifecycle.terms")}`,
       confirmLabel: t("messages.offerCard.confirmAccept.confirm"),
       run: () => runOfferAction(offerId, () => respondToJobOffer(offerId, "accept"), t("messages.offerCard.toast.accepted")),
     });
@@ -868,15 +870,7 @@ export function Messages() {
     });
   };
 
-  const openCancelOfferConfirm = (offerId: string) => {
-    setOfferConfirmAction({
-      title: t("messages.offerCard.confirmCancel.title"),
-      description: t("messages.offerCard.confirmCancel.description"),
-      destructive: true,
-      confirmLabel: t("messages.offerCard.confirmCancel.confirm"),
-      run: () => runOfferAction(offerId, () => cancelJobOffer(offerId), t("messages.offerCard.toast.cancelled")),
-    });
-  };
+  const openCancelOfferConfirm = (offerId: string) => setCancelOfferId(offerId);
 
   const openConfirmHireConfirm = (offerId: string) => {
     setOfferConfirmAction({
@@ -1707,6 +1701,7 @@ export function Messages() {
       </AnimatePresence>
       {canBrowseRecipients && showRecipientDirectory ? <RecipientDirectoryDialog onClose={() => setShowRecipientDirectory(false)} onSelect={selectDirectoryRecipient} /> : null}
       {reportTarget ? <ConversationReportDialog contact={reportTarget} onClose={() => setReportTarget(null)} restoreFocusRef={reportTriggerRef} /> : null}
+      <OfferCancellationDialog offerId={cancelOfferId} onClose={() => setCancelOfferId(null)} onDone={() => void refreshOpenThreadMessages()} />
       <ConfirmDialog
         open={Boolean(offerConfirmAction)}
         title={offerConfirmAction?.title || ""}

@@ -17,7 +17,7 @@ const runNpm = (args) => process.env.npm_execpath
 
 const audit = (prefix, omitDev) => {
   const args = ['audit', '--json'];
-  if (prefix) args.push('--prefix', prefix);
+  if (prefix) args.push('--prefix', prefix, '--workspaces=false');
   if (omitDev) args.push('--omit=dev');
   try {
     return JSON.parse(runNpm(args));
@@ -92,6 +92,7 @@ const allowedRootDevAdvisories = new Set([
 
 assertNoSevere('Root/server production dependencies', audit('', true));
 assertNoSevere('Root/server complete dependencies', audit('', false), allowedRootDevAdvisories);
+assertNoSevere('Standalone API production dependencies', audit('server', true));
 
 const mobile = audit('Mobile', false);
 // Expo SDK 54's own build toolchain. Every entry here is reachable only from
@@ -149,7 +150,7 @@ if (unexpectedPackages.length || unexpectedAdvisories.length || (mobile.metadata
   failures.push(`Mobile has unapproved severe findings (packages: ${unexpectedPackages.join(', ') || 'none'}; advisories: ${unexpectedAdvisories.join(', ') || 'none'}).`);
 }
 
-const trackedFiles = run('git', ['ls-files']).trim().split('\n').filter(Boolean);
+const trackedFiles = run('git', ['ls-files', '--cached', '--others', '--exclude-standard']).trim().split('\n').filter(Boolean);
 const forbiddenTrackedFiles = trackedFiles.filter((file) => /(^|\/)\.env($|\.)/.test(file) && !file.endsWith('.env.example'));
 if (forbiddenTrackedFiles.length) failures.push(`Tracked environment files: ${forbiddenTrackedFiles.join(', ')}`);
 

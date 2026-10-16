@@ -1,3 +1,4 @@
+import { AssignmentPanel } from '../../components/AssignmentPanel';
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -57,6 +58,8 @@ const STATUS_LABEL_KEYS: Record<"All" | ApplicationStatus, string> = {
   Hired: "hired",
   Rejected: "rejected",
   Withdrawn: "withdrawn",
+  Cancelled: "cancelled",
+  "Position filled": "positionFilled",
 };
 
 const getStatusLabel = (t: TFunction, status: "All" | ApplicationStatus) =>
@@ -70,6 +73,7 @@ const formatMinimumPay = (t: TFunction, value?: string) => {
 
 const AppliedJobs: React.FC = () => {
   const { t } = useTranslation("worker");
+  const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedStatus = searchParams.get("status") || "All";
@@ -154,7 +158,7 @@ const AppliedJobs: React.FC = () => {
     const offer = application.offer;
     setConfirmAction({
       title: t("appliedJobs.confirmAcceptOffer.title"),
-      description: t("appliedJobs.confirmAcceptOffer.description", { amount: formatCurrency(offer.amount) }),
+      description: `${t("appliedJobs.confirmAcceptOffer.description", { amount: formatCurrency(offer.amount) })} ${tc("lifecycle.terms")}`,
       confirmLabel: t("appliedJobs.confirmAcceptOffer.confirm"),
       run: () => runOfferAction(application._id, () => jobsAPI.respondToJobOffer(offer.id, "accept"), t("appliedJobs.toast.offerAccepted")),
     });
@@ -354,6 +358,7 @@ const AppliedJobs: React.FC = () => {
                       </div>
                     ) : null}
 
+                    {['Hired', 'Cancelled', 'Position filled'].includes(application.status) && <AssignmentPanel applicationId={application._id} onChanged={() => void fetchApplications()} />}
                     {application.status === "Hired" && ["In Progress", "Changes Requested"].includes(application.workStatus || "In Progress") ? (
                       <div className="mt-4">
                         <button

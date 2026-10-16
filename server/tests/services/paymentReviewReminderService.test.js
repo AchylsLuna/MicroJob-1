@@ -25,7 +25,7 @@ before(async () => {
 beforeEach(async () => mongoose.connection.db.dropDatabase());
 after(async () => { await mongoose.disconnect(); await mongo.stop(); });
 
-test('sends one reminder 12 to 24 hours after submission only while payment is pending', async () => {
+test('sends one reminder 24 to 72 hours after submission only while payment is pending', async () => {
   const now = new Date('2026-10-13T12:00:00.000Z');
   const submittedAt = new Date(now.getTime() - PAYMENT_REVIEW_REMINDER_DELAY_MS - 60 * 60 * 1000);
   const [employer, eligibleWorker, earlyWorker, overdueWorker, paidWorker] = await Promise.all([

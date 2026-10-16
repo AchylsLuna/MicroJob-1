@@ -194,7 +194,9 @@ export type ApplicationStatus =
   | 'Offer Sent'
   | 'Hired'
   | 'Rejected'
-  | 'Withdrawn';
+  | 'Withdrawn'
+  | 'Cancelled'
+  | 'Position filled';
 export type SavedJobRecord = {
   _id: string;
   job: any;
@@ -237,7 +239,14 @@ export type PayoutRequest = {
   _id: string;
   amount: number;
   balanceTarget?: 'EMPLOYER' | 'WORKER';
-  status: 'requested' | 'approved' | 'rejected' | 'paid' | 'cancelled';
+  status: 'requested' | 'approved' | 'processing' | 'failed' | 'rejected' | 'paid' | 'cancelled';
+  sourceWallet?: 'EMPLOYER' | 'WORKER';
+  processingMode?: 'manual' | 'automatic';
+  providerTransferId?: string;
+  providerRailReference?: string;
+  providerFee?: number;
+  failureReason?: string;
+  transferReference?: string;
   destinationSnapshot: {
     methodType: string;
     institutionName: string;
@@ -645,7 +654,7 @@ export function applyForJob(jobId: string, payload?: { resume?: string; coverLet
 }
 
 export function changeJobStatus(jobId: string, status: string) {
-  return request(`/jobs/${jobId}/status`, { method: 'PATCH', body: { status } });
+  return request(`/jobs/${jobId}/status`, { method: 'PATCH', body: { status, ...(status === 'Completed' ? { confirmed: true } : {}) } });
 }
 
 export function reopenJob(jobId: string) {
@@ -843,12 +852,12 @@ export function createJobOffer(applicationId: string, amount: number) {
 export function respondToJobOffer(offerId: string, action: 'accept' | 'reject') {
   return request<{ offer: JobOffer }>(`/job-offers/${offerId}/respond`, {
     method: 'POST',
-    body: { action },
+    body: { action, policyAcknowledged: action === 'accept' },
   });
 }
 
-export function cancelJobOffer(offerId: string) {
-  return request<{ offer: JobOffer }>(`/job-offers/${offerId}/cancel`, { method: 'POST' });
+export function cancelJobOffer(offerId: string, reason: string) {
+  return request<{ offer: JobOffer }>(`/job-offers/${offerId}/cancel`, { method: 'POST', body: { reason, policyAcknowledged: true } });
 }
 
 export function confirmOfferHire(offerId: string) {
@@ -857,7 +866,7 @@ export function confirmOfferHire(offerId: string) {
 
 // Hire work & payment APIs
 export function authorizePayment(applicationId: string) {
-  return request<{ application: any }>(`/applications/${applicationId}/payment/authorize`, { method: 'POST' });
+  return request<{ application: any }>(`/applications/${applicationId}/payment/authorize`, { method: 'POST', body: { confirmed: true } });
 }
 
 export function submitWork(applicationId: string) {
@@ -942,7 +951,7 @@ export function submitFinancialDisputeAppeal(disputeId: string, reason: string) 
 
 export function settlePayment(applicationId: string) {
   return request<{ message: string; application: any; job: any }>(`/applications/${applicationId}/payment/settle`, {
-    method: 'POST',
+    method: 'POST', body: { confirmed: true },
   });
 }
 
@@ -1568,7 +1577,7 @@ export function getAdminPayoutRequests(params?: QueryParams) {
 
 export function updateAdminPayoutRequest(
   payoutRequestId: string,
-  payload: { status: 'approved' | 'rejected' | 'paid'; reviewNotes?: string }
+  payload: { status: 'approved' | 'rejected' | 'paid'; reviewNotes?: string; transferReference?: string }
 ) {
   return request<{ payoutRequest: PayoutRequest }>(`/admin/payout-requests/${payoutRequestId}`, {
     method: 'PATCH',
@@ -1631,7 +1640,7 @@ export function getAdminFinancialDisputes() {
 
 export function updateAdminFinancialDispute(
   disputeId: string,
-  payload: { status: 'open' | 'investigating' | 'resolved' | 'rejected'; resolutionNotes?: string; workerPayoutAmount?: number },
+  payload: { status: 'open' | 'investigating' | 'resolved' | 'rejected'; resolutionNotes?: string; workerPayoutAmount?: number; workerPayment?: number },
 ) {
   return request<{ message: string; dispute: any }>(`/admin/finance/disputes/${disputeId}`, { method: 'PATCH', body: payload });
 }
@@ -1655,3 +1664,12 @@ export function proposeFinancialDisputeSettlement(disputeId: string, payload: { 
 export function approveFinancialDisputeSettlement(disputeId: string) {
   return request<{ message: string; dispute: FinancialDispute }>(`/admin/finance/disputes/${disputeId}/settlement/approve`, { method: 'POST' });
 }
+
+export type WithdrawalPreview = {
+  previewToken: string; sourceWallet: 'EMPLOYER' | 'WORKER'; amount: number; fee: number; totalDebit: number; remainingBalance: number;
+  destination: { institutionName: string; accountName: string; accountNumberMasked: string };
+};
+export const getWithdrawalInstitutions = () => request<{ institutions: Array<{ bic: string; name: string }> }>('/payment/withdrawals/institutions', { method: 'GET' });
+export const previewWithdrawal = (body: { sourceWallet: string; amount: number; destinationSnapshot: Record<string, string> }) => request<WithdrawalPreview>('/payment/withdrawals/preview', { method: 'POST', body });
+export const confirmWithdrawal = (previewToken: string) => request<{ payoutRequest: PayoutRequest }>('/payment/withdrawals/confirm', { method: 'POST', body: { previewToken, detailsConfirmed: true } });
+export const lifecycleRequest = (path: string, body?: any, method = body ? 'POST' : 'GET') => request<any>(path, { method, ...(body ? { body } : {}) });

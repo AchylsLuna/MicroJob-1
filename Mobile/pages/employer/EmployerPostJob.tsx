@@ -151,6 +151,8 @@ export default function EmployerPostJob({
   const [isUrgent, setIsUrgent] = useState(false);
   const [isHighlighted, setIsHighlighted] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
+  const { t: tc } = useTranslation('common');
+  const [interviewRequired, setInterviewRequired] = useState(false);
   const [positionsNeeded, setPositionsNeeded] = useState('1');
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryQuery, setCategoryQuery] = useState('');
@@ -216,6 +218,7 @@ export default function EmployerPostJob({
     setIsUrgent(Boolean(jobToEdit.urgent));
     setIsHighlighted(Boolean(jobToEdit.highlighted));
     setPositionsNeeded(String(jobToEdit.positionsNeeded || 1));
+    setInterviewRequired(Boolean((jobToEdit as any).interviewRequired));
   }, [jobToEdit]);
 
   useEffect(() => {
@@ -470,6 +473,7 @@ export default function EmployerPostJob({
         urgent: isUrgent,
         positionsNeeded: normalizedPositions,
         highlighted: isHighlighted,
+        interviewRequired,
       };
 
       const result = await apiRequest(`${API_URL}/jobs/${isEditing ? jobToEdit._id : ''}`.replace(/\/$/, ''), {
@@ -835,6 +839,7 @@ export default function EmployerPostJob({
 
           <EmployerAccordion title="When & how" subtitle="Workers needed, opportunity type, deadline, and urgency." expanded={expandedSection === 'hiring'} onToggle={() => setExpandedSection((section) => section === 'hiring' ? null : 'hiring')}>
 
+          <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{ checked: interviewRequired }} onPress={() => setInterviewRequired(!interviewRequired)}><Text style={styles.label}>{interviewRequired ? '✓ ' : ''}{tc('lifecycle.interviewRequired')}</Text></TouchableOpacity>
           <Text style={styles.label}>Workers Needed</Text>
           <TextInput
             style={styles.input}

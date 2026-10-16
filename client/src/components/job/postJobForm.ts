@@ -29,6 +29,7 @@ export type JobEdit = {
   location?: string;
   jobType?: string;
   deadline?: string;
+  interviewRequired?: boolean;
   urgent?: boolean;
   positionsNeeded?: number;
   hiredCount?: number;
@@ -65,6 +66,7 @@ export const getJobTypeOptions = (t: TFn) =>
 export const LEGACY_JOB_TYPES = ["Fulltime", "Part-time", "Freelance", "Contract", "Remote"] as const;
 
 export type FormState = {
+  interviewRequired: boolean;
   title: string;
   category: string;
   description: string;
@@ -101,6 +103,7 @@ export const getRequiredFieldLabels = (t: TFn): Record<RequiredFieldKey, string>
 });
 
 export const createEmptyForm = (): FormState => ({
+  interviewRequired: false,
   title: "",
   category: "",
   description: "",
@@ -206,6 +209,7 @@ export const buildFormFromJob = (job: JobEdit): FormState => {
   const salary = extractSalaryValue(job.salary);
   const locationParts = parseLocationToParts(job.location);
   return {
+    interviewRequired: job.interviewRequired === true,
     title: job.title || "",
     category: categoryId || "",
     description: job.description || "",

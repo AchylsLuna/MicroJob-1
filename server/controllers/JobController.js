@@ -1,11 +1,14 @@
+import { availableJobFilter } from '../lib/lifecyclePolicy.js';
+import { requestCancellation } from '../services/jobLifecycle.js';
+import { settleApplicationPayment } from '../services/applicationSettlement.js';
+import { remainingJobFunds, requiredJobFunds, refundJobFunds } from '../services/jobFunds.js';
+import { queueNotification } from '../services/notificationOutbox.js';
 import mongoose from 'mongoose';
 import Job from '../models/Job.js';
 import JobApplication from '../models/JobApplication.js';
-import JobOffer from '../models/JobOffer.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import Category from '../models/Category.js';
-import { createNotification } from '../lib/notificationService.js';
 import { scoreJobForWorker } from '../lib/jobMatching.js';
 import { getReviewSummaries } from '../lib/reviewSummary.js';
 import {
@@ -77,7 +80,7 @@ export async function getJobList(req, res) {
         // closed to new applicants.
         // Keep this at the query boundary so every Find Jobs filter and sort
         // operates only on postings that a worker can still discover.
-        let filter = { status: { $nin: ['Completed', 'Closed', 'Full refund', 'Resolved'] } };
+        let filter = availableJobFilter();
         if (typeof location === 'string' && location.trim() && location !== 'nationwide') {
             const safeLocation = location.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             filter.location = { $regex: safeLocation, $options: 'i' };
@@ -138,7 +141,7 @@ export async function getJobList(req, res) {
 export async function getAvailableJobs(req, res){
     try {
         const discovery = await getDiscoveryCity(req);
-        const jobs = await Job.find({ status: 'Available' })
+        const jobs = await Job.find(availableJobFilter())
             .populate('category', 'name')
             .populate('jobPoster', PUBLIC_JOB_POSTER_SELECT)
             .lean();
@@ -156,7 +159,7 @@ export async function getJobByCategory(req, res) {
             return res.status(400).json({message: "Please select a valid job category."});
         }
         const discovery = await getDiscoveryCity(req);
-        const jobs = await Job.find({ category: resolvedCategoryId })
+        const jobs = await Job.find({ ...availableJobFilter(), category: resolvedCategoryId })
             .populate('category', 'name')
             .populate('jobPoster', PUBLIC_JOB_POSTER_SELECT)
             .lean();
@@ -172,7 +175,7 @@ export async function getJobByCategory(req, res) {
 
 export async function getJobDetails(req, res){
     try {
-        const id = resolvePublicId(req.params.id);
+        const id = resolvePublicId(resolvePublicId(req.params.id));
         if (!id) return res.status(400).json({ message: 'A valid job id is required.' });
         const job = await Job.findById(id)
             .populate('category', 'name')
@@ -264,6 +267,8 @@ export async function createJob(req, res){
             });
         }
 
+        if (req.body.repostOf && !await Job.exists({ _id: resolvePublicId(req.body.repostOf), jobPoster: jobPosterId })) return res.status(403).json({ message: 'Original posting is unavailable.' });
+        if (deadline && (!Number.isFinite(new Date(deadline).getTime()) || new Date(deadline).getTime() <= Date.now())) return res.status(400).json({ message: 'A future posting deadline is required.' });
         const missingFields = [];
         if (!title) missingFields.push('title');
         if (!description) missingFields.push('description');
@@ -355,6 +360,9 @@ export async function createJob(req, res){
         let newJob;
         try {
             await session.withTransaction(async () => {
+                const employerDraw = poster.role === 'both' ? Math.min(Number(poster.employerBalance || 0), costs.total) : costs.total;
+                const escrowEmployer = Math.max(0, employerDraw - costs.postingFee - costs.highlightFee);
+                const fundingSources = { EMPLOYER: Math.min(totalEscrow, escrowEmployer), WORKER: Number((totalEscrow - Math.min(totalEscrow, escrowEmployer)).toFixed(2)) };
                 // For "both" role users, draw from the employer balance first,
                 // then the worker balance. Each leg carries its own `$gte`
                 // guard so neither can be driven negative by a concurrent post.
@@ -388,6 +396,8 @@ export async function createJob(req, res){
 
                 // 3. Create the job (funds are now effectively in "escrow")
                 [newJob] = await Job.create([{
+                    interviewRequired: req.body.interviewRequired === true,
+                    repostOf: req.body.repostOf ? resolvePublicId(req.body.repostOf) : null,
                     title,
                     description,
                     location,
@@ -422,6 +432,7 @@ export async function createJob(req, res){
                     // have the legacy unique `reference` index (where multiple nulls
                     // would otherwise raise E11000 and turn a successful post into 500).
                     reference: `job-escrow:${newJob._id}`,
+                    meta: { fundingSources },
                     label: `Escrow (Job ${newJob._id})`,
                     relatedEntityType: 'job',
                     relatedEntityId: String(newJob._id),
@@ -442,6 +453,7 @@ export async function createJob(req, res){
                     meta: { refundable: false, feeKind: 'posting' },
                     actor: poster._id,
                 }], { session });
+                await queueNotification(`new-job-fanout:${newJob._id}`, { fanoutJobId: String(newJob._id) }, session);
                 if (costs.highlightFee > 0) {
                     await Transaction.create([{
                         sender: poster._id,
@@ -479,344 +491,29 @@ export async function createJob(req, res){
     }
 }
 
-export async function changeJobStatus(req, res){
+export async function changeJobStatus(req, res) {
     try {
-        const id = resolvePublicId(req.params.id);
-        if (!id) return res.status(400).json({ message: 'A valid job id is required.' });
-        const {status} = req.body;
-        const requesterId = getRequesterId(req);
-        const statusOptions = ['Available', 'In Progress', 'Completed', 'Cancelled', 'Closed'];
-
-        if(!statusOptions.includes(status)) {
-            return res.status(400).json({message: "Invalid status value."});
-        }
-        const job = await Job.findById(id);
-        if(!job) return res.status(404).json({message: "Job not found."});
-        if (job.jobPoster?.toString() !== requesterId && !canManageAnyJob(req)) {
-            return res.status(403).json({ message: "You are not allowed to update this job status." });
-        }
-
-        if (['Full refund', 'Resolved'].includes(job.status)) {
-            return res.status(409).json({ message: 'This job has a final Finance settlement. Its status is managed through financial disputes.' });
-        }
-        if (status === 'Completed' && job.status !== 'Completed') {
-            // Atomic payout/refund flow: compute remaining escrow and pay payable candidates inside
-            // a MongoDB transaction to avoid partial state where refunds are issued but payouts failed.
-            const session = await mongoose.startSession();
-            session.startTransaction();
-            try {
-                // Support both canonical and legacy hired states before releasing remaining escrow.
-                const hiredApplications = await JobApplication.find({
-                    job: job._id,
-                    status: { $in: ['Hired', 'Accepted'] },
-                }).select('_id applicant agreedAmount workStatus paymentStatus').session(session);
-
-                const payoutCandidates = [];
-                const seenApplicantIds = new Set();
-
-                for (const app of hiredApplications) {
-                    const applicantId = String(app.applicant);
-                    if (seenApplicantIds.has(applicantId)) continue;
-                    seenApplicantIds.add(applicantId);
-                    payoutCandidates.push({ applicant: app.applicant, applicationId: String(app._id), agreedAmount: Number(app.agreedAmount || job.salary || 0), hasLifecycle: Number(app.agreedAmount || 0) > 0, workStatus: app.workStatus, paymentStatus: app.paymentStatus });
-                }
-
-                if (job.selectedApplicant) {
-                    const selectedApplicantId = String(job.selectedApplicant);
-                    if (!seenApplicantIds.has(selectedApplicantId)) {
-                        const selectedApplicantApplication = await JobApplication.findOne({
-                            job: job._id,
-                            applicant: job.selectedApplicant,
-                        }).select('_id applicant').session(session);
-
-                        if (selectedApplicantApplication) {
-                            payoutCandidates.push({
-                                applicant: selectedApplicantApplication.applicant,
-                                applicationId: String(selectedApplicantApplication._id),
-                            });
-                        } else {
-                            payoutCandidates.push({ applicant: job.selectedApplicant, applicationId: null });
-                        }
-                        seenApplicantIds.add(selectedApplicantId);
-                    }
-                }
-
-                // Net remaining escrow = all ESCROW collected - all PAYOUT made - all REFUND issued.
-                const [escrowAgg, paidAgg, refundAgg] = await Promise.all([
-                    Transaction.aggregate([
-                        { $match: { jobReference: job._id, type: 'ESCROW', status: 'COMPLETED' } },
-                        { $group: { _id: null, total: { $sum: '$amount' } } },
-                    ]).session(session),
-                    Transaction.aggregate([
-                        { $match: { jobReference: job._id, type: 'PAYOUT', status: 'COMPLETED' } },
-                        { $group: { _id: null, total: { $sum: '$amount' } } },
-                    ]).session(session),
-                    Transaction.aggregate([
-                        { $match: { jobReference: job._id, type: 'REFUND', status: 'COMPLETED' } },
-                        { $group: { _id: null, total: { $sum: '$amount' } } },
-                    ]).session(session),
-                ]);
-                const totalEscrowed = (escrowAgg[0] && escrowAgg[0].total) || 0;
-                const totalPaid    = (paidAgg[0]   && paidAgg[0].total)   || 0;
-                const totalRefunded = (refundAgg[0] && refundAgg[0].total) || 0;
-                const totalPaidBefore = totalPaid;
-                let remainingEscrow = Math.max(0, totalEscrowed - totalPaid - totalRefunded);
-
-                // Determine already paid receivers to avoid double paying
-                const paidReceivers = await Transaction.find({
-                    jobReference: job._id,
-                    type: 'PAYOUT',
-                    status: 'COMPLETED',
-                }).select('receiver').lean().session(session);
-                const paidReceiverIds = new Set(
-                    paidReceivers
-                        .map((tx) => (tx.receiver ? String(tx.receiver) : null))
-                        .filter(Boolean)
-                );
-
-                const candidateUserIds = Array.from(new Set(payoutCandidates.map((c) => String(c.applicant))));
-                const existingUsers = candidateUserIds.length
-                    ? await User.find({ _id: { $in: candidateUserIds } }).select('_id').lean().session(session)
-                    : [];
-                const existingUserIds = new Set(existingUsers.map((u) => String(u._id)));
-
-                const payableCandidates = payoutCandidates.filter((candidate) =>
-                    existingUserIds.has(String(candidate.applicant)) && !paidReceiverIds.has(String(candidate.applicant))
-                );
-
-                const unfinishedCandidate = payableCandidates.find((candidate) => candidate.hasLifecycle && candidate.workStatus !== 'Submitted');
-                if (unfinishedCandidate) {
-                    await session.abortTransaction();
-                    session.endSession();
-                    return res.status(409).json({ message: 'Each hired worker must submit finished work before the job can be completed.' });
-                }
-
-                // Debug: log payout decision variables to help diagnose why payouts may not run
-                console.debug('JobCompletionDebug: totals', { totalEscrowed, totalPaid, totalRefunded, remainingEscrow });
-                console.debug('JobCompletionDebug: payoutCandidates', payoutCandidates.map((c) => ({ applicant: String(c.applicant), applicationId: c.applicationId })));
-                console.debug('JobCompletionDebug: paidReceiverIds', Array.from(paidReceiverIds));
-                console.debug('JobCompletionDebug: existingUserIds', Array.from(existingUserIds));
-                console.debug('JobCompletionDebug: payableCandidates', payableCandidates.map((c) => ({ applicant: String(c.applicant), applicationId: c.applicationId })));
-
-                if (totalPaidBefore <= 0 && payableCandidates.length === 0) {
-                    await session.abortTransaction();
-                    session.endSession();
-                    console.warn('JobCompletionDebug: no payable candidates, aborting - employer must hire at least one worker');
-                    return res.status(400).json({
-                        message: 'Cannot mark job as done yet. Move at least one worker application to Hired first.',
-                    });
-                }
-
-                let payoutsProcessed = 0;
-                for (const candidate of payableCandidates) {
-                    // Pay in full, or refuse and change nothing.
-                    //
-                    // This was `Math.min(owed, remainingEscrow)`, which credited
-                    // a partial amount and *still* flipped the application to
-                    // paymentStatus 'Paid' / workStatus 'Completed'. After that
-                    // settleApplicationPayment short-circuits on 'Paid' and
-                    // canUnhireApplication refuses with "already been paid", so
-                    // the shortfall was unrecoverable through every API path.
-                    // The old `break` also silently skipped every remaining
-                    // candidate -- and because the leftover-escrow refund below
-                    // pays `remainingEscrow` back to the employer, a skipped
-                    // worker's money went to the employer instead.
-                    //
-                    // Aborting keeps escrow and the Hired state intact so the
-                    // worker stays payable once funding is topped up, matching
-                    // services/applicationSettlement.js's 409 on the same
-                    // condition. The 0.005 tolerance absorbs the toFixed(2)
-                    // rounding that `remainingEscrow` carries.
-                    const owed = Number(candidate.agreedAmount || job.salary || 0);
-                    if (owed <= 0) continue;
-                    if (owed - remainingEscrow > 0.005) {
-                        await session.abortTransaction();
-                        session.endSession();
-                        return res.status(409).json({
-                            message: 'The secured job funds are insufficient to pay every hired worker in full. Top up this job\'s funding before marking it done.',
-                        });
-                    }
-                    const payoutAmount = owed;
-
-                    const worker = await User.findById(candidate.applicant).session(session);
-                    if (!worker) continue;
-                    worker.workerBalance = (worker.workerBalance || 0) + payoutAmount;
-                    await worker.save({ session });
-
-                    const relatedEntityType = candidate.applicationId ? 'job_application' : 'job_worker';
-                    const relatedEntityId = candidate.applicationId || String(worker._id);
-
-                    const payoutTx = await Transaction.create([
-                        {
-                            sender: null, // From escrow
-                            receiver: worker._id,
-                            amount: payoutAmount,
-                            type: 'PAYOUT',
-                            status: 'COMPLETED',
-                            balanceTarget: 'WORKER',
-                            jobReference: job._id,
-                            label: `Payout (Job ${job._id})`,
-                            relatedEntityType,
-                            relatedEntityId,
-                        },
-                    ], { session });
-                    payoutsProcessed += 1;
-                    remainingEscrow = Number((remainingEscrow - payoutAmount).toFixed(2));
-                    if (candidate.applicationId) await JobApplication.updateOne({ _id: candidate.applicationId }, { $set: { workStatus: 'Completed', paymentStatus: 'Paid', completedAt: new Date(), paidAt: new Date(), paymentReminderClaimedAt: null, paymentReminderClaimedStage: null } }, { session });
-
-                    await createNotification({
-                        userId: worker._id,
-                        audience: 'worker',
-                        type: 'payment',
-                        title: 'Job payout completed',
-                        message: `A payout of PHP ${Number(payoutAmount || 0).toFixed(2)} was added to your worker balance.`,
-                        entityType: 'job',
-                        entityId: job._id,
-                        actor: job.jobPoster || null,
-                        push: true,
-                        socketPayload: { transactionId: String(payoutTx[0]._id), jobId: String(job._id), amount: payoutAmount },
-                    });
-                    try { const monitor = await import('../lib/monitor.js'); await monitor.default.audit({ actor: null, action: 'job_payout', ip: req.ip || null, userAgent: req.get('user-agent'), amount: payoutAmount, status: 'success', meta: { job: job._id, worker: worker._id, application: candidate.applicationId || null } }); } catch (e) {}
-                }
-
-                if (totalPaidBefore <= 0 && payoutsProcessed <= 0) {
-                    await session.abortTransaction();
-                    session.endSession();
-                    return res.status(500).json({
-                        message: 'Unable to process worker payout. Job was not marked as done.',
-                    });
-                }
-
-                // Return any unused escrow back to employer when job is finalized as completed.
-                if (remainingEscrow > 0) {
-                    console.debug('JobCompletionDebug: issuing refund for remainingEscrow', remainingEscrow);
-                    const poster = await User.findById(job.jobPoster).session(session);
-                    if (poster) {
-                        poster.employerBalance = (poster.employerBalance || 0) + remainingEscrow;
-                        await poster.save({ session });
-
-                        await Transaction.create([
-                            {
-                                sender: null,
-                                receiver: poster._id,
-                                amount: remainingEscrow,
-                                type: 'REFUND',
-                                status: 'COMPLETED',
-                                balanceTarget: 'EMPLOYER',
-                                jobReference: job._id,
-                                label: `Unused escrow refund (Job ${job._id})`,
-                                relatedEntityType: 'job',
-                                relatedEntityId: String(job._id),
-                                actor: poster._id,
-                            },
-                        ], { session });
-                    }
-                }
-
-                await session.commitTransaction();
-                session.endSession();
-            } catch (err) {
-                console.error('Job completion payout error:', err);
-                try { await session.abortTransaction(); } catch(e){}
-                session.endSession();
-                return res.status(500).json({ message: 'Failed to process payouts for job completion.' });
-            }
-        }
-
-        // Handle Refund logic if status is changing to Cancelled (refund remaining escrow)
-        if (status === 'Cancelled' && job.status !== 'Cancelled' && job.status !== 'Completed') {
-            const poster = await User.findById(job.jobPoster);
-            if (poster) {
-                // Net remaining escrow across all cycles
-                const [escrowAggC, paidAggC, refundAggC] = await Promise.all([
-                    Transaction.aggregate([
-                        { $match: { jobReference: job._id, type: 'ESCROW', status: 'COMPLETED' } },
-                        { $group: { _id: null, total: { $sum: '$amount' } } },
-                    ]),
-                    Transaction.aggregate([
-                        { $match: { jobReference: job._id, type: 'PAYOUT', status: 'COMPLETED' } },
-                        { $group: { _id: null, total: { $sum: '$amount' } } },
-                    ]),
-                    Transaction.aggregate([
-                        { $match: { jobReference: job._id, type: 'REFUND', status: 'COMPLETED' } },
-                        { $group: { _id: null, total: { $sum: '$amount' } } },
-                    ]),
-                ]);
-                const totalEscrowed = (escrowAggC[0] && escrowAggC[0].total) || 0;
-                const totalCPaid    = (paidAggC[0]   && paidAggC[0].total)   || 0;
-                const totalCRefunded = (refundAggC[0] && refundAggC[0].total) || 0;
-
-                const refundAmount = Math.max(0, totalEscrowed - totalCPaid - totalCRefunded);
-                if (refundAmount > 0) {
-                    // Always refund to employer balance since escrow is job-posting related.
-                    //
-                    // This refund used to carry no `reference` at all and ran a
-                    // read-modify-write on the balance outside any transaction.
-                    // Transaction's uniqueness guard is a *partial* index
-                    // (`partialFilterExpression: { reference: { $type: 'string' } }`,
-                    // see models/Transaction.js), so a null reference is excluded
-                    // from the index entirely and unlimited duplicates were
-                    // allowed -- two concurrent cancels could both refund, and
-                    // even when they did not race they left two REFUND rows
-                    // against one credit, which then corrupted the escrow maths
-                    // in deleteJob and reopenJob.
-                    //
-                    // Ordering matters: the uniquely-referenced ledger row is
-                    // written *before* the balance moves, so a duplicate loses
-                    // on the index and never reaches the `$inc`. Same shape as
-                    // deleteJob's refund below.
-                    const reference = `job-cancel-refund:${job._id}`;
-                    try {
-                        await Transaction.create({
-                            sender: null,
-                            receiver: poster._id,
-                            amount: refundAmount,
-                            type: 'REFUND',
-                            status: 'COMPLETED',
-                            balanceTarget: 'EMPLOYER',
-                            jobReference: job._id,
-                            reference,
-                            label: `Refund (Job ${job._id})`,
-                            relatedEntityType: 'job',
-                            relatedEntityId: String(job._id),
-                            actor: poster._id,
-                        });
-                    } catch (refundError) {
-                        // E11000 means another request already recorded this
-                        // job's cancellation refund; the credit below is its
-                        // responsibility, not ours.
-                        if (refundError?.code === 11000) {
-                            return res.status(409).json({ message: 'This job has already been cancelled and refunded.' });
-                        }
-                        throw refundError;
-                    }
-                    await User.updateOne({ _id: poster._id }, { $inc: { employerBalance: refundAmount } });
-                    try { const monitor = await import('../lib/monitor.js'); await monitor.default.audit({ actor: poster._id, action: 'job_refund', ip: req.ip || null, userAgent: req.get('user-agent'), amount: refundAmount, status: 'success', meta: { job: job._id } }); } catch (e) {}
-                }
-            }
-        }
-
-        job.status = status;
-        // Record the employer's intent so hiring-state changes cannot silently
-        // reopen a post that was closed by hand (or keep one closed after the
-        // employer explicitly makes it available again).
-        if (status === 'Closed') {
-            job.closedManually = true;
-        } else if (status === 'Available') {
-            job.closedManually = false;
-        }
-        await job.save();
+        const userId = getRequesterId(req);
+        const job = await Job.findById(resolvePublicId(req.params.id));
+        if (!job) return res.status(404).json({ message: 'Job not found.' });
+        if (String(job.jobPoster) !== String(userId) && !(canManageAnyJob(req) && req.body?.status === 'Closed')) return res.status(403).json({ message: 'You cannot change this posting.' });
+        const status = req.body?.status;
+        if (status === 'Cancelled') return res.json({ cancellation: await requestCancellation({ ...req.body, jobId: job._id, actor: userId }) });
         if (status === 'Completed') {
-            await JobApplication.updateMany(
-                { job: job._id, status: { $in: ['Hired', 'Accepted'] } },
-                { $set: { completedAt: new Date() } }
-            );
+            if (req.body?.confirmed !== true) return res.status(400).json({ message: 'Confirm the worker payments before completing this posting.' });
+            const apps = await JobApplication.find({ job: job._id, status: { $in: ['Hired', 'Accepted'] } });
+            if (!apps.length || apps.some((app) => !['Submitted', 'Completed'].includes(app.workStatus))) return res.status(409).json({ message: 'All hired workers must submit work first.' });
+            // Each worker settles through the same idempotent service as direct/QR payment.
+            const session = await mongoose.startSession();
+            try { await session.withTransaction(async () => { for (const app of apps) await settleApplicationPayment({ applicationId: app._id, employerId: userId, session }); }); } finally { await session.endSession(); }
+            return res.json({ job: await Job.findById(job._id), message: 'Submitted worker payments completed.' });
         }
-
-        res.status(200).json({message: "Job status updated.", job: serializeOwnedJob(job)});
-    } catch (error) {
-        res.status(500).json({message: "Failed to change job status."});
-    }
+        if (status === 'Available') return reopenJob(req, res);
+        if (status !== 'Closed') return res.status(409).json({ message: 'Use the assignment workflow for this status.' });
+        const updated = await Job.findOneAndUpdate({ _id: job._id, cancellationPending: { $ne: true }, status: { $nin: ['Completed', 'Cancelled', 'Full refund', 'Resolved'] } }, { $set: { status: 'Closed', closedManually: true } }, { returnDocument: 'after' });
+        if (!updated) return res.status(409).json({ message: 'This posting is historical or being cancelled.' });
+        return res.json({ job: serializeOwnedJob(updated), message: 'Job status updated.' });
+    } catch (error) { return res.status(error.status || 500).json({ message: error.status ? error.message : 'Failed to change job status.' }); }
 }
 
 // `selectApplicant` lived here and was deleted rather than repaired.
@@ -840,19 +537,14 @@ export async function changeJobStatus(req, res){
 export async function getMyJobs(req, res) {
     try {
         const userId = req.user.id;
-        // The owner response keeps hiring fields but uses the same public job id.
-        const jobs = await Job.find({ jobPoster: userId, status: { $ne: 'Full refund' } })
+        const jobs = await Job.find({ jobPoster: userId })
             .populate('category', 'name')
-            .sort({ createdAt: -1 })
-            .lean();
-        const hiredJobs = await JobApplication.distinct('job', {
-            job: { $in: jobs.map((job) => job._id) },
-            $or: [{ status: { $in: ['Hired', 'Accepted'] } }, { hiredAt: { $ne: null } }, { 'timeline.type': 'hire_reverted' }],
-        });
-        const locked = new Set(hiredJobs.map(String));
-        res.status(200).json(jobs.map((job) => ({
-            ...serializeOwnedJob(job),
-            canDelete: !job.hireConfirmedAt && !job.selectedApplicant && !job.hiredCount && job.status !== 'In Progress' && !locked.has(String(job._id)),
+            .sort({ createdAt: -1 });
+        res.status(200).json(await Promise.all(jobs.map(async (job) => {
+            const [funds, assignments] = await Promise.all([remainingJobFunds(job._id), JobApplication.find({ job: job._id, $or: [{ status: { $in: ['Hired', 'Accepted'] } }, { status: 'Cancelled', agreedAmount: { $gt: 0 } }] }).select('paymentStatus workStatus agreedAmount cancellationPending disputePending').lean()]);
+            const held = assignments.some((app) => app.cancellationPending || app.disputePending);
+            const status = held || job.cancellationPending ? 'On hold' : assignments.some((app) => app.paymentStatus === 'Processing') ? 'Processing' : assignments.some((app) => app.workStatus === 'Submitted' && app.paymentStatus !== 'Paid') ? 'Awaiting approval' : funds.paid > 0 ? assignments.length && assignments.every((app) => app.paymentStatus === 'Paid') ? 'Paid' : 'Partially paid' : funds.refunded > 0 && funds.remaining === 0 ? 'Refunded' : 'Funds secured';
+            return { ...serializeOwnedJob(job.toObject()), canDelete: false, paymentSummary: { ...funds, status } };
         })));
     } catch (error) {
         console.error('Get my jobs error:', error);
@@ -886,12 +578,51 @@ export async function getEmployerJobHistory(req, res) {
 }
 
 export async function updateJob(req, res) {
+    const session = await mongoose.startSession();
     try {
+        const result = await session.withTransaction(() => updateJobInTransaction(req, session));
+        return res.status(result.status).json(result.body);
+    } catch (error) {
+        console.error('Update job error:', error.message);
+        return res.status(error.status || 500).json({ message: error.status ? error.message : 'Unable to update this posting.' });
+    } finally { await session.endSession(); }
+}
+
+export async function deleteJob(req, res) {
+    const job = await Job.findById(resolvePublicId(req.params.id));
+    if (!job) return res.status(404).json({ message: 'Job not found.' });
+    if (String(job.jobPoster) !== String(getRequesterId(req)) && !canManageAnyJob(req)) return res.status(403).json({ message: 'You cannot archive this posting.' });
+    if (await JobApplication.exists({ job: job._id, status: { $in: ['Hired', 'Accepted'] }, workStatus: { $nin: ['Completed', 'Cancelled'] } })) return res.status(409).json({ code: 'JOB_HIRE_CONFIRMED', message: 'Resolve unfinished assignments before archiving this posting.' });
+    if (!['Completed', 'Cancelled', 'Closed'].includes(job.status) || job.cancellationPending) return res.status(409).json({ message: 'Cancel or close this posting before archiving it.' });
+    job.archivedAt = new Date(); await job.save();
+    return res.json({ message: 'Job archived. Applications and financial history are preserved.', job });
+}
+export async function reopenJob(req, res) {
+    const session = await mongoose.startSession(); let job;
+    try {
+        await session.withTransaction(async () => {
+            job = await Job.findOne({ _id: resolvePublicId(req.params.id), jobPoster: getRequesterId(req) }).session(session);
+            if (!job) throw Object.assign(new Error('Job not found.'), { status: 404 });
+            if (['Completed', 'Cancelled', 'Full refund', 'Resolved'].includes(job.status) || job.cancellationPending) throw Object.assign(new Error('Use Post again to preserve this posting history.'), { status: 409 });
+            if (job.hiredCount + job.reservedOfferCount >= job.positionsNeeded) throw Object.assign(new Error('All positions are hired or reserved.'), { status: 409 });
+            if ((await remainingJobFunds(job._id, session)).remaining < await requiredJobFunds(job, session)) throw Object.assign(new Error('This vacancy is no longer fully funded. Use Post again to fund a new posting.'), { status: 409 });
+            job.status = 'Available'; job.closedManually = false; job.archivedAt = null; job.fundsVersion += 1; await job.save({ session });
+        });
+        return res.json({ message: 'Posting reopened. Existing applications are preserved.', job });
+    } catch (error) { return res.status(error.status || 500).json({ message: error.status ? error.message : 'Unable to reopen this posting.' }); }
+    finally { await session.endSession(); }
+}
+
+export async function selectApplicant(req, res) {
+    return res.status(409).json({ message: 'Send a formal offer, wait for worker acceptance, then confirm the hire.' });
+}
+
+async function updateJobInTransaction(req, session) {
+    const res = { status(code) { return { json(body) { return { status: code, body }; } }; } };
         const id = resolvePublicId(req.params.id);
-        if (!id) return res.status(400).json({ message: 'A valid job id is required.' });
         const userId = req.user?.id;
 
-        const job = await Job.findById(id);
+        const job = await Job.findById(id).session(session);
         if (!job) {
             return res.status(404).json({ message: "Job not found." });
         }
@@ -899,6 +630,8 @@ export async function updateJob(req, res) {
         if (job.jobPoster.toString() !== userId) {
             return res.status(403).json({ message: "You are not allowed to update this job." });
         }
+
+        if (job.hireConfirmedAt || await JobApplication.exists({ job: job._id, $or: [{ hiredAt: { $ne: null } }, { 'timeline.type': 'hire_reverted' }] }).session(session)) return res.status(409).json({ message: 'A confirmed hire fixes this posting. Use Post again for different requirements.' });
 
         const allowed = [
             "title",
@@ -912,6 +645,7 @@ export async function updateJob(req, res) {
             "requirements",
             "category",
             "image",
+            "interviewRequired",
             "urgent",
             "positionsNeeded",
         ];
@@ -934,13 +668,10 @@ export async function updateJob(req, res) {
                     value = parsed;
                 }
                 if (key === "category") {
-                    // Decode the public token and write the real ObjectId back
-                    // onto `value`, which is what gets persisted below.
-                    const resolved = resolveCategoryId(value);
-                    if (!resolved || !mongoose.Types.ObjectId.isValid(String(resolved)) || !(await Category.exists({ _id: resolved }))) {
+                    value = resolveCategoryId(value);
+                    if (!mongoose.Types.ObjectId.isValid(String(resolveCategoryId(value))) || !(await Category.exists({ _id: resolveCategoryId(value) }))) {
                         return res.status(400).json({ message: "Please select a valid job category." });
                     }
-                    value = resolved;
                 }
                 if (key === "salary") {
                     const amount = parseMinimumPay(value);
@@ -969,30 +700,12 @@ export async function updateJob(req, res) {
             }
         }
 
+        if (job.cancellationPending || ['Completed', 'Cancelled', 'Full refund', 'Resolved'].includes(job.status)) return res.status(409).json({ message: 'This posting is historical or being cancelled. Use Post again.' });
+        if (updates.salary !== undefined && (job.hiredCount > 0 || job.reservedOfferCount > 0)) return res.status(409).json({ message: 'Existing offers and hires fix the job minimum pay.' });
         const nextPositions = Number(updates.positionsNeeded ?? job.positionsNeeded ?? 1);
         if (nextPositions < Number(job.hiredCount || 0) + Number(job.reservedOfferCount || 0)) {
             return res.status(400).json({
                 message: 'Workers needed cannot be lower than workers already hired plus positions reserved by active formal offers.',
-            });
-        }
-
-        // Minimum pay may not be cut below what has already been promised.
-        //
-        // `positionsNeeded` is guarded just above, but `salary` was not -- and
-        // `escrowDifference` below is driven by salary x positions, so a
-        // negative difference refunded straight to `employerBalance`. That let
-        // an employer hire a worker at PHP 1000, wait for the work to be
-        // submitted, then PUT `{ "salary": 1 }` and withdraw 999. Afterwards
-        // settleApplicationPayment computed remaining = 1000 - 0 - 999 = 1,
-        // which is less than the pinned `agreedAmount`, and threw 409 "The
-        // secured job funds are insufficient for this payment" -- so the worker
-        // had completed the job and was permanently unpayable through any API
-        // path while the employer kept the money. `hasActiveEscrow` also
-        // allowed this on `Closed` (fully-hired) jobs, which this covers too.
-        const committedPositions = Number(job.hiredCount || 0) + Number(job.reservedOfferCount || 0);
-        if (committedPositions > 0 && Number(updates.salary ?? job.salary ?? 0) < Number(job.salary || 0)) {
-            return res.status(400).json({
-                message: 'Minimum guaranteed pay cannot be reduced while workers are already hired or reserved by active formal offers.',
             });
         }
 
@@ -1005,7 +718,7 @@ export async function updateJob(req, res) {
         const escrowDifference = hasActiveEscrow ? nextEscrow - currentEscrow : 0;
 
         if (escrowDifference !== 0) {
-            const poster = await User.findById(job.jobPoster);
+            const poster = await User.findById(job.jobPoster).session(session);
             if (!poster) {
                 return res.status(404).json({ message: 'Job poster not found.' });
             }
@@ -1025,6 +738,7 @@ export async function updateJob(req, res) {
                     });
                 }
 
+                const fundingSources = { EMPLOYER: Math.min(Number(poster.employerBalance || 0), escrowDifference), WORKER: Math.max(0, escrowDifference - Number(poster.employerBalance || 0)) };
                 if (poster.role === 'both') {
                     const employerPortion = Math.min(Number(poster.employerBalance || 0), escrowDifference);
                     const workerPortion = escrowDifference - employerPortion;
@@ -1033,9 +747,9 @@ export async function updateJob(req, res) {
                 } else {
                     poster.employerBalance = Number(poster.employerBalance || 0) - escrowDifference;
                 }
-                await poster.save();
+                await poster.save({ session });
 
-                await Transaction.create({
+                await Transaction.create([{
                     sender: poster._id,
                     receiver: null,
                     amount: escrowDifference,
@@ -1047,203 +761,26 @@ export async function updateJob(req, res) {
                     relatedEntityType: 'job',
                     relatedEntityId: String(job._id),
                     actor: poster._id,
-                    meta: { previousTotal: currentEscrow, updatedTotal: nextEscrow },
-                });
+                    meta: { previousTotal: currentEscrow, updatedTotal: nextEscrow, fundingSources },
+                }], { session });
             } else {
                 const refundAmount = Math.abs(escrowDifference);
-                poster.employerBalance = Number(poster.employerBalance || 0) + refundAmount;
-                await poster.save();
-
-                await Transaction.create({
-                    sender: null,
-                    receiver: poster._id,
-                    amount: refundAmount,
-                    type: 'REFUND',
-                    status: 'COMPLETED',
-                    balanceTarget: 'EMPLOYER',
-                    jobReference: job._id,
-                    label: `Escrow refund on job update (Job ${job._id})`,
-                    relatedEntityType: 'job',
-                    relatedEntityId: String(job._id),
-                    actor: poster._id,
-                    meta: { previousTotal: currentEscrow, updatedTotal: nextEscrow },
-                });
+                if ((await remainingJobFunds(job._id, session)).remaining < refundAmount) return res.status(409).json({ message: 'Secured funds require reconciliation before this refund.' });
+                await refundJobFunds({ job, amount: refundAmount, reference: `job-update-refund:${job._id}:${job.fundsVersion || 0}:${job.updatedAt.getTime()}`, actor: poster._id, session });
             }
         }
 
-        const updated = await Job.findByIdAndUpdate(id, updates, { returnDocument: 'after' })
+        const updated = await Job.findByIdAndUpdate(id, { $set: updates, $inc: { fundsVersion: 1 } }, { returnDocument: 'after', session })
             .populate('category', 'name')
-            .populate('jobPoster', 'firstName lastName email')
-            .lean();
+            .populate('jobPoster', 'firstName lastName email');
 
-        return res.status(200).json({ message: "Job updated successfully.", job: serializeOwnedJob(updated) });
-    } catch (error) {
-        console.error('Update job error:', error);
-        return res.status(500).json({ message: "Failed to update job.", error: error.message });
-    }
+        return res.status(200).json({ message: "Job updated successfully.", job: updated });
 }
-
-export async function deleteJob(req, res) {
-    const id = resolvePublicId(req.params.id);
-    if (!id) return res.status(400).json({ message: 'A valid job id is required.' });
-    const userId = getRequesterId(req);
-    const admin = canManageAnyJob(req);
-    const session = await mongoose.startSession();
-    try {
-        let deletedJob;
-        let refundAmount = 0;
-        await session.withTransaction(async () => {
-            const job = await Job.findById(id).session(session);
-            if (!job) throw Object.assign(new Error('Job not found.'), { status: 404 });
-            if (String(job.jobPoster || '') !== String(userId || '') && !admin) {
-                throw Object.assign(new Error('You are not allowed to delete this job.'), { status: 403 });
-            }
-            const priorHire = await JobApplication.exists({
-                job: job._id,
-                $or: [{ status: { $in: ['Hired', 'Accepted'] } }, { hiredAt: { $ne: null } }, { 'timeline.type': 'hire_reverted' }],
-            }).session(session);
-            if (!admin && (job.status === 'In Progress' || job.hireConfirmedAt || job.selectedApplicant || Number(job.hiredCount || 0) > 0 || priorHire)) {
-                throw Object.assign(new Error('Cannot delete the job after confirming the hire.'), { status: 409, code: 'JOB_HIRE_CONFIRMED' });
-            }
-
-            // Deleting and hiring both write this job inside a transaction. A
-            // concurrent hire forces a retry, which rechecks the deletion lock
-            // before any escrow refund or dependent record is removed.
-            await Job.deleteOne({ _id: job._id }, { session });
-            const [ledger] = await Transaction.aggregate([
-                { $match: { jobReference: job._id, status: 'COMPLETED' } },
-                { $group: {
-                    _id: null,
-                    escrowed: { $sum: { $cond: [{ $eq: ['$type', 'ESCROW'] }, '$amount', 0] } },
-                    paid: { $sum: { $cond: [{ $eq: ['$type', 'PAYOUT'] }, '$amount', 0] } },
-                    refunded: { $sum: { $cond: [{ $eq: ['$type', 'REFUND'] }, '$amount', 0] } },
-                } },
-            ]).session(session);
-            // Keep the existing fallback for jobs predating the ledger.
-            const secured = Number(ledger?.escrowed || 0) || Number(job.salary || 0) * Number(job.positionsNeeded || 1);
-            refundAmount = Math.max(0, Number((secured - Number(ledger?.paid || 0) - Number(ledger?.refunded || 0)).toFixed(2)));
-            if (refundAmount > 0) {
-                const poster = await User.findById(job.jobPoster).session(session);
-                if (!poster) throw Object.assign(new Error('This job cannot be deleted because its employer account is unavailable for the escrow refund.'), { status: 409, code: 'JOB_POSTER_UNAVAILABLE' });
-                await Transaction.create([{
-                    sender: null, receiver: poster._id, amount: refundAmount,
-                    type: 'REFUND', status: 'COMPLETED', balanceTarget: 'EMPLOYER',
-                    jobReference: job._id, reference: `job-delete-refund:${job._id}`,
-                    label: 'Unused escrow refund on job deletion', relatedEntityType: 'job',
-                    relatedEntityId: String(job._id), actor: userId || poster._id,
-                }], { session });
-                await User.updateOne({ _id: poster._id }, { $inc: { employerBalance: refundAmount } }, { session });
-            }
-            await JobOffer.deleteMany({ job: job._id }, { session });
-            await JobApplication.deleteMany({ job: job._id }, { session });
-            deletedJob = job;
-        });
-        if (refundAmount > 0) {
-            try {
-                const monitor = await import('../lib/monitor.js');
-                await monitor.default.audit({ actor: userId || null, action: 'job_refund_on_delete', ip: req.ip || null, userAgent: req.get?.('user-agent') || null, amount: refundAmount, status: 'success', meta: { job: deletedJob._id, employer: deletedJob.jobPoster } });
-            } catch (_) {}
-        }
-        return res.status(200).json({ message: 'Job deleted successfully.' });
-    } catch (error) {
-        if (!error.status) console.error('Delete job error:', error);
-        return res.status(error.status || 500).json({ message: error.status ? error.message : 'Failed to delete job.', ...(error.code ? { code: error.code } : {}) });
-    } finally {
-        await session.endSession();
-    }
-}
-export async function reopenJob(req, res) {
-    try {
-        const id = resolvePublicId(req.params.id);
-        if (!id) return res.status(400).json({ message: 'A valid job id is required.' });
-        const userId = req.user?.id;
-
-        const job = await Job.findById(id);
-        if (!job) {
-            return res.status(404).json({ message: 'Job not found.' });
-        }
-
-        if (job.jobPoster.toString() !== userId && !canManageAnyJob(req)) {
-            return res.status(403).json({ message: 'You are not allowed to reopen this job.' });
-        }
-
-        if (['Full refund', 'Resolved'].includes(job.status)) {
-            return res.status(409).json({ message: 'A job with a final Finance settlement cannot be reopened.' });
-        }
-        if (job.status === 'Available') {
-            return res.status(400).json({ message: 'Job is already open.' });
-        }
-
-        if (job.status === 'In Progress') {
-            return res.status(400).json({ message: 'Cannot reopen a job that is currently in progress.' });
-        }
-
-        // For Completed or Cancelled jobs the escrow was already released/refunded.
-        // We need to re-collect the escrow from the employer.
-        const needsReEscrow = job.status === 'Completed' || job.status === 'Cancelled';
-
-        if (needsReEscrow) {
-            const totalEscrow = Number(job.salary || 0) * Number(job.positionsNeeded || 1);
-            const poster = await User.findById(job.jobPoster);
-            if (!poster) {
-                return res.status(404).json({ message: 'Job poster not found.' });
-            }
-
-            const availableBalance =
-                poster.role === 'both'
-                    ? (poster.employerBalance || 0) + (poster.workerBalance || 0)
-                    : (poster.employerBalance || 0);
-
-            if (availableBalance < totalEscrow) {
-                return res.status(400).json({
-                    message: `Insufficient balance to reopen this job. You need PHP ${totalEscrow.toFixed(2)} in escrow.`,
-                });
-            }
-
-            if (poster.role === 'both') {
-                const employerPortion = Math.min(poster.employerBalance || 0, totalEscrow);
-                const workerPortion = totalEscrow - employerPortion;
-                poster.employerBalance = (poster.employerBalance || 0) - employerPortion;
-                poster.workerBalance = (poster.workerBalance || 0) - workerPortion;
-            } else {
-                poster.employerBalance = (poster.employerBalance || 0) - totalEscrow;
-            }
-            await poster.save();
-
-            await Transaction.create({
-                sender: poster._id,
-                receiver: null,
-                amount: totalEscrow,
-                type: 'ESCROW',
-                status: 'COMPLETED',
-                balanceTarget: 'ESCROW',
-                jobReference: job._id,
-                label: `Re-escrow on job reopen (Job ${job._id})`,
-                relatedEntityType: 'job',
-                relatedEntityId: String(job._id),
-                actor: poster._id,
-            });
-        }
-
-        // Reset applicants so fresh applications can be collected
-        job.applicants = [];
-        job.selectedApplicant = null;
-        job.status = 'Available';
-        // An explicit reopen clears the manual-close flag so capacity can manage
-        // Available/Closed again.
-        job.closedManually = false;
-        await job.save();
-
-        // Remove old JobApplication records so workers can apply again fresh
-        try {
-            await JobApplication.deleteMany({ job: job._id });
-        } catch (e) {
-            console.warn('Failed to remove old applications on reopen', e);
-        }
-
-        return res.status(200).json({ message: 'Job reopened successfully.', job: serializeOwnedJob(job) });
-    } catch (error) {
-        console.error('Reopen job error:', error);
-        return res.status(500).json({ message: 'Failed to reopen job.', error: error.message });
-    }
+export async function repostJob(req, res) {
+    const original = await Job.findOne({ _id: resolvePublicId(req.params.id), jobPoster: getRequesterId(req), status: { $in: ['Completed', 'Cancelled', 'Closed'] }, cancellationPending: { $ne: true } }).lean();
+    if (!original) return res.status(404).json({ message: 'Historical posting not found.' });
+    const deadline = new Date(req.body?.deadline);
+    if (!Number.isFinite(deadline.getTime()) || deadline.getTime() <= Date.now()) return res.status(400).json({ message: 'Choose a new future deadline.' });
+    req.body = { ...original, deadline, repostOf: original._id };
+    return createJob(req, res);
 }

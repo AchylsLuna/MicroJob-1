@@ -383,6 +383,7 @@ const PostJob: React.FC = () => {
         deadline: parsedDeadline.toISOString(),
         positionsNeeded: Number(formData.positionsNeeded) || 1,
         highlighted: formData.highlighted,
+        interviewRequired: formData.interviewRequired,
       };
 
       if (editingJob?._id) {

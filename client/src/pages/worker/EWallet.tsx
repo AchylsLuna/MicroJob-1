@@ -1,20 +1,17 @@
+import { WithdrawalPanel } from "../../components/wallet/WithdrawalPanel";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Badge, StatusState } from "../../components/ui";
 import { WalletSectionPager, type WalletSection } from "../../components/wallet/WalletSectionPager";
 import {
   ArrowDownLeft,
   ArrowUpRight,
   CreditCard,
   Landmark,
-  Wallet,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "../../lib/toast";
 import { useAuth } from "../../hooks/useAuth";
 import { formatCurrency } from "../../lib/formatters";
 import {
-  cancelPayoutRequest,
-  createPayoutRequest,
   getPaymentTransactions,
   getPayoutRequests,
   getProfile,
@@ -23,7 +20,6 @@ import {
 } from "../../services/api";
 import {
   formatDate,
-  getPayoutStatusClasses,
   getTransactionDirection,
   getTransactionStatusClasses,
   linkedEntityLabel,
@@ -38,20 +34,11 @@ export function EWallet() {
   const payoutRequestRef = useRef<HTMLDivElement | null>(null);
   const pendingWithdrawScrollRef = useRef(false);
   const [walletSectionId, setWalletSectionId] = useState("withdraw");
-  const payoutIdempotencyKeyRef = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmittingPayout, setIsSubmittingPayout] = useState(false);
-  const [cancellingPayoutId, setCancellingPayoutId] = useState<string | null>(null);
   const [workerBalance, setWorkerBalance] = useState(0);
   const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
   const [payoutRequests, setPayoutRequests] = useState<PayoutRequest[]>([]);
-  const [payoutForm, setPayoutForm] = useState({
-    amount: "",
-    methodType: "bank_transfer",
-    institutionName: "",
-    accountName: "",
-    accountNumber: "",
-  });
+
 
   const isWorkerWalletView = user?.role === "both" ||
     Boolean(user?.accountOptions?.includes("worker")) || user?.accountType === "worker";
@@ -136,67 +123,6 @@ export function EWallet() {
     [payoutRequests],
   );
 
-  const handlePayoutSubmit = async () => {
-    if (!isWorkerWalletView) return;
-
-    const amount = Number(payoutForm.amount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      toast.error(t("eWallet.toast.invalidPayoutAmount"));
-      return;
-    }
-    if (amount > workerBalance) {
-      toast.error(t("eWallet.toast.payoutExceedsBalance"));
-      return;
-    }
-    if (!payoutForm.institutionName.trim() || !payoutForm.accountName.trim() || !payoutForm.accountNumber.trim()) {
-      toast.error(t("eWallet.toast.incompleteDestination"));
-      return;
-    }
-
-    setIsSubmittingPayout(true);
-    try {
-      payoutIdempotencyKeyRef.current ||= globalThis.crypto?.randomUUID?.()
-        || `payout-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      await createPayoutRequest({
-        amount,
-        idempotencyKey: payoutIdempotencyKeyRef.current,
-        destinationSnapshot: {
-          methodType: payoutForm.methodType,
-          institutionName: payoutForm.institutionName.trim(),
-          accountName: payoutForm.accountName.trim(),
-          accountNumber: payoutForm.accountNumber.trim(),
-        },
-      });
-      setPayoutForm({
-        amount: "",
-        methodType: "bank_transfer",
-        institutionName: "",
-        accountName: "",
-        accountNumber: "",
-      });
-      payoutIdempotencyKeyRef.current = null;
-      toast.success(t("eWallet.toast.withdrawalSubmitted"));
-      await loadWallet();
-    } catch (error: any) {
-      toast.error(error?.message || t("eWallet.toast.withdrawalSubmitFailed"));
-    } finally {
-      setIsSubmittingPayout(false);
-    }
-  };
-
-  const handleCancelPayout = async (payoutRequestId: string) => {
-    setCancellingPayoutId(payoutRequestId);
-    try {
-      await cancelPayoutRequest(payoutRequestId);
-      toast.success(t("eWallet.toast.withdrawalCancelled"));
-      await loadWallet();
-    } catch (error: any) {
-      toast.error(error?.message || t("eWallet.toast.withdrawalCancelFailed"));
-    } finally {
-      setCancellingPayoutId(null);
-    }
-  };
-
   /**
    * On desktop the form lives on one tab of `WalletSectionPager`, so its node
    * is only mounted while that tab is showing — the plain `scrollIntoView` this
@@ -235,172 +161,7 @@ export function EWallet() {
   // block. Withdrawal sections are available to worker accounts, including
   // accounts with both roles when they use the worker dashboard.
   const walletSections: WalletSection[] = [
-    ...(isWorkerWalletView
-      ? [
-          { id: "withdraw", label: t("eWallet.form.title"), content: (
-                  <div ref={attachPayoutCard} className="ui-card p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <Wallet className="w-5 h-5 text-brand" />
-                      <h3 className="text-section font-semibold text-[#111827]">{t("eWallet.form.title")}</h3>
-                    </div>
-                    <p className="text-body-sm text-[#6B7280] mb-6">
-                      {t("eWallet.form.availableToWithdraw", { amount: formatCurrency(workerBalance) })}
-                    </p>
-
-                    {/* Two fields per row from `sm` up. Full-width, these five short
-                        fields would each stretch to the content width and trade the
-                        vertical void this change removes for a horizontal one. */}
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div>
-                        <label htmlFor="payout-amount" className="text-body-sm text-[#374151] mb-2 block">{t("eWallet.form.amountLabel")}</label>
-                        <input
-                          id="payout-amount"
-                          type="number"
-                          min="1"
-                          step="0.01"
-                          className="w-full border border-[#D1D5DB] rounded-control px-3 py-2 text-body"
-                          value={payoutForm.amount}
-                          onChange={(event) => setPayoutForm((current) => ({ ...current, amount: event.target.value }))}
-                          placeholder="1000"
-                        />
-                      </div>
-
-                      <div>
-                        <label htmlFor="payout-method" className="text-body-sm text-[#374151] mb-2 block">{t("eWallet.form.methodLabel")}</label>
-                        <select
-                          id="payout-method"
-                          className="w-full border border-[#D1D5DB] rounded-control px-3 py-2 text-body"
-                          value={payoutForm.methodType}
-                          onChange={(event) => setPayoutForm((current) => ({ ...current, methodType: event.target.value }))}
-                        >
-                          <option value="bank_transfer">{t("eWallet.form.methodOptions.bankTransfer")}</option>
-                          <option value="gcash">{t("eWallet.form.methodOptions.gcash")}</option>
-                          <option value="maya">{t("eWallet.form.methodOptions.maya")}</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label htmlFor="payout-institution" className="text-body-sm text-[#374151] mb-2 block">{t("eWallet.form.institutionLabel")}</label>
-                        <input
-                          id="payout-institution"
-                          type="text"
-                          className="w-full border border-[#D1D5DB] rounded-control px-3 py-2 text-body"
-                          value={payoutForm.institutionName}
-                          onChange={(event) => setPayoutForm((current) => ({ ...current, institutionName: event.target.value }))}
-                          placeholder={t("eWallet.form.institutionPlaceholder")}
-                        />
-                      </div>
-
-                      <div>
-                        <label htmlFor="payout-account-name" className="text-body-sm text-[#374151] mb-2 block">{t("eWallet.form.accountNameLabel")}</label>
-                        <input
-                          id="payout-account-name"
-                          type="text"
-                          className="w-full border border-[#D1D5DB] rounded-control px-3 py-2 text-body"
-                          value={payoutForm.accountName}
-                          onChange={(event) => setPayoutForm((current) => ({ ...current, accountName: event.target.value }))}
-                          placeholder={t("eWallet.form.accountNamePlaceholder")}
-                        />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <label htmlFor="payout-account-number" className="text-body-sm text-[#374151] mb-2 block">{t("eWallet.form.accountNumberLabel")}</label>
-                        <input
-                          id="payout-account-number"
-                          type="text"
-                          className="w-full border border-[#D1D5DB] rounded-control px-3 py-2 text-body"
-                          value={payoutForm.accountNumber}
-                          onChange={(event) => setPayoutForm((current) => ({ ...current, accountNumber: event.target.value }))}
-                          placeholder={t("eWallet.form.accountNumberPlaceholder")}
-                        />
-                      </div>
-
-                      <button
-                        type="button"
-                        className="sm:col-span-2 w-full px-4 py-3 rounded-control bg-brand text-white text-body font-medium disabled:opacity-60"
-                        onClick={handlePayoutSubmit}
-                        disabled={isSubmittingPayout}
-                      >
-                        {isSubmittingPayout ? t("eWallet.form.submitting") : t("eWallet.form.submit")}
-                      </button>
-                    </div>
-                  </div>
-
-          ) },
-          { id: "history", label: t("eWallet.history.title"), content: (
-                  <div className="ui-card p-6">
-                    <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
-                      <div>
-                        <h3 className="text-section font-semibold text-[#111827]">{t("eWallet.history.title")}</h3>
-                        <p className="text-body-sm text-[#6B7280] mt-1">{t("eWallet.history.subtitle")}</p>
-                      </div>
-                      <Badge>{t("eWallet.history.workerOnly")}</Badge>
-                    </div>
-
-                    {isLoading ? (
-                      <StatusState tone="loading" title={t("eWallet.history.loading")} />
-                    ) : payoutRequests.length === 0 ? (
-                      <StatusState
-                        title={t("eWallet.history.empty")}
-                        description={t("eWallet.history.emptyDescription")}
-                      />
-                    ) : (
-                      <div className="space-y-3">
-                        {payoutRequests.map((request) => (
-                          <div key={request._id} className="rounded-card border border-[#E5E7EB] p-4">
-                            <div className="flex items-start justify-between gap-3 flex-wrap">
-                              <div>
-                                <p className="text-[18px] font-semibold text-[#111827]">{formatCurrency(toAmount(request.amount))}</p>
-                                <p className="text-body-sm text-[#6B7280] mt-1">
-                                  {request.destinationSnapshot.institutionName} · {request.destinationSnapshot.accountName}
-                                </p>
-                                <p className="text-caption text-[#9CA3AF] mt-1">
-                                  {request.destinationSnapshot.accountNumberMasked || request.destinationSnapshot.accountNumber || "-"}
-                                </p>
-                              </div>
-                              <span className={`px-3 py-1.5 rounded-full text-[11px] font-semibold ${getPayoutStatusClasses(request.status)}`}>
-                                {t(`eWallet.payoutStatus.${request.status}`)}
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 text-body-sm text-[#6B7280]">
-                              <div>
-                                <p className="text-[#111827] font-medium">{t("eWallet.history.requested")}</p>
-                                <p>{formatDate(request.createdAt)}</p>
-                              </div>
-                              <div>
-                                <p className="text-[#111827] font-medium">{t("eWallet.history.reviewed")}</p>
-                                <p>{formatDate(request.reviewedAt || undefined)}</p>
-                              </div>
-                              <div>
-                                <p className="text-[#111827] font-medium">{t("eWallet.history.paid")}</p>
-                                <p>{formatDate(request.paidAt || undefined)}</p>
-                              </div>
-                            </div>
-                            {request.reviewNotes ? (
-                              <div className="mt-4 rounded-xl bg-[#F8FAFC] border border-[#E5E7EB] px-4 py-3 text-body-sm text-[#475569]">
-                                {request.reviewNotes}
-                              </div>
-                            ) : null}
-                            {request.status === "requested" ? (
-                              <div className="mt-4">
-                                <button
-                                  type="button"
-                                  onClick={() => handleCancelPayout(request._id)}
-                                  disabled={cancellingPayoutId === request._id}
-                                  className="px-4 py-2 rounded-control border border-[#FCA5A5] text-[#B91C1C] text-body font-medium hover:bg-[#FEF2F2] disabled:opacity-60"
-                                >
-                                  {cancellingPayoutId === request._id ? t("eWallet.history.cancelling") : t("eWallet.history.cancel")}
-                                </button>
-                              </div>
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-          ) },
-        ]
-      : []),
+    ...(isWorkerWalletView ? [{ id: "withdraw", label: t("eWallet.form.title"), content: <div ref={attachPayoutCard}><WithdrawalPanel sourceWallet="WORKER" balance={workerBalance} onChanged={() => void loadWallet(true)} /></div> }] : []),
     {
       id: "transactions",
       label: t("eWallet.transactions.titleRecent"),

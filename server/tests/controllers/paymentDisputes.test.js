@@ -52,7 +52,7 @@ async function fixture({ agreed = 2500, alreadyPaid = 0, held = agreed } = {}) {
   ]);
   const job = await Job.create({
     title: 'Five-day community job', description: 'Complete the agreed local work.', location: 'Pasig',
-    salary: agreed, jobType: 'Short-term', deadline: new Date('2027-01-01'), jobPoster: employer._id,
+    salary: agreed, jobType: 'Short-term', deadline: new Date('2027-01-01'), jobPoster: employer._id, hiredCount: 1,
   });
   const application = await JobApplication.create({
     job: job._id, applicant: worker._id, status: 'Hired', agreedAmount: agreed,
@@ -79,6 +79,8 @@ async function open({ worker, application, disputedAmount, reason = 'The correct
 }
 
 async function completeReport(dispute, support) {
+  // Model a case reviewed after both parties received their full evidence window.
+  dispute.evidenceDueAt = new Date(Date.now() - 1);
   dispute.assignedSupportUserId = support._id;
   dispute.investigationReport = {
     status: 'COMPLETED', jobDescription: 'Five-day job', workCompletionFindings: 'Evidence reviewed.',
@@ -116,7 +118,7 @@ test('scenario 2: partial work settlement allocates worker and employer amounts 
   assert.equal(result.dispute.financeSettlement.employerRefundAmount, 1000);
   assert.equal((await User.findById(data.worker._id)).workerBalance, 1500);
   assert.equal((await User.findById(data.employer._id)).employerBalance, 1000);
-  assert.equal((await Job.findById(data.job._id)).status, 'Resolved');
+  assert.equal((await Job.findById(data.job._id)).status, 'Closed');
 });
 
 test('scenario 3: full refund returns only eligible held funds', async () => {
@@ -128,15 +130,15 @@ test('scenario 3: full refund returns only eligible held funds', async () => {
   assert.equal(result.dispute.financeSettlement.outstandingAmount, 0);
   assert.equal((await User.findById(data.worker._id)).workerBalance, 0);
   assert.equal((await User.findById(data.employer._id)).employerBalance, 2500);
-  assert.equal((await Job.findById(data.job._id)).status, 'Full refund');
+  assert.equal((await Job.findById(data.job._id)).status, 'Closed');
   const management = response();
   await getMyJobs({ user: { id: String(data.employer._id) } }, management);
   assert.equal(management.statusCode, 200);
-  assert.equal(management.payload.length, 0);
+  assert.equal(management.payload.length, 1);
   const history = response();
   await getEmployerJobHistory({ user: { id: String(data.employer._id) } }, history);
   assert.equal(history.payload.length, 1);
-  assert.equal(history.payload[0].status, 'Full refund');
+  assert.equal(history.payload[0].status, 'Closed');
 });
 
 test('scenario 4: complete payment accounts for an earlier partial payout and never double-pays', async () => {

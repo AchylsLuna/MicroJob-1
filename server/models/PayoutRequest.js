@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 
 const DestinationSnapshotSchema = new mongoose.Schema(
   {
+    bic: { type: String, trim: true, maxlength: 20 },
+    rail: { type: String, enum: ['instapay', 'pesonet'] },
     methodType: {
       type: String,
       required: true,
@@ -37,6 +39,19 @@ const DestinationSnapshotSchema = new mongoose.Schema(
 
 const PayoutRequestSchema = new mongoose.Schema(
   {
+    sourceWallet: { type: String, enum: ['EMPLOYER', 'WORKER'], default() { return this.balanceTarget || 'WORKER'; } },
+    processingMode: { type: String, enum: ['manual', 'automatic'], default: 'manual' },
+    fee: { type: Number, default: 0, min: 0 },
+    totalDebit: Number,
+    transferReference: String,
+    providerTransferId: { type: String, index: true },
+    providerBatchId: String,
+    providerRailReference: String,
+    providerFee: { type: Number, min: 0, default: 0 },
+    dispatchStartedAt: Date,
+    lastReconciledAt: Date,
+    failureReason: String,
+    events: [{ status: String, actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, note: String, at: { type: Date, default: Date.now } }],
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -62,7 +77,7 @@ const PayoutRequestSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['requested', 'approved', 'rejected', 'paid', 'cancelled'],
+      enum: ['requested', 'approved', 'processing', 'failed', 'rejected', 'paid', 'cancelled'],
       default: 'requested',
       index: true,
     },

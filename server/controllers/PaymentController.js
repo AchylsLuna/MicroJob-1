@@ -7,7 +7,8 @@ import Transaction from '../models/Transaction.js';
 import PayoutRequest from '../models/PayoutRequest.js';
 import JobApplication from '../models/JobApplication.js';
 import monitor from '../lib/monitor.js';
-import { createNotification } from '../lib/notificationService.js';
+import { confirm as confirmWithdrawal } from './WithdrawalController.js';
+import { queueNotification } from '../services/notificationOutbox.js';
 import { sendPaymentReceiptEmail } from '../services/paymentReceiptService.js';
 
 const PAYMONGO_BASE = 'https://api.paymongo.com/v1';
@@ -54,16 +55,7 @@ const canWithdrawWorkerBalance = (role) => {
   return normalizedRole === 'work' || normalizedRole === 'both';
 };
 
-const canWithdrawEmployerBalance = (role) => {
-  const normalizedRole = String(role || '').toLowerCase();
-  return normalizedRole === 'hire' || normalizedRole === 'both';
-};
-
 const normalizePayoutBalanceTarget = (value) => String(value || 'WORKER').trim().toUpperCase();
-
-const payoutBalanceDetails = (balanceTarget) => balanceTarget === 'EMPLOYER'
-  ? { field: 'employerBalance', roleCheck: canWithdrawEmployerBalance, label: 'employer' }
-  : { field: 'workerBalance', roleCheck: canWithdrawWorkerBalance, label: 'worker' };
 
 const normalizeTarget = (value) => {
   const normalized = String(value || TOPUP_TARGET.EMPLOYER).toUpperCase();
@@ -75,13 +67,6 @@ const buildTopUpLabel = (target) => {
   if (target === TOPUP_TARGET.WORKER) return 'Top-up (Worker)';
   if (target === TOPUP_TARGET.BOTH) return 'Top-up (Both)';
   return 'Top-up (Employer)';
-};
-
-const maskAccountNumber = (value = '') => {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  if (raw.length <= 4) return raw;
-  return `${'*'.repeat(Math.max(0, raw.length - 4))}${raw.slice(-4)}`;
 };
 
 const populateTransactionQuery = (query) =>
@@ -285,10 +270,9 @@ async function createPayoutRefund({ payoutRequest, actorId, reason, status, sess
   const user = await User.findById(payoutRequest.user).session(session);
   if (!user) throw new Error('User not found');
 
-  const balanceTarget = normalizePayoutBalanceTarget(payoutRequest.balanceTarget);
-  const { field } = payoutBalanceDetails(balanceTarget);
-
-  user[field] = Number(((user[field] || 0) + payoutRequest.amount).toFixed(2));
+  const sourceWallet = payoutRequest.sourceWallet || payoutRequest.balanceTarget || 'WORKER';
+  const balanceField = sourceWallet === 'EMPLOYER' ? 'employerBalance' : 'workerBalance';
+  user[balanceField] = (user[balanceField] || 0) + (payoutRequest.totalDebit || payoutRequest.amount);
   await user.save({ session });
 
   const [refund] = await Transaction.create([{
@@ -297,7 +281,7 @@ async function createPayoutRefund({ payoutRequest, actorId, reason, status, sess
       amount: payoutRequest.amount,
       type: 'REFUND',
       status: 'COMPLETED',
-      balanceTarget,
+      balanceTarget: sourceWallet,
       payoutRequest: payoutRequest._id,
       reference: `PAYOUT-REFUND-${payoutRequest._id}`,
       label: `Payout refund (${String(status || reason || 'reversed').toLowerCase()})`,
@@ -315,44 +299,6 @@ async function createPayoutRefund({ payoutRequest, actorId, reason, status, sess
   }
 
   return { user, refund };
-}
-
-async function notifyAdminsOfPayoutRequest(payoutRequest, userId) {
-  const admins = await User.find({ role: { $in: ['admin', 'superadmin'] }, status: { $ne: 'deleted' } })
-    .select('_id')
-    .lean();
-
-  await Promise.all(
-    admins.map((admin) =>
-      createNotification({
-        userId: admin._id,
-        audience: 'shared',
-        type: 'payout',
-        title: 'New payout request',
-        message: `A payout request for PHP ${payoutRequest.amount.toFixed(2)} requires review.`,
-        entityType: 'payout_request',
-        entityId: payoutRequest._id,
-        actor: userId,
-        push: true,
-        socketPayload: { payoutRequestId: String(payoutRequest._id), status: payoutRequest.status },
-      })
-    )
-  );
-}
-
-async function notifyUserPayoutStatus(payoutRequest, actorId, title, message) {
-  await createNotification({
-    userId: payoutRequest.user,
-    audience: normalizePayoutBalanceTarget(payoutRequest.balanceTarget) === 'EMPLOYER' ? 'employer' : 'worker',
-    type: 'payout',
-    title,
-    message,
-    entityType: 'payout_request',
-    entityId: payoutRequest._id,
-    actor: actorId,
-    push: true,
-    socketPayload: { payoutRequestId: String(payoutRequest._id), status: payoutRequest.status },
-  });
 }
 
 export async function getUserTransactions(req, res) {
@@ -414,11 +360,8 @@ export async function getMobileWallet(req, res) {
     const completed = transactions.filter((item) => item.status === 'COMPLETED');
     const credited = completed.filter((item) => String(item.receiver?._id || item.receiver || '') === String(userId)).reduce((sum, item) => sum + Number(item.amount || 0), 0);
     const spent = completed.filter((item) => String(item.sender?._id || item.sender || '') === String(userId)).reduce((sum, item) => sum + Number(item.amount || 0), 0);
-    const pendingTransactions = transactions.filter((item) => item.status === 'PENDING').reduce((sum, item) => sum + Number(item.amount || 0), 0);
-    const pendingPayoutBalanceFilter = mode === 'worker'
-      ? { $or: [{ balanceTarget: 'WORKER' }, { balanceTarget: { $exists: false } }] }
-      : { balanceTarget: 'EMPLOYER' };
-    const pendingPayouts = await PayoutRequest.aggregate([{ $match: { user: user._id, ...pendingPayoutBalanceFilter, status: { $in: ['requested', 'approved'] } } }, { $group: { _id: null, total: { $sum: '$amount' } } }]);
+    const pendingTransactions = transactions.filter((item) => item.status === 'PENDING' && !item.payoutRequest).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const pendingPayouts = await PayoutRequest.aggregate([{ $match: { user: user._id, status: { $in: ['requested', 'approved', 'processing'] }, ...(mode === 'employer' ? { $or: [{ sourceWallet: 'EMPLOYER' }, { sourceWallet: { $exists: false }, balanceTarget: 'EMPLOYER' }] } : { $or: [{ sourceWallet: 'WORKER' }, { sourceWallet: { $exists: false }, balanceTarget: { $ne: 'EMPLOYER' } }] }) } }, { $group: { _id: null, total: { $sum: '$amount' } } }]);
     const employerPendingAssignments = mode === 'employer'
       ? await JobApplication.aggregate([
           { $match: { status: 'Hired', paymentStatus: { $in: ['Authorized', 'Secured'] } } },
@@ -938,152 +881,8 @@ export async function simulateWebhook(req, res) {
   }
 }
 
-export async function createPayoutRequest(req, res) {
-  let session;
-  try {
-    const userId = req.user?.id || req.user?.userId;
-    if (!userId) return res.status(401).json({ message: 'Authentication required' });
-
-    const { amount, destinationSnapshot } = req.body || {};
-    const balanceTarget = normalizePayoutBalanceTarget(req.body?.balanceTarget);
-    if (!['WORKER', 'EMPLOYER'].includes(balanceTarget)) {
-      return res.status(400).json({ message: 'Payout balance target must be worker or employer' });
-    }
-    const idempotencyKey = String(req.body?.idempotencyKey || req.get?.('idempotency-key') || '').trim();
-    const numericAmount = Number(amount);
-    if (!Number.isFinite(numericAmount) || numericAmount < 1) {
-      return res.status(400).json({ message: 'Invalid payout amount' });
-    }
-    const payoutAmount = Math.round((numericAmount + Number.EPSILON) * 100) / 100;
-    if (Math.abs(payoutAmount - numericAmount) > 0.0000001) {
-      return res.status(400).json({ message: 'Payout amount must use at most two decimal places' });
-    }
-
-    const methodType = String(destinationSnapshot?.methodType || '').trim();
-    const institutionName = String(destinationSnapshot?.institutionName || '').trim();
-    const accountName = String(destinationSnapshot?.accountName || '').trim();
-    const accountNumber = String(destinationSnapshot?.accountNumber || '').trim();
-    if (!methodType || !institutionName || !accountName || !accountNumber) {
-      return res.status(400).json({ message: 'Complete destination details are required' });
-    }
-    if (idempotencyKey.length > 120) {
-      return res.status(400).json({ message: 'Invalid idempotency key' });
-    }
-
-    session = await mongoose.startSession();
-    let payoutRequest;
-    let created = false;
-    await session.withTransaction(async () => {
-      created = false;
-      if (idempotencyKey) {
-        payoutRequest = await PayoutRequest.findOne({ user: userId, idempotencyKey }).session(session);
-        if (payoutRequest) return;
-      }
-
-      const user = await User.findById(userId).session(session);
-      if (!user) throw payoutHttpError(404, 'User not found');
-      const { field: balanceField, roleCheck, label } = payoutBalanceDetails(balanceTarget);
-      if (!roleCheck(user.role)) {
-        throw payoutHttpError(403, `Only ${label} accounts can request ${label} balance withdrawals`);
-      }
-      if ((user[balanceField] || 0) < payoutAmount) {
-        throw payoutHttpError(400, `Insufficient ${label} balance`);
-      }
-
-      user[balanceField] = Number((user[balanceField] - payoutAmount).toFixed(2));
-      await user.save({ session });
-
-      [payoutRequest] = await PayoutRequest.create([{
-        user: user._id,
-        amount: payoutAmount,
-        balanceTarget,
-        destinationSnapshot: {
-          methodType,
-          institutionName,
-          accountName,
-          accountNumber,
-          accountNumberMasked: maskAccountNumber(accountNumber),
-        },
-        status: 'requested',
-        idempotencyKey: idempotencyKey || null,
-      }], { session });
-
-      const [transaction] = await Transaction.create([{
-        sender: user._id,
-        receiver: null,
-        amount: payoutAmount,
-        type: 'PAYOUT',
-        status: 'PENDING',
-        balanceTarget,
-        payoutRequest: payoutRequest._id,
-        reference: `PAYOUT-${payoutRequest._id}`,
-        provider: 'manual_admin_review',
-        providerReference: String(payoutRequest._id),
-        label: `${label === 'employer' ? 'Employer ' : ''}Payout request`,
-        relatedEntityType: 'payout_request',
-        relatedEntityId: String(payoutRequest._id),
-        meta: {
-          destinationSnapshot: {
-            ...payoutRequest.destinationSnapshot.toObject(),
-            accountNumber: undefined,
-          },
-        },
-        actor: user._id,
-      }], { session });
-
-      payoutRequest.transaction = transaction._id;
-      await payoutRequest.save({ session });
-      created = true;
-    });
-
-    if (!payoutRequest) throw new Error('Failed to create payout request');
-
-    if (created) {
-      try {
-        await notifyAdminsOfPayoutRequest(payoutRequest, userId);
-      } catch (notificationError) {
-        console.warn('Payout request committed, but the admin notification failed', notificationError);
-      }
-      await monitor.audit({
-        actor: userId,
-        action: 'payout_requested',
-        ip: req.ip || null,
-        userAgent: req.get('user-agent'),
-        amount: payoutAmount,
-        status: 'initiated',
-        meta: { payoutRequestId: payoutRequest._id, balanceTarget },
-      });
-    }
-
-    const populated = await PayoutRequest.findById(payoutRequest._id)
-      .populate('transaction')
-      .populate('user', 'firstName lastName email');
-    if (created && populated?.transaction?._id) {
-      await sendReceiptWithoutBlockingPayment(populated.transaction._id, userId, 'Withdrawal request');
-    }
-    return res.status(created ? 201 : 200).json({
-      message: created ? 'Payout request submitted.' : 'Payout request already submitted.',
-      payoutRequest: populated,
-    });
-  } catch (error) {
-    const retryKey = String(req.body?.idempotencyKey || req.get?.('idempotency-key') || '').trim();
-    if (error?.code === 11000 && retryKey) {
-      const existing = await PayoutRequest.findOne({ user: req.user?.id || req.user?.userId, idempotencyKey: retryKey })
-        .populate('transaction')
-        .populate('user', 'firstName lastName email');
-      if (existing) {
-        return res.status(200).json({
-          message: 'Payout request already submitted.',
-          payoutRequest: existing,
-        });
-      }
-    }
-    if (!error?.statusCode) console.error('Create payout request error', error);
-    return res.status(error?.statusCode || 500).json({ message: error?.statusCode ? error.message : 'Failed to create payout request' });
-  } finally {
-    session?.endSession();
-  }
-}
+// Legacy callers use the same signed preview and confirmation contract.
+export const createPayoutRequest = (req, res) => confirmWithdrawal(req, res);
 
 export async function listMyPayoutRequests(req, res) {
   try {
@@ -1095,8 +894,8 @@ export async function listMyPayoutRequests(req, res) {
       return res.status(400).json({ message: 'Payout balance target must be worker or employer' });
     }
     const payoutFilter = requestedBalanceTarget === 'WORKER'
-      ? { user: userId, $or: [{ balanceTarget: 'WORKER' }, { balanceTarget: { $exists: false } }] }
-      : { user: userId, ...(requestedBalanceTarget ? { balanceTarget: requestedBalanceTarget } : {}) };
+      ? { user: userId, $or: [{ sourceWallet: 'WORKER' }, { sourceWallet: { $exists: false }, balanceTarget: { $ne: 'EMPLOYER' } }] }
+      : { user: userId, ...(requestedBalanceTarget ? { $or: [{ sourceWallet: requestedBalanceTarget }, { sourceWallet: { $exists: false }, balanceTarget: requestedBalanceTarget }] } : {}) };
     const requests = await PayoutRequest.find(payoutFilter)
       .populate('transaction')
       .populate('reviewer', 'firstName lastName email')
@@ -1119,13 +918,11 @@ export async function cancelPayoutRequest(req, res) {
     session = await mongoose.startSession();
     let payoutRequest;
     let refund;
-    let changed = false;
     await session.withTransaction(async () => {
-      changed = false;
       refund = undefined;
       payoutRequest = await PayoutRequest.findOneAndUpdate(
-        { _id: payoutRequestId, user: userId, status: 'requested' },
-        { $set: { status: 'cancelled', cancelledAt: new Date(), reviewedAt: new Date(), reviewNotes: 'Cancelled by user.' } },
+        { _id: payoutRequestId, user: userId, processingMode: { $ne: 'automatic' }, status: 'requested' },
+        { $set: { status: 'cancelled', cancelledAt: new Date(), reviewedAt: new Date(), reviewNotes: 'Cancelled by user.' }, $push: { events: { status: 'cancelled', actor: userId, note: 'Cancelled by user.', at: new Date() } } },
         { returnDocument: 'after', session },
       );
       if (!payoutRequest) {
@@ -1144,17 +941,9 @@ export async function cancelPayoutRequest(req, res) {
         status: 'cancelled',
         session,
       }));
-      changed = true;
+      await queueNotification(`withdrawal-cancelled:${payoutRequest._id}`, { userId: String(userId), audience: payoutRequest.sourceWallet === 'EMPLOYER' ? 'employer' : 'worker', type: 'payout', title: 'Withdrawal cancelled', message: 'Reserved funds were returned to the original wallet.', entityType: 'payout_request', entityId: String(payoutRequest._id) }, session);
     });
 
-    if (changed) {
-      try {
-        const label = payoutBalanceDetails(normalizePayoutBalanceTarget(payoutRequest.balanceTarget)).label;
-        await notifyUserPayoutStatus(payoutRequest, userId, 'Payout cancelled', `Your payout request was cancelled and the amount was returned to your ${label} balance.`);
-      } catch (notificationError) {
-        console.warn('Payout cancellation committed, but the user notification failed', notificationError);
-      }
-    }
     return res.status(200).json({ message: 'Payout request cancelled.', payoutRequest, refundTransaction: refund });
   } catch (error) {
     if (!error?.statusCode) console.error('Cancel payout request error', error);
@@ -1197,7 +986,7 @@ export async function updateAdminPayoutRequest(req, res) {
   let session;
   try {
     const { payoutRequestId } = req.params;
-    const { status, reviewNotes } = req.body || {};
+    const { status, reviewNotes, transferReference } = req.body || {};
     const actorId = req.user?.id || req.user?.userId;
     const allowed = ['approved', 'rejected', 'paid'];
     if (!allowed.includes(status)) {
@@ -1211,6 +1000,7 @@ export async function updateAdminPayoutRequest(req, res) {
       return res.status(400).json({ message: 'Review notes are required when rejecting a payout' });
     }
 
+    if (status === 'paid' && (!String(transferReference || '').trim() || String(transferReference).length > 200)) return res.status(400).json({ message: 'A transfer reference is required before recording payment.' });
     const sourceStatuses = status === 'approved' ? ['requested'] : status === 'paid' ? ['approved'] : ['requested', 'approved'];
     session = await mongoose.startSession();
     let payoutRequest;
@@ -1222,17 +1012,18 @@ export async function updateAdminPayoutRequest(req, res) {
         reviewer: actorId,
         reviewedAt: new Date(),
         ...(normalizedNotes ? { reviewNotes: normalizedNotes } : {}),
-        ...(status === 'paid' ? { paidAt: new Date() } : {}),
+        ...(status === 'paid' ? { paidAt: new Date(), transferReference: String(transferReference).trim() } : {}),
       };
       payoutRequest = await PayoutRequest.findOneAndUpdate(
-        { _id: payoutRequestId, status: { $in: sourceStatuses } },
-        { $set: updates },
+        { _id: payoutRequestId, processingMode: { $ne: 'automatic' }, status: { $in: sourceStatuses } },
+        { $set: updates, $push: { events: { status, actor: actorId, note: normalizedNotes || String(transferReference || ''), at: new Date() } } },
         { returnDocument: 'after', session },
       );
 
       if (!payoutRequest) {
         const current = await PayoutRequest.findById(payoutRequestId).session(session);
         if (!current) throw payoutHttpError(404, 'Payout request not found');
+        if (current.processingMode === 'automatic') throw payoutHttpError(409, 'Automatic transfers must be reconciled with the provider.');
         if (current.status === status) {
           payoutRequest = current;
           return;
@@ -1257,20 +1048,11 @@ export async function updateAdminPayoutRequest(req, res) {
           session,
         });
       }
+      await queueNotification(`withdrawal-${status}:${payoutRequest._id}`, { userId: String(payoutRequest.user), audience: payoutRequest.sourceWallet === 'EMPLOYER' ? 'employer' : 'worker', type: 'payout', title: `Withdrawal ${status}`, message: status === 'rejected' ? 'The request was rejected and funds were returned to your original wallet.' : status === 'paid' ? 'Finance recorded your external transfer as paid.' : 'Finance approved your withdrawal; the external transfer is pending.', entityType: 'payout_request', entityId: String(payoutRequest._id) }, session);
       changed = true;
     });
 
     if (changed) {
-      const notification = status === 'approved'
-        ? ['Payout approved', 'Your payout request has been approved and is awaiting payment completion.']
-        : status === 'paid'
-          ? ['Payout paid', 'Your payout request has been marked as paid.']
-          : ['Payout rejected', `Your payout request was rejected and the amount was returned to your ${payoutBalanceDetails(normalizePayoutBalanceTarget(payoutRequest.balanceTarget)).label} balance.`];
-      try {
-        await notifyUserPayoutStatus(payoutRequest, actorId, notification[0], notification[1]);
-      } catch (notificationError) {
-        console.warn('Payout update committed, but the user notification failed', notificationError);
-      }
       await monitor.audit({
         actor: actorId,
         action: `payout_${status}`,

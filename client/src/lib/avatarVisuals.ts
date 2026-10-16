@@ -54,9 +54,11 @@ export function getAvatarVisual(key?: string | null): AvatarVisual {
   const normalized = (key || "").trim().toLowerCase();
   if (!normalized) return FALLBACK;
 
+  const fill = PALETTE[djb2(normalized) % PALETTE.length];
   return {
-    fill: PALETTE[djb2(normalized) % PALETTE.length],
-    onFill: "#FFFFFF",
+    fill,
+    // The lighter focus-ring fill needs dark initials to meet AA contrast.
+    onFill: fill === "#5F83B3" ? "#111827" : "#FFFFFF",
   };
 }
 

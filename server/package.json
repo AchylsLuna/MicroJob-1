@@ -16,14 +16,15 @@
     "migrate:per-worker-settlements": "node scripts/migratePerWorkerSettlements.js",
     "db:guard": "node scripts/enforceObjectIdValidators.js --apply",
     "db:check-ids": "node scripts/migrateStringIdsToObjectIds.js",
-    "db:repair-ids": "node scripts/migrateStringIdsToObjectIds.js --apply"
+    "db:repair-ids": "node scripts/migrateStringIdsToObjectIds.js --apply",
+    "migrate:lifecycle": "node scripts/migrateLifecycle.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@azure/storage-blob": "^12.33.0",
-    "axios": "^1.19.0",
+    "axios": "^1.20.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -36,9 +37,9 @@
     "jsonwebtoken": "^9.0.3",
     "libphonenumber-js": "^1.13.10",
     "mongoose": "^9.8.1",
-    "morgan": "^1.10.1",
-    "multer": "^2.2.0",
-    "nodemailer": "^10.1.0",
+    "morgan": "^1.12.1",
+    "multer": "^2.4.0",
+    "nodemailer": "^10.1.1",
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.3",
     "speakeasy": "^2.0.0",
@@ -46,10 +47,10 @@
   },
   "devDependencies": {
     "mongodb-memory-server": "^11.0.1",
-    "nodemon": "^1.14.10"
+    "nodemon": "^3.1.14"
   },
   "overrides": {
-    "brace-expansion": "^5.0.8",
+    "brace-expansion": "^5.0.12",
     "minimatch": "^10.2.4"
   }
 }

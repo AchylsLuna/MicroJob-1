@@ -4,10 +4,11 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { AdminGate } from "./admin/AdminGate";
 import { useAdminPermissions } from "../../hooks/useAdminPermissions";
-import { Button, Dialog, StatusState, Textarea } from "../../components/ui";
+import { Button, Dialog, StatusState, Textarea, Input } from "../../components/ui";
 import { toast } from "../../lib/toast";
 import { formatCurrency, formatDateTime } from "../../lib/formatters";
 import {
+  lifecycleRequest,
   getAdminPayoutRequests,
   updateAdminPayoutRequest,
   type PayoutRequest,
@@ -16,6 +17,8 @@ import {
 type ReviewStatus = "approved" | "rejected" | "paid";
 
 const statusStyle: Record<PayoutRequest["status"], string> = {
+  processing: "bg-blue-100 text-blue-900",
+  failed: "bg-red-100 text-red-900",
   requested: "bg-amber-100 text-amber-900",
   approved: "bg-brand-100 text-brand-900",
   rejected: "bg-red-100 text-red-900",
@@ -30,6 +33,9 @@ const accountName = (request: PayoutRequest, t: TFunction<"admin">) => {
 
 function AdminPayoutRequestsContent() {
   const { t } = useTranslation("admin");
+  const { t: tc } = useTranslation("common");
+  const [transferReference, setTransferReference] = useState("");
+  const [providerTransferIds, setProviderTransferIds] = useState<Record<string, string>>({});
   // The page itself is already gated on this permission (AdminGate below),
   // so this is defense-in-depth: it keeps the actions correctly hidden if a
   // future change ever splits "view payouts" from "review payouts" into
@@ -79,6 +85,7 @@ function AdminPayoutRequestsContent() {
   }), [requests]);
 
   const openReview = (request: PayoutRequest, status: ReviewStatus) => {
+    setTransferReference("");
     setReviewTarget({ request, status });
     setReviewNotes("");
     setReviewError(null);
@@ -104,6 +111,7 @@ function AdminPayoutRequestsContent() {
       const response = await updateAdminPayoutRequest(reviewTarget.request._id, {
         status: reviewTarget.status,
         reviewNotes: notes || undefined,
+        transferReference: transferReference.trim() || undefined,
       });
       const updated = response?.payoutRequest;
       if (updated) {
@@ -154,6 +162,8 @@ function AdminPayoutRequestsContent() {
               {t("payoutRequests.filters.statusLabel")}
               <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className="mt-1 block min-h-11 rounded-xl border border-slate-300 bg-white px-3 font-normal outline-none focus:ring-2 focus:ring-brand-600">
                 <option value="all">{t("payoutRequests.filters.statusOptions.all")}</option>
+                <option value="processing">{tc("wallet.status.processing")}</option>
+                <option value="failed">{tc("wallet.status.failed")}</option>
                 <option value="requested">{t("payoutRequests.filters.statusOptions.requested")}</option>
                 <option value="approved">{t("payoutRequests.filters.statusOptions.approved")}</option>
                 <option value="paid">{t("payoutRequests.filters.statusOptions.paid")}</option>
@@ -192,11 +202,12 @@ function AdminPayoutRequestsContent() {
                         <td className="px-3 py-4"><p className="font-medium text-slate-800">{destination.institutionName}</p><p className="mt-1 text-xs text-slate-500">{destination.methodType.replace(/_/g, " ")} · {destination.accountNumberMasked || t("payoutRequests.table.maskedAccount")}</p></td>
                         <td className="px-3 py-4 font-bold text-slate-950">{formatCurrency(request.amount)}</td>
                         <td className="px-3 py-4 text-slate-600">{request.createdAt ? formatDateTime(request.createdAt) : "—"}</td>
-                        <td className="px-3 py-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusStyle[request.status]}`}>{request.status}</span>{request.reviewNotes ? <p className="mt-2 max-w-52 text-xs text-slate-500">{request.reviewNotes}</p> : null}</td>
+                        <td className="px-3 py-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusStyle[request.status]}`}>{tc(`wallet.status.${request.status}`)}</span><p className="mt-2 text-xs text-slate-500">{tc(request.sourceWallet === "EMPLOYER" ? "wallet.employer" : "wallet.worker")}</p>{request.failureReason && <p className="text-xs text-red-700">{request.failureReason}</p>}{(request.providerRailReference || request.providerTransferId || request.transferReference) && <p className="text-xs text-slate-500">{request.providerRailReference || request.providerTransferId || request.transferReference}</p>}{request.reviewNotes ? <p className="mt-2 max-w-52 text-xs text-slate-500">{request.reviewNotes}</p> : null}</td>
                         <td className="px-3 py-4"><div className="flex justify-end gap-2">
-                          {canReviewPayouts && request.status === "requested" ? <Button onClick={() => openReview(request, "approved")}>{t("payoutRequests.actions.approve")}</Button> : null}
-                          {canReviewPayouts && request.status === "approved" ? <Button onClick={() => openReview(request, "paid")} className="!bg-emerald-700 hover:!bg-emerald-800">{t("payoutRequests.actions.markPaid")}</Button> : null}
-                          {canReviewPayouts && (request.status === "requested" || request.status === "approved") ? <Button onClick={() => openReview(request, "rejected")} className="!bg-white !text-red-700 ring-1 ring-red-300 hover:!bg-red-50"><XCircle className="h-4 w-4" aria-hidden="true" />{t("payoutRequests.actions.reject")}</Button> : null}
+                          {canReviewPayouts && request.processingMode === 'automatic' && request.status === 'processing' && <div><Input label={tc('lifecycle.transferReference')} value={providerTransferIds[request._id] || ""} onChange={(e) => setProviderTransferIds((current) => ({ ...current, [request._id]: e.target.value }))} /><Button onClick={async () => { try { await lifecycleRequest(`/admin/payout-requests/${request._id}/reconcile`, { transferId: providerTransferIds[request._id] || undefined }); await loadRequests(); } catch (e: any) { toast.error(e.message); } }}>{tc('lifecycle.reconcile')}</Button></div>}
+                          {canReviewPayouts && request.processingMode !== "automatic" && request.status === "requested" ? <Button onClick={() => openReview(request, "approved")}>{t("payoutRequests.actions.approve")}</Button> : null}
+                          {canReviewPayouts && request.processingMode !== "automatic" && request.status === "approved" ? <Button onClick={() => openReview(request, "paid")} className="!bg-emerald-700 hover:!bg-emerald-800">{t("payoutRequests.actions.markPaid")}</Button> : null}
+                          {canReviewPayouts && request.processingMode !== "automatic" && (request.status === "requested" || request.status === "approved") ? <Button onClick={() => openReview(request, "rejected")} className="!bg-white !text-red-700 ring-1 ring-red-300 hover:!bg-red-50"><XCircle className="h-4 w-4" aria-hidden="true" />{t("payoutRequests.actions.reject")}</Button> : null}
                         </div></td>
                       </tr>
                     );
@@ -215,6 +226,7 @@ function AdminPayoutRequestsContent() {
         onClose={closeReview}
         closeDisabled={isReviewing}
       >
+        {reviewTarget?.status === "paid" && <Input label={tc("lifecycle.transferReference")} value={transferReference} onChange={(e) => setTransferReference(e.target.value)} required />}
         <Textarea
           label={reviewTarget?.status === "rejected" ? t("payoutRequests.reviewDialog.notesLabelRejected") : t("payoutRequests.reviewDialog.notesLabelOptional")}
           value={reviewNotes}

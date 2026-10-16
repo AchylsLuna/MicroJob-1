@@ -137,6 +137,7 @@ const supportsPaymentReceipt = (transaction) => ['TOP_UP', 'PAYOUT'].includes(tr
 
 const getReceiptTitle = (transaction) => {
   if (transaction.type === 'TOP_UP') return 'Wallet top-up receipt';
+  if (transaction.type === 'PAYOUT' && transaction.jobReference) return 'Job payment receipt';
   if (transaction.type === 'PAYOUT' && !transaction.payoutRequest) return 'Wallet credit receipt';
   if (transaction.type === 'PAYOUT' && transaction.status === 'PENDING') return 'Withdrawal request receipt';
   if (transaction.type === 'PAYOUT') return 'Withdrawal receipt';

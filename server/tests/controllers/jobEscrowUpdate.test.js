@@ -1,7 +1,7 @@
 import test, { after, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 
 import Job from '../../models/Job.js';
 import Transaction from '../../models/Transaction.js';
@@ -36,7 +36,7 @@ const createEmployer = async (employerBalance = 0) => {
   return user.save();
 };
 
-const createFundedJob = (jobPoster, overrides = {}) => Job.create({
+const createFundedJob = async (jobPoster, overrides = {}) => { const job = await Job.create({
   title: 'Funded local job',
   description: 'A funded job used to verify escrow adjustments.',
   location: 'Pasig City, Metro Manila',
@@ -47,6 +47,9 @@ const createFundedJob = (jobPoster, overrides = {}) => Job.create({
   jobPoster,
   ...overrides,
 });
+  await Transaction.create({ sender: jobPoster, amount: job.salary * job.positionsNeeded, type: 'ESCROW', status: 'COMPLETED', balanceTarget: 'ESCROW', jobReference: job._id });
+  return job;
+};
 
 const update = async (employer, job, body) => {
   const response = createResponse();
@@ -59,11 +62,11 @@ const update = async (employer, job, body) => {
 };
 
 before(async () => {
-  mongoServer = await MongoMemoryServer.create();
+  mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   await mongoose.connect(mongoServer.getUri(), { dbName: 'job-escrow-update-tests' });
 });
 
-beforeEach(async () => mongoose.connection.db.dropDatabase());
+beforeEach(async () => { for (const collection of Object.values(mongoose.connection.collections)) await collection.deleteMany({}); });
 
 after(async () => {
   await mongoose.disconnect();
@@ -80,7 +83,7 @@ test('increasing funded job pay or positions collects only the escrow difference
   const [updatedEmployer, updatedJob, transaction] = await Promise.all([
     User.findById(employer._id),
     Job.findById(job._id),
-    Transaction.findOne({ jobReference: job._id, type: 'ESCROW' }),
+    Transaction.findOne({ jobReference: job._id, type: 'ESCROW', 'meta.previousTotal': { $exists: true } }),
   ]);
   assert.equal(updatedEmployer.employerBalance, 100);
   assert.equal(updatedJob.salary, 1200);
@@ -121,7 +124,7 @@ test('insufficient balance rejects the edit without changing the wallet or job',
   ]);
   assert.equal(unchangedEmployer.employerBalance, 100);
   assert.equal(unchangedJob.salary, 1000);
-  assert.equal(transactionCount, 0);
+  assert.equal(transactionCount, 1);
 });
 
 test('workers needed cannot be reduced below the number already hired', async () => {

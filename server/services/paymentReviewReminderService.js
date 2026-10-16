@@ -2,8 +2,8 @@ import JobApplication from '../models/JobApplication.js';
 import { getEmailTransporter, getMailFrom } from '../lib/emailTransporter.js';
 import { getWebOrigin } from '../lib/runtimeConfig.js';
 
-export const PAYMENT_REVIEW_DEADLINE_MS = 24 * 60 * 60 * 1000;
-export const PAYMENT_REVIEW_REMINDER_DELAY_MS = 12 * 60 * 60 * 1000;
+export const PAYMENT_REVIEW_DEADLINE_MS = 72 * 60 * 60 * 1000;
+export const PAYMENT_REVIEW_REMINDER_DELAY_MS = 24 * 60 * 60 * 1000;
 const CLAIM_TIMEOUT_MS = 10 * 60 * 1000;
 
 const escapeHtml = (value) => String(value ?? '')
@@ -32,7 +32,7 @@ export async function sendPaymentReviewReminderEmail({ application, employer, jo
   const text = [
     `Hi ${employerName},`,
     '',
-    `The worker has submitted their work for "${jobTitle}". Please review it and approve payment or raise a dispute by ${formattedDeadline} (Asia/Manila), 24 hours after submission.`,
+    `The worker has submitted their work for "${jobTitle}". Please review it and approve payment or raise a dispute by ${formattedDeadline} (Asia/Manila), 72 hours after the first submission.`,
     '',
     `Review the submission: ${reviewUrl}`,
     '',
@@ -53,7 +53,7 @@ export async function sendPaymentReviewReminderEmail({ application, employer, jo
         <div style="padding: 24px; border: 1px solid #d9e2ec; border-top: 0;">
           <p>Hi ${escapeHtml(employerName)},</p>
           <p>The worker has submitted their work for <strong>${escapeHtml(jobTitle)}</strong>.</p>
-          <p>Please review the submission and approve payment or raise a dispute by <strong>${escapeHtml(formattedDeadline)} (Asia/Manila)</strong>. This deadline is 24 hours after submission.</p>
+          <p>Please review the submission and approve payment or raise a dispute by <strong>${escapeHtml(formattedDeadline)} (Asia/Manila)</strong>. This deadline is 72 hours after the first submission.</p>
           <p><a href="${escapeHtml(reviewUrl)}" style="display: inline-block; padding: 12px 18px; border-radius: 6px; background: #1c4d8d; color: #ffffff; text-decoration: none;">Review submitted work</a></p>
           <p style="color: #52606d; font-size: 13px;">This is an automated reminder from MicroJobs.</p>
         </div>
@@ -73,6 +73,7 @@ export async function sendDuePaymentReviewReminders({
   const candidates = await JobApplication.find({
     status: 'Hired',
     workStatus: 'Submitted',
+    cancellationPending: { $ne: true }, disputePending: { $ne: true },
     paymentStatus: { $in: ['Secured', 'Authorized', 'Failed'] },
     workSubmittedAt: { $lte: reminderCutoff, $gt: deadlineCutoff },
     paymentReminderSentAt: null,
@@ -85,6 +86,7 @@ export async function sendDuePaymentReviewReminders({
         _id: candidate._id,
         status: 'Hired',
         workStatus: 'Submitted',
+        cancellationPending: { $ne: true }, disputePending: { $ne: true },
         paymentStatus: { $in: ['Secured', 'Authorized', 'Failed'] },
         workSubmittedAt: { $lte: reminderCutoff, $gt: deadlineCutoff },
         paymentReminderSentAt: null,
@@ -130,9 +132,8 @@ export async function sendDuePaymentReviewReminders({
 }
 
 export const PAYMENT_REMINDER_DELAYS = Object.freeze([
-  { stage: '3h', delayMs: 3 * 60 * 60 * 1000, sentField: 'paymentReminder3hSentAt', label: '3 hours' },
-  { stage: '5h', delayMs: 5 * 60 * 60 * 1000, sentField: 'paymentReminder5hSentAt', label: '5 hours' },
   { stage: '24h', delayMs: 24 * 60 * 60 * 1000, sentField: 'paymentReminder24hSentAt', label: '24 hours' },
+  { stage: '48h', delayMs: 48 * 60 * 60 * 1000, sentField: 'paymentReminder48hSentAt', label: '48 hours' },
 ]);
 
 const UNPAID_PAYMENT_STATUSES = [
@@ -195,23 +196,25 @@ export async function sendDuePaymentReminders({
   const candidates = await JobApplication.find({
     status: 'Hired',
     workStatus: 'Submitted',
+    cancellationPending: { $ne: true }, disputePending: { $ne: true },
     paymentStatus: { $in: UNPAID_PAYMENT_STATUSES },
-    workSubmittedAt: { $lte: new Date(now.getTime() - PAYMENT_REMINDER_DELAYS[0].delayMs) },
-  }).select('_id workSubmittedAt paymentReminder3hSentAt paymentReminder5hSentAt paymentReminder24hSentAt').lean();
+    $expr: { $lte: [{ $ifNull: ['$firstSubmittedAt', '$workSubmittedAt'] }, new Date(now.getTime() - PAYMENT_REMINDER_DELAYS[0].delayMs)] },
+  }).select('_id firstSubmittedAt workSubmittedAt paymentReminder24hSentAt paymentReminder48hSentAt').lean();
 
   let sent = 0;
   let checked = 0;
   for (const candidate of candidates) {
     for (const stage of PAYMENT_REMINDER_DELAYS) {
-      if (now.getTime() - new Date(candidate.workSubmittedAt).getTime() < stage.delayMs) continue;
+      if (now.getTime() - new Date(candidate.firstSubmittedAt || candidate.workSubmittedAt).getTime() < stage.delayMs) continue;
       checked += 1;
       const application = await JobApplication.findOneAndUpdate(
         {
           _id: candidate._id,
           status: 'Hired',
           workStatus: 'Submitted',
+          cancellationPending: { $ne: true }, disputePending: { $ne: true },
           paymentStatus: { $in: UNPAID_PAYMENT_STATUSES },
-          workSubmittedAt: { $lte: new Date(now.getTime() - stage.delayMs) },
+          $expr: { $lte: [{ $ifNull: ['$firstSubmittedAt', '$workSubmittedAt'] }, new Date(now.getTime() - stage.delayMs)] },
           [stage.sentField]: null,
           $or: [
             { paymentReminderClaimedAt: null },

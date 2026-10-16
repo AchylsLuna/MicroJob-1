@@ -1,3 +1,6 @@
+import { OfferCancellationDialog } from '../../components/OfferCancellationDialog';
+import { lifecycleRequest } from '../../services/api';
+import { AssignmentPanel } from '../../components/AssignmentPanel';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { motionTokens, seconds } from "@/constants/motion";
@@ -27,7 +30,6 @@ import {
   updateInterview,
   getEligibleReviews,
   createJobOffer,
-  cancelJobOffer,
   confirmOfferHire,
   authorizePayment,
   requestChanges as requestWorkChanges,
@@ -69,6 +71,9 @@ const PIPELINE_STATUSES: ApplicationStatus[] = [
   "Offer Sent",
   "Hired",
   "Rejected",
+  "Withdrawn",
+  "Cancelled",
+  "Position filled",
 ];
 
 // Stages an employer may set directly. "Hired" is deliberately excluded: hiring
@@ -76,7 +81,7 @@ const PIPELINE_STATUSES: ApplicationStatus[] = [
 // happens through the formal offer flow. The status API rejects "Hired" too, so
 // offering it here would just fail.
 const EDITABLE_STATUSES: ApplicationStatus[] = PIPELINE_STATUSES.filter(
-  (status) => status !== "Hired",
+  (status) => !["Hired", "Offer Sent", "Withdrawn", "Cancelled", "Position filled"].includes(status),
 );
 const ACTION_STEP_KEYS = ["statusStep", "reviewStep", "hireStep", "paymentStep"] as const;
 
@@ -95,6 +100,7 @@ type EmployerApplication = {
   };
   offer?: JobOffer | null;
   agreedAmount?: number;
+  interviews?: Array<{ _id: string; status?: string; scheduledAt: string }>;
   workStatus?: string;
   paymentStatus?: string;
   employerHidden?: boolean;
@@ -158,6 +164,8 @@ const statusClasses: Record<ApplicationStatus, string> = {
   Hired: "bg-[#DCFCE7] text-[#15803D]",
   Rejected: "bg-[#FEE2E2] text-[#B91C1C]",
   Withdrawn: "bg-[#F3F4F6] text-[#6B7280]",
+  Cancelled: "bg-red-50 text-red-700",
+  "Position filled": "bg-slate-100 text-slate-700",
 };
 
 const STATUS_LABEL_KEYS: Record<ApplicationStatus, string> = {
@@ -169,6 +177,8 @@ const STATUS_LABEL_KEYS: Record<ApplicationStatus, string> = {
   Hired: "hired",
   Rejected: "rejected",
   Withdrawn: "withdrawn",
+  Cancelled: "cancelled",
+  "Position filled": "positionFilled",
 };
 
 const getStatusLabel = (t: TFunction, status: ApplicationStatus) =>
@@ -230,6 +240,7 @@ function ApplicationCard({
   history?: boolean;
 }) {
   const { t } = useTranslation("employer");
+  const { t: tc } = useTranslation('common');
   const applicantFallback = t("applicationsManagement.card.applicantFallback");
   const resumeUrl = toAbsoluteAssetUrl(application.applicant?.resumeUrl || application.applicant?.resume);
 
@@ -321,16 +332,13 @@ function ApplicationCard({
       <div className="space-y-2">
         {!history ? <select
           value={application.status}
+          disabled={!EDITABLE_STATUSES.includes(application.status)}
           onChange={(event) => onStatusChange(application._id, event.target.value as ApplicationStatus)}
           className="w-full h-10 rounded-xl border border-[#E5E7EB] px-3 text-body-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-brand"
         >
           {/* A hired application keeps showing "Hired" as its current value, but
               it cannot be re-selected; hiring is driven by the offer flow. */}
-          {application.status === "Hired" ? (
-            <option value="Hired" disabled>
-              {t("applicationsManagement.card.hiredViaOffer")}
-            </option>
-          ) : null}
+          {!EDITABLE_STATUSES.includes(application.status) && <option value={application.status}>{getStatusLabel(t, application.status)}</option>}
           {EDITABLE_STATUSES.map((status) => (
             <option key={status} value={status}>
               {getStatusLabel(t, status)}
@@ -338,6 +346,8 @@ function ApplicationCard({
           ))}
         </select> : null}
 
+        {['Hired', 'Cancelled'].includes(application.status) && <AssignmentPanel applicationId={application._id} />}
+        {application.interviews?.filter((item) => item.status !== 'completed' && new Date(item.scheduledAt).getTime() <= Date.now()).map((interview) => <button key={interview._id} type="button" className="rounded-xl border p-3" onClick={async () => { try { await lifecycleRequest(`/applications/${application._id}/interviews/${interview._id}`, { status: 'completed' }, 'PATCH'); window.dispatchEvent(new Event('microjobs:lifecycle')); } catch (e: any) { toast.error(e.message); } }}>✓ {tc('lifecycle.completeInterview')}</button>)}
         <OfferActions
           application={application}
           busy={offerBusy}
@@ -423,9 +433,10 @@ function ApplicationCard({
 
 export function ApplicationsManagement({ historyJobId, onHistoryChange }: { historyJobId?: string; onHistoryChange?: () => void } = {}) {
   const { t } = useTranslation("employer");
+  const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
   const prefersReducedMotion = useReducedMotion();
-  const [statusFilter, setStatusFilter] = useState<"all" | ApplicationStatus>(historyJobId ? "Hired" : "all");
+  const [statusFilter, setStatusFilter] = useState<"all" | ApplicationStatus>("all");
   const [jobFilter, setJobFilter] = useState(historyJobId || "");
   const [jobOptions, setJobOptions] = useState<Array<{ id: string; title: string }>>([]);
   const [jobsError, setJobsError] = useState<string | null>(null);
@@ -461,6 +472,8 @@ export function ApplicationsManagement({ historyJobId, onHistoryChange }: { hist
     run: () => Promise<void>;
   } | null>(null);
 
+  const [cancelOfferId, setCancelOfferId] = useState<string | null>(null);
+  const [rejectAfterCancelApp, setRejectAfterCancelApp] = useState<string | null>(null);
   useEffect(() => {
     if (historyJobId) return;
     let cancelled = false;
@@ -485,7 +498,6 @@ export function ApplicationsManagement({ historyJobId, onHistoryChange }: { hist
     try {
       const [response, reviewResponse] = await Promise.all([
         getEmployerApplications({
-          ...(historyJobId ? { status: "Hired" } : {}),
           jobId: jobFilter,
           ...(includeHidden ? { includeHidden: "true" } : {}),
         }),
@@ -503,7 +515,7 @@ export function ApplicationsManagement({ historyJobId, onHistoryChange }: { hist
     } finally {
       if (sequence === loadSequence.current) setIsLoading(false);
     }
-  }, [historyJobId, includeHidden, jobFilter, t]);
+  }, [includeHidden, jobFilter, t]);
 
   useEffect(() => {
     setApplications([]);
@@ -733,17 +745,9 @@ export function ApplicationsManagement({ historyJobId, onHistoryChange }: { hist
     });
   };
 
-  const handleCancelOffer = (application: EmployerApplication) => {
-    if (!application.offer) return;
-    const offer = application.offer;
-    setConfirmAction({
-      title: t("applicationsManagement.confirmCancelOffer.title"),
-      description: t("applicationsManagement.confirmCancelOffer.description", { amount: formatCurrency(offer.amount) }),
-      confirmLabel: t("applicationsManagement.confirmCancelOffer.confirm"),
-      destructive: true,
-      run: () => runOfferAction(application._id, () => cancelJobOffer(offer.id)),
-    });
-  };
+  useEffect(() => { const reload = () => void loadApplications(); window.addEventListener('microjobs:lifecycle', reload); return () => window.removeEventListener('microjobs:lifecycle', reload); }, [loadApplications]);
+
+  const handleCancelOffer = (application: EmployerApplication) => { setRejectAfterCancelApp(null); if (application.offer) setCancelOfferId(application.offer.id); };
 
   const handleConfirmHire = (application: EmployerApplication) => {
     if (!application.offer) return;
@@ -758,37 +762,12 @@ export function ApplicationsManagement({ historyJobId, onHistoryChange }: { hist
     });
   };
 
-  const handleRejectApplicant = (application: EmployerApplication) => {
-    if (!application.offer || application.offer.status !== "accepted") return;
-    const offer = application.offer;
-    setConfirmAction({
-      title: t("applicationsManagement.workflow.rejectTitle"),
-      description: t("applicationsManagement.workflow.rejectDescription", { name: getApplicantName(application, t("applicationsManagement.card.applicantFallback")), amount: formatCurrency(offer.amount) }),
-      confirmLabel: t("applicationsManagement.workflow.reject"),
-      destructive: true,
-      run: () => runOfferAction(application._id, async () => {
-        await cancelJobOffer(offer.id);
-        await updateApplicationStatus(application._id, "Rejected");
-      }),
-    });
+  const handleRejectApplicant = (application: EmployerApplication) => { if (application.offer) { setRejectAfterCancelApp(application._id); setCancelOfferId(application.offer.id); } };
+  const handleAuthorizePayment = async (application: EmployerApplication) => {
+    try { const preview = await lifecycleRequest(`/applications/${application._id}/payment/preview`, {}); setConfirmAction({ title: t('applicationsManagement.confirmPay.title'), description: `${t('applicationsManagement.confirmPay.description', { name: getApplicantName(application, ''), amount: formatCurrency(preview.amount) })} ${tc('lifecycle.releaseAmount', { amount: formatCurrency(preview.amount) })}`, run: () => runOfferAction(application._id, () => authorizePayment(application._id)) }); } catch (error: any) { toast.error(error.message); }
   };
-
-  // Authorizing payment and requesting changes don't move money or lock in a
-  // hire, so -- matching the mobile reference implementation -- they fire
-  // directly instead of going through the confirm dialog.
-  const handleAuthorizePayment = (application: EmployerApplication) => {
-    void runOfferAction(application._id, () => authorizePayment(application._id));
-  };
-
-  const handleReleasePayment = (application: EmployerApplication) => {
-    const name = getApplicantName(application, t("applicationsManagement.card.applicantFallback"));
-    const amount = application.agreedAmount || application.job.salary;
-    setConfirmAction({
-      title: t("applicationsManagement.confirmPay.title"),
-      description: t("applicationsManagement.confirmPay.description", { name, amount: formatCurrency(amount) }),
-      confirmLabel: t("applicationsManagement.confirmPay.confirm"),
-      run: () => runOfferAction(application._id, () => settlePayment(application._id), t("applicationsManagement.toast.workerPaid")),
-    });
+  const handleReleasePayment = async (application: EmployerApplication) => {
+    try { const preview = await lifecycleRequest(`/applications/${application._id}/payment/preview`, {}); setConfirmAction({ title: t('applicationsManagement.confirmPay.title'), description: `${t('applicationsManagement.confirmPay.description', { name: getApplicantName(application, ''), amount: formatCurrency(preview.amount) })} ${tc('lifecycle.releaseAmount', { amount: formatCurrency(preview.amount) })}`, run: () => runOfferAction(application._id, () => settlePayment(application._id), t('applicationsManagement.toast.workerPaid')) }); } catch (error: any) { toast.error(error.message); }
   };
 
   const handleRequestChanges = (application: EmployerApplication, reason: string) => {
@@ -923,7 +902,7 @@ export function ApplicationsManagement({ historyJobId, onHistoryChange }: { hist
 
       {!isLoading && applications.length > 0 && historyJobId ? (
         <div className="flex flex-col gap-4 pb-2 md:flex-row md:overflow-x-auto">
-          {(historyJobId ? ["Hired" as const] : PIPELINE_STATUSES).map((status) => (
+          {PIPELINE_STATUSES.map((status) => (
             <div key={status} className={`w-full rounded-[18px] bg-[#F8FAFC] border border-[#E5E7EB] p-4 space-y-4 ${historyJobId ? "" : "md:min-w-[320px] md:max-w-[320px]"}`}>
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -1065,7 +1044,7 @@ export function ApplicationsManagement({ historyJobId, onHistoryChange }: { hist
         <Dialog open={!confirmAction && !ratingTarget} title={t("applicationsManagement.workflow.title")}
           description={`${getApplicantName(activeApplication, t("applicationsManagement.card.applicantFallback"))} · ${activeApplication.job.title}`}
           onClose={() => setActionsTarget(null)} closeDisabled={Boolean(offerBusyId) || statusBusy} size="xl">
-          <div className="space-y-5" aria-busy={Boolean(offerBusyId) || statusBusy}>
+          <div className="space-y-5" aria-busy={Boolean(offerBusyId) || statusBusy}>{["Hired", "Cancelled"].includes(activeApplication.status) && <AssignmentPanel applicationId={activeApplication._id} onChanged={() => void loadApplications(true)} />}
             <ol className="flex items-center justify-center" aria-label={t("applicationsManagement.workflow.stepsLabel")}>
               {ACTION_STEP_KEYS.map((label, index) => (
                 <li key={label} aria-current={actionStep === index + 1 ? "step" : undefined}
@@ -1132,6 +1111,7 @@ export function ApplicationsManagement({ historyJobId, onHistoryChange }: { hist
       {ratingTarget ? (
         <RatingDialog target={ratingTarget} onClose={() => setRatingTarget(null)} onSubmitted={async () => { await loadApplications(); onHistoryChange?.(); }} />
       ) : null}
+      <OfferCancellationDialog rejectApplicationId={rejectAfterCancelApp} offerId={cancelOfferId} onClose={() => setCancelOfferId(null)} onDone={() => void loadApplications()} />
       <ConfirmDialog
         open={Boolean(confirmAction)}
         title={confirmAction?.title || ""}

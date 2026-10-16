@@ -1,4 +1,5 @@
 import express from 'express';
+import { cancelAssignment, respondToCancellation, startWork, getAssignmentLifecycle, openDispute, addEvidence } from '../controllers/LifecycleController.js';
 import {
   applyForJob,
   getUserApplications,
@@ -14,7 +15,7 @@ import {
   scheduleInterview,
   updateInterview,
 } from '../controllers/JobApplicationController.js';
-import { authorizePayment, openPaymentDispute, requestChanges, settleDirect, submitWork } from '../controllers/ApplicationPaymentController.js';
+import { authorizePayment, openPaymentDispute, previewPayment, requestChanges, settleDirect, submitWork } from '../controllers/ApplicationPaymentController.js';
 import { cancelJobOffer, confirmOfferHire, createJobOffer, respondToJobOffer } from '../controllers/JobOfferController.js';
 import authenticateToken from '../middleware/auth.js';
 
@@ -37,10 +38,17 @@ router.post('/applications/:applicationId/offers', authenticateToken, createJobO
 router.post('/job-offers/:offerId/respond', authenticateToken, respondToJobOffer);
 router.post('/job-offers/:offerId/cancel', authenticateToken, cancelJobOffer);
 router.post('/job-offers/:offerId/confirm-hire', authenticateToken, confirmOfferHire);
+router.post('/applications/:applicationId/payment/preview', authenticateToken, previewPayment);
 router.post('/applications/:applicationId/payment/authorize', authenticateToken, authorizePayment);
 router.post('/applications/:applicationId/work/submit', authenticateToken, submitWork);
 router.post('/applications/:applicationId/work/request-changes', authenticateToken, requestChanges);
 router.post('/applications/:applicationId/payment/disputes', authenticateToken, openPaymentDispute);
 router.post('/applications/:applicationId/payment/settle', authenticateToken, settleDirect);
 
+router.get('/applications/:applicationId/lifecycle', authenticateToken, getAssignmentLifecycle);
+router.post('/applications/:applicationId/work/start', authenticateToken, startWork);
+router.post('/applications/:applicationId/cancel', authenticateToken, cancelAssignment);
+router.post('/cancellations/:id/respond', authenticateToken, respondToCancellation);
+router.post('/applications/:applicationId/disputes', authenticateToken, openDispute);
+router.post('/financial-disputes/:id/evidence', authenticateToken, addEvidence);
 export default router;

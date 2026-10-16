@@ -1,3 +1,4 @@
+import PostingActions from '../../components/PostingActions';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -84,6 +85,8 @@ export default function EmployerJobPosts({
 }: EmployerJobPostsProps) {
   const toast = useToast();
   const { t } = useTranslation('employer');
+  const { t: tc } = useTranslation('common');
+  const [historyView, setHistoryView] = useState(false);
   const [jobs, setJobs] = useState<JobItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionJobId, setActionJobId] = useState<string | null>(null);
@@ -169,7 +172,7 @@ export default function EmployerJobPosts({
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         ...(isStatusChange
-          ? { body: JSON.stringify({ status: action === 'complete' ? 'Completed' : 'Closed' }) }
+          ? { body: JSON.stringify({ status: action === 'complete' ? 'Completed' : 'Closed', confirmed: action === 'complete' }) }
           : {}),
       }, actionFailureMessage);
 
@@ -242,7 +245,7 @@ export default function EmployerJobPosts({
       </Animated.View>
 
       <Animated.FlatList
-        data={jobs}
+        data={jobs.filter((job) => historyView ? !['Available', 'In Progress'].includes(String(job.status)) || Boolean((job as any).archivedAt) : ['Available', 'In Progress'].includes(String(job.status)) && !(job as any).archivedAt)}
         keyExtractor={(job) => job._id}
         contentContainerStyle={[styles.scroll, { paddingTop: headerHeight + tokens.layout.sectionGap }]}
         showsVerticalScrollIndicator={false}
@@ -254,6 +257,7 @@ export default function EmployerJobPosts({
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={loading && jobs.length > 0} onRefresh={() => void fetchJobs()} tintColor={tokens.colors.brand} />}
         ListHeaderComponent={<>
+        <View style={{ flexDirection: 'row', gap: 14, padding: 12 }}><TouchableOpacity accessibilityRole="button" accessibilityState={{ selected: !historyView }} onPress={() => setHistoryView(false)}><Text>{tc('lifecycle.active')}</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityState={{ selected: historyView }} onPress={() => setHistoryView(true)}><Text>{tc('lifecycle.jobHistory')}</Text></TouchableOpacity></View>
         <EmployerModeBanner title={t('jobPosts.banner.title')} detail={t('jobPosts.banner.detail')} />
         <View style={styles.statGrid}>
           <StatTile label={t('jobPosts.metrics.activeJobs')} value={activeJobs} />
@@ -361,6 +365,7 @@ export default function EmployerJobPosts({
                 </TouchableOpacity>
             </View>
             {expandedJobId === job._id ? <View style={styles.footerActions}>
+                <PostingActions job={job} onChanged={() => void fetchJobs()} />
                 {status === 'Available' ? (
                   <TouchableOpacity
                     style={styles.closeButton}
@@ -370,7 +375,7 @@ export default function EmployerJobPosts({
                     <Text style={styles.closeButtonText}>{t('jobPosts.card.close')}</Text>
                   </TouchableOpacity>
                 ) : null}
-                {['Closed', 'Completed', 'Cancelled'].includes(status) ? (
+                {status === 'Closed' && !(job as any).cancellationPending ? (
                   <TouchableOpacity
                     style={styles.reopenButton}
                     disabled={actionJobId === job._id}

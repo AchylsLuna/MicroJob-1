@@ -132,17 +132,17 @@ test('cancelling a job twice refunds its escrow exactly once', async () => {
   const balanceAfterPost = (await User.findById(employer._id)).employerBalance;
 
   const firstCancel = createResponse();
-  await changeJobStatus(employerRequest(employer, { status: 'Cancelled' }, { id: publicJobId }), firstCancel);
+  await changeJobStatus(employerRequest(employer, { status: 'Cancelled', reason: 'No longer needed', policyAcknowledged: true }, { id: publicJobId }), firstCancel);
   assert.equal(firstCancel.statusCode, 200);
 
   // Re-running the same transition must not pay again. The guard is the unique
   // reference, not the in-memory status read.
   const secondCancel = createResponse();
-  await changeJobStatus(employerRequest(employer, { status: 'Cancelled' }, { id: publicJobId }), secondCancel);
+  await changeJobStatus(employerRequest(employer, { status: 'Cancelled', reason: 'No longer needed', policyAcknowledged: true }, { id: publicJobId }), secondCancel);
 
   const refunds = await Transaction.find({ jobReference: jobId, type: 'REFUND' });
   assert.equal(refunds.length, 1, 'exactly one REFUND row may exist');
-  assert.equal(refunds[0].reference, `job-cancel-refund:${jobId}`, 'the refund must be uniquely referenced');
+  assert.equal(refunds[0].reference, `job-cancellation-refund:${jobId}`, 'the refund must be uniquely referenced');
   assert.equal(
     (await User.findById(employer._id)).employerBalance,
     balanceAfterPost + 500,
@@ -177,8 +177,8 @@ test('minimum pay cannot be cut once a worker is hired', async () => {
   const res = createResponse();
   await updateJob(employerRequest(employer, { salary: 1 }, { id: publicJobId }), res);
 
-  assert.equal(res.statusCode, 400);
-  assert.match(res.payload.message, /cannot be reduced/i);
+  assert.equal(res.statusCode, 409);
+  assert.match(res.payload.message, /fix the job minimum pay/i);
   assert.equal((await Job.findById(jobId)).salary, 500, 'the advertised pay is unchanged');
   assert.equal(
     (await User.findById(employer._id)).employerBalance,
@@ -188,8 +188,8 @@ test('minimum pay cannot be cut once a worker is hired', async () => {
   assert.equal(await Transaction.countDocuments({ jobReference: jobId, type: 'REFUND' }), 0);
 });
 
-/** Raising pay is still allowed -- the guard is specifically about reductions. */
-test('minimum pay can still be raised while a worker is hired', async () => {
+/** Existing agreed offers and hires keep their minimum pay unchanged. */
+test('minimum pay remains fixed while a worker is hired', async () => {
   const category = await Category.create({ name: 'Cleaning' });
   const employer = await createUser({
     role: 'hire',
@@ -206,8 +206,8 @@ test('minimum pay can still be raised while a worker is hired', async () => {
   const res = createResponse();
   await updateJob(employerRequest(employer, { salary: 800 }, { id: publicJobId }), res);
 
-  assert.equal(res.statusCode, 200);
-  assert.equal((await Job.findById(jobId)).salary, 800);
+  assert.equal(res.statusCode, 409);
+  assert.equal((await Job.findById(jobId)).salary, 500);
 });
 
 /**
@@ -245,7 +245,7 @@ test('a job whose escrow cannot cover a hired worker in full refuses to complete
   await Job.updateOne({ _id: jobId }, { $set: { hiredCount: 1, status: 'Closed' } });
 
   const res = createResponse();
-  await changeJobStatus(employerRequest(employer, { status: 'Completed' }, { id: publicJobId }), res);
+  await changeJobStatus(employerRequest(employer, { status: 'Completed', confirmed: true }, { id: publicJobId }), res);
 
   assert.equal(res.statusCode, 409);
   assert.match(res.payload.message, /insufficient/i);

@@ -151,6 +151,6 @@ export const secondaryEmailConfirmLimiter = createRateLimiter({ windowMs: 10 * 6
   message: 'Too many secondary email verification attempts. Please try again later.', keyGenerator: buildUserRateLimitKey('secondary-email-confirm') });
 export const verificationPhoneSendLimiter = authLimiter(10 * 60 * 1000, 5, 'Too many phone verification requests. Please try again later.');
 export const verificationPhoneConfirmLimiter = authLimiter(10 * 60 * 1000, 20, 'Too many verification code attempts. Please try again later.');
-export const loginLimiter = authLimiter(1 * 60 * 1000, 20, 'Too many login attempts. Please try again later.');
-export const accountLoginLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, limit: 10, message: 'Too many login attempts. Please try again later.', keyGenerator: buildAccountRateLimitKey });
+export const loginLimiter = authLimiter(3 * 60 * 1000, 20, 'Too many login attempts. Please try again later.');
+export const accountLoginLimiter = createRateLimiter({ windowMs: 3 * 60 * 1000, limit: 5, message: 'Too many login attempts. Please try again later.', keyGenerator: buildAccountRateLimitKey });
 export const qrSettlementLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, limit: 30, message: 'Too many QR payment attempts. Please try again later.', keyGenerator: buildUserRateLimitKey('qr') });

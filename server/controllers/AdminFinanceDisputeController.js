@@ -1,3 +1,8 @@
+import Job from '../models/Job.js';
+import JobApplication from '../models/JobApplication.js';
+import Message from '../models/Message.js';
+import JobOffer from '../models/JobOffer.js';
+import Transaction from '../models/Transaction.js';
 import FinancialDispute from '../models/FinancialDispute.js';
 import SupportTicket from '../models/SupportTicket.js';
 import User from '../models/User.js';
@@ -158,4 +163,17 @@ export async function approveFinancialDisputeSettlement(req, res) {
 export async function updateAdminFinancialDispute(req, res) {
   if (String(req.body?.status || '').toLowerCase() === 'investigating') return assignFinancialDisputeSupport(req, res);
   return res.status(409).json({ message: 'Use the investigation report, Finance proposal, and independent approval workflow to resolve this dispute.' });
+}
+
+export async function getDisputeContext(req, res) {
+  const dispute = await FinancialDispute.findById(req.params.disputeId).lean();
+  if (!dispute) return res.status(404).json({ message: 'Dispute not found.' });
+  const [job, application, offers, transactions, messages] = await Promise.all([
+    dispute.job ? Job.findById(dispute.job).select('title requirements salary status cancellationReason').lean() : null,
+    dispute.application ? JobApplication.findById(dispute.application).lean() : null,
+    dispute.application ? JobOffer.find({ application: dispute.application }).lean() : [],
+    dispute.job ? Transaction.find({ jobReference: dispute.job }).select('amount type status reference relatedEntityType relatedEntityId createdAt').lean() : [],
+    dispute.job && dispute.worker && dispute.employer ? Message.find({ job: dispute.job, $or: [{ sender: dispute.worker, receiver: dispute.employer }, { sender: dispute.employer, receiver: dispute.worker }] }).select('sender receiver content attachment createdAt').sort({ createdAt: 1 }).lean() : [],
+  ]);
+  return res.json({ dispute, job, application, offers, transactions, messages });
 }

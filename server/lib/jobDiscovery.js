@@ -102,7 +102,7 @@ const PUBLIC_JOB_FIELDS = [
   'title', 'description', 'location', 'salary', 'jobType', 'deadline', 'skills',
   'responsibilities', 'requirements', 'image', 'status', 'urgent', 'highlighted',
   'positionsNeeded', 'hiredCount', 'viewCount', 'createdAt', 'updatedAt',
-  'applicationStatus',
+  'applicationStatus', 'interviewRequired',
 ];
 
 /** Public discovery never includes applicant identities or internal hiring data. */
@@ -142,7 +142,7 @@ export function serializePublicJob(job, { viewerId = null } = {}) {
 export function serializeOwnedJob(job) {
   const value = job?.toObject ? job.toObject() : job;
   if (!value) return null;
-  const fields = ['applicants', 'selectedApplicant', 'postingFee', 'highlightFee', 'closedManually', 'reservedOfferCount'];
+  const fields = ['applicants', 'selectedApplicant', 'postingFee', 'highlightFee', 'closedManually', 'reservedOfferCount', 'archivedAt', 'cancellationPending', 'cancellationReason', 'cancelledAt', 'hireConfirmedAt'];
   return {
     ...serializePublicJob(value, { viewerId: value.jobPoster?._id || value.jobPoster }),
     ...Object.fromEntries(fields.filter((field) => value[field] !== undefined).map((field) => [field, value[field]])),

@@ -13,7 +13,9 @@
       "offerSent": "Ipinadala ang Alok",
       "hired": "Nakuha",
       "rejected": "Tinanggihan",
-      "withdrawn": "Binawi"
+      "withdrawn": "Binawi",
+      "cancelled": "Kinansela",
+      "positionFilled": "Napunan na ang posisyon"
     },
     "summary": {
       "loading": "Naglo-load ng mga aplikasyon...",

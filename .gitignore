@@ -14,8 +14,8 @@ server/uploads/*
 !server/uploads/.gitkeep
 
 # Dependencies and local tooling
-node_modules/
-**/node_modules/
+node_modules
+**/node_modules
 .expo/
 Mobile/.expo/
 Mobile/android/
@@ -40,6 +40,7 @@ graphify-out
 !.github/workflows/
 !.github/workflows/azure-static-web-apps.yml
 !.github/workflows/azure-app-service.yml
+!.github/workflows/maintenance.yml
 server/.github/
 .vercel
 

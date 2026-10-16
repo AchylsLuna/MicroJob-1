@@ -220,7 +220,7 @@ test("demo clickpath: post job through to settled payout", async ({ baseURL }) =
     expect(offerId).toBeTruthy();
 
     // --- 4. worker accepts --------------------------------------------------
-    const accept = await worker.post(`/api/job-offers/${offerId}/respond`, { headers: workerHeaders, data: { action: "accept" } });
+    const accept = await worker.post(`/api/job-offers/${offerId}/respond`, { headers: workerHeaders, data: { action: "accept", policyAcknowledged: true } });
     expect(accept.ok(), `accept failed: ${await accept.text()}`).toBeTruthy();
     expect((await unwrap(accept))?.offer?.status).toBe("accepted");
 
@@ -228,12 +228,15 @@ test("demo clickpath: post job through to settled payout", async ({ baseURL }) =
     const hire = await employer.post(`/api/job-offers/${offerId}/confirm-hire`, { headers: employerHeaders, data: {} });
     expect(hire.ok(), `confirm hire failed: ${await hire.text()}`).toBeTruthy();
 
+    const start = await worker.post(`/api/applications/${applicationId}/work/start`, { headers: workerHeaders, data: {} });
+    expect(start.ok(), `start work failed: ${await start.text()}`).toBeTruthy();
+
     // --- 6. worker submits the finished work --------------------------------
     const submit = await worker.post(`/api/applications/${applicationId}/work/submit`, { headers: workerHeaders, data: {} });
     expect(submit.ok(), `submit work failed: ${await submit.text()}`).toBeTruthy();
 
     // --- 7. employer approves and pays --------------------------------------
-    const settle = await employer.post(`/api/applications/${applicationId}/payment/settle`, { headers: employerHeaders, data: {} });
+    const settle = await employer.post(`/api/applications/${applicationId}/payment/settle`, { headers: employerHeaders, data: { confirmed: true } });
     expect(settle.ok(), `settle failed: ${await settle.text()}`).toBeTruthy();
 
     // --- the assertion that actually matters --------------------------------

@@ -1,4 +1,5 @@
 import express from 'express';
+import { getInstitutions, preview, confirm, transferWebhook } from '../controllers/WithdrawalController.js';
 import {
   createTopUpSession,
   handleWebhook,
@@ -8,7 +9,6 @@ import {
   getAllTransactions,
   confirmTopUp,
   simulateWebhook,
-  createPayoutRequest,
   listMyPayoutRequests,
   cancelPayoutRequest,
 } from '../controllers/PaymentController.js';
@@ -42,7 +42,11 @@ router.post('/methods', verifyToken, addPaymentMethod);
 router.patch('/methods/:paymentMethodId/default', verifyToken, setDefaultPaymentMethod);
 router.delete('/methods/:paymentMethodId', verifyToken, removePaymentMethod);
 router.get('/payout-requests', verifyToken, listMyPayoutRequests);
-router.post('/payout-requests', verifyToken, createPayoutRequest);
+router.get('/withdrawals/institutions', verifyToken, getInstitutions);
+router.post('/withdrawals/preview', verifyToken, preview);
+router.post('/withdrawals/confirm', verifyToken, confirm);
+router.post('/payout-requests', verifyToken, confirm);
+router.post('/transfers/webhook', transferWebhook);
 router.post('/payout-requests/:payoutRequestId/cancel', verifyToken, cancelPayoutRequest);
 router.post('/dev/webhook-sim', verifyToken, requireAdmin, requireSuperadmin, simulateWebhook);
 router.get('/audit', verifyToken, requireAdmin, requirePermission('finance.transactions.view'), getAllTransactions);

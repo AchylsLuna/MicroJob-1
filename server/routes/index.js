@@ -1,3 +1,4 @@
+import MaintenanceRoute from './MaintenanceRoute.js';
 import CategoryRoute from './CategoryRoute.js';
 import JobRoute from './JobRoute.js';
 import UserRoute from './UserRoute.js';
@@ -30,6 +31,7 @@ export const registerRoutes = (app) => {
     app.use('/api/auth', ProfileRoute);
 
     // Other routes
+    app.use('/api/maintenance', MaintenanceRoute);
     app.use('/api/categories', CategoryRoute);
     app.use('/api/jobs', JobRoute);
     app.use('/api/users', UserRoute);

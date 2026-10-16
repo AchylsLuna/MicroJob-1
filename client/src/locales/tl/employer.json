@@ -29,7 +29,15 @@
       "pageAria": "Mga pahina ng kasaysayan ng trabaho",
       "goToPage": "Pumunta sa pahina {{page}}"
     },
-    "statuses": { "Available": "Bukas", "In Progress": "Isinasagawa", "Completed": "Nakumpleto", "Cancelled": "Kinansela", "Closed": "Sarado", "Full refund": "Buong refund", "Resolved": "Nalutas" }
+    "statuses": {
+      "Available": "Bukas",
+      "In Progress": "Isinasagawa",
+      "Completed": "Nakumpleto",
+      "Cancelled": "Kinansela",
+      "Closed": "Sarado",
+      "Full refund": "Buong refund",
+      "Resolved": "Nalutas"
+    }
   },
   "postJob": {
     "header": {
@@ -242,24 +250,24 @@
       "defaultTitle": "trabahong ito",
       "confirm": "I-delete ang trabaho"
     },
-  "profileIncomplete": {
-    "toast": "Magdagdag ng profile photo sa Settings bago mag-post ng trabaho."
-  },
-  "highlight": {
-    "title": "I-highlight ang trabaho",
-    "tooltip": "Mas kitang-kita ang mga naka-highlight na listing malapit sa itaas ng mga resulta ng job search.",
-    "description": "Gawing mas madaling makita ang listing na ito sa halagang {{amount}}. Hindi refundable ang bayad na ito."
-  },
-  "checkout": {
-    "title": "Checkout",
-    "workerPay_one": "Bayad ng manggagawa · {{count}} manggagawa",
-    "workerPay_other": "Bayad ng mga manggagawa · {{count}} manggagawa",
-    "postingFee": "Bayad sa pag-post",
-    "highlightFee": "Bayad sa pag-highlight",
-    "total": "Kabuuan",
-    "nonRefundable": "Hindi refundable ang bayad sa pag-post at pag-highlight, kahit i-delete mo ang listing. Matatanggap ng mga manggagawa ang buong naka-secure na bayad."
-  },
-  "wizard": {
+    "profileIncomplete": {
+      "toast": "Magdagdag ng profile photo sa Settings bago mag-post ng trabaho."
+    },
+    "highlight": {
+      "title": "I-highlight ang trabaho",
+      "tooltip": "Mas kitang-kita ang mga naka-highlight na listing malapit sa itaas ng mga resulta ng job search.",
+      "description": "Gawing mas madaling makita ang listing na ito sa halagang {{amount}}. Hindi refundable ang bayad na ito."
+    },
+    "checkout": {
+      "title": "Checkout",
+      "workerPay_one": "Bayad ng manggagawa · {{count}} manggagawa",
+      "workerPay_other": "Bayad ng mga manggagawa · {{count}} manggagawa",
+      "postingFee": "Bayad sa pag-post",
+      "highlightFee": "Bayad sa pag-highlight",
+      "total": "Kabuuan",
+      "nonRefundable": "Hindi refundable ang bayad sa pag-post at pag-highlight, kahit i-delete mo ang listing. Matatanggap ng mga manggagawa ang buong naka-secure na bayad."
+    },
+    "wizard": {
       "stepAria": "Hakbang {{step}} ng {{total}}: {{title}}",
       "steps": {
         "job": {
@@ -283,8 +291,8 @@
       "next": "Susunod",
       "summary": {
         "title": "Suriin bago mag-post",
-      "job": "Trabaho",
-      "description": "Paglalarawan",
+        "job": "Trabaho",
+        "description": "Paglalarawan",
         "category": "Kategorya",
         "location": "Lokasyon",
         "jobType": "Uri",
@@ -426,7 +434,9 @@
       "offerSent": "Naipadala ang Alok",
       "hired": "Na-hire",
       "rejected": "Tinanggihan",
-      "withdrawn": "Binawi"
+      "withdrawn": "Binawi",
+      "cancelled": "Kinansela",
+      "positionFilled": "Napunan na ang posisyon"
     },
     "bulk": {
       "selectedCount_one": "{{count}} aplikasyon ang napili",
@@ -515,7 +525,7 @@
       "changeStatus": "Baguhin ang Status",
       "waiting": "Sinusuri ng aplikante ang iyong alok",
       "hireQuestion": "Nais mo bang i-hire ang aplikanteng ito?",
-      "hireWarning": "Kapag nag-hire ka ng aplikante, magiging In Progress ang trabaho at hindi mo na ito maaaring tanggalin",
+      "hireWarning": "Kapag kinumpirma ang hire, nakalaan na ang assignment. Pipiliin ng worker ang Simulan ang trabaho kapag handa na; mananatili ang mga tala sa history.",
       "hire": "I-hire",
       "reject": "Tanggihan",
       "rejectTitle": "Tanggihan ang aplikante",

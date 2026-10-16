@@ -1,0 +1,8 @@
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Button, Dialog, Textarea } from './ui';
+import { cancelJobOffer, updateApplicationStatus } from '../services/api';
+export function OfferCancellationDialog({ offerId, rejectApplicationId, onClose, onDone }: { offerId: string | null; rejectApplicationId?: string | null; onClose: () => void; onDone: () => void }) {
+  const { t } = useTranslation('common'); const [reason, setReason] = useState(''); const [checked, setChecked] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
+  return <Dialog open={Boolean(offerId)} title={t('lifecycle.offerReason')} onClose={() => { if (!busy) { setReason(''); setChecked(false); onClose(); } }} closeDisabled={busy}><div className="space-y-4"><p>{t('lifecycle.offerCancelNotice')}</p><Textarea label={t('lifecycle.reason')} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={2000} /><label className="flex items-center gap-3"><input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} />{t('lifecycle.acknowledge')}</label>{error && <p role="alert">{error}</p>}<Button disabled={busy || !reason.trim() || !checked} onClick={async () => { if (!offerId || busy) return; setBusy(true); setError(''); try { await cancelJobOffer(offerId, reason); if (rejectApplicationId) await updateApplicationStatus(rejectApplicationId, "Rejected"); setReason(''); setChecked(false); onClose(); onDone(); } catch (e: any) { setError(e.message); } finally { setBusy(false); } }}>{t('lifecycle.confirm')}</Button></div></Dialog>;
+}

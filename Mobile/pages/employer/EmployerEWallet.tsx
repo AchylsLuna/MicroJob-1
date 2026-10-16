@@ -1,3 +1,4 @@
+import WithdrawalPanel from '../../components/wallet/WithdrawalPanel';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AppState,
@@ -67,13 +68,6 @@ export default function EmployerEWallet({
   const [walletError, setWalletError] = useState('');
   const [isTopupExpanded, setIsTopupExpanded] = useState(false);
   const [isWithdrawalExpanded, setIsWithdrawalExpanded] = useState(false);
-  const [isSubmittingWithdrawal, setIsSubmittingWithdrawal] = useState(false);
-  const [withdrawalAmount, setWithdrawalAmount] = useState('');
-  const [withdrawalMethod, setWithdrawalMethod] = useState('bank_transfer');
-  const [withdrawalInstitution, setWithdrawalInstitution] = useState('');
-  const [withdrawalAccountName, setWithdrawalAccountName] = useState('');
-  const [withdrawalAccountNumber, setWithdrawalAccountNumber] = useState('');
-  const [payoutRequests, setPayoutRequests] = useState<any[]>([]);
   const [isScannerVisible, setIsScannerVisible] = useState(false);
   const [pendingInvoiceId, setPendingInvoiceId] = useState<string | null>(initialInvoiceRequestId);
   const [isBalanceHidden, setIsBalanceHidden] = useState(false);
@@ -112,7 +106,7 @@ export default function EmployerEWallet({
     const typeLabels: Record<string, string> = {
       TOP_UP: t('employerEWallet.transactions.topUp'),
       ESCROW: t('employerEWallet.transactions.escrow'),
-      PAYOUT: t('employerEWallet.transactions.payout'),
+      PAYOUT: t(tx?.jobReference ? 'wallet.jobPayment' : 'wallet.withdraw', { ns: 'common' }),
       REFUND: t('employerEWallet.transactions.refund'),
     };
     const defaultTitle = typeLabels[type] || t('employerEWallet.transactions.defaultTitle');
@@ -179,19 +173,16 @@ export default function EmployerEWallet({
       }
 
       // /payment/wallet already returns balance + summary â€” no need to also call /auth/me
-      const [txResult, invoiceResult, payoutResult] = await Promise.all([
+      const [txResult, invoiceResult] = await Promise.all([
         apiRequest(`${API_URL}/payment/wallet?mode=employer`, {
           headers: { Authorization: `Bearer ${token}` },
         }, t('employerEWallet.errors.transactionsFailed')),
         apiRequest(`${API_URL}/payment/qr-requests?mode=employer`, {
           headers: { Authorization: `Bearer ${token}` },
         }, t('employerEWallet.errors.requestsFailed')),
-        apiRequest(`${API_URL}/payment/payout-requests?balanceTarget=EMPLOYER`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }, t('employerEWallet.errors.withdrawalsFailed')),
       ]);
 
-      const walletFailed = [txResult, invoiceResult, payoutResult].find((r) => !r.ok);
+      const walletFailed = [txResult, invoiceResult].find((r) => !r.ok);
       if (walletFailed) {
         setWalletError(formatApiError(walletFailed, 'employerEWallet.errors.someUnavailable'));
       }
@@ -226,11 +217,6 @@ export default function EmployerEWallet({
           preview: item?.preview || item,
         })));
       }
-      if (payoutResult.ok) {
-        const payoutPayload = asObject<any>(payoutResult.data) || asObject<any>(payoutResult.raw) || {};
-        setPayoutRequests(Array.isArray(payoutPayload.payoutRequests) ? payoutPayload.payoutRequests : []);
-      }
-
       if (showFeedback && hasBalanceResult) {
         if (refreshedBalance <= 0) {
           toast.info(t('employerEWallet.toast.noBalance'));
@@ -389,44 +375,6 @@ export default function EmployerEWallet({
     }
   };
 
-  const handleWithdrawal = async () => {
-    const amount = Number(withdrawalAmount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      toast.error(t('employerEWallet.toast.invalidWithdrawalAmount'));
-      return;
-    }
-    if (amount > liveBalance) {
-      toast.error(t('employerEWallet.toast.withdrawalExceedsBalance'));
-      return;
-    }
-    if (!withdrawalInstitution.trim() || !withdrawalAccountName.trim() || !withdrawalAccountNumber.trim()) {
-      toast.error(t('employerEWallet.toast.incompleteWithdrawalDestination'));
-      return;
-    }
-    setIsSubmittingWithdrawal(true);
-    try {
-      const token = await AsyncStorage.getItem('auth_token');
-      if (!token) throw new Error(t('employerEWallet.toast.signInFirst'));
-      const result = await apiRequest(`${API_URL}/payment/payout-requests`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          amount,
-          balanceTarget: 'EMPLOYER',
-          idempotencyKey: `employer-payout-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          destinationSnapshot: { methodType: withdrawalMethod, institutionName: withdrawalInstitution.trim(), accountName: withdrawalAccountName.trim(), accountNumber: withdrawalAccountNumber.trim() },
-        }),
-      }, t('employerEWallet.errors.createWithdrawalFailed'));
-      if (!result.ok) throw new Error(formatApiError(result, 'employerEWallet.errors.createWithdrawalFailed'));
-      setWithdrawalAmount(''); setWithdrawalInstitution(''); setWithdrawalAccountName(''); setWithdrawalAccountNumber(''); setIsWithdrawalExpanded(false);
-      toast.success(t('employerEWallet.toast.withdrawalSubmitted'));
-      await refreshWalletData();
-    } catch (error: any) {
-      toast.error(formatApiError(error, 'employerEWallet.toast.withdrawalFailed'));
-    } finally {
-      setIsSubmittingWithdrawal(false);
-    }
-  };
 
   return (
     <View style={styles.container}>
@@ -513,21 +461,8 @@ export default function EmployerEWallet({
         </EmployerAccordion>
 
         <EmployerAccordion title={t('employerEWallet.withdrawal.accordionTitle')} subtitle={t('employerEWallet.withdrawal.accordionSubtitle', { amount: php(liveBalance) })} expanded={isWithdrawalExpanded} onToggle={() => setIsWithdrawalExpanded((expanded) => !expanded)}>
-          <View>
-            <Text style={styles.cardTitle}>{t('employerEWallet.withdrawal.cardTitle')}</Text>
-            <Text style={styles.cardSubtitle}>{t('employerEWallet.withdrawal.cardSubtitle')}</Text>
-            <View style={styles.formField}><Text style={styles.inputLabel}>{t('employerEWallet.withdrawal.amountLabel')}</Text><TextInput style={styles.input} value={withdrawalAmount} onChangeText={(value) => setWithdrawalAmount(value.replace(/[^0-9.]/g, ''))} keyboardType="numeric" placeholder="100" placeholderTextColor={tokens.colors.textSubtle} /></View>
-            <View style={styles.formField}><Text style={styles.inputLabel}>{t('employerEWallet.withdrawal.methodLabel')}</Text><TextInput style={styles.input} value={withdrawalMethod} onChangeText={setWithdrawalMethod} placeholder="bank_transfer" placeholderTextColor={tokens.colors.textSubtle} /></View>
-            <View style={styles.formField}><Text style={styles.inputLabel}>{t('employerEWallet.withdrawal.institutionLabel')}</Text><TextInput style={styles.input} value={withdrawalInstitution} onChangeText={setWithdrawalInstitution} placeholder="BDO, GCash, Maya" placeholderTextColor={tokens.colors.textSubtle} /></View>
-            <View style={styles.formField}><Text style={styles.inputLabel}>{t('employerEWallet.withdrawal.accountNameLabel')}</Text><TextInput style={styles.input} value={withdrawalAccountName} onChangeText={setWithdrawalAccountName} placeholder="Juan Dela Cruz" placeholderTextColor={tokens.colors.textSubtle} /></View>
-            <View style={styles.formField}><Text style={styles.inputLabel}>{t('employerEWallet.withdrawal.accountNumberLabel')}</Text><TextInput style={styles.input} value={withdrawalAccountNumber} onChangeText={setWithdrawalAccountNumber} placeholder="09171234567" placeholderTextColor={tokens.colors.textSubtle} /></View>
-            <TouchableOpacity style={[styles.primaryButton, isSubmittingWithdrawal && styles.primaryButtonDisabled]} onPress={() => void handleWithdrawal()} disabled={isSubmittingWithdrawal} accessibilityRole="button" accessibilityState={{ busy: isSubmittingWithdrawal, disabled: isSubmittingWithdrawal }}>{isSubmittingWithdrawal ? <ActivityIndicator color={tokens.colors.onBrand} /> : <Text style={styles.primaryButtonText}>{t('employerEWallet.withdrawal.submitButton')}</Text>}</TouchableOpacity>
-          </View>
+          <WithdrawalPanel sourceWallet="EMPLOYER" balance={liveBalance} onChanged={() => void refreshWalletData(false)} />
         </EmployerAccordion>
-
-        <WalletSection title={t('employerEWallet.withdrawal.historyTitle')} subtitle={t('employerEWallet.withdrawal.historySubtitle')}>
-          {payoutRequests.length === 0 ? <WalletEmpty icon="cash-outline" title={t('employerEWallet.withdrawal.emptyTitle')} body={t('employerEWallet.withdrawal.emptyBody')} /> : payoutRequests.map((request) => <WalletTransactionRow key={String(request._id)} title={php(Number(request.amount || 0))} subtitle={`${request.destinationSnapshot?.institutionName || '—'} · ${request.destinationSnapshot?.accountName || '—'}`} amount={`-${php(Number(request.amount || 0))}`} date={formatDate(request.createdAt)} status={String(request.status || 'requested').toUpperCase()} direction="debit" />)}
-        </WalletSection>
 
         <WalletSection title={t('employerEWallet.invoices.sectionTitle')} subtitle={t('employerEWallet.invoices.sectionSubtitle')} collapsible collapsed={areInvoicesCollapsed} onToggle={() => setAreInvoicesCollapsed((collapsed) => !collapsed)}>
           {invoices.length === 0 ? <WalletEmpty icon="qr-code-outline" title={t('employerEWallet.invoices.emptyTitle')} body={t('employerEWallet.invoices.emptyBody')} /> : (

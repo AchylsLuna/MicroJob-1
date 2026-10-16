@@ -13,7 +13,9 @@
       "offerSent": "Offer Sent",
       "hired": "Hired",
       "rejected": "Rejected",
-      "withdrawn": "Withdrawn"
+      "withdrawn": "Withdrawn",
+      "cancelled": "Cancelled",
+      "positionFilled": "Position filled"
     },
     "summary": {
       "loading": "Loading applications...",

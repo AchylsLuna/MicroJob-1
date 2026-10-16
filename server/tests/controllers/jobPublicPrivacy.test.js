@@ -1,7 +1,7 @@
 import test, { after, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import Category from '../../models/Category.js';
 import Job from '../../models/Job.js';
 import JobApplication from '../../models/JobApplication.js';
@@ -56,7 +56,7 @@ const assertPublicJob = (job, applicantCount = 1) => {
 };
 
 before(async () => {
-  mongoServer = await MongoMemoryServer.create();
+  mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   await mongoose.connect(mongoServer.getUri(), { dbName: 'job-public-privacy-tests' });
 });
 beforeEach(async () => mongoose.connection.db.dropDatabase());

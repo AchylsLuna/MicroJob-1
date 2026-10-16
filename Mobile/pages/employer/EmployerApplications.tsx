@@ -1,3 +1,6 @@
+import OfferDecisionModal from '../../components/OfferDecisionModal';
+import { walletRequest } from '../../lib/lifecycleApi';
+import AssignmentPanel from '../../components/AssignmentPanel';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -171,7 +174,9 @@ export default function EmployerApplications({
 }) {
   const toast = useToast();
   const { t } = useTranslation('employer');
+  const { t: tc } = useTranslation('common');
   const [jobs, setJobs] = useState<JobItem[]>([]);
+  const [cancelOfferId, setCancelOfferId] = useState<string | null>(null);
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -361,7 +366,7 @@ export default function EmployerApplications({
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          ...(body ? { body: JSON.stringify(body) } : {}),
+          body: JSON.stringify({ ...body, ...(path.includes('/payment/authorize') || path.includes('/payment/settle') ? { confirmed: true } : {}) }),
         },
         t('employerApplications.errors.actionFailed'),
       );
@@ -374,6 +379,20 @@ export default function EmployerApplications({
     } finally {
       setBusyId(null);
     }
+  };
+  const reviewPayment = async (item: ApplicationItem, action: 'authorize' | 'settle') => {
+    try {
+      const preview = await walletRequest(`/applications/${item._id}/payment/preview`, {});
+      setConfirmAction({
+        title: t('employerApplications.confirm.pay.title'),
+        question: t('employerApplications.confirm.pay.question', { amount: formatCurrency(preview.amount), name: nameOf(t, item) }),
+        detail: `${t('employerApplications.confirm.pay.detail')} ${tc('lifecycle.releaseAmount', { amount: formatCurrency(preview.amount) })}`,
+        label: t('employerApplications.confirm.pay.label'),
+        run: async () => { if (await request(item._id, `applications/${item._id}/payment/${action}`)) {
+          if (action === 'settle') toast.success(t('employerApplications.toast.workerPaid'));
+        } },
+      });
+    } catch (caught: any) { toast.error(caught?.message || t('employerApplications.errors.actionFailed')); }
   };
   const changeStatus = async (item: ApplicationItem, status: string) => {
     setBusyId(item._id);
@@ -700,22 +719,7 @@ export default function EmployerApplications({
                       },
                     });
                   }}
-                  onCancelOffer={() =>
-                    setConfirmAction({
-                      title: t('employerApplications.confirm.cancelOffer.title'),
-                      question: t('employerApplications.confirm.cancelOffer.question', { amount: formatCurrency(item.offer?.amount) }),
-                      detail: t('employerApplications.confirm.cancelOffer.detail'),
-                      label: t('employerApplications.confirm.cancelOffer.label'),
-                      destructive: true,
-                      run: async () => {
-                        if (item.offer)
-                          await request(
-                            item._id,
-                            `job-offers/${item.offer.id}/cancel`,
-                          );
-                      },
-                    })
-                  }
+                  onCancelOffer={() => { if (item.offer) setCancelOfferId(item.offer.id); }}
                   onConfirmHire={() =>
                     setConfirmAction({
                       title: t('employerApplications.confirm.confirmHire.title'),
@@ -734,29 +738,8 @@ export default function EmployerApplications({
                       },
                     })
                   }
-                  onAuthorize={() =>
-                    void request(
-                      item._id,
-                      `applications/${item._id}/payment/authorize`,
-                    )
-                  }
-                  onPay={() =>
-                    setConfirmAction({
-                      title: t('employerApplications.confirm.pay.title'),
-                      question: t('employerApplications.confirm.pay.question', { amount: formatCurrency(item.agreedAmount || item.job.salary), name: nameOf(t, item) }),
-                      detail: t('employerApplications.confirm.pay.detail'),
-                      label: t('employerApplications.confirm.pay.label'),
-                      run: async () => {
-                        if (
-                          await request(
-                            item._id,
-                            `applications/${item._id}/payment/settle`,
-                          )
-                        )
-                          toast.success(t('employerApplications.toast.workerPaid'));
-                      },
-                    })
-                  }
+                  onAuthorize={() => void reviewPayment(item, 'authorize')}
+                  onPay={() => void reviewPayment(item, 'settle')}
                   onRequestChanges={() =>
                     void request(
                       item._id,
@@ -877,6 +860,7 @@ export default function EmployerApplications({
         )}
       </ScrollView>
       <EmployerNavigation activeTab={activeTab} onTabPress={onTabPress} />
+      <OfferDecisionModal offerId={cancelOfferId} action="cancel" onClose={() => setCancelOfferId(null)} onDone={() => void load(true)} />
       <ConfirmModal
         visible={Boolean(confirmAction)}
         title={confirmAction?.title || ""}
@@ -994,6 +978,9 @@ export default function EmployerApplications({
 
 function CandidateCard(props: any) {
   const { t } = useTranslation('employer');
+  const { t: tc } = useTranslation('common');
+  const [completedInterviews, setCompletedInterviews] = useState<string[]>([]);
+  const [interviewError, setInterviewError] = useState('');
   const { item, expanded, busy } = props;
   const offer = item.offer as Offer;
   const offerActive = offer && ["pending", "accepted"].includes(offer.status);
@@ -1002,6 +989,9 @@ function CandidateCard(props: any) {
     Number.isFinite(offerAmount) && offerAmount >= Number(item.job.salary || 0);
   return (
     <View style={[styles.candidateCard, expanded && styles.candidateExpanded]}>
+      {interviewError ? <Text accessibilityRole="alert" style={{ color: tokens.colors.danger }}>{interviewError}</Text> : null}
+      {(item.interviews || []).filter((interview: any) => interview.status !== 'completed' && !completedInterviews.includes(interview._id) && new Date(interview.scheduledAt).getTime() <= Date.now() && !['Hired', 'Cancelled', 'Position filled', 'Withdrawn', 'Rejected'].includes(item.status)).map((interview: any) => <TouchableOpacity key={interview._id} style={{ padding: 12 }} accessibilityRole="button" onPress={async () => { try { await walletRequest(`/applications/${item._id}/interviews/${interview._id}`, { status: 'completed' }, 'PATCH'); setCompletedInterviews((old) => [...old, interview._id]); } catch (e: any) { setInterviewError(e.message); } }}><Text style={{ color: tokens.colors.brand }}>{tc('lifecycle.completeInterview')}</Text></TouchableOpacity>)}
+      {['Hired', 'Cancelled'].includes(item.status) && <AssignmentPanel applicationId={item._id} employer />}
       <TouchableOpacity
         style={styles.candidateTap}
         onPress={props.onToggle}
@@ -1067,7 +1057,7 @@ function CandidateCard(props: any) {
               label={t('employerApplications.actions.message')}
               onPress={props.onMessage}
             />
-            {!["Hired", "Rejected", "Withdrawn"].includes(item.status) ? (
+            {!["Hired", "Rejected", "Withdrawn", "Cancelled", "Position filled"].includes(item.status) ? (
               <Action
                 icon="calendar-outline"
                 label={item.nextInterview ? t('employerApplications.actions.reschedule') : t('employerApplications.actions.interview')}
@@ -1100,7 +1090,7 @@ function CandidateCard(props: any) {
               </View>
             </View>
           ) : null}
-          {!["Hired", "Rejected", "Withdrawn"].includes(item.status) &&
+          {!["Hired", "Rejected", "Withdrawn", "Cancelled", "Position filled"].includes(item.status) &&
           !offerActive ? (
             <View style={styles.offerPanel}>
               <Text style={styles.panelTitle}>{t('employerApplications.offerPanel.title')}</Text>
@@ -1231,7 +1221,7 @@ function CandidateCard(props: any) {
               ) : null}
             </View>
           ) : null}
-          {!["Hired", "Rejected", "Withdrawn"].includes(item.status) ? (
+          {!["Hired", "Rejected", "Withdrawn", "Cancelled", "Position filled"].includes(item.status) ? (
             <TouchableOpacity
               style={styles.rejectButton}
               disabled={busy}

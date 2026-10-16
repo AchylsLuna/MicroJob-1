@@ -8,6 +8,7 @@ import Category from '../../models/Category.js';
 import Job from '../../models/Job.js';
 import JobApplication from '../../models/JobApplication.js';
 import Transaction from '../../models/Transaction.js';
+import { requestCancellation } from '../../services/jobLifecycle.js';
 import { createJob, deleteJob } from '../../controllers/JobController.js';
 import { applyForJob } from '../../controllers/JobApplicationController.js';
 import { resolvePublicId } from '../../lib/publicId.js';
@@ -90,7 +91,7 @@ test('createJob proceeds past the gate for an employer with a logo but no compan
   assert.notEqual(res.payload?.code, 'EMPLOYER_PROFILE_INCOMPLETE');
 });
 
-test('posting and highlight fees are charged separately and are not returned when a listing is deleted', async () => {
+test('posting and highlight fees are charged separately and are not returned when a listing is cancelled and archived', async () => {
   const category = await Category.create({ name: 'Cleaning' });
   const employer = await createUser({
     role: 'hire',
@@ -125,13 +126,14 @@ test('posting and highlight fees are charged separately and are not returned whe
     'every job-posting ledger entry has its own stable reference',
   );
 
+  await requestCancellation({ jobId: resolvePublicId(createRes.payload.job._id), actor: employer._id, reason: 'No longer required', policyAcknowledged: true });
   const deleteRes = createResponse();
   await deleteJob({ params: { id: createRes.payload.job._id.toString() }, user: { id: employer._id.toString(), role: 'hire' } }, deleteRes);
   assert.equal(deleteRes.statusCode, 200);
   assert.equal((await User.findById(employer._id)).employerBalance, 930, 'only escrow is refunded');
 });
 
-test('an administrator can delete a job and returns its remaining escrow to the employer', async () => {
+test('an administrator can archive a cancelled job while retaining its refund record', async () => {
   const category = await Category.create({ name: 'Cleaning' });
   const employer = await createUser({
     role: 'hire',
@@ -145,6 +147,7 @@ test('an administrator can delete a job and returns its remaining escrow to the 
     user: { id: employer._id.toString(), role: 'hire' },
   }, createRes);
 
+  await requestCancellation({ jobId: resolvePublicId(createRes.payload.job._id), actor: employer._id, reason: 'No longer required', policyAcknowledged: true });
   const deleteRes = createResponse();
   await deleteJob(
     { params: { id: createRes.payload.job._id.toString() }, user: { id: admin._id.toString(), role: 'admin' } },
@@ -154,12 +157,12 @@ test('an administrator can delete a job and returns its remaining escrow to the 
   assert.equal(deleteRes.statusCode, 200);
   const storedJobId = resolvePublicId(createRes.payload.job._id);
   assert.ok(storedJobId);
-  assert.equal(await Job.exists({ _id: storedJobId }), null);
+  assert.ok((await Job.findById(storedJobId)).archivedAt);
   assert.equal((await User.findById(employer._id)).employerBalance, 980);
   const refunds = await Transaction.find({ jobReference: storedJobId, type: 'REFUND' });
   assert.equal(refunds.length, 1);
   assert.equal(refunds[0].amount, 500);
-  assert.match(refunds[0].reference, /^job-delete-refund:/);
+  assert.match(refunds[0].reference, /^job-cancellation-refund:/);
 });
 
 test('applyForJob rejects a worker with no profile photo', async () => {

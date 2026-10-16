@@ -1,3 +1,5 @@
+import { previewWithdrawal } from '../../services/withdrawals.js';
+import NotificationOutbox from '../../models/NotificationOutbox.js';
 import test, { after, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
@@ -57,7 +59,7 @@ const request = ({ user, body = {}, params = {}, query = {} }) => ({
 before(async () => {
   replicaSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   await mongoose.connect(replicaSet.getUri(), { dbName: 'admin-critical-flow-tests' });
-  await Promise.all([PayoutRequest.init(), Transaction.init(), SupportTicket.init()]);
+  await Promise.all([NotificationOutbox.init(), PayoutRequest.init(), Transaction.init(), SupportTicket.init()]);
 });
 
 beforeEach(async () => {
@@ -102,26 +104,14 @@ async function createEmployer(balance = 500) {
     passwordHashed: 'not-used',
   });
 }
-
-async function submitPayout(worker, { amount = 100, idempotencyKey = 'payout-test-key', balanceTarget } = {}) {
-  const res = response();
-  await createPayoutRequest(
-    request({
-      user: { id: String(worker._id), role: worker.role },
-      body: {
-        amount,
-        idempotencyKey,
-        ...(balanceTarget ? { balanceTarget } : {}),
-        destinationSnapshot: {
-          methodType: 'bank_transfer',
-          institutionName: 'Test Bank',
-          accountName: 'Payout Worker',
-          accountNumber: '1234567890',
-        },
-      },
-    }),
-    res,
-  );
+const previews = new Map();
+async function submitPayout(worker, { amount = 100, idempotencyKey = 'payout-test-key' } = {}) {
+  const res = response(); const key = `${worker._id}:${idempotencyKey}`;
+  try {
+    if (!previews.has(key)) previews.set(key, previewWithdrawal(worker._id, { amount, destinationSnapshot: { methodType: 'bank_transfer', institutionName: 'Test Bank', accountName: 'Payout Worker', accountNumber: '1234567890' } }));
+    const preview = await previews.get(key);
+    await createPayoutRequest(request({ user: { id: String(worker._id), role: worker.role }, body: { previewToken: preview.previewToken, detailsConfirmed: true } }), res);
+  } catch (error) { res.status(error.status || 500).json({ message: error.message }); }
   return res;
 }
 
@@ -144,27 +134,19 @@ test('payout submission is atomic and idempotent', async () => {
   assert.equal((await User.findById(worker._id)).workerBalance, 400);
 });
 
-test('employer payout debits and refunds only the employer balance', async () => {
+test('employer withdrawals cannot fall back to manual Finance payment while automatic transfers are unavailable', async () => {
   const employer = await createEmployer();
-  const submitted = await submitPayout(employer, { amount: 125, idempotencyKey: 'employer-payout-key', balanceTarget: 'EMPLOYER' });
-  assert.equal(submitted.statusCode, 201);
-  assert.equal(submitted.payload.payoutRequest.balanceTarget, 'EMPLOYER');
-  let refreshedEmployer = await User.findById(employer._id);
-  assert.equal(refreshedEmployer.employerBalance, 375);
-  assert.equal(refreshedEmployer.workerBalance, 0);
-  const payout = await PayoutRequest.findById(submitted.payload.payoutRequest._id);
-  assert.equal((await Transaction.findById(payout.transaction)).balanceTarget, 'EMPLOYER');
-
-  const adminId = new mongoose.Types.ObjectId();
-  const rejected = response();
-  await updateAdminPayoutRequest(
-    request({ user: { id: String(adminId), role: 'admin' }, params: { payoutRequestId: String(payout._id) }, body: { status: 'rejected', reviewNotes: 'Destination could not be verified.' } }),
-    rejected,
-  );
-  assert.equal(rejected.statusCode, 200);
-  refreshedEmployer = await User.findById(employer._id);
-  assert.equal(refreshedEmployer.employerBalance, 500);
-  assert.equal(refreshedEmployer.workerBalance, 0);
+  const enabled = process.env.AUTOMATIC_WITHDRAWALS_ENABLED;
+  delete process.env.AUTOMATIC_WITHDRAWALS_ENABLED;
+  try {
+    await assert.rejects(previewWithdrawal(employer._id, { sourceWallet: 'EMPLOYER', amount: 125,
+      destinationSnapshot: { methodType: 'bank_transfer', institutionName: 'Test Bank', accountName: 'Employer', accountNumber: '1234567890' } }), (error) => error.status === 503);
+    assert.equal((await User.findById(employer._id)).employerBalance, 500);
+    assert.equal(await PayoutRequest.countDocuments(), 0);
+    assert.equal(await Transaction.countDocuments(), 0);
+  } finally {
+    if (enabled !== undefined) process.env.AUTOMATIC_WITHDRAWALS_ENABLED = enabled;
+  }
 });
 
 test('payout review enforces state order and concurrent rejection refunds once', async () => {
@@ -175,7 +157,7 @@ test('payout review enforces state order and concurrent rejection refunds once',
 
   const directPaid = response();
   await updateAdminPayoutRequest(
-    request({ user: { id: String(adminId), role: 'admin' }, params: { payoutRequestId: payoutId }, body: { status: 'paid' } }),
+    request({ user: { id: String(adminId), role: 'admin' }, params: { payoutRequestId: payoutId }, body: { status: 'paid', transferReference: 'bank-transfer-test' } }),
     directPaid,
   );
   assert.equal(directPaid.statusCode, 409);

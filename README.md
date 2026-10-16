@@ -34,9 +34,9 @@ Override them only with `DEV_API_PORT`, `DEV_CLIENT_PORT`, and `METRO_PORT`
 respectively.
 Avoid a generic `PORT` when starting Expo because it is intentionally ignored.
 
-Android builds require JDK 17. Expo Go compatibility is intentionally pinned to
-Expo SDK 54 and React Native 0.81; do not run a forced audit upgrade that changes
-that compatibility set.
+Android builds require JDK 17. The mobile SDK and React Native versions are
+pinned together in `Mobile/package.json` and `Mobile/package-lock.json`. Keep that
+compatibility set intact when applying dependency security updates.
 For normal Expo Go development, use the unified `npm run dev` command rather
 than starting another Metro process. Mobile API and Socket.IO requests use the
 deployed endpoints configured in `Mobile/.env.example`, in both LAN and tunnel
@@ -111,3 +111,9 @@ upstream build-tool advisories whose npm-suggested fix upgrades Expo and React N
 beyond the supported Expo Go version. These advisories are accepted only while SDK 54
 is required; reassess them during each Expo compatibility upgrade. Never use
 `npm audit fix --force` for this repository.
+
+## Job lifecycle and withdrawal rollout
+
+See [the operational policy and rollout guide](docs/lifecycle-policy.md) for cancellation,
+financial disputes, automatic employer withdrawals, migration dry runs, and maintenance
+configuration. Automatic transfers are disabled until explicitly configured and verified.

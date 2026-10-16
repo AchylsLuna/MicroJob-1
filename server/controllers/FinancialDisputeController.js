@@ -41,6 +41,7 @@ const populateDispute = (query) => query
 export function shapeFinancialDispute(dispute, { staff = false } = {}) {
   const doc = dispute?.toObject ? dispute.toObject() : structuredClone(dispute || {});
   if (!staff) {
+    doc.evidence = (doc.evidence || []).map((entry) => ({ ...entry, description: entry.description || entry.statement || (entry.noEvidence ? 'No evidence available' : '') }));
     doc.messages = (doc.messages || []).filter((message) => message.visibleToParties !== false);
     if (doc.investigationReport) delete doc.investigationReport.supportNotes;
     doc.investigationReportHistory = (doc.investigationReportHistory || []).map((report) => {
@@ -108,6 +109,7 @@ export async function addFinancialDisputeEvidence(req, res) {
       return res.status(403).json({ message: 'Only the assigned Support investigator can add staff evidence.' });
     }
     if (!dispute.active) return res.status(409).json({ message: 'This financial dispute is already resolved.' });
+    if (isParticipant && dispute.evidenceDueAt && new Date(dispute.evidenceDueAt) <= new Date()) return res.status(409).json({ message: 'The seven-day evidence period has ended.' });
     const description = String(req.body?.description || '').trim();
     if (!req.file && !description) return res.status(400).json({ message: 'Choose a file or describe the evidence reference.' });
     if (req.file && !hasValidDisputeEvidenceFileSignature(req.file)) {
@@ -173,6 +175,7 @@ export async function submitEmployerResponse(req, res) {
     if (!dispute) return res.status(404).json({ message: 'Financial dispute not found.' });
     if (String(dispute.employer) !== userId(req)) return res.status(403).json({ message: 'Only the employer involved in this dispute can provide this response.' });
     if (!dispute.active) return res.status(409).json({ message: 'This financial dispute is already resolved.' });
+    if (dispute.evidenceDueAt && new Date(dispute.evidenceDueAt) <= new Date()) return res.status(409).json({ message: 'The seven-day evidence period has ended.' });
     dispute.employerResponse = response;
     dispute.messages.push({ author: userId(req), authorRole: 'employer', body: response, visibleToParties: true });
     dispute.auditLogs.push({ userId: userId(req), role: 'employer', action: 'EMPLOYER_RESPONDED', newStatus: dispute.investigationStatus });

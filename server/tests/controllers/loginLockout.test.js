@@ -140,7 +140,7 @@ test('a successful sign-in clears the escalation history', async () => {
   assert.equal(state.lockUntil, null);
 });
 
-test('repeated lockouts escalate the lock duration', async () => {
+test('repeated lockouts keep a fixed three-minute duration', async () => {
   const lockOnce = async () => {
     for (let i = 0; i < MAX_FAILED_ATTEMPTS; i += 1) {
       await attempt(`WrongPassword${i}!`);
@@ -156,8 +156,8 @@ test('repeated lockouts escalate the lock duration', async () => {
   const second = await lockOnce();
 
   assert.ok(first <= LOCK_DURATIONS_MS[0] && first > LOCK_DURATIONS_MS[0] - 60_000);
-  assert.ok(second <= LOCK_DURATIONS_MS[1] && second > LOCK_DURATIONS_MS[1] - 60_000);
-  assert.ok(second > first, 'the second lock must last longer than the first');
+  assert.ok(second <= LOCK_DURATIONS_MS[0] && second > LOCK_DURATIONS_MS[0] - 60_000);
+  assert.ok(Math.abs(second - first) < 2000, 'repeated failures must not increase the restriction');
 });
 
 /**
@@ -207,4 +207,14 @@ test('the lockout counters never leak into an API response', async () => {
   assert.ok(!serialized.includes('failedLoginAttempts'));
   assert.ok(!serialized.includes('loginLockCount'));
   assert.ok(!serialized.includes('lockUntil'));
+});
+
+test('concurrent failures count atomically and retries do not extend the lock', async () => {
+  await Promise.all(Array.from({ length: 10 }, (_, i) => attempt(`ConcurrentWrong${i}!`)));
+  const locked = await lockState();
+  assert.equal(locked.loginLockCount, 1);
+  assert.ok(locked.lockUntil.getTime() > Date.now());
+  const originalExpiry = locked.lockUntil.getTime();
+  await attempt('AnotherWrong1!');
+  assert.equal((await lockState()).lockUntil.getTime(), originalExpiry);
 });

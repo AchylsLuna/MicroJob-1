@@ -3,6 +3,13 @@ import { ALL_JOB_TYPES } from '../lib/jobPosting.js';
 
 const JobSchema = new mongoose.Schema(
     {
+        fundsVersion: { type: Number, default: 0 },
+        interviewRequired: { type: Boolean, default: false },
+        archivedAt: { type: Date, default: null },
+        repostOf: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', default: null },
+        cancellationPending: { type: Boolean, default: false },
+        cancellationReason: { type: String, default: null },
+        cancelledAt: { type: Date, default: null },
         title: {
             type: String,
             maxlength: 100,

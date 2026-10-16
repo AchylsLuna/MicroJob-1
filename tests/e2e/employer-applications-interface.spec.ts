@@ -33,6 +33,7 @@ async function mockApplications(page: Page, options: { accepted?: boolean } = {}
       applicationQueries.push(url);
       body = applications.filter((application) => application.job._id === url.searchParams.get("jobId") && (url.searchParams.get("includeHidden") === "true" || !application.employerHidden));
     }
+    if (url.pathname.endsWith("/payment/preview")) body = { amount: applications[0].agreedAmount, source: "Secured job funds", walletDebit: 0 };
     if (["POST", "PUT", "PATCH"].includes(request.method())) {
       mutations.push({ path: url.pathname, body: request.postData() ? request.postDataJSON() : null });
       const application = applications[0];
@@ -44,6 +45,7 @@ async function mockApplications(page: Page, options: { accepted?: boolean } = {}
       }
       if (url.pathname.endsWith("/confirm-hire")) {
         application.status = "Hired";
+        application.agreedAmount = application.offer!.amount;
         application.offer!.status = "hired";
         body = { application, offer: application.offer };
       }
@@ -120,7 +122,7 @@ test("Actions progresses from status and offer through applicant response, hire 
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(actions.getByText("Do you wish to hire this applicant?", { exact: true })).toBeVisible();
   await expect(steps.locator('[aria-current="step"]')).toHaveText("3. Hire decision");
-  await expect(actions.getByRole("note")).toHaveText("Hiring an applicant will put the job in progress and you won't be able to delete it");
+  await expect(actions.getByRole("note")).toHaveText("Confirming a hire secures the assignment. The worker selects Start work when ready; job and payment records remain in history.");
   await expect(actions.getByRole("button", { name: "Reject", exact: true })).toBeVisible();
   await actions.getByRole("button", { name: "Hire", exact: true }).click();
   expect(state.mutations.filter((call) => call.path.endsWith("/confirm-hire"))).toHaveLength(0);
@@ -129,6 +131,7 @@ test("Actions progresses from status and offer through applicant response, hire 
   await expect(actions.locator('[aria-current="step"]')).toHaveText("4. Payment");
   await expect(actions.getByRole("button", { name: "Approve & Pay", exact: true })).toHaveCount(0);
   await actions.getByRole("button", { name: "Authorize Payment", exact: true }).click();
+  await page.getByRole("dialog", { name: "Approve & Pay", exact: true }).getByRole("button", { name: "Confirm", exact: true }).click();
   await expect(actions.getByText("Payment is authorized. Funds remain secured until you approve the submitted work.")).toBeVisible();
   expect(state.mutations.filter((call) => call.path.endsWith("/payment/authorize"))).toHaveLength(1);
 });
@@ -139,7 +142,10 @@ test("Reject cancels accepted offer before rejecting the application", async ({ 
   await page.getByRole("button", { name: "Actions", exact: true }).click();
   await page.getByRole("dialog", { name: "Applicant Actions" }).getByRole("button", { name: "Reject", exact: true }).click();
   expect(state.mutations).toHaveLength(0);
-  await page.getByRole("dialog", { name: "Reject applicant", exact: true }).getByRole("button", { name: "Reject", exact: true }).click();
+  const cancellation = page.getByRole("dialog", { name: "Reason for canceling this offer", exact: true });
+  await cancellation.getByRole("textbox").fill("Requirements changed before the hire");
+  await cancellation.getByRole("checkbox").check();
+  await cancellation.getByRole("button", { name: "Confirm action", exact: true }).click();
   await expect(page.getByRole("row", { name: /Maria Santos/ })).toContainText("Rejected");
   expect(state.mutations.map((call) => call.path)).toEqual(["/api/job-offers/offer-0/cancel", "/api/applications/app-0/status"]);
   expect(state.mutations[1].body).toEqual({ status: "Rejected" });

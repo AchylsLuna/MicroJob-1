@@ -176,7 +176,7 @@ const buildPasswordResetEmail = ({ username, expiryMinutes, resetUrl }) => {
     };
 };
 
-const TERMINAL_APPLICATION_STATUSES = ["Rejected", "Withdrawn", "Hired"];
+const TERMINAL_APPLICATION_STATUSES = ["Rejected", "Withdrawn", "Hired", "Cancelled", "Position filled"];
 async function removeStoredUploads(values) {
     const names = [...new Set(
         values
@@ -229,7 +229,7 @@ async function getDeletionBlockers(userId) {
     }
 
     const [pendingPayouts, openJobs, applicantApplications, employerApplications] = await Promise.all([
-        PayoutRequest.countDocuments({ user: userId, status: { $in: ["requested", "approved"] } }),
+        PayoutRequest.countDocuments({ user: userId, status: { $in: ["requested", "approved", "processing"] } }),
         Job.countDocuments({ jobPoster: userId, status: { $nin: ["Completed", "Cancelled"] } }),
         JobApplication.countDocuments({ applicant: userId, status: { $nin: TERMINAL_APPLICATION_STATUSES } }),
         JobApplication.countDocuments({

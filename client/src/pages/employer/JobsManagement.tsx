@@ -1,3 +1,4 @@
+import { PostingActions } from '../../components/PostingActions';
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
@@ -92,6 +93,8 @@ const formatJobDate = (value?: string): string => {
 export function JobsManagement() {
   const { t } = useTranslation("employer");
   const navigate = useNavigate();
+  const { t: tc } = useTranslation("common");
+  const [historyView, setHistoryView] = useState(false);
   const [jobs, setJobs] = useState<JobPosting[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [markingDoneJobId, setMarkingDoneJobId] = useState<string | null>(null);
@@ -318,6 +321,7 @@ export function JobsManagement() {
         </div>
       </div>
 
+      <div className="flex gap-3"><button type="button" className="rounded-xl border p-3" aria-pressed={!historyView} onClick={() => setHistoryView(false)}>{tc("lifecycle.active")}</button><button type="button" className="rounded-xl border p-3" aria-pressed={historyView} onClick={() => setHistoryView(true)}>{tc("lifecycle.jobHistory")}</button></div>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {isLoading &&
           Array.from({ length: 3 }).map((_, index) => (
@@ -356,7 +360,7 @@ export function JobsManagement() {
             <p className="text-sm text-slate-500">{loadError}</p>
           </div>
         )}
-        {!isLoading && !loadError && jobs.map((job) => {
+        {!isLoading && !loadError && jobs.filter((job) => historyView ? !["Available", "In Progress"].includes(job.backendStatus) || job.source.archivedAt : ["Available", "In Progress"].includes(job.backendStatus) && !job.source.archivedAt).map((job) => {
           const isMarkingDone = markingDoneJobId === job.id;
           const isDeleting = deletingJobId === job.id;
           const isReopening = reopeningJobId === job.id;
@@ -460,6 +464,7 @@ export function JobsManagement() {
               >
                 {t("jobsManagement.card.viewDetails")}
               </button>
+              <PostingActions job={job.source} onChanged={() => void loadJobs()} />
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <button
                   type="button"
@@ -471,7 +476,7 @@ export function JobsManagement() {
                 >
                   {t("jobsManagement.card.editDetails")}
                 </button>
-                {job.status === "Closed" && job.backendStatus !== "Resolved" && (
+                {job.status === "Closed" && !["Resolved", "Completed", "Cancelled", "Full refund"].includes(job.backendStatus) && !job.source.cancellationPending && (
                   <button
                     type="button"
                     onClick={() => void handleReopenJob(job)}

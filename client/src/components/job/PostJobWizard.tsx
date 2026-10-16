@@ -74,6 +74,7 @@ export default function PostJobWizard({
   onDismissError,
 }: PostJobWizardProps) {
   const { t } = useTranslation("employer");
+  const { t: tc } = useTranslation("common");
   const prefersReducedMotion = useReducedMotion();
   const jobTypeOptions = useMemo(() => getJobTypeOptions(t), [t]);
   const requiredFieldLabels = useMemo(() => getRequiredFieldLabels(t), [t]);
@@ -323,7 +324,7 @@ export default function PostJobWizard({
                 </div>
 
                 <div>
-                  <label htmlFor="job-skills" className="mb-2 block text-sm font-semibold text-slate-700">
+                  <label className="flex gap-3 items-center"><input type="checkbox" checked={formData.interviewRequired} onChange={(e) => setFormData((old) => ({ ...old, interviewRequired: e.target.checked }))} />{tc("lifecycle.interviewRequired")}</label><label htmlFor="job-skills" className="mb-2 block text-sm font-semibold text-slate-700">
                     {t("postJob.skills.label")}{" "}
                     <span className="font-normal text-slate-400">{t("postJob.skills.optional")}</span>
                   </label>

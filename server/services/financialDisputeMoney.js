@@ -36,6 +36,7 @@ export async function getDisputeMoneySnapshot({ application, job, session = null
       $or: [
         { relatedEntityType: 'job_application', relatedEntityId: applicationId },
         { reference: `application-payout:${applicationId}` },
+        { 'meta.applicationId': applicationId },
       ],
     }, session),
     aggregateTotal({ jobReference: job._id, type: 'ESCROW', status: 'COMPLETED' }, session),

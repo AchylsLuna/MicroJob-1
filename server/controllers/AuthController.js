@@ -225,6 +225,7 @@ const loginUser = async (req, res) => {
     // mistyped their password gets back in by waiting rather than by asking
     // support.
     if (user.isLoginLocked()) {
+      await bcrypt.compare(password, ENUMERATION_TIMING_HASH);
       return sendError(res, 401, invalidMessage);
     }
 

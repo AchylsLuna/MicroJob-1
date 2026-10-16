@@ -29,7 +29,15 @@
       "pageAria": "Job history pages",
       "goToPage": "Go to page {{page}}"
     },
-    "statuses": { "Available": "Available", "In Progress": "In Progress", "Completed": "Completed", "Cancelled": "Cancelled", "Closed": "Closed", "Full refund": "Full refund", "Resolved": "Resolved" }
+    "statuses": {
+      "Available": "Available",
+      "In Progress": "In Progress",
+      "Completed": "Completed",
+      "Cancelled": "Cancelled",
+      "Closed": "Closed",
+      "Full refund": "Full refund",
+      "Resolved": "Resolved"
+    }
   },
   "postJob": {
     "header": {
@@ -242,24 +250,24 @@
       "defaultTitle": "this job",
       "confirm": "Delete job"
     },
-  "profileIncomplete": {
-    "toast": "Add a profile photo in Settings before posting a job."
-  },
-  "highlight": {
-    "title": "Highlight job",
-    "tooltip": "Highlighted listings appear more prominently near the top of job search results.",
-    "description": "Make this listing easier to find for {{amount}}. This fee is not refundable."
-  },
-  "checkout": {
-    "title": "Checkout",
-    "workerPay_one": "Worker's pay · {{count}} worker",
-    "workerPay_other": "Workers' pay · {{count}} workers",
-    "postingFee": "Posting fee",
-    "highlightFee": "Highlight fee",
-    "total": "Total",
-    "nonRefundable": "The posting and highlight fees are non-refundable, including if you delete this listing. Workers receive their full secured pay."
-  },
-  "wizard": {
+    "profileIncomplete": {
+      "toast": "Add a profile photo in Settings before posting a job."
+    },
+    "highlight": {
+      "title": "Highlight job",
+      "tooltip": "Highlighted listings appear more prominently near the top of job search results.",
+      "description": "Make this listing easier to find for {{amount}}. This fee is not refundable."
+    },
+    "checkout": {
+      "title": "Checkout",
+      "workerPay_one": "Worker's pay · {{count}} worker",
+      "workerPay_other": "Workers' pay · {{count}} workers",
+      "postingFee": "Posting fee",
+      "highlightFee": "Highlight fee",
+      "total": "Total",
+      "nonRefundable": "The posting and highlight fees are non-refundable, including if you delete this listing. Workers receive their full secured pay."
+    },
+    "wizard": {
       "stepAria": "Step {{step}} of {{total}}: {{title}}",
       "steps": {
         "job": {
@@ -283,8 +291,8 @@
       "next": "Next",
       "summary": {
         "title": "Review before you post",
-      "job": "Job",
-      "description": "Description",
+        "job": "Job",
+        "description": "Description",
         "category": "Category",
         "location": "Location",
         "jobType": "Type",
@@ -426,7 +434,9 @@
       "offerSent": "Offer Sent",
       "hired": "Hired",
       "rejected": "Rejected",
-      "withdrawn": "Withdrawn"
+      "withdrawn": "Withdrawn",
+      "cancelled": "Cancelled",
+      "positionFilled": "Position filled"
     },
     "bulk": {
       "selectedCount_one": "{{count}} application selected",
@@ -515,7 +525,7 @@
       "changeStatus": "Change Status",
       "waiting": "Applicant is reviewing your offer",
       "hireQuestion": "Do you wish to hire this applicant?",
-      "hireWarning": "Hiring an applicant will put the job in progress and you won't be able to delete it",
+      "hireWarning": "Confirming a hire secures the assignment. The worker selects Start work when ready; job and payment records remain in history.",
       "hire": "Hire",
       "reject": "Reject",
       "rejectTitle": "Reject applicant",

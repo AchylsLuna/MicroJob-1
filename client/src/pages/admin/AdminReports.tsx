@@ -1,3 +1,4 @@
+import { LifecycleReports } from '../../components/LifecycleReports';
 import { useEffect, useState } from "react";
 import {
   Download,
@@ -268,6 +269,7 @@ function AdminReportsContent() {
 
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
+      <LifecycleReports />
       {loadError && (
         <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-xl text-body-sm">
           {loadError}

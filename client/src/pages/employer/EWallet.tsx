@@ -1,12 +1,12 @@
+import { WithdrawalPanel } from "../../components/wallet/WithdrawalPanel";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDownLeft, ArrowUpRight, Landmark, Wallet } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "../../lib/toast";
-import { Dialog, StatusState } from "../../components/ui";
+import { Dialog } from "../../components/ui";
 import { WalletSectionPager, type WalletSection } from "../../components/wallet/WalletSectionPager";
 import {
   formatDate,
-  getPayoutStatusClasses,
   getTransactionDirection,
   getTransactionStatusClasses,
   linkedEntityLabel,
@@ -18,8 +18,6 @@ import { formatCurrency } from "../../lib/formatters";
 import { safeExternalUrl } from "../../utils/safeExternalUrl";
 import { useAuth } from "../../hooks/useAuth";
 import {
-  cancelPayoutRequest,
-  createPayoutRequest,
   createTopUpSession,
   getPaymentTransactions,
   getPayoutRequests,
@@ -33,7 +31,6 @@ export function EmployerEWallet() {
   const { user } = useAuth();
   const payoutRef = useRef<HTMLDivElement | null>(null);
   const pendingWithdrawScrollRef = useRef(false);
-  const idempotencyKeyRef = useRef<string | null>(null);
   const [walletSectionId, setWalletSectionId] = useState("withdraw");
   const [loading, setLoading] = useState(true);
   const [employerBalance, setEmployerBalance] = useState(0);
@@ -42,9 +39,6 @@ export function EmployerEWallet() {
   const [topUpAmount, setTopUpAmount] = useState("");
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [submittingTopUp, setSubmittingTopUp] = useState(false);
-  const [submittingPayout, setSubmittingPayout] = useState(false);
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ amount: "", methodType: "bank_transfer", institutionName: "", accountName: "", accountNumber: "" });
 
   const walletOwnerId = String(user?.id || "");
 
@@ -88,44 +82,6 @@ export function EmployerEWallet() {
     }
   };
 
-  const submitPayout = async () => {
-    const amount = toAmount(form.amount);
-    if (amount <= 0) return toast.error(t("eWallet.toast.invalidWithdrawal"));
-    if (amount > employerBalance) return toast.error(t("eWallet.toast.exceedsBalance"));
-    if (!form.institutionName.trim() || !form.accountName.trim() || !form.accountNumber.trim()) return toast.error(t("eWallet.toast.destinationRequired"));
-    setSubmittingPayout(true);
-    try {
-      idempotencyKeyRef.current ||= globalThis.crypto?.randomUUID?.() || `employer-payout-${Date.now()}`;
-      await createPayoutRequest({
-        amount,
-        balanceTarget: "EMPLOYER",
-        idempotencyKey: idempotencyKeyRef.current,
-        destinationSnapshot: { ...form, institutionName: form.institutionName.trim(), accountName: form.accountName.trim(), accountNumber: form.accountNumber.trim() },
-      });
-      idempotencyKeyRef.current = null;
-      setForm({ amount: "", methodType: "bank_transfer", institutionName: "", accountName: "", accountNumber: "" });
-      toast.success(t("eWallet.toast.withdrawalSubmitted"));
-      await loadWallet();
-    } catch (error: any) {
-      toast.error(error?.message || t("eWallet.toast.withdrawalFailed"));
-    } finally {
-      setSubmittingPayout(false);
-    }
-  };
-
-  const cancelPayout = async (payoutId: string) => {
-    setCancellingId(payoutId);
-    try {
-      await cancelPayoutRequest(payoutId);
-      toast.success(t("eWallet.toast.withdrawalCancelled"));
-      await loadWallet();
-    } catch (error: any) {
-      toast.error(error?.message || t("eWallet.toast.withdrawalCancelFailed"));
-    } finally {
-      setCancellingId(null);
-    }
-  };
-
   /**
    * The form sits on one tab of `WalletSectionPager`, so its node is only
    * mounted while that tab is showing -- a plain `scrollIntoView` would hit a
@@ -161,171 +117,7 @@ export function EmployerEWallet() {
   // (below `lg`) or one at a time behind its tab strip, from a single copy of
   // each block -- the same shape the worker wallet uses.
   const walletSections: WalletSection[] = [
-    {
-      id: "withdraw",
-      label: t("eWallet.form.title"),
-      content: (
-        <div ref={attachPayoutCard} className="ui-card p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <Wallet className="w-5 h-5 text-brand" />
-            <h3 className="text-section font-semibold text-[#111827]">{t("eWallet.form.title")}</h3>
-          </div>
-          <p className="text-body-sm text-[#6B7280] mb-6">
-            {t("eWallet.form.available", { amount: formatCurrency(employerBalance) })}
-          </p>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="employer-payout-amount" className="text-body-sm text-[#374151] mb-2 block">{t("eWallet.form.amount")}</label>
-              <input
-                id="employer-payout-amount"
-                type="number"
-                min="1"
-                step="0.01"
-                className="w-full border border-[#D1D5DB] rounded-control px-3 py-2 text-body"
-                value={form.amount}
-                onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
-                placeholder="1000"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="employer-payout-method" className="text-body-sm text-[#374151] mb-2 block">{t("eWallet.form.method")}</label>
-              <select
-                id="employer-payout-method"
-                className="w-full border border-[#D1D5DB] rounded-control px-3 py-2 text-body"
-                value={form.methodType}
-                onChange={(event) => setForm((current) => ({ ...current, methodType: event.target.value }))}
-              >
-                <option value="bank_transfer">{t("eWallet.form.methodOptions.bankTransfer")}</option>
-                <option value="gcash">{t("eWallet.form.methodOptions.gcash")}</option>
-                <option value="maya">{t("eWallet.form.methodOptions.maya")}</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="employer-payout-institution" className="text-body-sm text-[#374151] mb-2 block">{t("eWallet.form.institutionName")}</label>
-              <input
-                id="employer-payout-institution"
-                type="text"
-                className="w-full border border-[#D1D5DB] rounded-control px-3 py-2 text-body"
-                value={form.institutionName}
-                onChange={(event) => setForm((current) => ({ ...current, institutionName: event.target.value }))}
-                placeholder={t("eWallet.form.institutionPlaceholder")}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="employer-payout-account-name" className="text-body-sm text-[#374151] mb-2 block">{t("eWallet.form.accountName")}</label>
-              <input
-                id="employer-payout-account-name"
-                type="text"
-                className="w-full border border-[#D1D5DB] rounded-control px-3 py-2 text-body"
-                value={form.accountName}
-                onChange={(event) => setForm((current) => ({ ...current, accountName: event.target.value }))}
-                placeholder={t("eWallet.form.accountNamePlaceholder")}
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label htmlFor="employer-payout-account-number" className="text-body-sm text-[#374151] mb-2 block">{t("eWallet.form.accountNumber")}</label>
-              <input
-                id="employer-payout-account-number"
-                type="text"
-                className="w-full border border-[#D1D5DB] rounded-control px-3 py-2 text-body"
-                value={form.accountNumber}
-                onChange={(event) => setForm((current) => ({ ...current, accountNumber: event.target.value }))}
-                placeholder={t("eWallet.form.accountNumberPlaceholder")}
-              />
-            </div>
-
-            <button
-              type="button"
-              className="sm:col-span-2 w-full px-4 py-3 rounded-control bg-brand text-white text-body font-medium disabled:opacity-60"
-              onClick={() => void submitPayout()}
-              disabled={submittingPayout}
-            >
-              {submittingPayout ? t("eWallet.form.submitting") : t("eWallet.form.submit")}
-            </button>
-          </div>
-        </div>
-      ),
-    },
-    {
-      id: "history",
-      label: t("eWallet.history.title"),
-      content: (
-        <div className="ui-card p-6">
-          <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
-            <div>
-              <h3 className="text-section font-semibold text-[#111827]">{t("eWallet.history.title")}</h3>
-              <p className="text-body-sm text-[#6B7280] mt-1">{t("eWallet.history.description")}</p>
-            </div>
-          </div>
-
-          {loading ? (
-            <StatusState tone="loading" title={t("eWallet.history.loading")} />
-          ) : payouts.length === 0 ? (
-            <StatusState
-              title={t("eWallet.history.empty")}
-              description={t("eWallet.history.emptyDescription")}
-            />
-          ) : (
-            <div className="space-y-3">
-              {payouts.map((payout) => (
-                <div key={payout._id} className="rounded-card border border-[#E5E7EB] p-4">
-                  <div className="flex items-start justify-between gap-3 flex-wrap">
-                    <div>
-                      <p className="text-[18px] font-semibold text-[#111827]">{formatCurrency(toAmount(payout.amount))}</p>
-                      <p className="text-body-sm text-[#6B7280] mt-1">
-                        {payout.destinationSnapshot.institutionName} · {payout.destinationSnapshot.accountName}
-                      </p>
-                      <p className="text-caption text-[#9CA3AF] mt-1">
-                        {payout.destinationSnapshot.accountNumberMasked || payout.destinationSnapshot.accountNumber || "-"}
-                      </p>
-                    </div>
-                    <span className={`px-3 py-1.5 rounded-full text-[11px] font-semibold ${getPayoutStatusClasses(payout.status)}`}>
-                      {t(`eWallet.status.${payout.status}`)}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 text-body-sm text-[#6B7280]">
-                    <div>
-                      <p className="text-[#111827] font-medium">{t("eWallet.history.requested")}</p>
-                      <p>{formatDate(payout.createdAt)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[#111827] font-medium">{t("eWallet.history.reviewed")}</p>
-                      <p>{formatDate(payout.reviewedAt || undefined)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[#111827] font-medium">{t("eWallet.history.paid")}</p>
-                      <p>{formatDate(payout.paidAt || undefined)}</p>
-                    </div>
-                  </div>
-                  {payout.reviewNotes ? (
-                    <div className="mt-4 rounded-xl bg-[#F8FAFC] border border-[#E5E7EB] px-4 py-3 text-body-sm text-[#475569]">
-                      {payout.reviewNotes}
-                    </div>
-                  ) : null}
-                  {payout.status === "requested" ? (
-                    <div className="mt-4">
-                      <button
-                        type="button"
-                        onClick={() => void cancelPayout(payout._id)}
-                        disabled={cancellingId === payout._id}
-                        className="px-4 py-2 rounded-control border border-[#FCA5A5] text-[#B91C1C] text-body font-medium hover:bg-[#FEF2F2] disabled:opacity-60"
-                      >
-                        {cancellingId === payout._id ? t("eWallet.history.cancelling") : t("eWallet.history.cancel")}
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ),
-    },
+    { id: "withdraw", label: t("eWallet.form.title"), content: <div ref={attachPayoutCard}><WithdrawalPanel sourceWallet="EMPLOYER" balance={employerBalance} onChanged={() => void loadWallet()} /></div> },
     {
       id: "transactions",
       label: t("eWallet.transactions.title"),

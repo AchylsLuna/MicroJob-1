@@ -3,6 +3,8 @@ import { APPLICATION_STATUSES } from '../lib/applicationStatus.js';
 
 const InterviewSchema = new mongoose.Schema(
   {
+    status: { type: String, enum: ['scheduled', 'completed', 'cancelled'], default: 'scheduled' },
+    completedAt: Date,
     scheduledAt: {
       type: Date,
       required: true,
@@ -125,6 +127,14 @@ const JobApplicationSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    startedAt: { type: Date, default: null },
+    nextPaymentReminderAt: { type: Date, default: null },
+    reminderStages: { type: [Number], default: [] },
+    disputePending: { type: Boolean, default: false },
+    firstSubmittedAt: { type: Date, default: null },
+    cancellation: { type: mongoose.Schema.Types.ObjectId, ref: 'Cancellation', default: null },
+    cancellationPending: { type: Boolean, default: false },
+    paidAmount: { type: Number, default: 0 },
     completedAt: {
       type: Date,
       default: null,
@@ -138,13 +148,13 @@ const JobApplicationSchema = new mongoose.Schema(
     agreedAmount: { type: Number, default: null, min: 1 },
     workStatus: {
       type: String,
-      enum: ['In Progress', 'Submitted', 'Changes Requested', 'Completed'],
+      enum: ['Not started', 'In Progress', 'Submitted', 'Changes Requested', 'Completed', 'Cancelled'],
       default: 'In Progress',
       index: true,
     },
     paymentStatus: {
       type: String,
-      enum: ['Secured', 'Authorized', 'Processing', 'Disputed', 'Paid', 'Partially Paid', 'Refunded', 'Outstanding', 'Failed'],
+      enum: ['Secured', 'Authorized', 'Processing', 'Disputed', 'Paid', 'Partially Paid', 'Partially paid', 'Refunded', 'Outstanding', 'Failed'],
       default: 'Secured',
       index: true,
     },
@@ -155,6 +165,7 @@ const JobApplicationSchema = new mongoose.Schema(
     paymentReminderSentAt: { type: Date, default: null },
     paymentReminder3hSentAt: { type: Date, default: null },
     paymentReminder5hSentAt: { type: Date, default: null },
+    paymentReminder48hSentAt: { type: Date, default: null },
     paymentReminder24hSentAt: { type: Date, default: null },
     changesRequestedAt: { type: Date, default: null },
     paidAt: { type: Date, default: null },

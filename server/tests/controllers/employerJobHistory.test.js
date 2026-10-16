@@ -11,6 +11,7 @@ import Review from '../../models/Review.js';
 import { confirmOfferHire } from '../../controllers/JobOfferController.js';
 import { deleteJob, getMyJobs, getEmployerJobHistory } from '../../controllers/JobController.js';
 import { createReview } from '../../controllers/ReviewController.js';
+import { requestCancellation } from '../../services/jobLifecycle.js';
 import { encodePublicId } from '../../lib/publicId.js';
 
 let mongo;
@@ -39,13 +40,14 @@ beforeEach(async () => { await Promise.all([Job, JobApplication, JobOffer, User,
 after(async () => { await mongoose.disconnect(); await mongo?.stop(); });
 
 for (const positions of [1, 2]) {
-  test(`confirmed hire starts job with ${positions} position(s) and blocks deletion without moving escrow`, async () => {
+  test(`confirmed hire reserves a not-started assignment with ${positions} position(s) and blocks deletion without moving escrow`, async () => {
     const { employer, job, offer, application } = await fixture(positions);
     const hired = response();
     await confirmOfferHire({ user: { id: String(employer._id) }, params: { offerId: String(offer._id) } }, hired);
     assert.equal(hired.statusCode, 200);
     const saved = await Job.findById(job._id);
-    assert.equal(saved.status, 'In Progress');
+    assert.equal(saved.status, positions === 1 ? 'Closed' : 'Available');
+    assert.equal((await JobApplication.findById(application._id)).workStatus, 'Not started');
     assert.equal(saved.hiredCount, 1);
     assert.ok(saved.hireConfirmedAt);
     const rejected = response();
@@ -85,20 +87,22 @@ test('old hires and ended assignments remain locked even without a hire counter'
   await Job.updateOne({ _id: job._id }, { $set: { status: 'Completed', hiredCount: 0 } });
   const rejected = response();
   await deleteJob(request(employer, job), rejected);
-  assert.equal(rejected.statusCode, 409);
+  assert.equal(rejected.statusCode, 200);
+  assert.ok((await Job.findById(job._id)).archivedAt);
   const owned = response();
   await getMyJobs(request(employer, job), owned);
   assert.equal(owned.payload[0].canDelete, false);
 });
 
-test('deleting an unhired job refunds escrow and removes dependencies atomically', async () => {
+test('cancelling then archiving refunds escrow and retains dependencies', async () => {
   const { employer, job, offer, application } = await fixture();
+  await requestCancellation({ jobId: job._id, actor: employer._id, reason: 'No longer required', policyAcknowledged: true });
   const deleted = response();
   await deleteJob(request(employer, job), deleted);
   assert.equal(deleted.statusCode, 200);
-  assert.equal(await Job.findById(job._id), null);
-  assert.equal(await JobOffer.findById(offer._id), null);
-  assert.equal(await JobApplication.findById(application._id), null);
+  assert.ok((await Job.findById(job._id)).archivedAt);
+  assert.equal((await JobOffer.findById(offer._id)).status, 'cancelled');
+  assert.ok(await JobApplication.findById(application._id));
   assert.equal((await User.findById(employer._id)).employerBalance, 600);
 });
 
@@ -112,7 +116,7 @@ test('a concurrent hire and deletion cannot both succeed', async () => {
   assert.equal([hired, deleted].filter((result) => result.statusCode === 200).length, 1);
   if (hired.statusCode === 200) {
     assert.equal(deleted.statusCode, 409);
-    assert.equal((await Job.findById(job._id)).status, 'In Progress');
+    assert.equal((await Job.findById(job._id)).status, 'Closed');
     assert.equal(await Transaction.countDocuments({ type: 'REFUND' }), 0);
   } else {
     assert.equal(await Job.findById(job._id), null);

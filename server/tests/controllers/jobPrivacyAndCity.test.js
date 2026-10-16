@@ -97,7 +97,7 @@ test('a requested city ranks first without hiding the rest of the country', asyn
   assert.ok(response.payload.slice(1).every((job) => job.proximity !== 'city'));
 });
 
-test("a worker's saved city ranks first and overrides a different query city", async () => {
+test("a worker can select a different discovery city", async () => {
   const [worker, employer] = await Promise.all([
     createUser({ role: 'work', city: 'Pasig City' }),
     createUser({ role: 'hire' }),
@@ -116,7 +116,7 @@ test("a worker's saved city ranks first and overrides a different query city", a
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.payload.length, 2, 'other cities remain reachable');
-  assert.match(response.payload[0].location, /Pasig City/, 'the saved city wins over the query city');
+  assert.match(response.payload[0].location, /Makati City/, 'an explicit search city wins over the saved city');
   assert.equal(response.payload[0].proximity, 'city');
 });
 

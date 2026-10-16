@@ -30,8 +30,10 @@ export const PAYMENT_STATUSES = [
 ];
 
 const EvidenceSchema = new mongoose.Schema({
-  uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  uploaderRole: { type: String, enum: ['worker', 'employer', 'support', 'finance', 'admin'], required: true },
+  actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  statement: { type: String, maxlength: 4000 }, noEvidence: Boolean, at: { type: Date, default: Date.now },
+  uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required() { return !this.actor; } },
+  uploaderRole: { type: String, enum: ['worker', 'employer', 'support', 'finance', 'admin'], required() { return !this.actor; } },
   evidenceType: {
     type: String,
     enum: ['IMAGE', 'PDF', 'PAYMENT_RECEIPT', 'SCREENSHOT', 'WORK_PHOTO', 'DOCUMENT', 'ATTENDANCE_RECORD', 'JOB_LOG', 'CHAT_REFERENCE', 'OTHER'],
@@ -98,8 +100,12 @@ const FinanceSettlementSchema = new mongoose.Schema({
 
 const FinancialDisputeSchema = new mongoose.Schema(
   {
-    ticketId: { type: String, default: null, unique: true, sparse: true, index: true },
+    ticketId: { type: String, default() { return `FD-${this._id}`; }, unique: true, sparse: true, index: true },
     disputeType: { type: String, default: 'INCORRECT_OR_MISSING_PAYMENT', trim: true },
+    kind: { type: String, enum: ['nonpayment', 'cancellation', 'other'], default: 'other' },
+    evidenceDueAt: Date,
+    workerPayment: { type: Number, default: null },
+    events: [{ actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, type: { type: String }, note: String, at: { type: Date, default: Date.now } }],
     subject: { type: String, required: true, trim: true, maxlength: 200 },
     raisedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     application: { type: mongoose.Schema.Types.ObjectId, ref: 'JobApplication', required: true },
@@ -110,14 +116,14 @@ const FinancialDisputeSchema = new mongoose.Schema(
     assignedSupportUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     assignedFinanceUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 
-    agreedJobAmount: { type: Number, required: true, min: 0 },
+    agreedJobAmount: { type: Number, required: true, min: 0, default() { return this.amount; } },
     alreadyPaidAmount: { type: Number, required: true, min: 0, default: 0 },
-    disputedAmount: { type: Number, required: true, min: 0 },
+    disputedAmount: { type: Number, required: true, min: 0, default() { return this.amount; } },
     fundsHeldAmount: { type: Number, required: true, min: 0, default: 0 },
     outstandingAmount: { type: Number, required: true, min: 0, default: 0 },
-    fundStatus: { type: String, enum: ['FUNDS_HELD', 'OUTSTANDING_PAYMENT', 'PARTIALLY_HELD'], required: true },
+    fundStatus: { type: String, enum: ['FUNDS_HELD', 'OUTSTANDING_PAYMENT', 'PARTIALLY_HELD'], required: true, default: 'FUNDS_HELD' },
 
-    workerClaim: { type: String, required: true, trim: true, maxlength: 4000 },
+    workerClaim: { type: String, required: true, trim: true, maxlength: 4000, default() { return this.reason; } },
     employerResponse: { type: String, default: '', trim: true, maxlength: 4000 },
     investigationStatus: { type: String, enum: INVESTIGATION_STATUSES, default: 'UNDER_INVESTIGATION', index: true },
     active: { type: Boolean, default: true, index: true },
