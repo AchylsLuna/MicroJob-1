@@ -10,7 +10,7 @@ import { remainingJobFunds, remainingJobWalletSources } from '../services/jobFun
 
 /** No writes without --apply. Run against a backup first; ambiguous money is never repaired automatically. */
 export async function migrateLifecycle({ apply = false } = {}) {
-  const report = { apply, jobs: 0, legacyHires: 0, legacyWithdrawals: 0, legacyLocks: 0, counterDifferences: [], missingCancellationReasons: [], orphanedApplications: [], ambiguousFunds: [] };
+  const report = { apply, jobs: 0, legacyHires: 0, legacyWithdrawals: 0, legacyLocks: 0, counterDifferences: [], jobPhaseDifferences: [], missingCancellationReasons: [], orphanedApplications: [], ambiguousFunds: [] };
   for await (const job of Job.find().cursor()) {
     report.jobs += 1;
     const [hires, offers, funds] = await Promise.all([
@@ -20,6 +20,10 @@ export async function migrateLifecycle({ apply = false } = {}) {
     if (hires !== job.hiredCount || offers !== job.reservedOfferCount) {
       report.counterDifferences.push({ job: String(job._id), hires, offers });
       if (apply) await Job.updateOne({ _id: job._id }, { $set: { hiredCount: hires, reservedOfferCount: offers } });
+    }
+    if (hires > 0 && !job.cancellationPending && ['Available', 'Closed'].includes(job.status)) {
+      report.jobPhaseDifferences.push({ job: String(job._id), previousStatus: job.status, status: 'In Progress' });
+      if (apply) await Job.updateOne({ _id: job._id }, { $set: { status: 'In Progress' } });
     }
     try { await remainingJobWalletSources(job); } catch (error) { report.ambiguousFunds.push({ job: String(job._id), reason: error.message }); }
     if (funds.remaining < 0 || (hires > 0 && funds.secured === 0)) report.ambiguousFunds.push({ job: String(job._id), ...funds });
@@ -52,7 +56,7 @@ export async function migrateLifecycle({ apply = false } = {}) {
   if (apply) await User.updateMany({ lockUntil: { $gt: maximumLock } }, { $set: { lockUntil: maximumLock } });
   return report;
 }
-if (process.argv[1]?.endsWith('/migrateLifecycle.js')) {
+if (process.argv[1]?.replace(/\\/g, '/')?.endsWith('/migrateLifecycle.js')) {
   if (!process.env.MONGO_URI) throw new Error('MONGO_URI is required.');
   try { await mongoose.connect(process.env.MONGO_URI, { dbName: process.env.DB_NAME || 'MicroJob' }); console.log(JSON.stringify(await migrateLifecycle({ apply: process.argv.includes('--apply') }), null, 2)); }
   finally { await mongoose.disconnect(); }

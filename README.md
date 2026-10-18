@@ -6,6 +6,10 @@ MicroJobs contains three application areas:
 - `server/`: Express, MongoDB, and Socket.IO API workspace.
 - `Mobile/`: Expo application.
 
+Completion evidence requires private Azure blob settings on the API server. See [Completion images and employer approval](docs/COMPLETION_EVIDENCE.md) for configuration, upload limits, chat confirmation, and verification.
+
+Employers may attach a per-worker checklist at hire confirmation and track its completion in Job Management details. See [Optional hire checklists](docs/HIRE_CHECKLISTS.md); marks never block evidence submission or payment.
+
 Use Node.js 22.13 LTS or Node.js 24.3 or newer. Install the web and API dependencies from the repository root:
 
 ```powershell

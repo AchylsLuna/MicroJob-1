@@ -1,6 +1,7 @@
 import User from '../models/User.js';
 import { serializeCategory } from './categoryPresentation.js';
 import { encodePublicId } from './publicId.js';
+import { recruitmentState } from './lifecyclePolicy.js';
 
 export const PUBLIC_JOB_POSTER_SELECT = '_id firstName lastName companyName avatarUrl';
 export const APPLICANT_SELECT = [
@@ -117,6 +118,7 @@ export function serializePublicJob(job, { viewerId = null } = {}) {
       .map((field) => [field, value[field]])),
     applicantCount: Array.isArray(value.applicants) ? value.applicants.length : 0,
     employerVerified: hasFullyVerifiedEmployer(job),
+    ...recruitmentState(value),
     isOwnJob: Boolean(viewerId && String(poster?._id || poster) === String(viewerId)),
   };
   if (value.category) {

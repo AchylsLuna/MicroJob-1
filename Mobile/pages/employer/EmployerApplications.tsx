@@ -1,6 +1,7 @@
 import OfferDecisionModal from '../../components/OfferDecisionModal';
 import { walletRequest } from '../../lib/lifecycleApi';
 import AssignmentPanel from '../../components/AssignmentPanel';
+import { HireChecklistDialog } from '../../components/HireChecklist';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -198,6 +199,7 @@ export default function EmployerApplications({
   );
   const [paymentDisputeTarget, setPaymentDisputeTarget] = useState<ApplicationItem | null>(null);
   const [paymentDisputeReason, setPaymentDisputeReason] = useState('');
+  const [hireTarget, setHireTarget] = useState<ApplicationItem | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(
     null,
   );
@@ -720,24 +722,7 @@ export default function EmployerApplications({
                     });
                   }}
                   onCancelOffer={() => { if (item.offer) setCancelOfferId(item.offer.id); }}
-                  onConfirmHire={() =>
-                    setConfirmAction({
-                      title: t('employerApplications.confirm.confirmHire.title'),
-                      question: t('employerApplications.confirm.confirmHire.question', { name: nameOf(t, item), amount: formatCurrency(item.offer?.amount) }),
-                      detail: t('employerApplications.confirm.confirmHire.detail'),
-                      label: t('employerApplications.confirm.confirmHire.label'),
-                      run: async () => {
-                        if (
-                          item.offer &&
-                          (await request(
-                            item._id,
-                            `job-offers/${item.offer.id}/confirm-hire`,
-                          ))
-                        )
-                          toast.success(t('employerApplications.toast.workerHired'));
-                      },
-                    })
-                  }
+                  onConfirmHire={() => { if (item.offer) setHireTarget(item); }}
                   onAuthorize={() => void reviewPayment(item, 'authorize')}
                   onPay={() => void reviewPayment(item, 'settle')}
                   onRequestChanges={() =>
@@ -861,6 +846,9 @@ export default function EmployerApplications({
       </ScrollView>
       <EmployerNavigation activeTab={activeTab} onTabPress={onTabPress} />
       <OfferDecisionModal offerId={cancelOfferId} action="cancel" onClose={() => setCancelOfferId(null)} onDone={() => void load(true)} />
+      {hireTarget?.offer && <HireChecklistDialog key={hireTarget.offer.id} title={t('employerApplications.confirm.confirmHire.title')} description={t('employerApplications.confirm.confirmHire.question', { name: nameOf(t, hireTarget), amount: formatCurrency(hireTarget.offer.amount) })} warning={t('employerApplications.confirm.confirmHire.detail')} onClose={() => setHireTarget(null)} onConfirm={async (checklist) => {
+        await walletRequest(`/job-offers/${hireTarget.offer!.id}/confirm-hire`, { checklist }); toast.success(t('employerApplications.toast.workerHired')); await load(true);
+      }} />}
       <ConfirmModal
         visible={Boolean(confirmAction)}
         title={confirmAction?.title || ""}

@@ -1,0 +1,44 @@
+# Completion images and employer approval
+
+Workers select the green **Submit proof** button after starting their hired assignment, or after an employer requests changes. In Applied Jobs it shares one action row with View details, Assignment details, and any eligible payment-dispute action; narrow screens allow horizontal scrolling. The upload dialog also uses a green Submit proof button, and chat labels the sent submission as proof. Both web and mobile require 1–10 JPG, PNG, GIF, or WEBP images, each at most 5 MiB (5 × 1024 × 1024 bytes, displayed as 5 MB in the UI). A description is optional and accepts up to 4,000 characters. Text-only submissions and documents are rejected for completion; financial-dispute evidence continues to accept its existing document formats.
+
+## Server configuration
+
+Set these in the API server environment, then restart the API:
+
+```dotenv
+AZURE_EVIDENCE_CONNECTION_STRING=""
+AZURE_EVIDENCE_CONTAINER_NAME=""
+```
+
+Use the connection string for the intended Azure storage account and an **existing private blob container**. The credentials need blob read, write, and delete access. Keep anonymous blob access disabled. These settings are independent of avatar storage and must never be placed in client or mobile environment variables. See [Microsoft's JavaScript upload documentation](https://learn.microsoft.com/en-us/azure/storage/blobs/storage-blob-upload-javascript) for the underlying SDK operations.
+
+Missing evidence configuration blocks new submissions with HTTP 503. Failed uploads leave the assignment unsubmitted. There is no silent MongoDB fallback for new completion images. Uploaded blobs are removed if the submission fails; process crashes or a failed cleanup operation may require orphan-blob reconciliation. Existing completion files in MongoDB remain readable through their existing URLs.
+
+### Troubleshooting uploads
+
+Copy the full, unmodified connection string from **Storage account > Access keys**. Its usual prefix is `DefaultEndpointsProtocol=https;`. HTML entities such as `&#x6C;`, extra line breaks, and trailing backslashes are invalid. Put both evidence settings in the running API's environment and restart the API after changing them.
+
+The configured container must exist in that same account and have **Private (no anonymous access)** selected. Account-key connections require **Configuration > Allow storage account key access** to be enabled. Storage networking must allow the API server's network or outbound IP through an approved route. Browser CORS settings are not needed for these uploads because the API server communicates with Azure.
+
+Azure configuration/upload failures return HTTP 503 with a specific, credential-free explanation. Server logs use `Azure evidence storage failure` with only the operation, Azure error code, and status. `ContainerNotFound` means the account/container combination is wrong or the container is missing; `KeyBasedAuthenticationNotPermitted` means key authentication is disabled; `AuthenticationFailed` points to credentials; `AuthorizationFailure` can indicate network restrictions. Unexpected database/application failures remain HTTP 500 and log `Application payment action failed` with only the route and error name/code. Never log or share the complete Azure error object or connection string. See [Microsoft's Azure 403 troubleshooting guide](https://learn.microsoft.com/troubleshoot/azure/azure-storage/blobs/authentication/storage-troubleshoot-403-errors).
+
+## Submission and chat
+
+`POST /api/applications/:applicationId/work/submit` accepts multipart data with repeated `evidence` file parts and an optional `statement` field. The API enforces count, size, allowed image extensions/MIME types, and image signatures. It assigns unique blob names even when several images have the same original name.
+
+After uploading, a database transaction rechecks worker ownership, assignment state, cancellation/dispute holds, and payment state, then appends the evidence history, marks the work Submitted, creates a `completion_evidence` chat message, resurfaces the participants' archived conversation, and queues the employer notification. The message contains the submitted images and application/submission references. Connected participants receive the chat message through the existing socket events; persisted history supports reconnects.
+
+Image URLs use `/uploads/:fileName`. The API authorizes the worker, owning employer, or staff with `finance.disputes.view` before reading the private Azure blob. Responses are private and uncached. Web previews fetch with the app's cookie/bearer transport and use temporary object URLs; native previews send a bearer header. No public blob URL or storage credential is sent to clients.
+
+## Completing the assignment
+
+The employer's latest submission card displays the green **Mark the job as done?** button. It opens this confirmation:
+
+> Mark the job as completed? This will release the funds to the worker.
+
+Cancel closes the popup without releasing funds. Confirm calls `POST /api/applications/:applicationId/payment/settle` with `confirmed: true` and the card's `submittedAt` value. The existing settlement service checks employer ownership, submitted work, cancellation/dispute holds, available escrow, and duplicate payment. The timestamp prevents approval of a newer revision from an older chat card. Funds are credited to the assigned worker's wallet exactly once. The assignment becomes Completed/Paid; posting completion continues to follow the existing rules for all hired workers.
+
+## Verification
+
+The focused lifecycle, settlement, and Azure storage tests exercise image requirements, same-name multiple uploads, image validation, interrupted-upload cleanup, private downloads, chat attachments, revision history, stale approval rejection, employer-only confirmation, and duplicate-safe worker payment. Azure is mocked in tests; deployment still requires a smoke test against the configured private container. Native image picking and upload should also be checked on a device.

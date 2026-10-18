@@ -314,14 +314,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                   </View>
                 </View>
 
-                <TouchableOpacity
-                  style={styles.detailsLink}
-                  disabled={!job.hasDetails || !job.jobId}
-                  onPress={() => handleViewDetails(job)}
-                >
-                  <Text style={[styles.statusInline, { color: getApplicationStatusColor(job.status) }]}>{job.status}</Text>
-                  <Text style={styles.viewDetailsText}>{t('appliedJobs.viewDetails')}</Text>
-                </TouchableOpacity>
+                <Text style={[styles.statusInline, { color: getApplicationStatusColor(job.status) }]}>{job.status}</Text>
 
                 <View style={styles.jobMetaRow}>
                   {job.jobType ? <Text style={styles.jobMetaPill}>{job.jobType}</Text> : null}
@@ -349,13 +342,13 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                   </View>
                 ) : null}
 
-                {['Hired', 'Cancelled', 'Position filled'].includes(job.status) && <AssignmentPanel applicationId={job.id} />}
-                <View style={styles.cardActions}>
+                {job.status === 'Hired' && job.workStatus === 'Submitted' && job.paymentStatus === 'Disputed' ? (
+                  <Text style={styles.disputeHoldText}>{t('appliedJobs.paymentDispute.onHold')}</Text>
+                ) : null}
+                <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.assignmentActions}>
+                  {['Hired', 'Cancelled', 'Position filled'].includes(job.status) && <AssignmentPanel applicationId={job.id} />}
                   {job.status === 'Hired' && ['In Progress', 'Changes Requested'].includes(job.workStatus || 'In Progress') ? (
                     <WorkSubmission applicationId={job.id} onChanged={() => void fetchApplications()} />
-                  ) : null}
-                  {job.status === 'Hired' && job.workStatus === 'Submitted' && job.paymentStatus === 'Disputed' ? (
-                    <Text style={styles.disputeHoldText}>{t('appliedJobs.paymentDispute.onHold')}</Text>
                   ) : null}
                   {job.status === 'Hired' && job.workStatus === 'Submitted' && !['Paid', 'Disputed'].includes(job.paymentStatus || '') ? (
                     <TouchableOpacity
@@ -367,6 +360,11 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                       <Text style={styles.disputeButtonText}>{t('appliedJobs.paymentDispute.openButton')}</Text>
                     </TouchableOpacity>
                   ) : null}
+                  <TouchableOpacity accessibilityRole="button" style={styles.viewDetailsButton} disabled={!job.hasDetails || !job.jobId} onPress={() => handleViewDetails(job)}>
+                    <Text style={styles.viewDetailsButtonText}>{t('appliedJobs.viewDetails')}</Text>
+                  </TouchableOpacity>
+                </ScrollView>
+                <View style={styles.cardActions}>
                   {onMessageEmployer && job.employerId ? (
                     <TouchableOpacity
                       style={styles.messageButton}
@@ -622,6 +620,9 @@ const styles = StyleSheet.create({
   interviewMeta: { marginTop: 2, color: tokens.colors.textMuted, fontSize: 12, textTransform: 'capitalize' },
   interviewNotes: { marginTop: 5, color: tokens.colors.textMuted, fontSize: 12, lineHeight: 17 },
   cardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  assignmentActions: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+  viewDetailsButton: { minHeight: 44, borderRadius: 10, backgroundColor: tokens.colors.brand, padding: 12, flexShrink: 0, justifyContent: 'center' },
+  viewDetailsButtonText: { color: tokens.colors.white, fontWeight: '700' },
   messageButton: { flex: 1, minWidth: 110, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: '#bfdbfe', backgroundColor: '#eff6ff', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   messageButtonText: { color: tokens.colors.brand, fontSize: 12, fontWeight: '800' },
   disputeButton: { minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: '#fecaca', backgroundColor: '#fef2f2', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 12 },

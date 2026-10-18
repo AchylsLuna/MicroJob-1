@@ -203,16 +203,22 @@ Use the status filter and application details to review interviews, changes, and
 
 Open the offer from **Applied Jobs** or its message card. Review the job and offered amount before accepting or rejecting. Acceptance records your response; the employer still confirms the hire. Track the application until it shows **Hired**.
 
+If the employer includes a work checklist when confirming the hire, its descriptions appear as a table in your job chat. This table has no checkboxes. Employer tracking marks do not prevent you from submitting evidence or completing the work.
+
+In **Applied Jobs**, select **Assignment details** on your hired application to read the full **Job description** and your **Work checklist** on web or mobile. The checklist is read-only and specific to your assignment. If none was provided, the panel says **No checklist provided**. You can still submit evidence and complete the work.
+
 ### 6.4 Submit finished work
 
 1. Complete the agreed work and discuss any deliverables with the employer.
 2. Open the hired application in **Applied Jobs**.
-3. Select **Submit finished work** when the action is available.
+3. Select the green **Submit proof** button when available, attach the required completion images, and select **Submit proof** in the upload dialog.
 4. Wait for the employer's review.
 5. If changes are requested, read the reason, complete the changes, and submit again.
 6. Once the employer settles the submitted work, check your worker wallet for the payment.
 
 Payment authorization alone does not add money to your worker wallet. The work must be submitted and settled. When the system makes you eligible for a review, use the review action to record your experience.
+
+On web and mobile, **Assignment details**, **Submit proof**, and any eligible **Open payment dispute** action share a row with **View details**. Swipe or scroll the action row horizontally on narrow screens. Assignment details has a white background with black text and border. Inside that window, **Start work** is green and **Request cancellation** is red; **Open financial dispute** retains its existing blue styling. Submitted proof appears in the employer's job chat with proof wording.
 
 ## 7. Employer job posting and hiring
 
@@ -239,7 +245,7 @@ Open the employer jobs page to inspect and manage your own listings. Use the ava
 
 **Completed** jobs are hidden from **Jobs Management** and remain available in **Job History**.
 
-On the web, a confirmed hire sets the job to **In Progress**. The employer cannot delete a job after confirming a hire, including after completion or cancellation. The Delete control is disabled and the server enforces the same restriction.
+On web and mobile, the first confirmed hire sets the job to **In Progress**. Recruitment stays open for remaining unreserved positions until the deadline, unless you close it. Posting actions show **Recruitment open/closed** and the number of unreserved slots. Use **Close recruitment** or **Reopen recruitment** to control remaining funded vacancies while existing assignments continue. A worker still chooses **Start work** separately. The employer cannot delete a job after confirming a hire, including after completion or cancellation. The Delete control is disabled and the server enforces the same restriction.
 
 ### 7.3 Review applications and hire
 
@@ -253,11 +259,17 @@ Offers reserve capacity. A negotiated amount above the original pay can require 
 
 The web **Confirm Hire** pop-up highlights: **“Cannot delete the job after confirming the hire.”** Confirming changes the application to **Hired** and the job to **In Progress**, even when other positions remain unfilled.
 
+On web and mobile, hire confirmation in Applications or chat also offers **Add a work checklist (optional)**. Enable it, enter a description in each row, and use **+ Add row** for more tasks (up to 20 tasks, 500 characters each). Remove unneeded rows; blank rows are omitted. The Done column is a preview: every task starts unchecked. Choose **Confirm Hire** to save that worker's checklist and send its description table through the job chat. Leave the option off to hire without a checklist.
+
+After hiring, open **Job Management → View details** and find **Hired workers and checklists**. Each worker has a separate checklist, including hired workers hidden from Applications. Check or uncheck Done to save your own progress tracking. These marks do not change job status or restrict evidence submission, completion, or payment. Changing a mark leaves the original chat descriptions unchanged. Older hires without a checklist show **No checklist provided**.
+
 ### 7.4 Review and pay for work
 
 Select the job in **Applications**, then open the hired worker's **Actions** dialog to review payment authorization and work/payment states. After the worker submits finished work, review the result. If a revision is needed, use **Request Changes** and give a clear reason. Otherwise, use **Approve & Pay** and confirm to pay that worker from the secured job funds. These actions also remain available on hired cards in **Job History**.
 
 For jobs with multiple workers, each worker's work and payment are tracked separately. Check the individual application and transaction rather than assuming that one payment completes every position.
+
+To finish without filling every original position, resolve outstanding offers, then use **Mark done** after all hired workers submit their work. This closes recruitment, pays the hired workers, and returns unused secured funds. If you already paid every hired worker individually, **Close recruitment** finalizes the posting and returns the unused funds. Any unresolved funding-source reconciliation must be addressed before funds can move.
 
 ### 7.5 Review Job History (web)
 
@@ -564,7 +576,7 @@ Before a protected task, sign in with the required role. Before applying or post
 | Step | Action | Expected result |
 | --- | --- | --- |
 | 1 | Finish the agreed work and open the hired application. | Submission is available in an eligible work state. |
-| 2 | Select Submit finished work. | Work becomes Submitted and the employer is notified. |
+| 2 | Select Submit proof, attach completion images, and submit. | Work becomes Submitted and the employer receives the proof in chat. |
 | 3 | Review any changes requested, revise, and submit again if necessary. | After settlement, the work is completed/paid and the worker balance is credited. |
 
 ### 13.9 Post a job through the four-stage wizard

@@ -3,6 +3,7 @@ import { uploadFile } from '../lib/uploadFile';
 import AsyncStorage from '../lib/storage';
 import { API_URL } from '../config';
 import CompletionEvidence from './CompletionEvidence';
+import { ChecklistTable } from './HireChecklist';
 import React, { useRef, useState } from 'react';
 import { Modal, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -24,7 +25,7 @@ export default function AssignmentPanel({ applicationId, employer = false, onCha
   // The server enforces which participant may respond; the display uses the
   // initiator's side returned by the authenticated lifecycle API.
   const canRespond = pending?.status === 'pending' && data?.canRespondCancellation;
-  const button = (label: string, action: () => void, disabled = false) => <TouchableOpacity accessibilityRole="button" disabled={disabled || busy} accessibilityState={{ disabled: disabled || busy, busy }} onPress={action} style={[styles.button, (disabled || busy) && styles.disabled]}><Text style={styles.buttonText}>{label}</Text></TouchableOpacity>;
+  const button = (label: string, action: () => void, disabled = false, tone: 'default' | 'details' | 'start' | 'cancel' = 'default') => <TouchableOpacity accessibilityRole="button" disabled={disabled || busy} accessibilityState={{ disabled: disabled || busy, busy }} onPress={action} style={[styles.button, tone === 'details' && styles.detailsButton, tone === 'start' && styles.startButton, tone === 'cancel' && styles.cancelButton, (disabled || busy) && styles.disabled]}><Text style={[styles.buttonText, tone === 'details' && styles.detailsText]}>{label}</Text></TouchableOpacity>;
   const act = async () => {
     if (command === 'start') return walletRequest(`/applications/${applicationId}/work/start`, {});
     if (command === 'cancel') return walletRequest(`/applications/${applicationId}/cancel`, { reason, workerPayment: Number(amount), policyAcknowledged: checked });
@@ -41,13 +42,21 @@ export default function AssignmentPanel({ applicationId, employer = false, onCha
     if (['accept', 'reject'].includes(command)) return walletRequest(`/cancellations/${pending._id}/respond`, { action: command });
   };
   return <>
-    {button(t('lifecycle.details'), () => { setOpen(true); setCommand(''); void run(load, false); })}
+    {button(t('lifecycle.details'), () => { setOpen(true); setCommand(''); void run(load, false); }, false, 'details')}
     <Modal visible={open} transparent animationType="fade" onRequestClose={() => { if (!busy) setOpen(false); }}><View style={styles.backdrop}><View accessibilityViewIsModal style={styles.dialog}><ScrollView>
       <Text accessibilityRole="header" style={styles.title}>{data?.job?.title || t('lifecycle.details')}</Text>
       {error ? <Text accessibilityRole="alert" style={styles.text}>{error}</Text> : null}
       {app && <>
         <Text style={styles.text}>{app.status} · {t(`lifecycle.work.${app.workStatus}`, { defaultValue: app.workStatus })} · {pending || (dispute && Number(dispute.amount) > 0) ? t('lifecycle.held') : app.paymentStatus}</Text>
         <Text style={styles.text}>{t('lifecycle.agreed')}: {formatCurrency(app.agreedAmount || data.job.salary)}</Text><Text style={styles.text}>{(data.job.requirements || []).join(' · ')}</Text><Text style={styles.text}>{t('lifecycle.terms')}</Text>
+        <View>
+          <Text accessibilityRole="header" style={styles.title}>{t('lifecycle.jobDescription')}</Text>
+          <Text style={styles.text}>{data.job.description || t('lifecycle.descriptionUnavailable')}</Text>
+        </View>
+        <View>
+          <Text accessibilityRole="header" style={styles.title}>{t('hireChecklist.title')}</Text>
+          <ChecklistTable items={(app.hireChecklist || []).map((item: { description: string }) => item.description)} />
+        </View>
         <CompletionEvidence items={app.completionEvidence} />
         {command ? <>
           <Text style={styles.title}>{t(`lifecycle.${command}`)}</Text>
@@ -59,8 +68,8 @@ export default function AssignmentPanel({ applicationId, employer = false, onCha
           {['accept', 'reject'].includes(command) && <Text style={styles.text}>{t('lifecycle.respondNotice', { amount: formatCurrency(pending?.workerPayment || 0) })}</Text>}
           {button(t('lifecycle.confirm'), () => void run(act), command === 'cancel' && !checked)}{button(t('wallet.back'), () => setCommand(''))}
         </> : <>
-          {!employer && app.workStatus === 'Not started' && !pending && !dispute && button(t('lifecycle.start'), () => setCommand('start'))}
-          {app.status === 'Hired' && !['Paid', 'Processing'].includes(app.paymentStatus) && !pending && !dispute && button(t('lifecycle.cancel'), () => { setChecked(false); setCommand('cancel'); })}
+          {!employer && app.workStatus === 'Not started' && !pending && !dispute && button(t('lifecycle.start'), () => setCommand('start'), false, 'start')}
+          {app.status === 'Hired' && !['Paid', 'Processing'].includes(app.paymentStatus) && !pending && !dispute && button(t('lifecycle.cancel'), () => { setChecked(false); setCommand('cancel'); }, false, 'cancel')}
           {['Hired', 'Cancelled'].includes(app.status) && app.paymentStatus !== 'Processing' && !dispute && button(t('lifecycle.dispute'), () => { setNonpayment(false); setCommand('dispute'); })}
           {canRespond && !dispute && <>{button(t('lifecycle.accept'), () => setCommand('accept'))}{button(t('lifecycle.reject'), () => setCommand('reject'))}</>}
           {dispute && button(t('lifecycle.evidence'), () => { setEvidenceFile(null); setChecked(false); setCommand('evidence'); })}
@@ -73,4 +82,18 @@ export default function AssignmentPanel({ applicationId, employer = false, onCha
     </ScrollView></View></View></Modal>
   </>;
 }
-const styles = StyleSheet.create({ button: { backgroundColor: tokens.colors.brand, borderRadius: 10, padding: 12, minHeight: 44, marginVertical: 5 }, buttonText: { color: tokens.colors.white, fontWeight: '700' }, disabled: { opacity: 0.5 }, backdrop: { flex: 1, backgroundColor: tokens.colors.brandDark, justifyContent: 'center', padding: 18 }, dialog: { backgroundColor: tokens.colors.surface, borderRadius: 18, padding: 18, maxHeight: '90%' }, text: { color: tokens.colors.text, marginVertical: 7, flexShrink: 1 }, title: { color: tokens.colors.text, fontSize: 18, fontWeight: '700', marginVertical: 10 }, input: { borderWidth: 1, borderColor: tokens.colors.border, borderRadius: 10, padding: 12, color: tokens.colors.text, minHeight: 48 }, check: { flexDirection: 'row', alignItems: 'center', gap: 10 } });
+const styles = StyleSheet.create({
+  button: { backgroundColor: tokens.colors.brand, borderRadius: 10, padding: 12, minHeight: 44, marginVertical: 5 },
+  buttonText: { color: tokens.colors.white, fontWeight: '700' },
+  detailsButton: { backgroundColor: tokens.colors.white, borderWidth: 1, borderColor: 'black', marginVertical: 0, flexShrink: 0 },
+  detailsText: { color: 'black' },
+  startButton: { backgroundColor: tokens.colors.successStrong },
+  cancelButton: { backgroundColor: tokens.colors.profileDangerStrong },
+  disabled: { opacity: 0.5 },
+  backdrop: { flex: 1, backgroundColor: tokens.colors.brandDark, justifyContent: 'center', padding: 18 },
+  dialog: { backgroundColor: tokens.colors.surface, borderRadius: 18, padding: 18, maxHeight: '90%' },
+  text: { color: tokens.colors.text, marginVertical: 7, flexShrink: 1 },
+  title: { color: tokens.colors.text, fontSize: 18, fontWeight: '700', marginVertical: 10 },
+  input: { borderWidth: 1, borderColor: tokens.colors.border, borderRadius: 10, padding: 12, color: tokens.colors.text, minHeight: 48 },
+  check: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+});

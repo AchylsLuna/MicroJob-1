@@ -45,6 +45,7 @@ import { DateField } from "../../components/ui/DateField";
 import { formatCurrency, formatDateTime } from "../../lib/formatters";
 import { ConfirmDialog, Dialog } from "../../components/ui/index";
 import { OfferActions } from "../../components/job/OfferActions";
+import { HireChecklistDialog } from '../../components/HireChecklist';
 
 // Converts between the "YYYY-MM-DD" date portion of scheduleForm.scheduledAt
 // (a "YYYY-MM-DDTHH:mm" string, same shape <input type="datetime-local"> used)
@@ -462,6 +463,7 @@ export function ApplicationsManagement({ historyJobId, onHistoryChange }: { hist
   const [isScheduling, setIsScheduling] = useState(false);
   const [reviewEligibility, setReviewEligibility] = useState<Record<string, ReviewEligibilityItem>>({});
   const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
+  const [hireTarget, setHireTarget] = useState<EmployerApplication | null>(null);
   const [offerBusyId, setOfferBusyId] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     title: string;
@@ -750,16 +752,7 @@ export function ApplicationsManagement({ historyJobId, onHistoryChange }: { hist
   const handleCancelOffer = (application: EmployerApplication) => { setRejectAfterCancelApp(null); if (application.offer) setCancelOfferId(application.offer.id); };
 
   const handleConfirmHire = (application: EmployerApplication) => {
-    if (!application.offer) return;
-    const offer = application.offer;
-    const name = getApplicantName(application, t("applicationsManagement.card.applicantFallback"));
-    setConfirmAction({
-      title: t("applicationsManagement.confirmHire.title"),
-      description: t("applicationsManagement.confirmHire.description", { name, amount: formatCurrency(offer.amount) }),
-      warning: t("applicationsManagement.confirmHire.warning"),
-      confirmLabel: t("applicationsManagement.confirmHire.confirm"),
-      run: () => runOfferAction(application._id, () => confirmOfferHire(offer.id), t("applicationsManagement.toast.workerHired")),
-    });
+    if (application.offer) setHireTarget(application);
   };
 
   const handleRejectApplicant = (application: EmployerApplication) => { if (application.offer) { setRejectAfterCancelApp(application._id); setCancelOfferId(application.offer.id); } };
@@ -1041,7 +1034,7 @@ export function ApplicationsManagement({ historyJobId, onHistoryChange }: { hist
         </div>
       ) : null}
       {activeApplication ? (
-        <Dialog open={!confirmAction && !ratingTarget} title={t("applicationsManagement.workflow.title")}
+        <Dialog open={!confirmAction && !ratingTarget && !hireTarget} title={t("applicationsManagement.workflow.title")}
           description={`${getApplicantName(activeApplication, t("applicationsManagement.card.applicantFallback"))} · ${activeApplication.job.title}`}
           onClose={() => setActionsTarget(null)} closeDisabled={Boolean(offerBusyId) || statusBusy} size="xl">
           <div className="space-y-5" aria-busy={Boolean(offerBusyId) || statusBusy}>{["Hired", "Cancelled"].includes(activeApplication.status) && <AssignmentPanel applicationId={activeApplication._id} onChanged={() => void loadApplications(true)} />}
@@ -1112,6 +1105,11 @@ export function ApplicationsManagement({ historyJobId, onHistoryChange }: { hist
         <RatingDialog target={ratingTarget} onClose={() => setRatingTarget(null)} onSubmitted={async () => { await loadApplications(); onHistoryChange?.(); }} />
       ) : null}
       <OfferCancellationDialog rejectApplicationId={rejectAfterCancelApp} offerId={cancelOfferId} onClose={() => setCancelOfferId(null)} onDone={() => void loadApplications()} />
+      {hireTarget?.offer && <HireChecklistDialog key={hireTarget.offer.id} title={t('applicationsManagement.confirmHire.title')} description={t('applicationsManagement.confirmHire.description', { name: getApplicantName(hireTarget, t('applicationsManagement.card.applicantFallback')), amount: formatCurrency(hireTarget.offer.amount) })} warning={t('applicationsManagement.confirmHire.warning')} onClose={() => setHireTarget(null)} onConfirm={async (checklist) => {
+        await confirmOfferHire(hireTarget.offer!.id, checklist);
+        toast.success(t('applicationsManagement.toast.workerHired'));
+        await loadApplications(true); onHistoryChange?.();
+      }} />}
       <ConfirmDialog
         open={Boolean(confirmAction)}
         title={confirmAction?.title || ""}

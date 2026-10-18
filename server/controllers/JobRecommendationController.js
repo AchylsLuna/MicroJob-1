@@ -3,6 +3,7 @@ import JobApplication from '../models/JobApplication.js';
 import User from '../models/User.js';
 import { proximityOf, serializePublicJob } from '../lib/jobDiscovery.js';
 import { scoreJobForWorker } from '../lib/jobMatching.js';
+import { availableJobFilter } from '../lib/lifecyclePolicy.js';
 
 const getUserId = (req) => req.user?.id || req.user?.userId || null;
 
@@ -22,8 +23,7 @@ export async function getRecommendedJobs(req, res) {
     // National pool: recommendations rank on match quality, with the worker's
     // own locality used as a tiebreaker below rather than as a hard filter.
     const filter = {
-      status: 'Available',
-      deadline: { $gte: new Date() },
+      ...availableJobFilter(),
       jobPoster: { $ne: userId },
       ...(excludedJobIds.length ? { _id: { $nin: excludedJobIds } } : {}),
     };

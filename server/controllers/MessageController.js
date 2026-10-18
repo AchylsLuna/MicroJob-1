@@ -1,6 +1,7 @@
 import Message from '../models/Message.js';
 import User from '../models/User.js';
 import Job from '../models/Job.js';
+import JobApplication from '../models/JobApplication.js';
 import { emitToUser } from '../lib/socket.js';
 import { createNotification } from '../lib/notificationService.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
@@ -43,7 +44,8 @@ const withMessagePopulate = (query) =>
     .populate('receiver', 'firstName lastName role')
     .populate('job', 'title')
     .populate('attachment.settlementRequest', 'status expiresAt settledAt')
-    .populate('attachment.jobOffer', 'status amount acceptedAt resolvedAt');
+    .populate('attachment.jobOffer', 'status amount acceptedAt resolvedAt')
+    .populate({ path: 'attachment.application', select: 'workStatus paymentStatus workSubmittedAt', model: JobApplication });
 
 /**
  * Loads the job for a job-scoped message and confirms the thread belongs to the
@@ -332,8 +334,8 @@ const MessageController = {
       if (String(message.sender) !== String(userId)) {
         return sendError(res, 403, 'You can only edit your own messages.');
       }
-      if (message.attachment?.type === 'settlement_request') {
-        return sendError(res, 400, 'Payment invoice messages cannot be edited.');
+      if (['settlement_request', 'completion_evidence', 'hire_checklist'].includes(message.attachment?.type)) {
+        return sendError(res, 400, 'Attached job and payment messages cannot be edited.');
       }
 
       const createdAtMs = new Date(message.createdAt).getTime();

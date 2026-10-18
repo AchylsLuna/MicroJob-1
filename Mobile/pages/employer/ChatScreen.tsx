@@ -1,4 +1,7 @@
 import OfferDecisionModal from '../../components/OfferDecisionModal';
+import CompletionMessageCard from '../../components/messaging/CompletionMessageCard';
+import { ChecklistTable, HireChecklistDialog } from '../../components/HireChecklist';
+import { walletRequest } from '../../lib/lifecycleApi';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Keyboard, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -22,7 +25,7 @@ interface Message {
   createdAt: string;
   senderName?: string;
   receiverName?: string;
-  attachment?: { type?: string; settlementRequest?: any; qrImageName?: string; jobTitle?: string; totalAmount?: number; expiresAt?: string; jobOffer?: any; application?: any; offerAmount?: number };
+  attachment?: { type?: string; settlementRequest?: any; qrImageName?: string; jobTitle?: string; totalAmount?: number; expiresAt?: string; jobOffer?: any; application?: any; offerAmount?: number; submittedAt?: string; images?: Array<{ fileUrl: string; fileName: string }>; checklist?: string[] };
 }
 
 interface ChatScreenProps {
@@ -178,6 +181,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
   };
 
   const [offerDecision, setOfferDecision] = useState<{ id: string; action: 'cancel' | 'accept' } | null>(null);
+  const [hireOfferId, setHireOfferId] = useState<string | null>(null);
   const updateOffer = async (offerId: string, action: 'accept' | 'reject' | 'cancel' | 'confirm-hire') => {
     if (processingOfferId) return;
     setProcessingOfferId(offerId);
@@ -266,6 +270,8 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
           renderItem={({ item }) => {
             const isMine = String(getEntityId(item.sender)) === String(currentUserId);
             const offerValue = item.attachment?.jobOffer;
+            if (item.attachment?.type === 'hire_checklist') return <View style={styles.invoiceCard}><Text style={styles.invoiceTitle}>{item.attachment.jobTitle}</Text><ChecklistTable items={item.attachment.checklist || []} /></View>;
+            if (item.attachment?.type === 'completion_evidence') return <CompletionMessageCard message={item} token={authToken} currentUserId={currentUserId} onChanged={() => void fetchMessages()} />;
             const offerId = getEntityId(offerValue);
             if (item.attachment?.type === 'job_offer' && offerId) {
               const offerStatus = String(typeof offerValue === 'object' ? offerValue.status || 'pending' : 'pending').toLowerCase();
@@ -274,7 +280,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
                 <View style={styles.invoiceHeader}><View style={styles.invoiceIcon}><Ionicons name="document-text-outline" size={21} color={tokens.colors.brand} /></View><View style={styles.invoiceCopy}><Text style={styles.invoiceEyebrow}>{t('chatScreen.offer.eyebrow')}</Text><Text style={styles.invoiceTitle}>{item.attachment.jobTitle || t('chatScreen.offer.fallbackTitle')}</Text></View><View style={[styles.invoiceStatus, offerStatus !== 'pending' && styles.invoiceStatusMuted]}><Text style={styles.invoiceStatusText}>{offerStatus}</Text></View></View>
                 <View style={styles.invoiceFooter}><Text style={styles.invoiceAmount}>{php(item.attachment.offerAmount)}</Text><Text style={styles.invoiceHint}>{t('chatScreen.offer.escrowHint')}</Text></View>
                 {!isEmployer && !isMine && offerStatus === 'pending' ? <View style={styles.offerActions}><TouchableOpacity style={styles.offerSecondary} disabled={busy} onPress={() => void updateOffer(offerId, 'reject')}><Text style={styles.offerSecondaryText}>{t('chatScreen.offer.decline')}</Text></TouchableOpacity><TouchableOpacity style={styles.offerPrimary} disabled={busy} onPress={() => setOfferDecision({ id: offerId, action: 'accept' })}><Text style={styles.offerPrimaryText}>{t('chatScreen.offer.accept')}</Text></TouchableOpacity></View> : null}
-                {isEmployer && isMine && ['pending', 'accepted'].includes(offerStatus) ? <View style={styles.offerActions}><TouchableOpacity style={styles.offerSecondary} disabled={busy} onPress={() => setOfferDecision({ id: offerId, action: 'cancel' })}><Text style={styles.offerSecondaryText}>{t('chatScreen.offer.cancel')}</Text></TouchableOpacity>{offerStatus === 'accepted' ? <TouchableOpacity style={styles.offerPrimary} disabled={busy} onPress={() => void updateOffer(offerId, 'confirm-hire')}><Text style={styles.offerPrimaryText}>{t('chatScreen.offer.confirmHire')}</Text></TouchableOpacity> : null}</View> : null}
+                {isEmployer && isMine && ['pending', 'accepted'].includes(offerStatus) ? <View style={styles.offerActions}><TouchableOpacity style={styles.offerSecondary} disabled={busy} onPress={() => setOfferDecision({ id: offerId, action: 'cancel' })}><Text style={styles.offerSecondaryText}>{t('chatScreen.offer.cancel')}</Text></TouchableOpacity>{offerStatus === 'accepted' ? <TouchableOpacity style={styles.offerPrimary} disabled={busy} onPress={() => setHireOfferId(offerId)}><Text style={styles.offerPrimaryText}>{t('chatScreen.offer.confirmHire')}</Text></TouchableOpacity> : null}</View> : null}
               </View>;
             }
             const requestValue = item.attachment?.settlementRequest;
@@ -315,6 +321,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
       </KeyboardAvoidingView>
       {reportOpen ? <ConversationReportModal key={`${userId}:${jobId || ''}`} userId={userId} name={displayName || t('chatScreen.header.fallbackTitle')} jobId={jobId} onClose={() => setReportOpen(false)} /> : null}
       <OfferDecisionModal offerId={offerDecision?.id || null} action={offerDecision?.action || "accept"} onClose={() => setOfferDecision(null)} onDone={() => void fetchMessages()} />
+      {hireOfferId && <HireChecklistDialog key={hireOfferId} title={t('chatScreen.offer.confirmHire')} onClose={() => setHireOfferId(null)} onConfirm={async (checklist) => { await walletRequest(`/job-offers/${hireOfferId}/confirm-hire`, { checklist }); toast.success(t('chatScreen.toast.workerHired')); await fetchMessages(); }} />}
       <EmployerQrScannerModal visible={Boolean(invoiceRequestId)} initialRequestId={invoiceRequestId} onClose={() => setInvoiceRequestId(null)} onSettled={() => { setInvoiceRequestId(null); void fetchMessages(); }} />
     </SafeAreaView>
   );

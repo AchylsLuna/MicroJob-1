@@ -2,6 +2,7 @@ import CompletionEvidence from '../../components/CompletionEvidence';
 import { walletRequest } from '../../lib/lifecycleApi';
 import { formatCurrency } from '../../lib/formatters';
 import PostingActions from '../../components/PostingActions';
+import { HiredWorkerChecklists } from '../../components/HireChecklist';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -497,6 +498,7 @@ export default function EmployerJobPosts({
               <DetailSection title={t('jobPosts.details.sections.requirements')} values={viewingJob?.requirements} />
               <DetailSection title={t('jobPosts.details.sections.responsibilities')} values={viewingJob?.responsibilities} />
               <DetailSection title={t('jobPosts.details.sections.skills')} values={viewingJob?.skills} />
+              {viewingJob && <HiredWorkerChecklists key={viewingJob._id} jobId={viewingJob._id} />}
             </ScrollView>
             <View style={styles.detailsActions}>
               <TouchableOpacity style={styles.detailsSecondaryButton} onPress={() => setViewingJob(null)}>

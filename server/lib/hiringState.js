@@ -8,14 +8,12 @@
 //      agreed amount, and secures escrow, so it must go through the offer flow.
 //      EMPLOYER_MUTABLE_STATUSES is the authoritative list of statuses an
 //      employer may set directly, and deliberately excludes 'Hired'.
-//   2. A job post's Available/Closed state must reflect *committed* positions,
-//      which include positions held by pending offers (reservedOfferCount), not
-//      just completed hires.
+//   2. Confirmed hires put the job In Progress. Recruitment capacity counts
+//      both hires and positions reserved by pending/accepted offers.
 //   3. A job the employer closed by hand must not silently reopen because some
 //      unrelated application changed status.
 //
-// Terminal/explicit job states are never auto-managed here; only the
-// Available <-> Closed pair is derived from capacity.
+// Completed and cancelled outcomes are never auto-managed by capacity changes.
 
 export const EMPLOYER_MUTABLE_STATUSES = [
   'Applied',
@@ -32,7 +30,7 @@ export const HIRED_STATUSES = ['Hired', 'Accepted'];
 
 // Job statuses that represent an explicit decision and must never be
 // overwritten by capacity math.
-export const TERMINAL_JOB_STATUSES = ['Completed', 'Cancelled', 'In Progress', 'Full refund', 'Resolved'];
+export const TERMINAL_JOB_STATUSES = ['Completed', 'Cancelled', 'Full refund', 'Resolved'];
 
 // Un-hiring returns escrow and frees a position. That is only safe while the
 // money is still sitting in escrow; once payment is authorized or in flight the
@@ -68,9 +66,8 @@ export function isAtCapacity({ hiredCount, reservedOfferCount, positionsNeeded }
 /**
  * Derive the job post status after a hiring-state change.
  *
- * Returns the status unchanged when it is terminal, when the employer closed the
- * post by hand, or when no transition applies — callers can compare against the
- * current value to decide whether a write is needed.
+ * Recruitment closure is tracked separately with closedManually and capacity.
+ * A hired job stays In Progress even when recruitment is closed or full.
  */
 export function resolveJobAvailability({
   status,
@@ -81,12 +78,14 @@ export function resolveJobAvailability({
 } = {}) {
   const current = String(status || '').trim();
   if (TERMINAL_JOB_STATUSES.includes(current)) return current;
+  if (toCount(hiredCount) > 0) return 'In Progress';
+  if (closedManually) return 'Closed';
 
   const atCapacity = isAtCapacity({ hiredCount, reservedOfferCount, positionsNeeded });
   if (atCapacity) return 'Closed';
 
   // Below capacity: only reopen a post that capacity itself had closed.
-  if (current === 'Closed') return closedManually ? 'Closed' : 'Available';
+  if (['Closed', 'In Progress'].includes(current)) return 'Available';
   return current || 'Available';
 }
 

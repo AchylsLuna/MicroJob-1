@@ -11,6 +11,8 @@ import Message from '../models/Message.js';
 import Transaction from '../models/Transaction.js';
 import User from '../models/User.js';
 import { emitToUser } from '../lib/socket.js';
+import { normalizeHireChecklist } from '../lib/hireChecklist.js';
+import { buildConversationKey } from '../lib/jobInquiry.js';
 
 const userId = (req) => String(req.user?.id || req.user?.userId || '');
 const serialize = (offer) => ({ id: String(offer._id), applicationId: String(offer.application), jobId: String(offer.job), employerId: String(offer.employer), workerId: String(offer.worker), amount: Number(offer.amount), status: offer.status, createdAt: offer.createdAt, acceptedAt: offer.acceptedAt });
@@ -50,7 +52,7 @@ export async function createJobOffer(req, res) {
       created.chatMessage = message[0]._id; await created.save({ session });
       application.status = 'Offer Sent'; await application.save({ session });
       await syncCapacity(job, session);
-      if (job.status === 'Closed') {
+      if (job.hiredCount + job.reservedOfferCount >= job.positionsNeeded) {
         const others = await JobApplication.find({ job: job._id, _id: { $ne: application._id }, status: { $in: ['Applied', 'Shortlisted', 'Interview Scheduled', 'Interviewed'] } }).session(session);
         for (const other of others) await queueNotification(`recruitment-paused:${created._id}:${other._id}`, { userId: String(other.applicant), audience: 'worker', type: 'application', title: 'Recruitment paused', message: 'Available positions are reserved by pending offers. Your application is retained.', entityType: 'application', entityId: String(other._id) }, session);
       }
@@ -108,16 +110,26 @@ export async function cancelJobOffer(req, res) {
 }
 
 export async function confirmOfferHire(req, res) {
-  const session = await mongoose.startSession(); let offer; let application; let job;
+  let checklist;
+  try { checklist = normalizeHireChecklist(req.body?.checklist); }
+  catch (error) { return res.status(error.status || 400).json({ message: error.message }); }
+  const session = await mongoose.startSession(); let offer; let application; let job; let checklistMessage;
   try {
     await session.withTransaction(async () => {
       offer = await JobOffer.findOne({ _id: req.params.offerId, employer: userId(req), status: 'accepted' }).session(session);
       if (!offer) throw Object.assign(new Error('Accepted offer not found.'), { status: 404 });
       application = await JobApplication.findById(offer.application).session(session); job = await Job.findById(offer.job).session(session);
       if (!application || !job || application.status !== 'Offer Sent' || job.cancellationPending || job.archivedAt || job.closedManually || ['Cancelled', 'Completed'].includes(job.status) || Number(job.hiredCount || 0) >= Number(job.positionsNeeded || 1)) throw Object.assign(new Error('This job no longer has an available position.'), { status: 409 });
-      application.status = 'Hired'; application.hiredAt ||= new Date(); job.hireConfirmedAt ||= application.hiredAt; application.agreedAmount = offer.amount; application.workStatus = 'Not started'; application.startedAt = null; application.paymentStatus = 'Secured'; await application.save({ session });
-      job.hiredCount = Number(job.hiredCount || 0) + 1; job.reservedOfferCount = Math.max(0, Number(job.reservedOfferCount || 0) - 1); job.status = job.hiredCount >= job.positionsNeeded ? 'Closed' : 'Available'; await job.save({ session });
+      application.status = 'Hired'; application.hiredAt ||= new Date(); job.hireConfirmedAt ||= application.hiredAt; application.agreedAmount = offer.amount; application.workStatus = 'Not started'; application.startedAt = null; application.paymentStatus = 'Secured'; application.hireChecklist = checklist; await application.save({ session });
+      job.hiredCount = Number(job.hiredCount || 0) + 1; job.reservedOfferCount = Math.max(0, Number(job.reservedOfferCount || 0) - 1); job.status = 'In Progress'; await job.save({ session });
       offer.status = 'hired'; offer.resolvedAt = new Date(); await offer.save({ session });
+      if (checklist.length) {
+        [checklistMessage] = await Message.create([{ sender: offer.employer, receiver: offer.worker, job: job._id, content: `Work checklist for ${job.title}`, clientMessageId: `hire-checklist:${offer._id}`, attachment: { type: 'hire_checklist', application: application._id, jobTitle: job.title, checklist: checklist.map((item) => item.description) } }], { session });
+        await User.updateOne({ _id: offer.worker }, { $pull: { archivedConversations: buildConversationKey(String(offer.employer), String(job._id)) } }, { session });
+        await User.updateOne({ _id: offer.employer }, { $pull: { archivedConversations: buildConversationKey(String(offer.worker), String(job._id)) } }, { session });
+        application.timeline.push({ type: 'hire_checklist_sent', actor: userId(req), note: 'Hire checklist sent to the worker.', meta: { itemCount: checklist.length, messageId: checklistMessage._id } });
+        await application.save({ session });
+      }
       await queueNotification(`hired:${offer._id}`, { userId: String(offer.worker), audience: 'worker', type: 'application', title: 'You are hired', message: 'Review your assignment and select Start work when ready.', entityType: 'application', entityId: String(application._id) }, session);
       if (job.hiredCount >= job.positionsNeeded) {
         const others = await JobApplication.find({ job: job._id, status: { $in: ['Applied', 'Shortlisted', 'Interview Scheduled', 'Interviewed', 'Offer Sent'] } }).session(session);
@@ -125,6 +137,12 @@ export async function confirmOfferHire(req, res) {
       }
     });
 
+    if (checklistMessage) {
+      try {
+        const message = await Message.findById(checklistMessage._id).populate('sender', 'firstName lastName').populate('receiver', 'firstName lastName').populate('job', 'title');
+        if (message) { emitToUser(String(offer.worker), 'new_message', message); emitToUser(String(offer.employer), 'new_message_echo', message); }
+      } catch { /* The checklist remains in persisted chat history if realtime delivery is interrupted. */ }
+    }
     return res.json({ offer: serialize(offer), application });
   } catch (error) { return res.status(error.status || 500).json({ message: error.message || 'Unable to confirm hire.' }); }
   finally { await session.endSession(); }

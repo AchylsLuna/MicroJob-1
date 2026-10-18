@@ -29,6 +29,7 @@ export const tokens = {
     onBrand: '#FFFFFF',
     onBrandMuted: '#CBD5F0',
     success: '#10B981',
+    successStrong: '#047857',
     danger: '#EF4444',
     warning: '#F59E0B',
     info: '#0369A1',

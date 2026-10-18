@@ -6,6 +6,7 @@ import FinancialDispute from '../models/FinancialDispute.js';
 import { getAuthContextFromRequest, isAdminRole } from '../lib/auth.js';
 import { getStoredUpload, isSafeUploadFileName } from '../lib/uploadStore.js';
 import { getAvatarFromAzure } from '../lib/azureAvatarStorage.js';
+import { getEvidenceFromAzure } from '../lib/azureEvidenceStorage.js';
 import { hasPermission, resolveStaffRole } from '../lib/adminPermissions.js';
 
 const toUploadUrl = (fileName = '') => `/uploads/${fileName}`;
@@ -24,21 +25,24 @@ export const createUploadsRouter = () => {
                 return res.status(400).json({ message: 'Invalid file path.' });
             }
             const uploadUrl = toUploadUrl(fileName);
-            const storedUpload = await getStoredUpload(fileName);
-            if (storedUpload?.metadata?.kind === 'completion-evidence') {
+            const application = await JobApplication.findOne({ 'completionEvidence.fileUrl': uploadUrl }).select('applicant job completionEvidence');
+            if (application) {
                 const authContext = await getAuthContextFromRequest(req);
                 if (!authContext?.id) return res.status(401).json({ message: 'Authentication required.' });
-                const application = await JobApplication.findOne({ 'completionEvidence.fileUrl': uploadUrl }).select('applicant job');
                 const job = application && await Job.findById(application.job).select('jobPoster');
                 if (!application || !job) return res.sendStatus(404);
                 const participant = [String(application.applicant), String(job.jobPoster)].includes(String(authContext.id));
                 if (!participant && !hasPermission(resolveStaffRole(authContext), 'finance.disputes.view')) return res.sendStatus(403);
+                const evidence = application.completionEvidence.find((item) => item.fileUrl === uploadUrl);
+                const storedUpload = evidence.storage === 'azure' ? await getEvidenceFromAzure(fileName) : await getStoredUpload(fileName);
+                if (!storedUpload) return res.sendStatus(404);
                 res.setHeader('Content-Type', storedUpload.contentType || 'application/octet-stream');
                 res.setHeader('X-Content-Type-Options', 'nosniff');
                 res.setHeader('Cache-Control', 'private, no-store');
-                res.setHeader('Content-Disposition', `attachment; filename="${fileName.replace(/["\\\r\n]/g, '_')}"`);
+                res.setHeader('Content-Disposition', `${String(storedUpload.contentType).startsWith('image/') ? 'inline' : 'attachment'}; filename="${fileName.replace(/["\\\r\n]/g, '_')}"`);
                 return res.send(Buffer.from(storedUpload.data || []));
             }
+            const storedUpload = await getStoredUpload(fileName);
             if (storedUpload?.metadata?.kind === 'dispute-evidence') {
                 const authContext = await getAuthContextFromRequest(req);
                 if (!authContext?.id) return res.status(401).json({ message: 'Authentication required.' });

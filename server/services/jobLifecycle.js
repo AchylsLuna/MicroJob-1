@@ -9,6 +9,7 @@ import FinancialDispute from '../models/FinancialDispute.js';
 import { CANCELLATION_RESPONSE_MS, EVIDENCE_WINDOW_MS, POLICY_VERSION, httpError, money, requireReason } from '../lib/lifecyclePolicy.js';
 import { remainingJobFunds, refundJobFunds, jobSpendingSources } from './jobFunds.js';
 import { queueNotification } from './notificationOutbox.js';
+import { resolveJobAvailability } from '../lib/hiringState.js';
 
 export const activeDispute = (application, session) => FinancialDispute.exists({ application, status: { $in: ['open', 'investigating'] } }).session(session || null);
 const notice = (key, userId, audience, title, message, entityId, session) => queueNotification(key, { userId: String(userId), audience, type: 'application', title, message, entityType: 'application', entityId: String(entityId) }, session);
@@ -16,9 +17,7 @@ const notice = (key, userId, audience, title, message, entityId, session) => que
 export async function syncCapacity(job, session) {
   job.hiredCount = await JobApplication.countDocuments({ job: job._id, status: { $in: ['Hired', 'Accepted'] } }).session(session);
   job.reservedOfferCount = await JobOffer.countDocuments({ job: job._id, status: { $in: ['pending', 'accepted'] } }).session(session);
-  if (!job.closedManually && !job.cancellationPending && !['Cancelled', 'Completed', 'In Progress'].includes(job.status)) {
-    job.status = job.hiredCount + job.reservedOfferCount >= job.positionsNeeded ? 'Closed' : 'Available';
-  }
+  if (!job.cancellationPending) job.status = resolveJobAvailability(job);
   await job.save({ session });
 }
 

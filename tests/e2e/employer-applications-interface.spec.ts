@@ -152,6 +152,36 @@ test("Reject cancels accepted offer before rejecting the application", async ({ 
   await expect(page.getByRole("dialog", { name: "Applicant Actions" }).getByRole("button", { name: "Hire", exact: true })).toHaveCount(0);
 });
 
+test("hire confirmation optionally sends descriptions and preserves the draft after a failed request", async ({ page }) => {
+  const state = await mockApplications(page, { accepted: true });
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto("/employer/applications");
+  await page.getByRole("button", { name: "Actions", exact: true }).click();
+  await page.getByRole("dialog", { name: "Applicant Actions" }).getByRole("button", { name: "Hire", exact: true }).click();
+  const confirmation = page.getByRole("dialog", { name: "Confirm Hire", exact: true });
+  await confirmation.getByRole("checkbox", { name: "Add a work checklist (optional)" }).check();
+  await confirmation.getByRole("button", { name: "Confirm Hire", exact: true }).click();
+  await expect(confirmation.getByRole("alert")).toBeVisible();
+  expect(state.mutations).toHaveLength(0);
+  await confirmation.getByRole("textbox", { name: "Task 1 description", exact: true }).fill("  Sweep the path  ");
+  await confirmation.getByRole("button", { name: "Add row" }).click();
+  await confirmation.getByRole("textbox", { name: "Task 2 description", exact: true }).fill("Collect the litter");
+  await expect(confirmation.getByRole("checkbox", { name: "Task 1 completed" })).toBeDisabled();
+  expect(await confirmation.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.screenshot({ path: ".agent/hire-checklist-phone.png" });
+  let failed = false;
+  await page.route("**/job-offers/offer-0/confirm-hire", async (route) => {
+    if (!failed) { failed = true; await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Please retry the hire" }) }); }
+    else await route.fallback();
+  });
+  await confirmation.getByRole("button", { name: "Confirm Hire", exact: true }).click();
+  await expect(confirmation.getByRole("alert")).toHaveText("Please retry the hire");
+  await expect(confirmation.getByRole("textbox", { name: "Task 2 description", exact: true })).toHaveValue("Collect the litter");
+  await confirmation.getByRole("button", { name: "Confirm Hire", exact: true }).click();
+  await expect(confirmation).toBeHidden();
+  expect(state.mutations.find((call) => call.path.endsWith("/confirm-hire"))?.body).toEqual({ checklist: ["Sweep the path", "Collect the litter"] });
+});
+
 test("declined offers return to status and offer controls without allowing a hire", async ({ page }) => {
   const state = await mockApplications(page);
   await page.goto("/employer/applications");

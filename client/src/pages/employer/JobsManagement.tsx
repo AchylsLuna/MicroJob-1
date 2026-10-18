@@ -1,5 +1,6 @@
 import { CompletionEvidence } from '../../components/CompletionEvidence';
 import { PostingActions } from '../../components/PostingActions';
+import { HiredWorkerChecklists } from '../../components/HireChecklist';
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
@@ -666,8 +667,8 @@ export function JobsManagement() {
                   )}
                 </section>
               </div>
+              <div className="mt-6 border-t border-slate-200 pt-5"><HiredWorkerChecklists key={viewingJob.id} jobId={viewingJob.id} /></div>
             </div>
-
             <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 md:px-7">
               <button
                 type="button"

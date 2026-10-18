@@ -16,5 +16,10 @@ export function canFileNonpayment(application, now = Date.now()) {
     && now >= new Date(application.firstSubmittedAt || application.workSubmittedAt).getTime() + 72 * HOUR;
 }
 export function availableJobFilter(now = new Date()) {
-  return { status: 'Available', cancellationPending: { $ne: true }, archivedAt: null, deadline: { $gt: now }, $expr: { $lt: [{ $add: [{ $ifNull: ['$hiredCount', 0] }, { $ifNull: ['$reservedOfferCount', 0] }] }, { $ifNull: ['$positionsNeeded', 1] }] } };
+  return { status: { $in: ['Available', 'In Progress'] }, closedManually: { $ne: true }, cancellationPending: { $ne: true }, archivedAt: null, deadline: { $gt: now }, $expr: { $lt: [{ $add: [{ $ifNull: ['$hiredCount', 0] }, { $ifNull: ['$reservedOfferCount', 0] }] }, { $ifNull: ['$positionsNeeded', 1] }] } };
+}
+
+export function recruitmentState(job, now = new Date()) {
+  const availablePositions = Math.max(0, Number(job.positionsNeeded || 1) - Number(job.hiredCount || 0) - Number(job.reservedOfferCount || 0));
+  return { availablePositions, recruitmentOpen: ['Available', 'In Progress'].includes(job.status) && !job.closedManually && !job.cancellationPending && !job.archivedAt && new Date(job.deadline).getTime() > now.getTime() && availablePositions > 0 };
 }

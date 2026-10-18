@@ -7,6 +7,36 @@ the implemented workflow and do not assert legal entitlement or replace applicab
 
 Employers may require interviews. A completed required interview precedes a formal
 offer; worker acceptance and employer confirmation precede a worker starting work.
+
+The first confirmed hire sets the posting to **In Progress**, even when other
+positions remain vacant. Each hired worker retains a separate **Not started**
+assignment until choosing Start work. Further hires and offer responses preserve
+the posting's In Progress phase.
+
+An employer may attach an optional, worker-specific checklist during hire
+confirmation. Its descriptions are sent through job chat without checkboxes.
+Employer-only completion marks in Job Management details are advisory tracking:
+they never change job status or gate evidence submission, completion, or payment.
+
+Recruitment remains open on Available or In Progress postings only while the
+deadline is in the future, the posting is not archived, manually closed, or under
+cancellation, and hired workers plus pending/accepted offers remain below the
+number of positions. Discovery, recommendations, application submission, matching
+notifications, and available-job counts use this rule. Public job responses expose
+`recruitmentOpen` and `availablePositions`, without participant identities.
+
+Web and mobile posting actions show recruitment availability and remaining
+unreserved slots. An employer can close or reopen recruitment for an In Progress
+posting with remaining slots. Reopening requires those vacancies to remain fully
+funded and the deadline to remain valid. A before-start cancellation frees its
+funded slot; the job remains In Progress while any other hired assignment remains.
+
+Mark done closes recruitment and settles submitted hired assignments through the
+existing guarded payment service. Resolve pending/accepted offers first. A partially
+filled posting can complete when recruitment is deliberately closed and every
+hired worker is paid/completed. Closing recruitment after those payments also
+finalizes the posting. Remaining secured funds are returned to their original
+wallet sources once; the existing legacy-source reconciliation guard still applies.
 The accepted amount and policy version are recorded. Both parties retain messaging.
 
 Before starting work, either party may cancel with a reason. After starting work,
@@ -53,7 +83,9 @@ Automatic transfers are never marked paid merely because a request was accepted.
 ## Deployment and verification
 
 1. Back up the database. Run `npm --prefix server run migrate:lifecycle` for a dry run.
-   Review orphaned applications, counters and ambiguous balances. With approval to
+   Review orphaned applications, counters, `jobPhaseDifferences`, and ambiguous
+   balances. The phase report identifies legacy Available/Closed postings with
+   confirmed hires that should become In Progress. With approval to
    apply reviewed repairs, run the same command with `-- --apply`. No balance repair
    or deletion is performed by this migration.
 2. Production MongoDB must support transactions (replica set or Atlas). Deploy

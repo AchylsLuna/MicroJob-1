@@ -356,10 +356,6 @@ const AppliedJobs: React.FC = () => {
                       </div>
                     ) : null}
 
-                    {['Hired', 'Cancelled', 'Position filled'].includes(application.status) && <AssignmentPanel applicationId={application._id} onChanged={() => void fetchApplications()} />}
-                    {application.status === "Hired" && ["In Progress", "Changes Requested"].includes(application.workStatus || "In Progress") ? (
-                      <WorkSubmission applicationId={application._id} onChanged={() => void fetchApplications()} />
-                    ) : null}
                     {application.status === "Hired" && application.workStatus === "Submitted" && application.paymentStatus === "Disputed" ? (
                       <div className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
                         <p>{t("appliedJobs.paymentDispute.onHold")}</p>
@@ -372,20 +368,10 @@ const AppliedJobs: React.FC = () => {
                         </button>
                       </div>
                     ) : null}
-                    {application.status === "Hired" && application.workStatus === "Submitted" && !["Paid", "Disputed"].includes(application.paymentStatus || "") ? (
-                      <div className="mt-4">
-                        <button
-                          type="button"
-                          disabled={actionBusyId === application._id}
-                          onClick={() => handleOpenDispute(application)}
-                          className="inline-flex h-10 items-center justify-center rounded-xl border border-red-200 px-4 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
-                        >
-                          {t("appliedJobs.paymentDispute.openButton")}
-                        </button>
-                      </div>
-                    ) : null}
 
-                    <div className="mt-5 flex flex-col gap-4 border-t border-slate-100 pt-4">
+                  </div>
+                </div>
+                    <div className="mt-5 flex min-w-0 flex-col gap-4 border-t border-slate-100 pt-4">
                       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
                         <span className="inline-flex items-center gap-1.5">
                           <CalendarDays className="h-3.5 w-3.5" />
@@ -398,7 +384,8 @@ const AppliedJobs: React.FC = () => {
                           </span>
                         ) : null}
                       </div>
-                      <div className="flex flex-wrap justify-end gap-2">
+                      <div className="overflow-x-auto">
+                      <div className="flex w-max min-w-full items-center justify-end gap-2 py-1">
                       {reviewEligibility[application._id]?.canReview ? (
                         <button
                           type="button"
@@ -420,6 +407,9 @@ const AppliedJobs: React.FC = () => {
                           <Star className="h-4 w-4 fill-emerald-600" /> {t("appliedJobs.card.reviewSubmitted")}
                         </span>
                       ) : null}
+                      {['Hired', 'Cancelled', 'Position filled'].includes(application.status) && <AssignmentPanel applicationId={application._id} onChanged={() => void fetchApplications()} />}
+                      {application.status === 'Hired' && ['In Progress', 'Changes Requested'].includes(application.workStatus || 'In Progress') && <WorkSubmission applicationId={application._id} onChanged={() => void fetchApplications()} />}
+                      {application.status === 'Hired' && application.workStatus === 'Submitted' && !['Paid', 'Disputed'].includes(application.paymentStatus || '') && <button type="button" disabled={actionBusyId === application._id} onClick={() => handleOpenDispute(application)} className="inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-red-200 px-4 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50">{t('appliedJobs.paymentDispute.openButton')}</button>}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -427,14 +417,13 @@ const AppliedJobs: React.FC = () => {
                             state: { isApplied: true, status: application.status }
                           });
                         }}
-                        className="h-10 rounded-xl bg-brand px-5 text-sm font-semibold text-white transition hover:opacity-90"
+                        className="min-h-11 shrink-0 whitespace-nowrap rounded-xl bg-brand px-5 text-sm font-semibold text-white transition hover:opacity-90"
                       >
                         {t("appliedJobs.card.viewDetails")}
                       </button>
                       </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
               </article>
             ))}
           </div>

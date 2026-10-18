@@ -69,6 +69,7 @@ export const tokens = {
   /** Semantic state colours. Brand colours live in tailwind.config.js. */
   colors: {
     success: "#10B981",
+    successStrong: "#047857",
     danger: "#EF4444",
     warning: "#F59E0B",
     info: "#0369A1",

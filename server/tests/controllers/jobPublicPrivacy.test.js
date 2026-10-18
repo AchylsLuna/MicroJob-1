@@ -82,19 +82,22 @@ test('anonymous discovery and details expose only public fields and opaque ident
   }
 });
 
-test('Find Jobs discovery excludes completed and closed postings', async () => {
-  const { employer, category } = await fixture();
+test('discovery includes in-progress vacancies and excludes full, paused, historical, and expired recruitment', async () => {
+  const { employer, category, worker } = await fixture();
   await Promise.all(['Completed', 'Closed'].map((status) => Job.create({
     title: `${status} opportunity`, description: 'This work is unavailable.', location: 'Pasig City',
     salary: 1000, jobType: 'Short-term', deadline: new Date(Date.now() + 86400000),
     jobPoster: employer._id, category: category._id, status,
   })));
 
-  const res = response();
-  await getJobList(request(), res);
-
-  assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.payload.map((job) => job.title), ['Public opportunity']);
+  const progress = { title: 'In-progress vacancy', description: 'Recruiting remaining workers.', location: 'Pasig City', salary: 1000, jobType: 'Short-term', deadline: new Date(Date.now() + 86400000), jobPoster: employer._id, category: category._id, status: 'In Progress', positionsNeeded: 3, hiredCount: 1 };
+  await Job.create(progress);
+  for (const overrides of [{ reservedOfferCount: 2 }, { hiredCount: 3 }, { closedManually: true }, { cancellationPending: true }, { archivedAt: new Date() }, { deadline: new Date(Date.now() - 1000) }]) await Job.create({ ...progress, title: 'Unavailable recruitment', ...overrides });
+  for (const [handler, req] of [[getJobList, request()], [getAvailableJobs, request()], [getJobByCategory, request(null, { params: { categoryId: encodePublicId(category._id) } })], [getRecommendedJobs, request(worker)]]) {
+    const res = response(); await handler(req, res);
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.payload.map((job) => job.title).sort(), ['In-progress vacancy', 'Public opportunity']);
+  }
 });
 
 test('a worker can search another location or nationwide without changing their home city', async () => {

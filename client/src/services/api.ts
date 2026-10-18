@@ -315,7 +315,7 @@ async function performRequest(
       candidateTimedOut = true;
       requestTimedOut = true;
       controller.abort();
-    }, REQUEST_TIMEOUT_MS);
+    }, path.endsWith('/work/submit') ? 120000 : REQUEST_TIMEOUT_MS);
     const abortFromExternalSignal = () => controller.abort();
     if (externalSignal) {
       if (externalSignal.aborted) controller.abort();
@@ -861,8 +861,13 @@ export function cancelJobOffer(offerId: string, reason: string) {
   return request<{ offer: JobOffer }>(`/job-offers/${offerId}/cancel`, { method: 'POST', body: { reason, policyAcknowledged: true } });
 }
 
-export function confirmOfferHire(offerId: string) {
-  return request<{ offer: JobOffer; application: any }>(`/job-offers/${offerId}/confirm-hire`, { method: 'POST' });
+export function confirmOfferHire(offerId: string, checklist: string[] = []) {
+  return request<{ offer: JobOffer; application: any }>(`/job-offers/${offerId}/confirm-hire`, { method: 'POST', body: { checklist } });
+}
+
+export type HireChecklistItem = { _id: string; description: string; completed: boolean };
+export function updateHireChecklistItem(applicationId: string, itemId: string, completed: boolean) {
+  return request<{ checklist: HireChecklistItem[] }>(`/applications/${applicationId}/checklist/${itemId}`, { method: 'PATCH', body: { completed } });
 }
 
 // Hire work & payment APIs
@@ -870,10 +875,10 @@ export function authorizePayment(applicationId: string) {
   return request<{ application: any }>(`/applications/${applicationId}/payment/authorize`, { method: 'POST', body: { confirmed: true } });
 }
 
-export function submitWork(applicationId: string, evidence?: { statement: string; file?: File | null }) {
+export function submitWork(applicationId: string, evidence: { statement: string; files: File[] }) {
   const body = new FormData();
   body.append('statement', evidence?.statement || '');
-  if (evidence?.file) body.append('evidence', evidence.file);
+  for (const file of evidence.files) body.append('evidence', file);
   return request<{ application: any }>(`/applications/${applicationId}/work/submit`, { method: 'POST', body });
 }
 
@@ -954,9 +959,9 @@ export function submitFinancialDisputeAppeal(disputeId: string, reason: string) 
   return request<{ message: string; dispute: FinancialDispute }>(`/financial-disputes/${disputeId}/appeal`, { method: 'POST', body: { reason } });
 }
 
-export function settlePayment(applicationId: string) {
+export function settlePayment(applicationId: string, submittedAt?: string) {
   return request<{ message: string; application: any; job: any }>(`/applications/${applicationId}/payment/settle`, {
-    method: 'POST', body: { confirmed: true },
+    method: 'POST', body: { confirmed: true, ...(submittedAt ? { submittedAt } : {}) },
   });
 }
 

@@ -19,6 +19,7 @@ import { authorizePayment, openPaymentDispute, previewPayment, requestChanges, s
 import { cancelJobOffer, confirmOfferHire, createJobOffer, respondToJobOffer } from '../controllers/JobOfferController.js';
 import authenticateToken from '../middleware/auth.js';
 import { uploadCompletionEvidenceFile } from '../middleware/uploadConfig.js';
+import { updateHireChecklistItem } from '../controllers/HireChecklistController.js';
 
 const router = express.Router();
 
@@ -39,6 +40,7 @@ router.post('/applications/:applicationId/offers', authenticateToken, createJobO
 router.post('/job-offers/:offerId/respond', authenticateToken, respondToJobOffer);
 router.post('/job-offers/:offerId/cancel', authenticateToken, cancelJobOffer);
 router.post('/job-offers/:offerId/confirm-hire', authenticateToken, confirmOfferHire);
+router.patch('/applications/:applicationId/checklist/:itemId', authenticateToken, updateHireChecklistItem);
 router.post('/applications/:applicationId/payment/preview', authenticateToken, previewPayment);
 router.post('/applications/:applicationId/payment/authorize', authenticateToken, authorizePayment);
 router.post('/applications/:applicationId/work/submit', authenticateToken, uploadCompletionEvidenceFile, submitWork);

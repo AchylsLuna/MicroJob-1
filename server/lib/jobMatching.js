@@ -1,3 +1,5 @@
+import { recruitmentState } from './lifecyclePolicy.js';
+
 const STOP_WORDS = new Set([
   'and', 'the', 'for', 'with', 'from', 'that', 'this', 'your', 'you', 'our',
   'are', 'will', 'job', 'work', 'worker', 'needed', 'need', 'services', 'service',
@@ -135,7 +137,5 @@ export function scoreJobForWorker(job, worker) {
 }
 
 export const isRecommendableJob = (job, now = new Date()) => {
-  if (!job || job.status !== 'Available') return false;
-  const deadline = new Date(job.deadline);
-  return !Number.isNaN(deadline.getTime()) && deadline >= now;
+  return Boolean(job && recruitmentState(job, now).recruitmentOpen);
 };

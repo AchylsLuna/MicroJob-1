@@ -7,27 +7,30 @@ export function WorkSubmission({ applicationId, onChanged }: { applicationId: st
   const { t } = useTranslation('common');
   const [open, setOpen] = useState(false);
   const [statement, setStatement] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   return <>
-    <Button onClick={() => { setError(''); setOpen(true); }}>{t('lifecycle.submitWork')}</Button>
+    <Button className="shrink-0 whitespace-nowrap !bg-emerald-700 !text-white" onClick={() => { setError(''); setOpen(true); }}>{t('lifecycle.submitWork')}</Button>
     <Dialog open={open} title={t('lifecycle.submitWork')} onClose={() => { if (!busy) setOpen(false); }} closeDisabled={busy}>
       <div className="space-y-4">
         <Textarea label={t('lifecycle.completionStatement')} value={statement} maxLength={4000} onChange={(event) => setStatement(event.target.value)} />
-        <Input label={t('lifecycle.completionFile')} type="file" accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx" onChange={(event) => setFile(event.target.files?.[0] || null)} />
+        <Input label={t('lifecycle.completionImages')} type="file" accept="image/jpeg,image/png,image/gif,image/webp" multiple required disabled={busy} onChange={(event) => { setFiles(Array.from(event.target.files || [])); setError(''); }} />
+        <p className="text-sm text-slate-500">{t('lifecycle.completionImagesHint')}</p>
+        {files.length > 0 && <ul className="space-y-1 text-sm text-slate-700">{files.map((file, index) => <li className="break-words" key={`${file.name}-${index}`}>{file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</li>)}</ul>}
         {error && <p role="alert">{error}</p>}
-        <Button disabled={busy || (!statement.trim() && !file)} onClick={async () => {
+        <Button className="!bg-emerald-700 !text-white" disabled={busy || !files.length} onClick={async () => {
           if (lock.current) return;
           lock.current = true; setBusy(true); setError('');
           try {
-            if (file && file.size > 5 * 1024 * 1024) throw new Error(t('lifecycle.evidenceTooLarge'));
-            await submitWork(applicationId, { statement: statement.trim(), file });
-            setOpen(false); setStatement(''); setFile(null); onChanged();
+            if (!files.length || files.length > 10 || files.some((file) => !['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type))) throw new Error(t('lifecycle.completionImagesHint'));
+            if (files.some((file) => file.size > 5 * 1024 * 1024)) throw new Error(t('lifecycle.evidenceTooLarge'));
+            await submitWork(applicationId, { statement: statement.trim(), files });
+            setOpen(false); setStatement(''); setFiles([]); onChanged();
           } catch (caught: any) { setError(caught.message); }
           finally { lock.current = false; setBusy(false); }
-        }}>{t('lifecycle.confirm')}</Button>
+        }}>{t('lifecycle.submitWork')}</Button>
       </div>
     </Dialog>
   </>;

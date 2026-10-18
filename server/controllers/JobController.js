@@ -1,11 +1,12 @@
 import { availableJobFilter } from '../lib/lifecyclePolicy.js';
-import { requestCancellation } from '../services/jobLifecycle.js';
-import { settleApplicationPayment } from '../services/applicationSettlement.js';
+import { requestCancellation, syncCapacity } from '../services/jobLifecycle.js';
+import { settleApplicationPayment, finalizeSettledJob } from '../services/applicationSettlement.js';
 import { remainingJobFunds, requiredJobFunds, refundJobFunds } from '../services/jobFunds.js';
 import { queueNotification } from '../services/notificationOutbox.js';
 import mongoose from 'mongoose';
 import Job from '../models/Job.js';
 import JobApplication from '../models/JobApplication.js';
+import JobOffer from '../models/JobOffer.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import Category from '../models/Category.js';
@@ -505,13 +506,26 @@ export async function changeJobStatus(req, res) {
             if (!apps.length || apps.some((app) => !['Submitted', 'Completed'].includes(app.workStatus))) return res.status(409).json({ message: 'All hired workers must submit work first.' });
             // Each worker settles through the same idempotent service as direct/QR payment.
             const session = await mongoose.startSession();
-            try { await session.withTransaction(async () => { for (const app of apps) await settleApplicationPayment({ applicationId: app._id, employerId: userId, session }); }); } finally { await session.endSession(); }
+            try { await session.withTransaction(async () => {
+                const current = await Job.findById(job._id).session(session);
+                if (!current || current.cancellationPending || current.archivedAt || ['Cancelled', 'Full refund', 'Resolved'].includes(current.status)) throw Object.assign(new Error('This posting cannot be completed now.'), { status: 409 });
+                if (await JobOffer.exists({ job: job._id, status: { $in: ['pending', 'accepted'] } }).session(session)) throw Object.assign(new Error('Resolve active offers before completing this posting.'), { status: 409 });
+                current.closedManually = true; current.fundsVersion = Number(current.fundsVersion || 0) + 1; await current.save({ session });
+                for (const app of apps) await settleApplicationPayment({ applicationId: app._id, employerId: userId, session });
+                await finalizeSettledJob(await Job.findById(job._id).session(session), userId, session);
+            }); } finally { await session.endSession(); }
             return res.json({ job: await Job.findById(job._id), message: 'Submitted worker payments completed.' });
         }
         if (status === 'Available') return reopenJob(req, res);
         if (status !== 'Closed') return res.status(409).json({ message: 'Use the assignment workflow for this status.' });
-        const updated = await Job.findOneAndUpdate({ _id: job._id, cancellationPending: { $ne: true }, status: { $nin: ['Completed', 'Cancelled', 'Full refund', 'Resolved'] } }, { $set: { status: 'Closed', closedManually: true } }, { returnDocument: 'after' });
-        if (!updated) return res.status(409).json({ message: 'This posting is historical or being cancelled.' });
+        const session = await mongoose.startSession(); let updated;
+        try { await session.withTransaction(async () => {
+            updated = await Job.findOne({ _id: job._id, cancellationPending: { $ne: true }, status: { $nin: ['Completed', 'Cancelled', 'Full refund', 'Resolved'] } }).session(session);
+            if (!updated) throw Object.assign(new Error('This posting is historical or being cancelled.'), { status: 409 });
+            updated.closedManually = true; updated.fundsVersion = Number(updated.fundsVersion || 0) + 1;
+            await syncCapacity(updated, session);
+            await finalizeSettledJob(updated, userId, session);
+        }); } finally { await session.endSession(); }
         return res.json({ job: serializeOwnedJob(updated), message: 'Job status updated.' });
     } catch (error) { return res.status(error.status || 500).json({ message: error.status ? error.message : 'Failed to change job status.' }); }
 }
@@ -606,7 +620,8 @@ export async function reopenJob(req, res) {
             if (['Completed', 'Cancelled', 'Full refund', 'Resolved'].includes(job.status) || job.cancellationPending) throw Object.assign(new Error('Use Post again to preserve this posting history.'), { status: 409 });
             if (job.hiredCount + job.reservedOfferCount >= job.positionsNeeded) throw Object.assign(new Error('All positions are hired or reserved.'), { status: 409 });
             if ((await remainingJobFunds(job._id, session)).remaining < await requiredJobFunds(job, session)) throw Object.assign(new Error('This vacancy is no longer fully funded. Use Post again to fund a new posting.'), { status: 409 });
-            job.status = 'Available'; job.closedManually = false; job.archivedAt = null; job.fundsVersion += 1; await job.save({ session });
+            if (new Date(job.deadline).getTime() <= Date.now()) throw Object.assign(new Error('This posting has expired. Use Post again with a new deadline.'), { status: 409 });
+            job.closedManually = false; job.archivedAt = null; job.fundsVersion += 1; await syncCapacity(job, session);
         });
         return res.json({ message: 'Posting reopened. Existing applications are preserved.', job });
     } catch (error) { return res.status(error.status || 500).json({ message: error.status ? error.message : 'Unable to reopen this posting.' }); }

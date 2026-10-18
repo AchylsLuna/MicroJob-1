@@ -3,6 +3,7 @@ import Job from '../models/Job.js';
 import { scoreJobForWorker } from '../lib/jobMatching.js';
 import NotificationOutbox from '../models/NotificationOutbox.js';
 import { createNotification } from '../lib/notificationService.js';
+import { recruitmentState } from '../lib/lifecyclePolicy.js';
 
 export async function queueNotification(key, payload, session) {
   await NotificationOutbox.updateOne({ key }, { $setOnInsert: { key, payload } }, { upsert: true, ...(session ? { session } : {}) });
@@ -18,7 +19,7 @@ export async function deliverOutbox(limit = 100, deadline = Date.now() + 40000) 
     try {
       if (item.payload.fanoutJobId) {
         const job = await Job.findById(item.payload.fanoutJobId).populate('category', 'name');
-        if (job && job.status === 'Available' && !job.cancellationPending && new Date(job.deadline).getTime() > Date.now()) {
+        if (job && recruitmentState(job).recruitmentOpen) {
           const workers = await User.find({ role: { $in: ['work', 'both'] }, status: 'active', _id: { $ne: job.jobPoster, ...(item.payload.cursor ? { $gt: item.payload.cursor } : {}) } }).sort({ _id: 1 }).limit(100).select('skills workExperience jobPreferences preferredCategories jobPosition about totalExperience city province');
           for (const worker of workers) {
             const match = scoreJobForWorker(job, worker);

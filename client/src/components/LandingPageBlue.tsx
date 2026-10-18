@@ -77,7 +77,7 @@ type MarketplaceStats = {
  */
 function summarizeMarketplace(payload: unknown): MarketplaceStats {
   const jobs = Array.isArray(payload) ? payload : [];
-  const open = jobs.filter((job: any) => job?.status === "Available");
+  const open = jobs.filter((job: any) => job?.recruitmentOpen ?? ["Available", "In Progress"].includes(job?.status));
   const employers = new Set(
     open
       .map((job: any) => {

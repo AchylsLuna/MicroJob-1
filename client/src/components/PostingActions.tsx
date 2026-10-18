@@ -3,11 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { Button, Dialog, Input, Textarea } from './ui';
 import { lifecycleRequest } from '../services/api';
 import { formatCurrency } from '../lib/formatters';
+import { RecruitmentControls } from './RecruitmentControls';
 
 export function PostingActions({ job, onChanged }: { job: any; onChanged: () => void }) {
   const { t } = useTranslation('common'); const [action, setAction] = useState(''); const [reason, setReason] = useState(''); const [checked, setChecked] = useState(false); const [deadline, setDeadline] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const history = ['Completed', 'Cancelled', 'Closed'].includes(job.status);
   return <div className="my-3 space-y-2">
+    <RecruitmentControls job={job} onChanged={onChanged} />
     <p className="text-sm">{t(`lifecycle.paymentStatus.${job.paymentSummary?.status || 'Funds secured'}`)} · {t('lifecycle.secured')}: {formatCurrency(job.paymentSummary?.secured || 0)} · {t('lifecycle.paid')}: {formatCurrency(job.paymentSummary?.paid || 0)} · {t('wallet.remaining')}: {formatCurrency(job.paymentSummary?.remaining || 0)}</p>
     {job.cancellationReason && <p className="text-sm">{t('lifecycle.cancellation')}: {job.cancellationReason}</p>}
     <Button disabled={job.cancellationPending} onClick={() => { setChecked(false); setError(''); setAction(history ? 'repost' : 'cancel'); }}>{t(history ? 'lifecycle.postAgain' : 'lifecycle.cancelPosting')}</Button>

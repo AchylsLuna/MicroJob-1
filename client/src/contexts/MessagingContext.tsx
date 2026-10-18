@@ -19,9 +19,12 @@ import {
  * an object.
  */
 export interface ChatMessageAttachment {
-  type?: 'settlement_request' | 'job_offer';
+  type?: 'settlement_request' | 'job_offer' | 'completion_evidence' | 'hire_checklist';
+  checklist?: string[];
   jobOffer?: { _id: string; status: string; amount?: number; acceptedAt?: string; resolvedAt?: string } | string;
-  application?: string;
+  application?: string | { _id: string; workStatus?: string; paymentStatus?: string; workSubmittedAt?: string };
+  submittedAt?: string;
+  images?: Array<{ fileUrl: string; fileName: string; contentType?: string }>;
   jobTitle?: string;
   offerAmount?: number;
   settlementRequest?: unknown;

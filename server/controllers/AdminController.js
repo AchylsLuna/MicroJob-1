@@ -1,5 +1,6 @@
 import User from '../models/User.js';
 import Job from '../models/Job.js';
+import { availableJobFilter } from '../lib/lifecyclePolicy.js';
 import JobApplication from '../models/JobApplication.js';
 import Transaction from '../models/Transaction.js';
 import Category from '../models/Category.js';
@@ -38,7 +39,7 @@ export async function getAdminStats(req, res) {
       User.countDocuments({ status: 'disabled' }),
       User.countDocuments({ status: 'deleted' }),
       Job.countDocuments(),
-      Job.countDocuments({ status: 'Available' }),
+      Job.countDocuments(availableJobFilter()),
       Job.countDocuments({ status: 'Completed' }),
       Transaction.countDocuments(),
       Transaction.aggregate([
@@ -97,7 +98,7 @@ export async function getAdminAnalyticsData(req, res) {
         User.countDocuments({ status: 'disabled' }),
         User.countDocuments({ status: 'deleted' }),
         Job.countDocuments(),
-        Job.countDocuments({ status: 'Available' }),
+        Job.countDocuments(availableJobFilter()),
         Job.countDocuments({ status: 'Completed' }),
         Job.distinct('applicants').then((applicantIds) => applicantIds.length),
         Transaction.countDocuments(),

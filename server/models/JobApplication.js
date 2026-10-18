@@ -89,10 +89,17 @@ const JobApplicationSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    hireChecklist: {
+      type: [{ description: { type: String, required: true, trim: true, maxlength: 500 }, completed: { type: Boolean, default: false } }],
+      default: [],
+      validate: { validator: (items) => items.length <= 20, message: 'A hire checklist can contain at most 20 items.' },
+    },
     completionEvidence: [{
       statement: { type: String, maxlength: 4000 },
       fileUrl: String,
       fileName: String,
+      contentType: String,
+      storage: { type: String, enum: ['azure'] },
       actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
       submittedAt: { type: Date, default: Date.now },
     }],
@@ -188,5 +195,6 @@ JobApplicationSchema.index({ job: 1, applicant: 1 }, { unique: true });
 JobApplicationSchema.index({ applicant: 1, status: 1, updatedAt: -1 });
 JobApplicationSchema.index({ job: 1, status: 1, updatedAt: -1 });
 JobApplicationSchema.index({ workStatus: 1, paymentStatus: 1, workSubmittedAt: 1, paymentReminder3hSentAt: 1 });
+JobApplicationSchema.index({ 'completionEvidence.fileUrl': 1 }, { sparse: true });
 
 export default mongoose.model('JobApplication', JobApplicationSchema);

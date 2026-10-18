@@ -10,6 +10,7 @@ import Session from '../../models/Session.js';
 import StoredUpload from '../../models/StoredUpload.js';
 import { getJwtSecret } from '../../lib/jwtSecret.js';
 import JobApplicationRoute from '../../routes/JobApplicationRoute.js';
+import JobRoute from '../../routes/JobRoute.js';
 import FinancialDisputeRoute from '../../routes/FinancialDisputeRoute.js';
 import { createUploadsRouter } from '../../routes/UploadRoute.js';
 import Job from '../../models/Job.js';
@@ -28,20 +29,24 @@ import { settleApplicationPayment } from '../../services/applicationSettlement.j
 import { previewWithdrawal, confirmWithdrawal, reconcileWithdrawal } from '../../services/withdrawals.js';
 import { runMaintenance } from '../../services/maintenance.js';
 import { previewPayment } from '../../controllers/ApplicationPaymentController.js';
-import { startWork, openDispute, addEvidence } from '../../controllers/LifecycleController.js';
+import { getAssignmentLifecycle, startWork, openDispute, addEvidence } from '../../controllers/LifecycleController.js';
 import { updateAdminFinancialDispute } from '../../controllers/AdminFinanceDisputeController.js';
 import { proposeDisputeSettlement, approveAndProcessDisputeSettlement } from '../../services/financialDisputeSettlement.js';
 import { resolvePublicId } from '../../lib/publicId.js';
-import { canFileNonpayment, HOUR } from '../../lib/lifecyclePolicy.js';
+import { canFileNonpayment, HOUR, availableJobFilter, recruitmentState } from '../../lib/lifecyclePolicy.js';
 import { migrateLifecycle } from '../../scripts/migrateLifecycle.js';
 import Category from '../../models/Category.js';
-import { createJob, deleteJob, reopenJob, getMyJobs } from '../../controllers/JobController.js';
+import { createJob, deleteJob, reopenJob, getMyJobs, getJobList, changeJobStatus } from '../../controllers/JobController.js';
+import { getRecommendedJobs } from '../../controllers/JobRecommendationController.js';
 import { createJobOffer, respondToJobOffer, confirmOfferHire } from '../../controllers/JobOfferController.js';
-import { updateInterview } from '../../controllers/JobApplicationController.js';
+import { updateInterview, applyForJob, getEmployerApplications } from '../../controllers/JobApplicationController.js';
+import { updateHireChecklistItem } from '../../controllers/HireChecklistController.js';
 import { MongoRateLimitStore } from '../../lib/mongoRateLimitStore.js';
 import AuthRateBucket from '../../models/AuthRateBucket.js';
 import { transferWebhook } from '../../controllers/WithdrawalController.js';
 import { submitWork, settleDirect } from '../../controllers/ApplicationPaymentController.js';
+import { BlobServiceClient } from '@azure/storage-blob';
+import Message from '../../models/Message.js';
 import { escalateOverdueDisputes } from '../../services/disputeEscalation.js';
 import { csvCell, exportLifecycleReport } from '../../controllers/LifecycleReportController.js';
 
@@ -53,13 +58,31 @@ const response = () => ({ statusCode: 200, status(code) { this.statusCode = code
 const person = (role, balance = 0) => User.create({ email: `${new mongoose.Types.ObjectId()}@example.com`, firstName: 'Test', lastName: role, role, status: 'active', employerBalance: balance, workerBalance: balance, passwordHashed: 'unused' });
 async function fixture(workStatus = 'Not started', positionsNeeded = 1) {
   const [employer, worker] = await Promise.all([person('hire', 1000), person('work')]);
-  const job = await Job.create({ title: 'Test work', description: 'Work', location: 'Pasig', salary: 500, jobType: 'Short-term', deadline: new Date(Date.now() + 24 * HOUR), jobPoster: employer._id, positionsNeeded, hiredCount: 1, status: positionsNeeded === 1 ? 'Closed' : 'Available' });
+  const job = await Job.create({ title: 'Test work', description: 'Work', location: 'Pasig', salary: 500, jobType: 'Short-term', deadline: new Date(Date.now() + 24 * HOUR), jobPoster: employer._id, positionsNeeded, hiredCount: 1, status: 'In Progress' });
   const application = await JobApplication.create({ job: job._id, applicant: worker._id, status: 'Hired', agreedAmount: 600, workStatus, ...(workStatus !== 'Not started' ? { startedAt: new Date() } : {}) });
   await JobOffer.create({ job: job._id, application: application._id, employer: employer._id, worker: worker._id, amount: 600, additionalEscrow: 100, status: 'hired' });
   await Transaction.create({ sender: employer._id, amount: positionsNeeded * 500 + 100, type: 'ESCROW', status: 'COMPLETED', balanceTarget: 'ESCROW', jobReference: job._id });
   return { employer, worker, job, application };
 }
 const cancel = (f, extra = {}) => requestCancellation({ applicationId: f.application._id, actor: f.worker._id, reason: 'Cannot attend', policyAcknowledged: true, ...extra });
+
+test('assignment details returns the description and assigned checklist only to its participants', async () => {
+  const f = await fixture('In Progress', 2);
+  const otherWorker = await person('work');
+  await JobApplication.create({ job: f.job._id, applicant: otherWorker._id, status: 'Hired', hireChecklist: [{ description: 'Paint the fence' }] });
+  await Job.updateOne({ _id: f.job._id }, { $set: { description: 'Clean the grounds.\nKeep the entrance clear.' } });
+  await JobApplication.updateOne({ _id: f.application._id }, { $set: { hireChecklist: [{ description: 'Sweep the path', completed: true }, { description: 'Collect litter', completed: false }] } });
+  for (const user of [f.worker, f.employer]) {
+    const res = response();
+    await getAssignmentLifecycle({ params: { applicationId: String(f.application._id) }, user: { id: String(user._id) } }, res);
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.job.description, 'Clean the grounds.\nKeep the entrance clear.');
+    assert.deepEqual(res.body.application.hireChecklist.map((item) => item.description), ['Sweep the path', 'Collect litter']);
+  }
+  const denied = response();
+  await getAssignmentLifecycle({ params: { applicationId: String(f.application._id) }, user: { id: String(otherWorker._id) } }, denied);
+  assert.equal(denied.statusCode, 403);
+});
 
 test('configurable withdrawal bounds and large employer review reuse Finance without dispatch or duplicate reservation', async () => {
   const names = ['WITHDRAWAL_MIN_AMOUNT', 'WITHDRAWAL_EMPLOYER_MAX_AMOUNT', 'WITHDRAWAL_REVIEW_THRESHOLD'];
@@ -97,22 +120,61 @@ test('withdrawal confirmation revalidates policy and rejects another account bef
   assert.equal((await User.findById(worker._id)).workerBalance, 500); assert.equal(await PayoutRequest.countDocuments(), 0);
 });
 
-test('completion submission requires evidence, rejects employers, and preserves resubmission history', async () => {
+const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1]);
+const photo = () => ({ originalname: 'proof.png', mimetype: 'image/png', buffer: png });
+function mockEvidenceAzure(t, { failAt = 0 } = {}) {
+  const blobs = new Map();
+  let attempts = 0;
+  const previous = [process.env.AZURE_EVIDENCE_CONNECTION_STRING, process.env.AZURE_EVIDENCE_CONTAINER_NAME];
+  process.env.AZURE_EVIDENCE_CONNECTION_STRING = 'UseDevelopmentStorage=true'; process.env.AZURE_EVIDENCE_CONTAINER_NAME = 'evidence';
+  t.after(() => ['AZURE_EVIDENCE_CONNECTION_STRING', 'AZURE_EVIDENCE_CONTAINER_NAME'].forEach((key, i) => { if (previous[i] === undefined) delete process.env[key]; else process.env[key] = previous[i]; }));
+  t.mock.method(BlobServiceClient, 'fromConnectionString', () => ({ getContainerClient: () => ({ getBlockBlobClient: (name) => ({
+    uploadData: async (buffer, options) => { blobs.set(name, { buffer, contentType: options.blobHTTPHeaders.blobContentType }); if (++attempts === failAt) throw new Error('Simulated interrupted upload'); },
+    downloadToBuffer: async () => blobs.get(name)?.buffer,
+    getProperties: async () => ({ contentType: blobs.get(name)?.contentType }),
+    deleteIfExists: async () => ({ succeeded: blobs.delete(name) }),
+  }) }) }));
+  return blobs;
+}
+
+test('completion requires images, rejects text-only/employers, sends chat, and preserves resubmission history', async (t) => {
+  const blobs = mockEvidenceAzure(t);
   const f = await fixture('In Progress');
   const req = { params: { applicationId: f.application._id }, user: { id: String(f.worker._id) }, body: {} };
   const missing = response(); await submitWork(req, missing); assert.equal(missing.statusCode, 400);
   const denied = response(); await submitWork({ ...req, user: { id: String(f.employer._id) }, body: { statement: 'Done' } }, denied); assert.equal(denied.statusCode, 403);
-  const submitted = response(); await submitWork({ ...req, body: { statement: 'Installed the shelves and cleaned the work area.' } }, submitted); assert.equal(submitted.statusCode, 200);
-  assert.equal(submitted.body.application.completionEvidence.length, 1);
-  const retry = response(); await submitWork({ ...req, body: { statement: 'Duplicate submission' } }, retry); assert.equal(retry.statusCode, 409);
+  const textOnly = response(); await submitWork({ ...req, body: { statement: 'Done' } }, textOnly); assert.equal(textOnly.statusCode, 400);
+  const invalid = response(); await submitWork({ ...req, files: [{ ...photo(), buffer: Buffer.from('fake') }] }, invalid); assert.equal(invalid.statusCode, 400);
+  const oversized = response(); await submitWork({ ...req, files: [{ ...photo(), buffer: Buffer.alloc(5 * 1024 * 1024 + 1) }] }, oversized); assert.equal(oversized.statusCode, 413);
+  const submitted = response(); await submitWork({ ...req, files: [photo(), photo()], body: { statement: 'Installed the shelves and cleaned the work area.' } }, submitted); assert.equal(submitted.statusCode, 200);
+  assert.equal(submitted.body.application.completionEvidence.length, 2);
+  assert.equal(blobs.size, 2, 'same-name images have distinct blob names');
+  const chat = await Message.findOne({ 'attachment.application': f.application._id });
+  assert.equal(String(chat.receiver), String(f.employer._id)); assert.equal(chat.attachment.type, 'completion_evidence'); assert.equal(chat.attachment.images.length, 2);
+  const retry = response(); await submitWork({ ...req, files: [photo()], body: { statement: 'Duplicate submission' } }, retry); assert.equal(retry.statusCode, 409);
+  assert.equal(blobs.size, 2, 'rejected submissions remove uploaded blobs');
   await JobApplication.updateOne({ _id: f.application._id }, { $set: { workStatus: 'Changes Requested' } });
-  const revised = response(); await submitWork({ ...req, body: { statement: 'Completed requested adjustments.' } }, revised);
-  assert.equal(revised.body.application.completionEvidence.length, 2);
+  const revised = response(); await submitWork({ ...req, files: [photo()], body: { statement: 'Completed requested adjustments.' } }, revised);
+  assert.equal(revised.body.application.completionEvidence.length, 3);
   assert.equal(revised.body.application.firstSubmittedAt.getTime(), submitted.body.application.firstSubmittedAt.getTime());
+  assert.equal((await User.findById(f.worker._id)).workerBalance, 0);
+  const stale = response(); await settleDirect({ params: req.params, user: { id: String(f.employer._id) }, body: { confirmed: true, submittedAt: '2000-01-01T00:00:00Z' } }, stale); assert.equal(stale.statusCode, 409);
+});
+
+test('interrupted multi-image Azure upload removes blobs without changing work, sending chat, or releasing funds', async (t) => {
+  const blobs = mockEvidenceAzure(t, { failAt: 2 });
+  const f = await fixture('In Progress');
+  const res = response();
+  await submitWork({ params: { applicationId: f.application._id }, user: { id: String(f.worker._id) }, files: [photo(), photo()], body: {} }, res);
+  assert.equal(res.statusCode, 503); assert.equal(blobs.size, 0);
+  const application = await JobApplication.findById(f.application._id);
+  assert.equal(application.workStatus, 'In Progress'); assert.equal(application.completionEvidence.length, 0);
+  assert.equal(await Message.countDocuments({ 'attachment.application': f.application._id }), 0);
   assert.equal((await User.findById(f.worker._id)).workerBalance, 0);
 });
 
-test('real evidence endpoints accept photos/documents, preserve legacy statements, protect downloads and clean rejected uploads', async () => {
+test('real evidence endpoints require completion images, preserve dispute documents, protect downloads and clean rejected uploads', async (t) => {
+  mockEvidenceAzure(t);
   const f = await fixture('In Progress'); const stranger = await person('work');
   const tokenFor = async (user) => { const session = await Session.create({ user: user._id }); return jwt.sign({ userId: String(user._id), sessionId: String(session._id) }, getJwtSecret()); };
   const workerToken = await tokenFor(f.worker); const employerToken = await tokenFor(f.employer); const strangerToken = await tokenFor(stranger);
@@ -121,11 +183,15 @@ test('real evidence endpoints accept photos/documents, preserve legacy statement
   const origin = `http://127.0.0.1:${server.address().port}`;
   const upload = (path, token, contents = '%PDF-1.4\nTest work evidence') => { const form = new FormData(); form.append('evidence', new Blob([contents], { type: 'application/pdf' }), 'proof.pdf'); form.append('statement', 'Work completed with attached evidence.'); return fetch(`${origin}${path}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }); };
   try {
-    const completion = await upload(`/api/applications/${f.application._id}/work/submit`, workerToken); assert.equal(completion.status, 200);
+    const completionPath = `/api/applications/${f.application._id}/work/submit`;
+    assert.equal((await upload(completionPath, workerToken)).status, 400, 'completion rejects documents');
+    const form = new FormData(); form.append('evidence', new Blob([png], { type: 'image/png' }), 'proof.png'); form.append('evidence', new Blob([png], { type: 'image/png' }), 'proof.png');
+    const completion = await fetch(`${origin}${completionPath}`, { method: 'POST', headers: { Authorization: `Bearer ${workerToken}` }, body: form }); assert.equal(completion.status, 200);
     const body = await completion.json(); const url = body.application.completionEvidence[0].fileUrl;
     assert.equal((await fetch(`${origin}${url}`)).status, 401);
     assert.equal((await fetch(`${origin}${url}`, { headers: { Authorization: `Bearer ${strangerToken}` } })).status, 403);
-    const downloaded = await fetch(`${origin}${url}`, { headers: { Authorization: `Bearer ${employerToken}` } }); assert.equal(downloaded.status, 200); assert.match(await downloaded.text(), /%PDF/);
+    const downloaded = await fetch(`${origin}${url}`, { headers: { Authorization: `Bearer ${employerToken}` } }); assert.equal(downloaded.status, 200); assert.deepEqual(Buffer.from(await downloaded.arrayBuffer()), png);
+    assert.equal(downloaded.headers.get('cache-control'), 'private, no-store');
     const opened = response(); await openDispute({ params: { applicationId: f.application._id }, user: { id: String(f.worker._id) }, body: { reason: 'Payment issue' } }, opened);
     const path = `/api/financial-disputes/${opened.body.dispute._id}/evidence`;
     const evidence = await upload(path, workerToken); assert.equal(evidence.status, 201, 'the multipart dispute route must not be shadowed by the legacy statement route');
@@ -300,10 +366,152 @@ test('required interview, accepted terms, and employer confirmation precede work
   const noTerms = response(); await respondToJobOffer(accept, noTerms); assert.equal(noTerms.statusCode, 400);
   const accepted = response(); await respondToJobOffer({ ...accept, body: { action: 'accept', policyAcknowledged: true } }, accepted); assert.equal(accepted.statusCode, 200);
   const hired = response(); await confirmOfferHire({ params: { offerId }, user: { id: String(employer._id) } }, hired); assert.equal(hired.statusCode, 200);
+  assert.equal((await Job.findById(job._id)).status, 'In Progress');
   assert.equal((await JobApplication.findById(app._id)).workStatus, 'Not started');
   assert.equal((await JobApplication.findById(otherApp._id)).status, 'Position filled');
   const started = response(); await startWork({ params: { applicationId: String(app._id) }, user: { id: String(worker._id) } }, started); assert.equal(started.statusCode, 200);
   assert.ok((await JobApplication.findById(app._id)).startedAt);
+});
+
+test('in-progress recruitment allows remaining applications and hires while reservations prevent oversubscription', async () => {
+  const f = await fixture('Not started', 2); const worker = await person('work'); const backup = await person('work');
+  await User.updateMany({ _id: { $in: [worker._id, backup._id] } }, { $set: { avatarUrl: '/uploads/test.png' } });
+  const viewer = { user: { id: String(worker._id), role: 'work' }, query: {} };
+  const list = response(); await getJobList(viewer, list); assert.equal(list.statusCode, 200); assert.equal(list.body.length, 1); assert.equal(list.body[0].recruitmentOpen, true); assert.equal(list.body[0].availablePositions, 1);
+  const recommended = response(); await getRecommendedJobs(viewer, recommended); assert.equal(recommended.body.length, 1);
+  const applied = response(); await applyForJob({ ...viewer, params: { jobId: String(f.job._id) }, body: {} }, applied); assert.equal(applied.statusCode, 201);
+  const application = await JobApplication.findOne({ job: f.job._id, applicant: worker._id });
+  const offerReq = { params: { applicationId: String(application._id) }, user: { id: String(f.employer._id) }, body: { amount: 500 } };
+  const offered = response(); await createJobOffer(offerReq, offered); assert.equal(offered.statusCode, 201);
+  let job = await Job.findById(f.job._id); assert.equal(job.status, 'In Progress'); assert.equal(recruitmentState(job).recruitmentOpen, false);
+  assert.equal(await Job.countDocuments({ _id: job._id, ...availableJobFilter() }), 0);
+  const blocked = response(); await applyForJob({ user: { id: String(backup._id) }, params: { jobId: String(job._id) }, body: {} }, blocked); assert.equal(blocked.statusCode, 409);
+  const rejected = response(); await respondToJobOffer({ params: { offerId: offered.body.offer.id }, user: { id: String(worker._id) }, body: { action: 'reject' } }, rejected); assert.equal(rejected.statusCode, 200);
+  job = await Job.findById(job._id); assert.equal(job.status, 'In Progress'); assert.equal(recruitmentState(job).recruitmentOpen, true);
+  const second = response(); await createJobOffer(offerReq, second); assert.equal(second.statusCode, 201);
+  const accepted = response(); await respondToJobOffer({ params: { offerId: second.body.offer.id }, user: { id: String(worker._id) }, body: { action: 'accept', policyAcknowledged: true } }, accepted); assert.equal(accepted.statusCode, 200);
+  const hired = response(); await confirmOfferHire({ params: { offerId: second.body.offer.id }, user: { id: String(f.employer._id) } }, hired); assert.equal(hired.statusCode, 200);
+  job = await Job.findById(job._id); assert.equal(job.status, 'In Progress'); assert.equal(job.hiredCount, 2); assert.equal(job.reservedOfferCount, 0); assert.equal(recruitmentState(job).recruitmentOpen, false);
+  assert.equal((await JobApplication.findById(application._id)).workStatus, 'Not started');
+});
+
+test('a before-start cancellation reopens a funded slot while another hired worker keeps the job in progress', async () => {
+  const f = await fixture('Not started', 2); const worker = await person('work');
+  await JobApplication.create({ job: f.job._id, applicant: worker._id, status: 'Hired', agreedAmount: 500, workStatus: 'Not started' });
+  await Job.updateOne({ _id: f.job._id }, { $set: { hiredCount: 2 } });
+  await cancel(f);
+  const job = await Job.findById(f.job._id); assert.equal(job.status, 'In Progress'); assert.equal(job.hiredCount, 1); assert.equal(recruitmentState(job).recruitmentOpen, true);
+  assert.equal(await Job.countDocuments({ _id: job._id, ...availableJobFilter() }), 1);
+});
+
+test('closing and reopening recruitment preserve job progress; closing unused slots permits final settlement once', async () => {
+  const f = await fixture('Submitted', 2);
+  const req = { params: { id: String(f.job._id) }, user: { id: String(f.employer._id) } };
+  const closed = response(); await changeJobStatus({ ...req, body: { status: 'Closed' } }, closed); assert.equal(closed.statusCode, 200); assert.equal(closed.body.job.status, 'In Progress'); assert.equal(closed.body.job.recruitmentOpen, false);
+  const reopened = response(); await reopenJob(req, reopened); assert.equal(reopened.statusCode, 200); assert.equal(reopened.body.job.status, 'In Progress'); assert.equal(recruitmentState(reopened.body.job).recruitmentOpen, true);
+  const closedAgain = response(); await changeJobStatus({ ...req, body: { status: 'Closed' } }, closedAgain); assert.equal(closedAgain.statusCode, 200);
+  await settleApplicationPayment({ applicationId: f.application._id, employerId: f.employer._id });
+  await settleApplicationPayment({ applicationId: f.application._id, employerId: f.employer._id });
+  assert.equal((await Job.findById(f.job._id)).status, 'Completed'); assert.equal((await remainingJobFunds(f.job._id)).remaining, 0);
+  assert.equal(await Transaction.countDocuments({ reference: `completion-refund:${f.job._id}` }), 1);
+});
+
+test('closing recruitment after the last hired worker was paid completes a partially filled job', async () => {
+  const f = await fixture('Submitted', 2);
+  await settleApplicationPayment({ applicationId: f.application._id, employerId: f.employer._id });
+  assert.equal((await Job.findById(f.job._id)).status, 'In Progress');
+  const closed = response(); await changeJobStatus({ params: { id: String(f.job._id) }, user: { id: String(f.employer._id) }, body: { status: 'Closed' } }, closed);
+  assert.equal(closed.statusCode, 200); assert.equal(closed.body.job.status, 'Completed'); assert.equal((await remainingJobFunds(f.job._id)).remaining, 0);
+});
+
+test('authenticated PATCH recruitment routes keep the job in progress and enforce employer ownership', async () => {
+  const f = await fixture('Not started', 2);
+  const tokenFor = async (user) => { const session = await Session.create({ user: user._id }); return jwt.sign({ userId: String(user._id), sessionId: String(session._id) }, getJwtSecret()); };
+  const employerToken = await tokenFor(f.employer); const workerToken = await tokenFor(f.worker);
+  const app = express(); app.use(express.json()); app.use('/api/jobs', JobRoute);
+  const server = app.listen(0, '127.0.0.1'); await new Promise((resolve) => server.once('listening', resolve));
+  const base = `http://127.0.0.1:${server.address().port}/api/jobs/${f.job._id}`;
+  const headers = { Authorization: `Bearer ${employerToken}`, 'Content-Type': 'application/json' };
+  try {
+    const denied = await fetch(`${base}/status`, { method: 'PATCH', headers: { ...headers, Authorization: `Bearer ${workerToken}` }, body: JSON.stringify({ status: 'Closed' }) }); assert.equal(denied.status, 403);
+    const closed = await fetch(`${base}/status`, { method: 'PATCH', headers, body: JSON.stringify({ status: 'Closed' }) }); assert.equal(closed.status, 200); const result = await closed.json(); assert.equal(result.job.status, 'In Progress'); assert.equal(result.job.recruitmentOpen, false);
+    const reopened = await fetch(`${base}/reopen`, { method: 'PATCH', headers, body: '{}' }); assert.equal(reopened.status, 200); assert.equal((await reopened.json()).job.status, 'In Progress'); assert.equal(recruitmentState(await Job.findById(f.job._id)).recruitmentOpen, true);
+  } finally { await new Promise((resolve) => server.close(resolve)); }
+});
+
+test('Mark done closes remaining recruitment and settles a partially filled job without duplicate payment', async () => {
+  const f = await fixture('Submitted', 2);
+  const req = { params: { id: String(f.job._id) }, user: { id: String(f.employer._id) }, body: { status: 'Completed', confirmed: true } };
+  const done = response(); await changeJobStatus(req, done); assert.equal(done.statusCode, 200); assert.equal(done.body.job.status, 'Completed');
+  const replay = response(); await changeJobStatus(req, replay); assert.equal(replay.statusCode, 200);
+  assert.equal((await User.findById(f.worker._id)).workerBalance, 600); assert.equal(await Transaction.countDocuments({ reference: `application-payout:${f.application._id}` }), 1);
+});
+
+test('migration reports legacy hired job phases without writes and applies phase updates without moving funds', async () => {
+  const f = await fixture('Not started', 2); await Job.updateOne({ _id: f.job._id }, { $set: { status: 'Closed' } });
+  const transactions = await Transaction.countDocuments(); const report = await migrateLifecycle();
+  assert.ok(report.jobPhaseDifferences.some((item) => item.job === String(f.job._id))); assert.equal((await Job.findById(f.job._id)).status, 'Closed');
+  await migrateLifecycle({ apply: true }); assert.equal((await Job.findById(f.job._id)).status, 'In Progress'); assert.equal(await Transaction.countDocuments(), transactions);
+});
+
+async function acceptedChecklistFixture(positionsNeeded = 1) {
+  const f = await fixture('Not started', positionsNeeded);
+  await JobApplication.updateOne({ _id: f.application._id }, { $set: { status: 'Offer Sent', startedAt: null } });
+  await Job.updateOne({ _id: f.job._id }, { $set: { hiredCount: 0, reservedOfferCount: 1, status: positionsNeeded === 1 ? 'Closed' : 'Available' } });
+  const offer = await JobOffer.findOneAndUpdate({ application: f.application._id }, { $set: { status: 'accepted' } }, { returnDocument: 'after' });
+  return { ...f, offer };
+}
+
+test('hire checklists remain specific to each worker and are sent once as read-only chat descriptions', async () => {
+  const f = await acceptedChecklistFixture(2); const worker = await person('work');
+  const secondApp = await JobApplication.create({ job: f.job._id, applicant: worker._id, status: 'Offer Sent' });
+  const secondOffer = await JobOffer.create({ job: f.job._id, application: secondApp._id, employer: f.employer._id, worker: worker._id, amount: 500, status: 'accepted' });
+  await Job.updateOne({ _id: f.job._id }, { $set: { reservedOfferCount: 2 } });
+  const hire = (offer, checklist) => ({ params: { offerId: String(offer._id) }, user: { id: String(f.employer._id) }, body: { checklist } });
+  const first = response(); await confirmOfferHire(hire(f.offer, [' Clean the floor ', 'Bag the waste']), first); assert.equal(first.statusCode, 200);
+  const second = response(); await confirmOfferHire(hire(secondOffer, ['Paint the fence']), second); assert.equal(second.statusCode, 200);
+  assert.deepEqual(first.body.application.hireChecklist.map((item) => item.description), ['Clean the floor', 'Bag the waste']);
+  assert.deepEqual(second.body.application.hireChecklist.map((item) => item.description), ['Paint the fence']);
+  assert.ok(first.body.application.hireChecklist.every((item) => item.completed === false));
+  const messages = await Message.find({ 'attachment.type': 'hire_checklist' }); assert.equal(messages.length, 2);
+  const sent = messages.find((message) => String(message.receiver) === String(f.worker._id));
+  assert.deepEqual([...sent.attachment.checklist], ['Clean the floor', 'Bag the waste']); assert.equal(String(sent.job), String(f.job._id)); assert.equal(String(sent.attachment.application), String(f.application._id));
+  const retry = response(); await confirmOfferHire(hire(f.offer, ['Different checklist']), retry); assert.equal(retry.statusCode, 404); assert.equal(await Message.countDocuments({ 'attachment.type': 'hire_checklist' }), 2);
+  const details = response(); await getEmployerApplications({ user: { id: String(f.employer._id) }, query: { jobId: String(f.job._id), includeHidden: 'true' } }, details); assert.equal(details.statusCode, 200); assert.equal(details.body.length, 2); assert.ok(details.body.every((item) => item.hireChecklist.length));
+});
+
+test('omitted checklists preserve ordinary hiring and invalid checklists cannot partially hire', async () => {
+  const f = await acceptedChecklistFixture();
+  const req = { params: { offerId: String(f.offer._id) }, user: { id: String(f.employer._id) } };
+  const invalid = response(); await confirmOfferHire({ ...req, body: { checklist: [''] } }, invalid); assert.equal(invalid.statusCode, 400);
+  assert.equal((await JobApplication.findById(f.application._id)).status, 'Offer Sent'); assert.equal((await JobOffer.findById(f.offer._id)).status, 'accepted');
+  const hired = response(); await confirmOfferHire(req, hired); assert.equal(hired.statusCode, 200); assert.equal(hired.body.application.hireChecklist.length, 0); assert.equal(await Message.countDocuments({ 'attachment.type': 'hire_checklist' }), 0);
+});
+
+test('a failed checklist message rolls back the hire, checklist, reservation, and notification', async (t) => {
+  const f = await acceptedChecklistFixture();
+  t.mock.method(Message, 'create', async () => { throw new Error('Simulated message persistence failure'); });
+  const res = response(); await confirmOfferHire({ params: { offerId: String(f.offer._id) }, user: { id: String(f.employer._id) }, body: { checklist: ['Clean the floor'] } }, res); assert.equal(res.statusCode, 500);
+  const application = await JobApplication.findById(f.application._id); assert.equal(application.status, 'Offer Sent'); assert.equal(application.hireChecklist.length, 0);
+  const job = await Job.findById(f.job._id); assert.equal(job.hiredCount, 0); assert.equal(job.reservedOfferCount, 1);
+  assert.equal((await JobOffer.findById(f.offer._id)).status, 'accepted'); assert.equal(await NotificationOutbox.countDocuments({ key: `hired:${f.offer._id}` }), 0);
+});
+
+test('only the employer can track checklist items and unchecked tasks never block evidence or completion', async (t) => {
+  mockEvidenceAzure(t);
+  const f = await acceptedChecklistFixture(); const stranger = await person('hire');
+  const hired = response(); await confirmOfferHire({ params: { offerId: String(f.offer._id) }, user: { id: String(f.employer._id) }, body: { checklist: ['Clean the floor', 'Bag the waste'] } }, hired); assert.equal(hired.statusCode, 200);
+  const itemId = String(hired.body.application.hireChecklist[0]._id);
+  const params = { applicationId: String(f.application._id), itemId };
+  for (const user of [f.worker, stranger]) { const denied = response(); await updateHireChecklistItem({ params, user: { id: String(user._id) }, body: { completed: true } }, denied); assert.equal(denied.statusCode, 403); }
+  const invalid = response(); await updateHireChecklistItem({ params, user: { id: String(f.employer._id) }, body: { completed: 'true' } }, invalid); assert.equal(invalid.statusCode, 400);
+  const marked = response(); await updateHireChecklistItem({ params, user: { id: String(f.employer._id) }, body: { completed: true } }, marked); assert.equal(marked.statusCode, 200); assert.equal(marked.body.checklist[0].completed, true);
+  let application = await JobApplication.findById(f.application._id); assert.equal(application.workStatus, 'Not started'); assert.equal(application.paymentStatus, 'Secured'); assert.equal((await Job.findById(f.job._id)).status, 'In Progress'); assert.equal(await Transaction.countDocuments({ type: 'PAYOUT' }), 0);
+  const started = response(); await startWork({ params: { applicationId: params.applicationId }, user: { id: String(f.worker._id) } }, started); assert.equal(started.statusCode, 200);
+  const submitted = response(); await submitWork({ params: { applicationId: params.applicationId }, user: { id: String(f.worker._id) }, body: {}, files: [photo()] }, submitted); assert.equal(submitted.statusCode, 200);
+  await settleApplicationPayment({ applicationId: f.application._id, employerId: f.employer._id });
+  application = await JobApplication.findById(f.application._id); assert.equal(application.workStatus, 'Completed'); assert.equal(application.paymentStatus, 'Paid'); assert.equal(application.hireChecklist[1].completed, false); assert.equal((await Job.findById(f.job._id)).status, 'Completed');
+  const unmarked = response(); await updateHireChecklistItem({ params, user: { id: String(f.employer._id) }, body: { completed: false } }, unmarked); assert.equal(unmarked.statusCode, 200); assert.equal((await Job.findById(f.job._id)).status, 'Completed');
 });
 
 test('identifier throttles are shared between instances and keep ObjectId database invariants', async () => {

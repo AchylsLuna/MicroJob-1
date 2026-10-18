@@ -1,4 +1,5 @@
 import { CompletionEvidence } from './CompletionEvidence';
+import { ChecklistTable } from './HireChecklist';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Dialog, Input, Select, Textarea } from './ui';
@@ -26,12 +27,20 @@ export function AssignmentPanel({ applicationId, onChanged }: { applicationId: s
     if (command === 'pay') return lifecycleRequest(`/applications/${applicationId}/payment/settle`, { confirmed: checked });
   };
   return <>
-    <Button onClick={() => { setOpen(true); setCommand(''); void run(refresh, false); }}>{t('lifecycle.details')}</Button>
+    <Button className="shrink-0 whitespace-nowrap border border-black !bg-white !text-black" onClick={() => { setOpen(true); setCommand(''); void run(refresh, false); }}>{t('lifecycle.details')}</Button>
     <Dialog open={open} title={data?.job?.title || t('lifecycle.details')} onClose={() => { if (!busy) setOpen(false); }} closeDisabled={busy}>
       {error && <p role="alert" className="text-red-700">{error}</p>}
       {app && <div className="space-y-4">
         <p>{app.status} · {t(`lifecycle.work.${app.workStatus}`, { defaultValue: app.workStatus })} · {app.cancellationPending || (dispute && Number(dispute.amount) > 0) ? t('lifecycle.held') : app.paymentStatus}</p>
         <p>{t('lifecycle.agreed')}: {formatCurrency(app.agreedAmount || data.job.salary)} · {t('lifecycle.paid')}: {formatCurrency(app.paidAmount || (app.paymentStatus === 'Paid' ? app.agreedAmount : 0))}</p>
+        <section className="space-y-2">
+          <h3 className="font-semibold">{t('lifecycle.jobDescription')}</h3>
+          <p className="whitespace-pre-wrap break-words text-sm text-slate-700">{data.job.description || t('lifecycle.descriptionUnavailable')}</p>
+        </section>
+        <section className="space-y-2">
+          <h3 className="font-semibold">{t('hireChecklist.title')}</h3>
+          <ChecklistTable items={(app.hireChecklist || []).map((item: { description: string }) => item.description)} />
+        </section>
         <p>{(data.job.requirements || []).join(' · ')}</p>
         <CompletionEvidence items={app.completionEvidence} />
         <p className="text-sm text-slate-600">{t('lifecycle.terms')}</p>
@@ -45,8 +54,8 @@ export function AssignmentPanel({ applicationId, onChanged }: { applicationId: s
           {['accept', 'reject'].includes(command) && <p>{t('lifecycle.respondNotice', { amount: formatCurrency(pending?.workerPayment || 0) })}</p>}
           <Button disabled={busy || (['cancel', 'pay'].includes(command) && !checked)} onClick={() => void run(act)}>{t('lifecycle.confirm')}</Button><Button disabled={busy} onClick={() => setCommand('')}>{t('wallet.back')}</Button>
         </div> : <div className="flex gap-2 flex-wrap">
-          {!employer && app.workStatus === 'Not started' && !pending && !dispute && <Button disabled={busy} onClick={() => setCommand('start')}>{t('lifecycle.start')}</Button>}
-          {app.status === 'Hired' && !['Paid', 'Processing'].includes(app.paymentStatus) && !pending && !dispute && <Button onClick={() => { setCommand('cancel'); setChecked(false); }}>{t('lifecycle.cancel')}</Button>}
+          {!employer && app.workStatus === 'Not started' && !pending && !dispute && <Button className="!bg-emerald-700 !text-white" disabled={busy} onClick={() => setCommand('start')}>{t('lifecycle.start')}</Button>}
+          {app.status === 'Hired' && !['Paid', 'Processing'].includes(app.paymentStatus) && !pending && !dispute && <Button className="!bg-red-700 !text-white" onClick={() => { setCommand('cancel'); setChecked(false); }}>{t('lifecycle.cancel')}</Button>}
           {['Hired', 'Cancelled'].includes(app.status) && app.paymentStatus !== 'Processing' && !dispute && <Button onClick={() => { setKind('other'); setCommand('dispute'); }}>{t('lifecycle.dispute')}</Button>}
           {pending?.status === 'pending' && !dispute && String(pending.actor) !== String(user?.id) && <><Button onClick={() => setCommand('accept')}>{t('lifecycle.accept')}</Button><Button onClick={() => setCommand('reject')}>{t('lifecycle.reject')}</Button></>}
           {dispute && <Button onClick={() => { setCommand('evidence'); setChecked(false); }}>{t('lifecycle.evidence')}</Button>}

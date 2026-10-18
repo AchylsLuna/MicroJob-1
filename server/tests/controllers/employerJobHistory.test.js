@@ -46,7 +46,7 @@ for (const positions of [1, 2]) {
     await confirmOfferHire({ user: { id: String(employer._id) }, params: { offerId: String(offer._id) } }, hired);
     assert.equal(hired.statusCode, 200);
     const saved = await Job.findById(job._id);
-    assert.equal(saved.status, positions === 1 ? 'Closed' : 'Available');
+    assert.equal(saved.status, 'In Progress');
     assert.equal((await JobApplication.findById(application._id)).workStatus, 'Not started');
     assert.equal(saved.hiredCount, 1);
     assert.ok(saved.hireConfirmedAt);
@@ -116,7 +116,7 @@ test('a concurrent hire and deletion cannot both succeed', async () => {
   assert.equal([hired, deleted].filter((result) => result.statusCode === 200).length, 1);
   if (hired.statusCode === 200) {
     assert.equal(deleted.statusCode, 409);
-    assert.equal((await Job.findById(job._id)).status, 'Closed');
+    assert.equal((await Job.findById(job._id)).status, 'In Progress');
     assert.equal(await Transaction.countDocuments({ type: 'REFUND' }), 0);
   } else {
     assert.equal(await Job.findById(job._id), null);

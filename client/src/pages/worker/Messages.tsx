@@ -28,6 +28,8 @@ import { isEmployer as checkIsEmployer } from "../../utils/dashboardRoutes";
 import { useAuth } from "../../contexts/AuthContext";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useMessaging, conversationIdOf, type Contact, type ChatMessage as Message } from "../../contexts/MessagingContext";
+import { CompletionMessageCard } from '../../components/messaging/CompletionMessageCard';
+import { ChecklistTable, HireChecklistDialog } from '../../components/HireChecklist';
 import { formatCurrency, formatDate, getActiveDateLocale } from "../../lib/formatters";
 import { ConfirmDialog } from "../../components/ui/index";
 import { ConversationReportDialog } from "../../components/messaging/ConversationReportDialog";
@@ -176,6 +178,7 @@ export function Messages() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
   const [offerActionBusyId, setOfferActionBusyId] = useState<string | null>(null);
+  const [hireOfferId, setHireOfferId] = useState<string | null>(null);
   const [offerConfirmAction, setOfferConfirmAction] = useState<{
     title: string;
     description: string;
@@ -873,12 +876,7 @@ export function Messages() {
   const openCancelOfferConfirm = (offerId: string) => setCancelOfferId(offerId);
 
   const openConfirmHireConfirm = (offerId: string) => {
-    setOfferConfirmAction({
-      title: t("messages.offerCard.confirmHireDialog.title"),
-      description: t("messages.offerCard.confirmHireDialog.description"),
-      confirmLabel: t("messages.offerCard.confirmHireDialog.confirm"),
-      run: () => runOfferAction(offerId, () => confirmOfferHire(offerId), t("messages.offerCard.toast.hired")),
-    });
+    setHireOfferId(offerId);
   };
 
   const handleOfferConfirmDialogConfirm = () => {
@@ -1379,6 +1377,8 @@ export function Messages() {
                       const isOwn = Boolean(currentUserId && message.sender._id === currentUserId);
                       const isEditing = editingMessageId === message._id;
                       const isLastOwn = message._id === lastOwnMessageId;
+                      if (message.attachment?.type === 'hire_checklist') return <div key={message._id} className={`flex py-2 ${isOwn ? 'justify-end' : 'justify-start'}`}><div className="w-full max-w-sm rounded-card border border-slate-200 bg-white p-4 text-slate-900"><p className="mb-2 font-semibold">{message.attachment.jobTitle}</p><ChecklistTable items={message.attachment.checklist || []} /></div></div>;
+                      if (message.attachment?.type === 'completion_evidence') return <div key={message._id} className={`flex py-2 ${isOwn ? 'justify-end' : 'justify-start'}`}><CompletionMessageCard message={message} /></div>;
 
                       // A job offer arrives as a normal message with a
                       // structured `attachment` instead of freeform text --
@@ -1702,6 +1702,9 @@ export function Messages() {
       {canBrowseRecipients && showRecipientDirectory ? <RecipientDirectoryDialog onClose={() => setShowRecipientDirectory(false)} onSelect={selectDirectoryRecipient} /> : null}
       {reportTarget ? <ConversationReportDialog contact={reportTarget} onClose={() => setReportTarget(null)} restoreFocusRef={reportTriggerRef} /> : null}
       <OfferCancellationDialog offerId={cancelOfferId} onClose={() => setCancelOfferId(null)} onDone={() => void refreshOpenThreadMessages()} />
+      {hireOfferId && <HireChecklistDialog key={hireOfferId} title={t('messages.offerCard.confirmHireDialog.title')} description={t('messages.offerCard.confirmHireDialog.description')} warning={tc('hireChecklist.hireWarning')} onClose={() => setHireOfferId(null)} onConfirm={async (checklist) => {
+        await confirmOfferHire(hireOfferId, checklist); await refreshOpenThreadMessages(); toast.success(t('messages.offerCard.toast.hired'));
+      }} />}
       <ConfirmDialog
         open={Boolean(offerConfirmAction)}
         title={offerConfirmAction?.title || ""}

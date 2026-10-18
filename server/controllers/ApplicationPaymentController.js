@@ -12,10 +12,24 @@ import { settleApplicationPayment } from '../services/applicationSettlement.js';
 import { activeDispute } from '../services/jobLifecycle.js';
 import { queueNotification } from '../services/notificationOutbox.js';
 import { httpError, requireReason, HOUR, canFileNonpayment, EVIDENCE_WINDOW_MS } from '../lib/lifecyclePolicy.js';
-import { hasValidDisputeEvidenceFileSignature, removeUploadFile } from '../middleware/uploadConfig.js';
+import { hasValidAvatarFileSignature } from '../middleware/uploadConfig.js';
+import { randomUUID } from 'node:crypto';
+import path from 'node:path';
+import { uploadEvidenceToAzure, deleteEvidenceFromAzure } from '../lib/azureEvidenceStorage.js';
+import { emitToUser } from '../lib/socket.js';
+import { buildConversationKey } from '../lib/jobInquiry.js';
 
 const id = (req) => String(req.user?.id || req.user?.userId || '');
-const handle = (fn) => async (req, res) => { try { return await fn(req, res); } catch (error) { return res.status(error.status || 500).json({ message: error.status ? error.message : 'Unable to complete this action.' }); } };
+const handle = (fn) => async (req, res) => {
+  try { return await fn(req, res); }
+  catch (error) {
+    if (!error.status) {
+      const safeLabel = (value) => /^[A-Za-z0-9_]{1,64}$/.test(String(value || '')) ? String(value) : 'Unknown';
+      console.error('Application payment action failed:', { action: req.route?.path || 'unknown', name: safeLabel(error.name), code: safeLabel(error.code) });
+    }
+    return res.status(error.status || 500).json({ message: error.status ? error.message : 'Unable to complete this action.' });
+  }
+};
 
 export const previewPayment = handle(async (req, res) => {
   const application = await JobApplication.findById(req.params.applicationId); const job = application && await Job.findById(application.job);
@@ -46,11 +60,14 @@ async function transition(req, kind) {
       } else if (kind === 'submit') {
         if (!['In Progress', 'Changes Requested'].includes(application.workStatus)) throw httpError(409, 'Start work before submitting it.');
         const statement = String(req.body?.statement || '').trim();
-        if ((!statement && !req.file) || statement.length > 4000) throw httpError(400, 'Describe the completed work (up to 4000 characters) or attach completion evidence.');
-        if (req.file && !hasValidDisputeEvidenceFileSignature(req.file)) throw httpError(400, 'The evidence file content does not match its file type.');
-        application.completionEvidence.push({ statement, fileUrl: req.file ? `/uploads/${req.file.filename}` : undefined, fileName: req.file?.originalname, actor: id(req), submittedAt: new Date() });
-        application.timeline.push({ type: 'work_submitted', actor: id(req), note: statement || 'Completion evidence attached.' });
-        application.workStatus = 'Submitted'; application.workSubmittedAt = new Date(); application.firstSubmittedAt ||= application.workSubmittedAt;
+        if (!req.completionImages?.length || statement.length > 4000) throw httpError(400, 'Attach at least one completion image and use up to 4000 characters for the description.');
+        const submittedAt = new Date();
+        application.completionEvidence.push(...req.completionImages.map((image) => ({ ...image, statement, storage: 'azure', actor: id(req), submittedAt })));
+        application.timeline.push({ type: 'work_submitted', actor: id(req), note: statement.slice(0, 2000) || 'Completion evidence attached.' });
+        application.workStatus = 'Submitted'; application.workSubmittedAt = submittedAt; application.firstSubmittedAt ||= application.workSubmittedAt;
+        await Message.create([{ _id: req.completionMessageId, sender: id(req), receiver: job.jobPoster, job: job._id, content: statement || `Work proof for ${job.title}`, clientMessageId: `completion:${req.completionMessageId}`, attachment: { type: 'completion_evidence', application: application._id, jobTitle: job.title, submittedAt, images: req.completionImages } }], { session });
+        await User.updateOne({ _id: job.jobPoster }, { $pull: { archivedConversations: buildConversationKey(id(req), String(job._id)) } }, { session });
+        await User.updateOne({ _id: id(req) }, { $pull: { archivedConversations: buildConversationKey(String(job.jobPoster), String(job._id)) } }, { session });
         if (!application.reminderStages.includes(48)) application.nextPaymentReminderAt = new Date(application.firstSubmittedAt.getTime() + (application.reminderStages.includes(24) ? 48 : 24) * HOUR);
         title = 'Work submitted'; message = `Work for ${job.title} awaits your review and payment.`;
       } else {
@@ -70,16 +87,42 @@ async function transition(req, kind) {
 export const authorizePayment = handle(async (req, res) => res.json({ application: await transition(req, 'authorize') }));
 export const submitWork = handle(async (req, res) => {
   let saved = false;
+  const uploaded = [];
   try {
+    const assignment = await JobApplication.findById(req.params.applicationId);
+    if (!assignment) throw httpError(404, 'Hired assignment not found.');
+    if (String(assignment.applicant) !== id(req)) throw httpError(403, 'You cannot update this assignment.');
+    if (!['Hired', 'Accepted'].includes(assignment.status) || !['In Progress', 'Changes Requested'].includes(assignment.workStatus)) throw httpError(409, 'Start work before submitting it, or wait for a change request before resubmitting.');
+    const files = req.files || [];
+    if (!files.length || files.length > 10) throw httpError(400, 'Attach between 1 and 10 completion images.');
+    if (String(req.body?.statement || '').trim().length > 4000) throw httpError(400, 'The description must be 4000 characters or fewer.');
+    for (const file of files) {
+      if (file.buffer.length > 5 * 1024 * 1024) throw httpError(413, 'Each image must be 5 MB or smaller.');
+      if (!hasValidAvatarFileSignature(file) || !String(file.mimetype).startsWith('image/')) throw httpError(400, 'Evidence must contain valid JPG, PNG, GIF, or WEBP images.');
+    }
+    req.completionImages = [];
+    req.completionMessageId = new mongoose.Types.ObjectId();
+    for (const file of files) {
+      const filename = `completion-evidence_${randomUUID()}${path.extname(file.originalname).toLowerCase()}`;
+      uploaded.push(filename);
+      await uploadEvidenceToAzure({ filename, buffer: file.buffer, contentType: file.mimetype });
+      req.completionImages.push({ fileUrl: `/uploads/${filename}`, fileName: file.originalname, contentType: file.mimetype });
+    }
     const application = await transition(req, 'submit');
     saved = true;
+    try {
+      const chatMessage = await Message.findById(req.completionMessageId).populate('sender', 'firstName lastName').populate('receiver', 'firstName lastName').populate('job', 'title').populate('attachment.application', 'workStatus paymentStatus workSubmittedAt');
+      if (chatMessage) { emitToUser(String(chatMessage.receiver._id), 'new_message', chatMessage); emitToUser(id(req), 'new_message_echo', chatMessage); }
+    } catch { /* Persisted chat history remains available if realtime delivery is interrupted. */ }
     return res.json({ application });
-  } finally { if (!saved && req.file?.filename) await removeUploadFile(req.file.filename); }
+  } finally {
+    if (!saved) await Promise.allSettled(uploaded.map((filename) => deleteEvidenceFromAzure(filename)));
+  }
 });
 export const requestChanges = handle(async (req, res) => res.json({ application: await transition(req, 'changes') }));
 export const settleDirect = handle(async (req, res) => {
   if (req.body?.confirmed !== true) throw httpError(400, 'Confirm the recipient and amount before releasing funds.');
-  const result = await settleApplicationPayment({ applicationId: req.params.applicationId, employerId: id(req) });
+  const result = await settleApplicationPayment({ applicationId: req.params.applicationId, employerId: id(req), expectedSubmittedAt: req.body?.submittedAt });
   return res.json({ message: result.deduplicated ? 'Payment was already completed.' : 'Worker paid successfully.', application: result.application, job: result.job });
 });
 

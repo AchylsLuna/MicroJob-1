@@ -5,6 +5,8 @@ import type { TFunction } from "i18next";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ChevronDown, ChevronLeft, Flag, MessagesSquare, Send } from "lucide-react";
 import { ConversationReportDialog } from "./ConversationReportDialog";
+import { CompletionMessageCard } from './CompletionMessageCard';
+import { ChecklistTable } from '../HireChecklist';
 import { MessagingSafetyNotice } from "./MessagingSafetyNotice";
 import { useAuth } from "../../contexts/AuthContext";
 import { useMessaging, conversationIdOf, type Contact, type ChatMessage } from "../../contexts/MessagingContext";
@@ -374,6 +376,8 @@ export function MessageDock() {
           <div className="space-y-2">
             {messages.map((message, index) => {
               const isOwn = Boolean(currentUserId && message.sender._id === currentUserId);
+              if (message.attachment?.type === 'hire_checklist') return <div key={message._id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}><div className="w-full max-w-sm rounded-card border border-slate-200 bg-white p-3 text-slate-900"><p className="mb-2 font-semibold">{message.attachment.jobTitle}</p><ChecklistTable items={message.attachment.checklist || []} /></div></div>;
+              if (message.attachment?.type === 'completion_evidence') return <div key={message._id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}><CompletionMessageCard message={message} /></div>;
               return (
                 <div key={message._id || `message-${index}`} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
                   <div
