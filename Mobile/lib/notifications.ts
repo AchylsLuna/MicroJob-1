@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 
 export type NotificationListItem = {
   id: string;
@@ -19,6 +19,12 @@ export type NotificationListItem = {
 };
 
 export type NotificationDestination = 'applications' | 'messages' | 'wallet' | 'support' | 'settings' | 'disputes' | 'feed';
+
+export const getNotificationAssignmentId = (item: { entityType?: string; entityId?: string; link?: string }): string | undefined => {
+  const match = /^\/worker\/applied-jobs\?applicationId=([a-f0-9]{24})$/i.exec(item.link || '');
+  if (!match || item.entityType !== 'application' || match[1] !== item.entityId) return undefined;
+  return match[1];
+};
 
 export const resolveNotificationDestination = (item: any): NotificationDestination => {
   const type = String(item?.type || item?.entityType || '').toLowerCase();

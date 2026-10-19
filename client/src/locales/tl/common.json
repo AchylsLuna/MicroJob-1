@@ -1,4 +1,9 @@
 {
+  "offerResponse": {
+    "respondBy": "Tumugon bago ang {{date}} (Asia/Manila). Kapag walang tugon, mapapaso ang alok at mababakante ang nakareserbang posisyon.",
+    "expired": "Napaso na ang alok na ito. Makipag-ugnayan sa employer kung interesado ka pa rin.",
+    "expiredStatus": "Napaso"
+  },
   "workTime": {
     "title": "Oras ng trabaho bawat araw",
     "start": "Oras ng simula ng trabaho",
@@ -282,6 +287,7 @@
     "hireWarning": "Hindi na maaaring burahin ang trabaho pagkatapos kumpirmahin ang pag-hire."
   },
   "lifecycle": {
+    "openAssignment": "Buksan ang takdang gawain",
     "workSchedule": "Araw-araw na trabaho at bayad",
     "dailyRate": "PHP {{amount}} bawat araw bawat manggagawa",
     "workDate": "Petsa ng trabaho: {{date}}",

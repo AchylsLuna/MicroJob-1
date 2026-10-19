@@ -10,7 +10,10 @@ const JobOfferSchema = new mongoose.Schema({
   policyAcceptedAt: Date,
   amount: { type: Number, required: true, min: 1 },
   additionalEscrow: { type: Number, default: 0, min: 0 },
-  status: { type: String, enum: ['pending', 'accepted', 'rejected', 'cancelled', 'hired'], default: 'pending', index: true },
+  status: { type: String, enum: ['pending', 'accepted', 'rejected', 'cancelled', 'hired', 'expired'], default: 'pending', index: true },
+  expiresAt: { type: Date, default: null },
+  responseReminderAt: { type: Date, default: null },
+  responseReminderSentAt: { type: Date, default: null },
   acceptedAt: { type: Date, default: null },
   resolvedAt: { type: Date, default: null },
   chatMessage: { type: mongoose.Schema.Types.ObjectId, ref: 'Message', default: null },
@@ -20,5 +23,7 @@ JobOfferSchema.index(
   { application: 1, status: 1 },
   { name: 'application_offer_status' },
 );
+JobOfferSchema.index({ status: 1, expiresAt: 1 });
+JobOfferSchema.index({ status: 1, responseReminderSentAt: 1, responseReminderAt: 1 });
 
 export default mongoose.model('JobOffer', JobOfferSchema);

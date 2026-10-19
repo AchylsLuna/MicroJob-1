@@ -829,9 +829,10 @@ export function restoreEmployerApplication(applicationId: string) {
 }
 
 // Job offer APIs
-export type JobOfferStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'hired';
+export type JobOfferStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'hired' | 'expired';
 
 export type JobOffer = {
+  expiresAt?: string | null;
   id: string;
   applicationId: string;
   jobId: string;

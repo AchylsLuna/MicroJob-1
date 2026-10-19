@@ -21,7 +21,7 @@ import {
 export interface ChatMessageAttachment {
   type?: 'settlement_request' | 'job_offer' | 'completion_evidence' | 'hire_checklist';
   checklist?: string[];
-  jobOffer?: { _id: string; status: string; amount?: number; acceptedAt?: string; resolvedAt?: string } | string;
+  jobOffer?: { _id: string; status: string; amount?: number; acceptedAt?: string; resolvedAt?: string; expiresAt?: string | null } | string;
   application?: string | { _id: string; workStatus?: string; paymentStatus?: string; workSubmittedAt?: string; dailyPayments?: { workDate: string; submittedAt?: string; paidAt?: string; amount: number }[] };
   workDate?: string;
   dailyAmount?: number;

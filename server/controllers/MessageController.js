@@ -44,7 +44,7 @@ const withMessagePopulate = (query) =>
     .populate('receiver', 'firstName lastName role')
     .populate('job', 'title')
     .populate('attachment.settlementRequest', 'status expiresAt settledAt')
-    .populate('attachment.jobOffer', 'status amount acceptedAt resolvedAt')
+    .populate('attachment.jobOffer', 'status amount acceptedAt resolvedAt expiresAt')
     .populate({ path: 'attachment.application', select: 'workStatus paymentStatus workSubmittedAt dailyPayments', model: JobApplication });
 
 /**

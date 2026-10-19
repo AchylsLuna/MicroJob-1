@@ -1,19 +1,26 @@
 import { CompletionEvidence } from './CompletionEvidence';
 import { DailyWorkSchedule } from './DailyWorkSchedule';
 import { ChecklistTable } from './HireChecklist';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Dialog, Input, Select, Textarea } from './ui';
 import { lifecycleRequest } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { formatCurrency } from '../lib/formatters';
 
-export function AssignmentPanel({ applicationId, onChanged }: { applicationId: string; onChanged?: () => void }) {
+export function AssignmentPanel({ applicationId, onChanged, defaultOpen = false, hideTrigger = false, onClose }: { applicationId: string; onChanged?: () => void; defaultOpen?: boolean; hideTrigger?: boolean; onClose?: () => void }) {
   const { t } = useTranslation('common'); const { user } = useAuth();
-  const [open, setOpen] = useState(false); const [data, setData] = useState<any>(null);
+  const [open, setOpen] = useState(defaultOpen); const [data, setData] = useState<any>(null);
   const [paymentPreview, setPaymentPreview] = useState<any>(null);
   const [command, setCommand] = useState(''); const [reason, setReason] = useState(''); const [amount, setAmount] = useState('0'); const [kind, setKind] = useState('other');
   const [checked, setChecked] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const lock = useRef(false);
+  useEffect(() => {
+    if (!defaultOpen) return;
+    let active = true;
+    setBusy(true);
+    void lifecycleRequest(`/applications/${applicationId}/lifecycle`).then((value) => { if (active) setData(value); }).catch((caught) => { if (active) setError(caught.message); }).finally(() => { if (active) setBusy(false); });
+    return () => { active = false; };
+  }, [applicationId, defaultOpen]);
   const refresh = async () => setData(await lifecycleRequest(`/applications/${applicationId}/lifecycle`));
   const run = async (fn: () => Promise<any>, changed = true) => { if (lock.current) return false; lock.current = true; setBusy(true); setError(''); try { await fn(); if (changed) { await refresh(); setCommand(''); setReason(''); setChecked(false); onChanged?.(); } return true; } catch (e: any) { setError(e.message); return false; } finally { lock.current = false; setBusy(false); } };
   const app = data?.application; const employer = String(data?.job?.jobPoster) === String(user?.id);
@@ -28,8 +35,8 @@ export function AssignmentPanel({ applicationId, onChanged }: { applicationId: s
     if (command === 'pay') return lifecycleRequest(`/applications/${applicationId}/payment/settle`, { confirmed: checked });
   };
   return <>
-    <Button className="shrink-0 whitespace-nowrap border border-black !bg-white !text-black" onClick={() => { setOpen(true); setCommand(''); void run(refresh, false); }}>{t('lifecycle.details')}</Button>
-    <Dialog open={open} title={data?.job?.title || t('lifecycle.details')} onClose={() => { if (!busy) setOpen(false); }} closeDisabled={busy}>
+    {!hideTrigger && <Button className="shrink-0 whitespace-nowrap border border-black !bg-white !text-black" onClick={() => { setOpen(true); setCommand(''); void run(refresh, false); }}>{t('lifecycle.details')}</Button>}
+    <Dialog open={open} title={data?.job?.title || t('lifecycle.details')} onClose={() => { if (!busy) { setOpen(false); onClose?.(); } }} closeDisabled={busy}>
       {error && <p role="alert" className="text-red-700">{error}</p>}
       {app && <div className="space-y-4">
         <p>{app.status} · {t(`lifecycle.work.${app.workStatus}`, { defaultValue: app.workStatus })} · {app.cancellationPending || (dispute && Number(dispute.amount) > 0) ? t('lifecycle.held') : app.paymentStatus}</p>

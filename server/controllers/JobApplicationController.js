@@ -192,6 +192,7 @@ export const getUserApplications = async (req, res) => {
           status: latestOffer.status,
           createdAt: latestOffer.createdAt,
           acceptedAt: latestOffer.acceptedAt,
+          expiresAt: latestOffer.expiresAt,
         } : null,
       };
     }));
@@ -384,6 +385,7 @@ export const getEmployerApplications = async (req, res) => {
           status: latestOfferByApplication.get(String(application._id)).status,
           createdAt: latestOfferByApplication.get(String(application._id)).createdAt,
           acceptedAt: latestOfferByApplication.get(String(application._id)).acceptedAt,
+          expiresAt: latestOfferByApplication.get(String(application._id)).expiresAt,
         } : null,
         applicant: value?.applicant ? {
           ...value.applicant,

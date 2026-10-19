@@ -20,7 +20,7 @@ import ContactSupport from '../pages/worker/ContactSupport';
 import FinancialDisputes from '../pages/shared/FinancialDisputes';
 import { useAppSession } from '../contexts/AppSessionContext';
 import { useToast } from '../contexts/ToastContext';
-import { resolveNotificationDestination } from '../lib/notifications';
+import { resolveNotificationDestination, getNotificationAssignmentId } from '../lib/notifications';
 import { useWorkerTabNavigation } from './useTabNavigation';
 import { hiddenTabs, stackMotion } from './options';
 
@@ -182,10 +182,13 @@ function WorkerSavedJobsScreen() {
 
 function WorkerAppliedJobsScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const session = useAppSession();
   const workerTabPress = useWorkerTabNavigation();
   return (
     <AppliedJobs
+      requestedApplicationId={route.params?.applicationId}
+      onAssignmentClosed={() => navigation.setParams({ applicationId: undefined })}
       activeTab="Jobs"
       onTabPress={workerTabPress}
       onViewDetails={(job) => navigation.navigate('WorkerJobDetails', { job })}
@@ -206,7 +209,7 @@ function WorkerNotificationsScreen() {
   const workerTabPress = useWorkerTabNavigation();
   const openNotification = (item) => {
     const destination = resolveNotificationDestination(item);
-    if (destination === 'applications') navigation.navigate('WorkerAppliedJobs');
+    if (destination === 'applications') navigation.navigate('WorkerAppliedJobs', { applicationId: getNotificationAssignmentId(item) });
     else if (destination === 'messages') {
       session.setInitialWorkerChatTarget(item.actorId ? { id: item.actorId, name: item.actorName || undefined } : null);
       workerTabPress('Messages');

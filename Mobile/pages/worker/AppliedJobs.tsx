@@ -53,6 +53,8 @@ type ReviewEligibility = {
 };
 
 type AppliedJobsProps = {
+  requestedApplicationId?: string;
+  onAssignmentClosed?: () => void;
   onViewSavedJobs?: () => void;
   onViewDetails?: (job: { _id: string }) => void;
   onMessageEmployer?: (payload: { userId?: string; userName?: string; jobId?: string }) => void;
@@ -69,6 +71,8 @@ export default function AppliedJobs(props: AppliedJobsProps) {
     activeTab: externalActiveTab,
     onTabPress: externalOnTabPress,
     messageBadgeCount = 0,
+    requestedApplicationId,
+    onAssignmentClosed,
   } = props;
   const { t } = useTranslation('worker');
   const toast = useToast();
@@ -233,6 +237,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
 
   return (
     <View style={styles.container}>
+      {requestedApplicationId && <AssignmentPanel key={requestedApplicationId} applicationId={requestedApplicationId} defaultOpen hideTrigger onClose={onAssignmentClosed} onChanged={() => void fetchApplications()} />}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) + 10 }]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => handleTabPress('Jobs')} accessibilityRole="button" accessibilityLabel={t('appliedJobs.backAccessibility')}>
           <Ionicons name="chevron-back" size={20} color={tokens.colors.brand} />

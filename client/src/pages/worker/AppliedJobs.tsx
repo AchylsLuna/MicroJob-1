@@ -1,6 +1,9 @@
 import { WorkTimeSummary } from '../../components/WorkTimeSummary';
 import { WorkSubmission } from '../../components/WorkSubmission';
 import { AssignmentPanel } from '../../components/AssignmentPanel';
+import { OfferResponseDeadline } from '../../components/OfferResponseDeadline';
+import { offerResponseStatus } from '../../lib/offerResponse';
+import { useOfferExpiry } from '../../hooks/useOfferExpiry';
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -82,12 +85,14 @@ const AppliedJobs: React.FC = () => {
   const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const requestedApplicationId = searchParams.get('applicationId');
   const requestedStatus = searchParams.get("status") || "All";
   const initialFilter = FILTER_OPTIONS.includes(requestedStatus as "All" | ApplicationStatus)
     ? requestedStatus as "All" | ApplicationStatus
     : "All";
   const [selectedFilter, setSelectedFilter] = useState<"All" | ApplicationStatus>(initialFilter);
   const [applications, setApplications] = useState<Application[]>([]);
+  useOfferExpiry(applications.map((application) => application.offer));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reviewEligibility, setReviewEligibility] = useState<Record<string, ReviewEligibilityItem>>({});
@@ -242,6 +247,7 @@ const AppliedJobs: React.FC = () => {
 
   return (
     <div className="ui-page pb-16">
+      {requestedApplicationId && <AssignmentPanel key={requestedApplicationId} applicationId={requestedApplicationId} defaultOpen hideTrigger onChanged={() => void fetchApplications()} onClose={() => { const next = new URLSearchParams(searchParams); next.delete('applicationId'); setSearchParams(next, { replace: true }); }} />}
       <div className="ui-page-header">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">{t("appliedJobs.eyebrow")}</p>
@@ -336,7 +342,8 @@ const AppliedJobs: React.FC = () => {
                       {application.job?.description || t("appliedJobs.card.descriptionFallback")}
                     </p>
 
-                    {application.status === "Offer Sent" && application.offer?.status === "pending" ? (
+                    {application.offer && <OfferResponseDeadline offer={application.offer} />}
+                    {application.status === "Offer Sent" && application.offer && offerResponseStatus(application.offer) === "pending" ? (
                       <div className="mt-4 rounded-xl border border-[#B8CBE5] bg-[#EAF2FC] p-3">
                         <p className="text-sm font-semibold text-brand">
                           {t("appliedJobs.offerPanel.title", { amount: formatCurrency(application.offer.amount) })}

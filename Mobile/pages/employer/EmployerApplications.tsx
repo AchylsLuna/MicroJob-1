@@ -1,4 +1,5 @@
 import DailyWorkSchedule from '../../components/DailyWorkSchedule';
+import OfferResponseDeadline from '../../components/OfferResponseDeadline';
 import OfferDecisionModal from '../../components/OfferDecisionModal';
 import { walletRequest } from '../../lib/lifecycleApi';
 import AssignmentPanel from '../../components/AssignmentPanel';
@@ -59,7 +60,8 @@ type JobItem = {
 type Offer = {
   id: string;
   amount: number;
-  status: "pending" | "accepted" | "rejected" | "cancelled" | "hired";
+  status: "pending" | "accepted" | "rejected" | "cancelled" | "hired" | "expired";
+  expiresAt?: string | null;
   createdAt?: string;
   acceptedAt?: string;
 } | null;
@@ -1009,6 +1011,7 @@ function CandidateCard(props: any) {
     Number.isFinite(offerAmount) && offerAmount >= Number(item.job.salary || 0);
   return (
     <View style={[styles.candidateCard, expanded && styles.candidateExpanded]}>
+      <OfferResponseDeadline offer={offer} />
       {interviewError ? <Text accessibilityRole="alert" style={{ color: tokens.colors.danger }}>{interviewError}</Text> : null}
       {(item.interviews || []).filter((interview: any) => interview.status !== 'completed' && !completedInterviews.includes(interview._id) && new Date(interview.scheduledAt).getTime() <= Date.now() && !['Hired', 'Cancelled', 'Position filled', 'Withdrawn', 'Rejected'].includes(item.status)).map((interview: any) => <TouchableOpacity key={interview._id} style={{ padding: 12 }} accessibilityRole="button" onPress={async () => { try { await walletRequest(`/applications/${item._id}/interviews/${interview._id}`, { status: 'completed' }, 'PATCH'); setCompletedInterviews((old) => [...old, interview._id]); } catch (e: any) { setInterviewError(e.message); } }}><Text style={{ color: tokens.colors.brand }}>{tc('lifecycle.completeInterview')}</Text></TouchableOpacity>)}
       {['Hired', 'Cancelled'].includes(item.status) && <AssignmentPanel applicationId={item._id} employer onChanged={props.onChanged} />}

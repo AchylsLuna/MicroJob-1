@@ -123,6 +123,7 @@ test('employer applications include applicant match and rating data on the corre
     status: 'accepted',
     createdAt: offer.createdAt,
     acceptedAt: offer.acceptedAt,
+    expiresAt: null,
   });
 
   const reviewResponse = createResponse();

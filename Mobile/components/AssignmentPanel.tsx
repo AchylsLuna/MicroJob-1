@@ -5,7 +5,7 @@ import AsyncStorage from '../lib/storage';
 import { API_URL } from '../config';
 import CompletionEvidence from './CompletionEvidence';
 import { ChecklistTable } from './HireChecklist';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { walletRequest } from '../lib/lifecycleApi';
@@ -14,13 +14,21 @@ import ScrollView from './ui/SmoothScrollView';
 import { formatCurrency } from '../lib/formatters';
 import { useAppSession } from '../contexts/AppSessionContext';
 
-export default function AssignmentPanel({ applicationId, employer: _employer, onChanged }: { applicationId: string; employer?: boolean; onChanged?: () => void }) {
+export default function AssignmentPanel({ applicationId, employer: _employer, onChanged, defaultOpen = false, hideTrigger = false, onClose }: { applicationId: string; employer?: boolean; onChanged?: () => void; defaultOpen?: boolean; hideTrigger?: boolean; onClose?: () => void }) {
   const session = useAppSession();
-  const { t } = useTranslation('common'); const [open, setOpen] = useState(false); const [data, setData] = useState<any>(null);
+  const { t } = useTranslation('common'); const [open, setOpen] = useState(defaultOpen); const [data, setData] = useState<any>(null);
   const [evidenceFile, setEvidenceFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [command, setCommand] = useState(''); const [reason, setReason] = useState(''); const [amount, setAmount] = useState('0'); const [checked, setChecked] = useState(false); const [nonpayment, setNonpayment] = useState(false);
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const lock = useRef(false);
   const [paymentPreview, setPaymentPreview] = useState<any>(null);
+  useEffect(() => {
+    if (!defaultOpen) return;
+    let active = true;
+    setBusy(true);
+    void walletRequest(`/applications/${applicationId}/lifecycle`).then((value) => { if (active) setData(value); }).catch((caught) => { if (active) setError(caught.message); }).finally(() => { if (active) setBusy(false); });
+    return () => { active = false; };
+  }, [applicationId, defaultOpen]);
+  const close = () => { if (!busy) { setOpen(false); onClose?.(); } };
   const load = async () => setData(await walletRequest(`/applications/${applicationId}/lifecycle`));
   const run = async (fn: () => Promise<any>, changed = true) => { if (lock.current) return false; lock.current = true; setBusy(true); setError(''); try { await fn(); if (changed) { await load(); setCommand(''); setReason(''); setChecked(false); onChanged?.(); } return true; } catch (e: any) { setError(e.message); return false; } finally { setBusy(false); lock.current = false; } };
   const app = data?.application;
@@ -48,8 +56,8 @@ export default function AssignmentPanel({ applicationId, employer: _employer, on
     if (['accept', 'reject'].includes(command)) return walletRequest(`/cancellations/${pending._id}/respond`, { action: command });
   };
   return <>
-    {button(t('lifecycle.details'), () => { setOpen(true); setCommand(''); void run(load, false); }, false, 'details')}
-    <Modal visible={open} transparent animationType="fade" onRequestClose={() => { if (!busy) setOpen(false); }}><View style={styles.backdrop}><View accessibilityViewIsModal style={styles.dialog}><ScrollView>
+    {!hideTrigger && button(t('lifecycle.details'), () => { setOpen(true); setCommand(''); void run(load, false); }, false, 'details')}
+    <Modal visible={open} transparent animationType="fade" onRequestClose={close}><View style={styles.backdrop}><View accessibilityViewIsModal style={styles.dialog}><ScrollView>
       <Text accessibilityRole="header" style={styles.title}>{data?.job?.title || t('lifecycle.details')}</Text>
       {error ? <Text accessibilityRole="alert" style={styles.text}>{error}</Text> : null}
       {app && <>
@@ -89,7 +97,7 @@ export default function AssignmentPanel({ applicationId, employer: _employer, on
         {dispute && <><CompletionEvidence items={(dispute.evidence || []).filter((item: any) => item.fileUrl)} /><Text style={styles.text}>{t('lifecycle.evidenceNotice')}</Text><Text style={styles.text}>{t('lifecycle.evidenceDue')}: {dispute.evidenceDueAt ? new Date(dispute.evidenceDueAt).toLocaleString() : '—'}</Text>{dispute.evidence?.map((item: any, i: number) => <Text key={i} style={styles.text}>{item.statement || item.description || item.fileName || t('lifecycle.noEvidence')}</Text>)}</>}
         <Text style={styles.title}>{t('lifecycle.history')}</Text>{data.cancellations?.map((item: any) => <Text key={item._id} style={styles.text}>{item.reason} · {item.status} · {formatCurrency(item.workerPayment)}</Text>)}
       </>}
-      {button(t('wallet.back'), () => setOpen(false))}
+      {button(t('wallet.back'), close)}
     </ScrollView></View></View></Modal>
   </>;
 }

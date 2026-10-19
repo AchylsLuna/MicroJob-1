@@ -1,5 +1,5 @@
 import Cancellation from '../models/Cancellation.js';
-import { refundJobFunds, remainingJobFunds, requiredJobFunds } from '../services/jobFunds.js';
+import { remainingJobFunds, requiredJobFunds } from '../services/jobFunds.js';
 import { syncCapacity } from '../services/jobLifecycle.js';
 import { queueNotification } from '../services/notificationOutbox.js';
 import { POLICY_VERSION, requireReason, httpError } from '../lib/lifecyclePolicy.js';
@@ -14,20 +14,18 @@ import { emitToUser } from '../lib/socket.js';
 import { normalizeHireChecklist } from '../lib/hireChecklist.js';
 import { buildConversationKey } from '../lib/jobInquiry.js';
 import { isDailyJob, workdayCount, manilaDate } from '../lib/dailyWorkPolicy.js';
+import { offerDeadline, isOfferExpired } from '../lib/offerPolicy.js';
+import { refundOfferExtra as refundExtra, expireOffer } from '../services/offerLifecycle.js';
 
 const userId = (req) => String(req.user?.id || req.user?.userId || '');
-const serialize = (offer) => ({ id: String(offer._id), applicationId: String(offer.application), jobId: String(offer.job), employerId: String(offer.employer), workerId: String(offer.worker), amount: Number(offer.amount), status: offer.status, createdAt: offer.createdAt, acceptedAt: offer.acceptedAt });
-
-async function refundExtra(offer, session) {
-  if (Number(offer.additionalEscrow || 0) <= 0) return;
-  const job = await Job.findById(offer.job).session(session);
-  await refundJobFunds({ job, amount: Number(offer.additionalEscrow), reference: `offer-extra-refund:${offer._id}`, preferredWallet: 'EMPLOYER', actor: offer.employer, session });
-}
+const serialize = (offer) => ({ id: String(offer._id), applicationId: String(offer.application), jobId: String(offer.job), employerId: String(offer.employer), workerId: String(offer.worker), amount: Number(offer.amount), status: offer.status, createdAt: offer.createdAt, acceptedAt: offer.acceptedAt, expiresAt: offer.expiresAt });
 
 export async function createJobOffer(req, res) {
   const session = await mongoose.startSession();
   let created;
   try {
+    const overdue = await JobOffer.findOne({ application: req.params.applicationId, employer: userId(req), status: 'pending', expiresAt: { $ne: null, $lte: new Date() } });
+    if (overdue) await expireOffer(overdue._id);
     await session.withTransaction(async () => {
       const application = await JobApplication.findById(req.params.applicationId).session(session);
       if (!application) throw Object.assign(new Error('Application not found.'), { status: 404 });
@@ -48,7 +46,7 @@ export async function createJobOffer(req, res) {
         const debit = await User.updateOne({ _id: userId(req), employerBalance: { $gte: extra } }, { $inc: { employerBalance: -extra } }, { session });
         if (!debit.modifiedCount) throw Object.assign(new Error('Employer balance is insufficient for the negotiated increase.'), { status: 409 });
       }
-      [created] = await JobOffer.create([{ job: job._id, application: application._id, employer: userId(req), worker: application.applicant, amount, additionalEscrow: extra }], { session });
+      [created] = await JobOffer.create([{ job: job._id, application: application._id, employer: userId(req), worker: application.applicant, amount, additionalEscrow: extra, ...offerDeadline(job) }], { session });
       if (extra > 0) await Transaction.create([{ sender: userId(req), receiver: null, amount: extra, type: 'ESCROW', status: 'COMPLETED', balanceTarget: 'ESCROW', jobReference: job._id, reference: `offer-extra:${created._id}`, meta: { fundingSources: { EMPLOYER: extra, WORKER: 0 } }, label: 'Negotiated offer escrow', relatedEntityType: 'job_offer', relatedEntityId: String(created._id), actor: userId(req) }], { session });
       const message = await Message.create([{ sender: userId(req), receiver: application.applicant, job: job._id, content: `Formal job offer for ${job.title}`, clientMessageId: `job-offer:${created._id}`, attachment: { type: 'job_offer', jobOffer: created._id, application: application._id, jobTitle: job.title, offerAmount: amount, ...(isDailyJob(job) ? { workDates: job.workDates, workStartTime: job.workStartTime, workEndTime: job.workEndTime, dailyAmount: amount, totalAmount: Number((amount * workdayCount(job)).toFixed(2)) } : {}) } }], { session });
       created.chatMessage = message[0]._id; await created.save({ session });
@@ -60,7 +58,7 @@ export async function createJobOffer(req, res) {
       }
       await queueNotification(`offer-created:${created._id}`, { userId: created.worker, audience: 'worker', type: 'application', title: 'Formal job offer', message: `You received a PHP ${Number(created.amount).toFixed(2)} job offer.`, entityType: 'job_offer', entityId: created._id, actor: created.employer, push: true, pushData: { participantId: String(created.employer), jobId: String(created.job) } }, session);
     });
-    const chatMessage = await Message.findById(created.chatMessage).populate('sender', 'firstName lastName').populate('receiver', 'firstName lastName').populate('job', 'title').populate('attachment.jobOffer', 'status amount acceptedAt resolvedAt').populate('attachment.application', 'workStatus paymentStatus workSubmittedAt dailyPayments');
+    const chatMessage = await Message.findById(created.chatMessage).populate('sender', 'firstName lastName').populate('receiver', 'firstName lastName').populate('job', 'title').populate('attachment.jobOffer', 'status amount acceptedAt resolvedAt expiresAt').populate('attachment.application', 'workStatus paymentStatus workSubmittedAt dailyPayments');
     if (chatMessage) { emitToUser(String(created.worker), 'new_message', chatMessage); emitToUser(String(created.employer), 'new_message_echo', chatMessage); }
     emitToUser(String(created.worker), 'job_offer_updated', serialize(created));
     return res.status(201).json({ offer: serialize(created) });
@@ -73,9 +71,15 @@ export async function respondToJobOffer(req, res) {
   if (!['accept', 'reject'].includes(action)) return res.status(400).json({ message: 'Action must be accept or reject.' });
   const session = await mongoose.startSession(); let offer;
   try {
+    const pending = await JobOffer.findOne({ _id: req.params.offerId, worker: userId(req), status: 'pending' });
+    if (isOfferExpired(pending)) {
+      await expireOffer(pending._id);
+      return res.status(409).json({ message: 'This offer has expired. Contact the employer for a new offer.' });
+    }
     await session.withTransaction(async () => {
       offer = await JobOffer.findOne({ _id: req.params.offerId, worker: userId(req), status: 'pending' }).session(session);
       if (!offer) throw Object.assign(new Error('Pending offer not found.'), { status: 404 });
+      if (isOfferExpired(offer)) throw httpError(409, 'This offer has expired. Contact the employer for a new offer.');
       if (action === 'accept' && req.body?.policyAcknowledged !== true) throw httpError(400, 'Acknowledge the job and cancellation terms before accepting.');
       const job = await Job.findById(offer.job).session(session);
       if (!job || job.cancellationPending || ['Cancelled', 'Completed'].includes(job.status)) throw httpError(409, 'This posting is no longer available.');

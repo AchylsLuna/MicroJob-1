@@ -11,6 +11,7 @@ import { useNotifications } from '../../contexts/NotificationContext';
 
 export default function NotificationsPage() {
   const { t } = useTranslation("worker");
+  const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
   const { user } = useAuth();
   const prefersReducedMotion = useReducedMotion();
@@ -200,7 +201,9 @@ export default function NotificationsPage() {
                     onClick={() => navigate(n.link)}
                     className="text-sm text-brand-600 font-semibold hover:underline"
                   >
-                    {n.type === 'application'
+                    {n.entityType === 'application' && n.link.includes('?applicationId=')
+                      ? tc('lifecycle.openAssignment')
+                      : n.type === 'application'
                       ? isEmployerView
                         ? t("notifications.viewAction.pipeline")
                         : t("notifications.viewAction.applications")

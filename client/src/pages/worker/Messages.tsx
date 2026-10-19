@@ -1,4 +1,7 @@
 import { DailyOfferSchedule } from '../../components/messaging/DailyOfferSchedule';
+import { OfferResponseDeadline } from '../../components/OfferResponseDeadline';
+import { offerResponseStatus } from '../../lib/offerResponse';
+import { useOfferExpiry } from '../../hooks/useOfferExpiry';
 import { OfferCancellationDialog } from '../../components/OfferCancellationDialog';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -162,6 +165,7 @@ export function Messages() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  useOfferExpiry(messages.map((message) => typeof message.attachment?.jobOffer === 'object' ? message.attachment.jobOffer : null));
   const [messageText, setMessageText] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
@@ -1391,7 +1395,7 @@ export function Messages() {
                       if (isJobOfferMessage) {
                         const offerValue = message.attachment?.jobOffer;
                         const offerStatus = String(
-                          typeof offerValue === "object" ? offerValue?.status || "pending" : "pending",
+                          typeof offerValue === "object" ? offerResponseStatus(offerValue) || "pending" : "pending",
                         ).toLowerCase();
                         const offerAmount = message.attachment?.offerAmount ?? 0;
                         const offerBusy = offerActionBusyId === offerId;
@@ -1443,7 +1447,7 @@ export function Messages() {
                                       offerStatus === "pending" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
                                     }`}
                                   >
-                                    {t(OFFER_STATUS_LABEL_KEYS[offerStatus] || OFFER_STATUS_LABEL_KEYS.pending)}
+                                    {offerStatus === 'expired' ? t('offerResponse.expiredStatus', { ns: 'common' }) : t(OFFER_STATUS_LABEL_KEYS[offerStatus] || OFFER_STATUS_LABEL_KEYS.pending)}
                                   </span>
                                 </div>
                                 <div className="mt-3 border-t border-slate-200/70 pt-3">
@@ -1451,6 +1455,7 @@ export function Messages() {
                                   <DailyOfferSchedule message={message} />
                                   <p className="mt-0.5 text-caption text-slate-500">{t("messages.offerCard.escrowHint")}</p>
                                 </div>
+                                <OfferResponseDeadline offer={typeof offerValue === 'object' ? offerValue : null} />
                                 {showWorkerActions ? (
                                   <div className="mt-3 flex gap-2">
                                     <button

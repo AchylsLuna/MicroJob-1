@@ -1,4 +1,9 @@
 {
+  "offerResponse": {
+    "respondBy": "Respond by {{date}} (Asia/Manila). Unanswered offers expire and release the reserved position.",
+    "expired": "This offer has expired. Contact the employer if you are still interested.",
+    "expiredStatus": "Expired"
+  },
   "workTime": {
     "title": "Work time per day",
     "start": "Start work time",
@@ -100,6 +105,7 @@
     "hireWarning": "Cannot delete the job after confirming the hire."
   },
   "lifecycle": {
+    "openAssignment": "Open assignment",
     "workSchedule": "Daily work and payments",
     "dailyRate": "PHP {{amount}} per day per worker",
     "workDate": "Work date: {{date}}",

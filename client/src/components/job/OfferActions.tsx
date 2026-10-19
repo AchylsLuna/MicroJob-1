@@ -4,6 +4,7 @@ import { FileText, WalletCards } from "lucide-react";
 import { formatCurrency } from "../../lib/formatters";
 import type { JobOffer } from "../../services/api";
 import { DailyWorkSchedule } from '../DailyWorkSchedule';
+import { OfferResponseDeadline } from '../OfferResponseDeadline';
 
 // Shared offer/payment guards for application actions and Job History cards.
 // The stepped presentation changes labels and layout, not payment transitions.
@@ -77,6 +78,8 @@ export function OfferActions({
   const excludedFromOfferPanel = ["Hired", "Rejected", "Withdrawn"].includes(application.status);
 
   return (
+    <>
+    <OfferResponseDeadline offer={offer} />
     <div className={stepped ? "space-y-5" : "space-y-2"}>
       {daily && <DailyWorkSchedule dates={application.job.workDates || []} rate={minimumSalary} start={application.job.workStartTime} end={application.job.workEndTime} />}
       {!excludedFromOfferPanel && !offerActive ? (
@@ -220,5 +223,6 @@ export function OfferActions({
         })()
       ) : null}
     </div>
+    </>
   );
 }

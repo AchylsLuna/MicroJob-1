@@ -9,10 +9,13 @@ import { queueNotification, deliverOutbox } from './notificationOutbox.js';
 import { dispatchWithdrawal, reconcileWithdrawal, automaticWithdrawalsEnabled } from './withdrawals.js';
 import { HOUR } from '../lib/lifecyclePolicy.js';
 import { escalateOverdueDisputes } from './disputeEscalation.js';
+import { queueWorkerNonpaymentAlerts } from './workerNonpaymentAlerts.js';
+import { maintainJobOffers } from './offerLifecycle.js';
 
 export async function runMaintenance() {
   let reminders = 0; let escalations = 0; let transferErrors = 0;
   const deadline = Date.now() + 40000;
+  const offers = await maintainJobOffers({ deadline });
   const applications = await JobApplication.find({ status: { $in: ['Hired', 'Accepted'] }, workStatus: 'Submitted', paymentStatus: { $in: ['Secured', 'Authorized', 'Failed'] }, cancellationPending: { $ne: true }, disputePending: { $ne: true }, reminderStages: { $ne: 48 }, $or: [
     { nextPaymentReminderAt: { $ne: null, $lte: new Date() } },
     { nextPaymentReminderAt: null, reminderStages: { $ne: 24 }, $or: [{ firstSubmittedAt: { $lte: new Date(Date.now() - 24 * HOUR), $ne: null } }, { firstSubmittedAt: null, workSubmittedAt: { $lte: new Date(Date.now() - 24 * HOUR), $ne: null } }] },
@@ -35,6 +38,7 @@ export async function runMaintenance() {
       });
     } finally { await session.endSession(); }
   }
+  const workerNonpaymentAlerts = Date.now() < deadline ? await queueWorkerNonpaymentAlerts({ deadline }) : 0;
   const expired = await Cancellation.find({ scope: 'assignment', status: 'pending', responseDueAt: { $lte: new Date() } }).limit(50);
   for (const item of expired) {
     if (Date.now() > deadline) break;
@@ -58,5 +62,5 @@ export async function runMaintenance() {
   }
   const disputeEscalations = Date.now() < deadline ? await escalateOverdueDisputes({ deadline }) : 0;
   const delivered = Date.now() < deadline ? await deliverOutbox(20, deadline) : 0;
-  return { reminders, escalations, disputeEscalations, delivered, transferErrors, notificationBacklog: await NotificationOutbox.countDocuments({ status: { $ne: 'delivered' } }), failedDeliveries: await NotificationOutbox.countDocuments({ lastError: { $exists: true } }), uncertainTransfers: await PayoutRequest.countDocuments({ processingMode: 'automatic', status: 'processing', failureReason: { $exists: true } }) };
+  return { reminders, workerNonpaymentAlerts, offers, escalations, disputeEscalations, delivered, transferErrors, notificationBacklog: await NotificationOutbox.countDocuments({ status: { $ne: 'delivered' } }), failedDeliveries: await NotificationOutbox.countDocuments({ lastError: { $exists: true } }), uncertainTransfers: await PayoutRequest.countDocuments({ processingMode: 'automatic', status: 'processing', failureReason: { $exists: true } }) };
 }
