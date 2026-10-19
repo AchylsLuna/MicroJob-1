@@ -60,9 +60,9 @@ function EmployerApplicationsScreen() {
       onTabPress={employerTabPress}
       onOpenNotifications={() => navigation.navigate('EmployerNotifications')}
       notificationBadgeCount={session.employerNotificationUnreadCount}
-      onMessageWorker={({ workerId, workerName }) => {
+      onMessageWorker={({ workerId, workerName, jobId }) => {
         if (!workerId) return;
-        session.setInitialEmployerChatTarget({ id: String(workerId), name: workerName || 'Worker' });
+        session.setInitialEmployerChatTarget({ id: String(workerId), name: workerName || 'Worker', jobId });
         employerTabPress('Messages');
       }}
     />
@@ -268,7 +268,12 @@ function EmployerStackNavigator() {
 function EmployerJobHistoryScreen() {
   const navigation = useNavigation();
   const employerTabPress = useEmployerTabNavigation();
-  return <EmployerJobHistory onBack={() => navigation.goBack()} onTabPress={employerTabPress} />;
+  const session = useAppSession();
+  return <EmployerJobHistory onBack={() => navigation.goBack()} onTabPress={employerTabPress} onMessageWorker={({ workerId, workerName, jobId }) => {
+    if (!workerId) return;
+    session.setInitialEmployerChatTarget({ id: String(workerId), name: workerName || 'Worker', jobId });
+    employerTabPress('Messages');
+  }} />;
 }
 
 function EmployerFinancialDisputesScreen() {

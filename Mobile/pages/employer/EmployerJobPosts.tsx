@@ -1,4 +1,5 @@
 import WorkTimeSummary from '../../components/WorkTimeSummary';
+import DailyWorkSchedule from '../../components/DailyWorkSchedule';
 import CompletionEvidence from '../../components/CompletionEvidence';
 import { walletRequest } from '../../lib/lifecycleApi';
 import { formatCurrency } from '../../lib/formatters';
@@ -307,7 +308,7 @@ export default function EmployerJobPosts({
           <EmployerAction icon="people-outline" label={t('jobPosts.actions.reviewApplicants')} onPress={onOpenApplications} disabled={!onOpenApplications} />
           <EmployerAction icon="chatbubbles-outline" label={t('jobPosts.actions.messages')} onPress={onOpenMessages} disabled={!onOpenMessages} />
           <EmployerAction icon="wallet-outline" label={t('jobPosts.actions.employerWallet')} onPress={onOpenWallet} disabled={!onOpenWallet} />
-          <EmployerAction icon="time-outline" label="Job history" onPress={onOpenJobHistory} disabled={!onOpenJobHistory} />
+          <EmployerAction icon="time-outline" label={t('jobHistory.title')} onPress={onOpenJobHistory} disabled={!onOpenJobHistory} />
         </View>
         <View style={styles.sectionHeadingRow}><Text style={styles.operationsTitle}>{t('jobPosts.openings.title')}</Text><Text style={styles.sectionCount}>{jobs.length}</Text></View>
 
@@ -504,6 +505,7 @@ export default function EmployerJobPosts({
               <DetailSection title={t('jobPosts.details.sections.requirements')} values={viewingJob?.requirements} />
               <DetailSection title={t('jobPosts.details.sections.responsibilities')} values={viewingJob?.responsibilities} />
               <DetailSection title={t('jobPosts.details.sections.skills')} values={viewingJob?.skills} />
+              {viewingJob?.paymentMode === 'daily' && <DailyWorkSchedule dates={viewingJob.workDates || []} rate={Number(viewingJob.salary)} start={viewingJob.workStartTime} end={viewingJob.workEndTime} />}
               {viewingJob && <HiredWorkerChecklists key={viewingJob._id} jobId={viewingJob._id} />}
             </ScrollView>
             <View style={styles.detailsActions}>

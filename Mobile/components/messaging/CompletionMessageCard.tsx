@@ -1,10 +1,10 @@
 import React, { useRef, useState } from 'react';
-import { Image, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { API_URL } from '../../config';
 import { tokens } from '../../theme/tokens';
 import { walletRequest } from '../../lib/lifecycleApi';
 import WorkSubmission from '../WorkSubmission';
+import PrivateEvidenceImage from '../PrivateEvidenceImage';
 
 export default function CompletionMessageCard({ message, token, currentUserId, onChanged }: { message: any; token: string; currentUserId: string | null; onChanged: () => void }) {
   const { t } = useTranslation('common');
@@ -26,7 +26,7 @@ export default function CompletionMessageCard({ message, token, currentUserId, o
     <Text style={styles.title}>{attachment.jobTitle}</Text><Text style={styles.text}>{message.content}</Text>
     {workDate && <><Text style={styles.text}>{t('lifecycle.workDate', { date: workDate })}</Text><Text style={styles.text}>{t('lifecycle.submittedOn', { date: new Date(attachment.submittedAt).toLocaleString(undefined, { timeZone: 'Asia/Manila' }) })}</Text></>}
     {workDate && currentUserId === (typeof message.sender === 'string' ? message.sender : message.sender?._id) && applicationId && application?.paymentStatus !== 'Paid' && <WorkSubmission applicationId={applicationId} onChanged={onChanged} />}
-    {(attachment.images || []).filter((image: any) => /^\/uploads\/[a-zA-Z0-9._-]+$/.test(image.fileUrl)).map((image: any) => <Image key={image.fileUrl} source={{ uri: new URL(image.fileUrl, API_URL).toString(), headers: { Authorization: `Bearer ${token}` } }} style={styles.image} resizeMode="contain" accessibilityLabel={image.fileName} />)}
+    {(attachment.images || []).map((image: any) => <PrivateEvidenceImage key={image.fileUrl} fileUrl={image.fileUrl} fileName={image.fileName || t('lifecycle.completionEvidence')} token={token} />)}
     {paid ? <Text style={styles.text}>{t(workDate ? 'lifecycle.dailyPaid' : 'lifecycle.jobCompleted')}</Text> : canComplete ? <TouchableOpacity accessibilityRole="button" style={styles.button} onPress={() => { setError(''); setOpen(true); }}><Text style={styles.buttonText}>{t(workDate ? 'lifecycle.confirmAndPay' : 'lifecycle.markJobDone')}</Text></TouchableOpacity> : <Text style={styles.text}>{t('lifecycle.evidenceSent')}</Text>}
     <Modal visible={open} transparent onRequestClose={() => { if (!busy) setOpen(false); }}>
       <View style={styles.overlay}><View style={styles.dialog} accessibilityViewIsModal>

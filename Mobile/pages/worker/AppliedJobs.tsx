@@ -353,7 +353,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                   <Text style={styles.disputeHoldText}>{t('appliedJobs.paymentDispute.onHold')}</Text>
                 ) : null}
                 <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.assignmentActions}>
-                  {['Hired', 'Cancelled', 'Position filled'].includes(job.status) && <AssignmentPanel applicationId={job.id} />}
+                  {['Hired', 'Cancelled', 'Position filled'].includes(job.status) && <AssignmentPanel applicationId={job.id} onChanged={() => void fetchApplications()} />}
                   {job.status === 'Hired' && job.paymentStatus !== 'Paid' && ['In Progress', 'Changes Requested'].includes(job.workStatus || 'In Progress') ? (
                     <WorkSubmission applicationId={job.id} onChanged={() => void fetchApplications()} />
                   ) : null}

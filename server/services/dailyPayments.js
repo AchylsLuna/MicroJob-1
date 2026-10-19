@@ -5,7 +5,7 @@ import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import { activeDispute } from './jobLifecycle.js';
 import { jobSpendingSources, remainingJobFunds } from './jobFunds.js';
-import { queueNotification, deliverOutbox } from './notificationOutbox.js';
+import { queueNotification, deliverOutbox, deliverQueuedNotification } from './notificationOutbox.js';
 import { DAILY_REVIEW_INTERVAL_MS, isDailyJob } from '../lib/dailyWorkPolicy.js';
 import { httpError, money } from '../lib/lifecyclePolicy.js';
 
@@ -49,6 +49,7 @@ export async function settleDailyPayment({ applicationId, employerId, workDate, 
       }
       result = { application, job, deduplicated: false };
     });
+    await deliverQueuedNotification(`daily-payout:${result.application._id}:${workDate}:worker`);
     return result;
   } finally { await session.endSession(); }
 }

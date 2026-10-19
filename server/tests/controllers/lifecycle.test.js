@@ -44,10 +44,11 @@ import { updateHireChecklistItem } from '../../controllers/HireChecklistControll
 import { MongoRateLimitStore } from '../../lib/mongoRateLimitStore.js';
 import AuthRateBucket from '../../models/AuthRateBucket.js';
 import { transferWebhook } from '../../controllers/WithdrawalController.js';
-import { submitWork, settleDirect } from '../../controllers/ApplicationPaymentController.js';
+import { submitWork, settleDirect, authorizePayment } from '../../controllers/ApplicationPaymentController.js';
 import { BlobServiceClient } from '@azure/storage-blob';
 import Message from '../../models/Message.js';
 import { escalateOverdueDisputes } from '../../services/disputeEscalation.js';
+import { deliverQueuedNotification, queueNotification } from '../../services/notificationOutbox.js';
 import { csvCell, exportLifecycleReport } from '../../controllers/LifecycleReportController.js';
 
 let mongo;
@@ -137,6 +138,48 @@ function mockEvidenceAzure(t, { failAt = 0 } = {}) {
   return blobs;
 }
 
+test('starting work immediately notifies only the employer, refreshes status, and cannot notify twice', async () => {
+  const f = await fixture();
+  const req = { params: { applicationId: f.application._id }, user: { id: String(f.worker._id) }, body: {} };
+  const denied = response();
+  await startWork({ ...req, user: { id: String(f.employer._id) } }, denied);
+  assert.equal(denied.statusCode, 403);
+  assert.equal(await Notification.countDocuments(), 0);
+  await queueNotification('unrelated-pending', { userId: String(f.worker._id), title: 'Other event', message: 'Wait for maintenance.' });
+  const started = response(); await startWork(req, started);
+  assert.equal(started.statusCode, 200);
+  assert.equal(started.body.application.workStatus, 'In Progress');
+  const key = `work-started:${f.application._id}`;
+  const notice = await Notification.findOne({ deliveryKey: key });
+  assert.ok(notice, 'employer feed notification exists before the start response returns');
+  assert.equal(String(notice.user), String(f.employer._id));
+  assert.equal(notice.audience, 'employer');
+  assert.equal(notice.title, 'Work in progress');
+  assert.match(notice.message, new RegExp(f.job.title));
+  assert.equal(notice.metadata.workStatus, 'In Progress');
+  assert.equal((await NotificationOutbox.findOne({ key })).status, 'delivered');
+  assert.equal((await NotificationOutbox.findOne({ key: 'unrelated-pending' })).status, 'pending');
+  const repeated = response(); await startWork(req, repeated);
+  assert.equal(repeated.statusCode, 409);
+  assert.equal(await Notification.countDocuments({ deliveryKey: key }), 1);
+});
+
+test('notification delivery failures preserve started work and remain retryable without duplicate notices', async (t) => {
+  const f = await fixture();
+  const delivery = t.mock.method(Notification, 'findOneAndUpdate', async () => { throw new Error('Temporary delivery failure'); });
+  const started = response();
+  await startWork({ params: { applicationId: f.application._id }, user: { id: String(f.worker._id) }, body: {} }, started);
+  assert.equal(started.statusCode, 200);
+  assert.equal((await JobApplication.findById(f.application._id)).workStatus, 'In Progress');
+  const key = `work-started:${f.application._id}`;
+  assert.equal((await NotificationOutbox.findOne({ key })).status, 'pending');
+  delivery.mock.restore();
+  await NotificationOutbox.updateOne({ key }, { $set: { availableAt: new Date(0) } });
+  assert.equal(await deliverQueuedNotification(key), 1);
+  assert.equal(await deliverQueuedNotification(key), 0);
+  assert.equal(await Notification.countDocuments({ deliveryKey: key, user: f.employer._id }), 1);
+});
+
 test('completion requires images, rejects text-only/employers, sends chat, and preserves resubmission history', async (t) => {
   const blobs = mockEvidenceAzure(t);
   const f = await fixture('In Progress');
@@ -148,10 +191,19 @@ test('completion requires images, rejects text-only/employers, sends chat, and p
   const oversized = response(); await submitWork({ ...req, files: [{ ...photo(), buffer: Buffer.alloc(5 * 1024 * 1024 + 1) }] }, oversized); assert.equal(oversized.statusCode, 413);
   const submitted = response(); await submitWork({ ...req, files: [photo(), photo()], body: { statement: 'Installed the shelves and cleaned the work area.' } }, submitted); assert.equal(submitted.statusCode, 200);
   assert.equal(submitted.body.application.completionEvidence.length, 2);
+  const finishedKey = `submit:${f.application._id}:${submitted.body.application.workSubmittedAt.getTime()}`;
+  const finished = await Notification.findOne({ deliveryKey: finishedKey });
+  assert.ok(finished, 'finished-work notification is delivered without maintenance');
+  assert.equal(String(finished.user), String(f.employer._id));
+  assert.equal(finished.audience, 'employer');
+  assert.equal(finished.title, 'Work finished — ready for review');
+  assert.match(finished.message, /submitted proof/);
+  assert.equal((await NotificationOutbox.findOne({ key: finishedKey })).status, 'delivered');
   assert.equal(blobs.size, 2, 'same-name images have distinct blob names');
   const chat = await Message.findOne({ 'attachment.application': f.application._id });
   assert.equal(String(chat.receiver), String(f.employer._id)); assert.equal(chat.attachment.type, 'completion_evidence'); assert.equal(chat.attachment.images.length, 2);
   const retry = response(); await submitWork({ ...req, files: [photo()], body: { statement: 'Duplicate submission' } }, retry); assert.equal(retry.statusCode, 409);
+  assert.equal(await Notification.countDocuments({ user: f.employer._id }), 1);
   assert.equal(blobs.size, 2, 'rejected submissions remove uploaded blobs');
   await JobApplication.updateOne({ _id: f.application._id }, { $set: { workStatus: 'Changes Requested' } });
   const revised = response(); await submitWork({ ...req, files: [photo()], body: { statement: 'Completed requested adjustments.' } }, revised);
@@ -204,6 +256,54 @@ test('real evidence endpoints require completion images, preserve dispute docume
   } finally { await new Promise((resolve) => server.close(resolve)); }
 });
 
+test('confirmed payment authorization immediately notifies only the worker without moving funds or duplicating notices', async () => {
+  const f = await fixture('In Progress');
+  const req = { params: { applicationId: f.application._id }, user: { id: String(f.employer._id) }, body: { confirmed: true } };
+  const denied = response(); await authorizePayment({ ...req, user: { id: String(f.worker._id) } }, denied); assert.equal(denied.statusCode, 403);
+  const unconfirmed = response(); await authorizePayment({ ...req, body: {} }, unconfirmed); assert.equal(unconfirmed.statusCode, 400);
+  assert.equal(await Notification.countDocuments(), 0);
+  const authorized = response(); await authorizePayment(req, authorized); assert.equal(authorized.statusCode, 200);
+  assert.equal(authorized.body.application.paymentStatus, 'Authorized');
+  const notice = await Notification.findOne({ deliveryKey: `authorize:${f.application._id}:authorized` });
+  assert.ok(notice, 'worker feed entry exists before authorization returns');
+  assert.equal(String(notice.user), String(f.worker._id)); assert.equal(notice.audience, 'worker');
+  assert.equal(notice.title, 'Payment authorized'); assert.ok(notice.message.includes(f.job.title)); assert.match(notice.message, /Funds remain secured/);
+  const repeated = response(); await authorizePayment(req, repeated); assert.equal(repeated.statusCode, 200);
+  assert.equal(await Notification.countDocuments(), 1);
+  assert.equal((await User.findById(f.worker._id)).workerBalance, 0);
+  assert.equal(await Transaction.countDocuments({ type: 'PAYOUT' }), 0);
+});
+
+test('a failed paid-notification delivery preserves the credit and retries without paying twice', async (t) => {
+  const f = await fixture('Submitted');
+  const delivery = t.mock.method(Notification, 'findOneAndUpdate', async () => { throw new Error('Temporary notification failure'); });
+  const paid = await settleApplicationPayment({ applicationId: f.application._id, employerId: f.employer._id });
+  assert.equal(paid.application.paymentStatus, 'Paid');
+  assert.equal((await User.findById(f.worker._id)).workerBalance, 600);
+  const key = `job-paid:${f.application._id}`;
+  assert.equal((await NotificationOutbox.findOne({ key })).status, 'pending');
+  delivery.mock.restore();
+  await NotificationOutbox.updateOne({ key }, { $set: { availableAt: new Date(0) } });
+  await settleApplicationPayment({ applicationId: f.application._id, employerId: f.employer._id });
+  assert.equal(await Notification.countDocuments({ deliveryKey: key, user: f.worker._id }), 1);
+  assert.equal((await User.findById(f.worker._id)).workerBalance, 600);
+  assert.equal(await Transaction.countDocuments({ reference: `application-payout:${f.application._id}` }), 1);
+});
+
+test('payment notifications are never delivered before a caller-owned settlement transaction commits', async () => {
+  const f = await fixture('Submitted'); const session = await mongoose.startSession();
+  try {
+    await assert.rejects(session.withTransaction(async () => {
+      await settleApplicationPayment({ applicationId: f.application._id, employerId: f.employer._id, session });
+      assert.equal(await Notification.countDocuments(), 0);
+      throw new Error('Abort posting completion');
+    }), /Abort posting completion/);
+  } finally { await session.endSession(); }
+  assert.equal((await User.findById(f.worker._id)).workerBalance, 0);
+  assert.equal(await NotificationOutbox.countDocuments({ key: `job-paid:${f.application._id}` }), 0);
+  assert.equal(await Notification.countDocuments(), 0);
+});
+
 test('unauthorized and unconfirmed release fail; concurrent confirmed releases credit once and notify both parties', async () => {
   const f = await fixture('Submitted');
   const unauthorized = response(); await settleDirect({ params: { applicationId: f.application._id }, user: { id: String(f.worker._id) }, body: { confirmed: true } }, unauthorized); assert.equal(unauthorized.statusCode, 403);
@@ -212,6 +312,10 @@ test('unauthorized and unconfirmed release fail; concurrent confirmed releases c
   assert.equal((await User.findById(f.worker._id)).workerBalance, 600);
   assert.equal(await Transaction.countDocuments({ reference: `application-payout:${f.application._id}` }), 1);
   assert.equal(await NotificationOutbox.countDocuments({ key: { $in: [`job-paid:${f.application._id}`, `job-paid-employer:${f.application._id}`] } }), 2);
+  const notice = await Notification.findOne({ deliveryKey: `job-paid:${f.application._id}` });
+  assert.ok(notice, 'paid worker is notified immediately'); assert.equal(String(notice.user), String(f.worker._id)); assert.equal(notice.audience, 'worker');
+  assert.ok(notice.message.includes(f.job.title)); assert.match(notice.message, /PHP 600\.00.*worker balance/);
+  assert.equal(await Notification.countDocuments({ deliveryKey: notice.deliveryKey }), 1);
 });
 
 test('overdue disputes escalate once, preserve evidence deadlines and pending approvals, and never move funds', async () => {

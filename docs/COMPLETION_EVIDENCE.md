@@ -35,6 +35,8 @@ Image URLs use `/uploads/:fileName`. The API authorizes the worker, owning emplo
 
 ## Completing the assignment
 
+Starting work queues an employer notification saying **Work in progress**. Submitting valid proof queues **Work finished — ready for review**; daily proof names the specific work date. Both attempt delivery immediately after the work transaction commits, creating the employer's notification-feed entry and using the existing socket/push delivery. Failed delivery remains in the outbox for maintenance retries. Submission still means awaiting employer review, and never releases payment by itself. Applied Jobs refreshes after Start work on both web and mobile so Submit proof becomes available.
+
 The employer's latest submission card displays the green **Mark the job as done?** button. It opens this confirmation:
 
 > Mark the job as completed? This will release the funds to the worker.
@@ -42,5 +44,7 @@ The employer's latest submission card displays the green **Mark the job as done?
 Cancel closes the popup without releasing funds. Confirm calls `POST /api/applications/:applicationId/payment/settle` with `confirmed: true` and the card's `submittedAt` value. The existing settlement service checks employer ownership, submitted work, cancellation/dispute holds, available escrow, and duplicate payment. The timestamp prevents approval of a newer revision from an older chat card. Funds are credited to the assigned worker's wallet exactly once. The assignment becomes Completed/Paid; posting completion continues to follow the existing rules for all hired workers.
 
 ## Verification
+
+Payment authorization immediately attempts the worker's **Payment authorized** notification, explaining that funds are still secured. Successful direct, QR, posting-completion, and daily payments immediately attempt the worker's payment notification after the balance transaction commits. Daily messages identify the work date; ordinary messages include the job and credited amount. Existing delivery keys prevent duplicate feed entries, and failures remain retryable without reversing an authorization or credit.
 
 The focused lifecycle, settlement, and Azure storage tests exercise image requirements, same-name multiple uploads, image validation, interrupted-upload cleanup, private downloads, chat attachments, revision history, stale approval rejection, employer-only confirmation, and duplicate-safe worker payment. Azure is mocked in tests; deployment still requires a smoke test against the configured private container. Native image picking and upload should also be checked on a device.

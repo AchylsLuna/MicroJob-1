@@ -9,12 +9,12 @@ export async function queueNotification(key, payload, session) {
   await NotificationOutbox.updateOne({ key }, { $setOnInsert: { key, payload } }, { upsert: true, ...(session ? { session } : {}) });
 }
 
-export async function deliverOutbox(limit = 100, deadline = Date.now() + 40000) {
+export async function deliverOutbox(limit = 100, deadline = Date.now() + 40000, keys = null) {
   let delivered = 0;
   for (let i = 0; i < limit; i += 1) {
     if (Date.now() > deadline) break;
     const now = new Date();
-    const item = await NotificationOutbox.findOneAndUpdate({ availableAt: { $lte: now }, status: { $in: ['pending', 'delivering'] } }, { $set: { status: 'delivering', availableAt: new Date(Date.now() + 120000) }, $inc: { attempts: 1 } }, { returnDocument: 'after', sort: { availableAt: 1 } });
+    const item = await NotificationOutbox.findOneAndUpdate({ ...(keys ? { key: { $in: keys } } : {}), availableAt: { $lte: now }, status: { $in: ['pending', 'delivering'] } }, { $set: { status: 'delivering', availableAt: new Date(Date.now() + 120000) }, $inc: { attempts: 1 } }, { returnDocument: 'after', sort: { availableAt: 1 } });
     if (!item) break;
     try {
       if (item.payload.fanoutJobId) {
@@ -35,4 +35,11 @@ export async function deliverOutbox(limit = 100, deadline = Date.now() + 40000) 
     }
   }
   return delivered;
+}
+
+// Call only after the originating transaction commits. A delivery failure must
+// not undo work or evidence; the durable outbox remains available for retry.
+export async function deliverQueuedNotification(key) {
+  try { return await deliverOutbox(1, Date.now() + 15000, [key]); }
+  catch { return 0; }
 }

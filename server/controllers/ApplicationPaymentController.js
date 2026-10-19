@@ -10,7 +10,7 @@ import JobApplication from '../models/JobApplication.js';
 import Message from '../models/Message.js';
 import { settleApplicationPayment } from '../services/applicationSettlement.js';
 import { activeDispute } from '../services/jobLifecycle.js';
-import { queueNotification } from '../services/notificationOutbox.js';
+import { queueNotification, deliverQueuedNotification } from '../services/notificationOutbox.js';
 import { httpError, requireReason, HOUR, canFileNonpayment, EVIDENCE_WINDOW_MS } from '../lib/lifecyclePolicy.js';
 import { hasValidAvatarFileSignature } from '../middleware/uploadConfig.js';
 import { randomUUID } from 'node:crypto';
@@ -60,7 +60,7 @@ async function transition(req, kind) {
       if (kind === 'authorize') {
         if (req.body?.confirmed !== true) throw httpError(400, 'Confirm the recipient and amount before authorizing payment.');
         application.paymentStatus = 'Authorized'; application.paymentAuthorizedAt ||= new Date();
-        title = 'Payment authorized'; message = 'Your payment remains secured until the employer approves submitted work.';
+        title = 'Payment authorized'; message = `Your employer has authorized payment for ${job.title}. Funds remain secured until the employer approves your submitted work.`;
       } else if (kind === 'submit') {
         if (!['In Progress', 'Changes Requested'].includes(application.workStatus)) throw httpError(409, 'Start work before submitting it.');
         const statement = String(req.body?.statement || '').trim();
@@ -77,7 +77,9 @@ async function transition(req, kind) {
         await User.updateOne({ _id: job.jobPoster }, { $pull: { archivedConversations: buildConversationKey(id(req), String(job._id)) } }, { session });
         await User.updateOne({ _id: id(req) }, { $pull: { archivedConversations: buildConversationKey(String(job.jobPoster), String(job._id)) } }, { session });
         if (!daily && !application.reminderStages.includes(48)) application.nextPaymentReminderAt = new Date(application.firstSubmittedAt.getTime() + (application.reminderStages.includes(24) ? 48 : 24) * HOUR);
-        title = 'Work submitted'; message = `Work for ${job.title} awaits your review and payment.`;
+        title = 'Work finished — ready for review'; message = daily
+          ? `The worker has finished work for ${job.title} on ${day.workDate} and submitted proof. Review the proof before confirming payment for this date.`
+          : `The worker has finished work on ${job.title} and submitted proof. Review the proof before approving payment.`;
       } else {
         if (application.workStatus !== 'Submitted') throw httpError(409, 'Only submitted work can receive change requests.');
         const reason = requireReason(req.body?.reason);
@@ -92,7 +94,11 @@ async function transition(req, kind) {
     return application;
   } finally { await session.endSession(); }
 }
-export const authorizePayment = handle(async (req, res) => res.json({ application: await transition(req, 'authorize') }));
+export const authorizePayment = handle(async (req, res) => {
+  const application = await transition(req, 'authorize');
+  await deliverQueuedNotification(`authorize:${application._id}:authorized`);
+  return res.json({ application });
+});
 export const submitWork = handle(async (req, res) => {
   let saved = false;
   const uploaded = [];
@@ -120,6 +126,7 @@ export const submitWork = handle(async (req, res) => {
     }
     const application = await transition(req, 'submit');
     saved = true;
+    await deliverQueuedNotification(`submit:${application._id}:${application.workSubmittedAt.getTime()}`);
     try {
       const chatMessage = await Message.findById(req.completionMessageId).populate('sender', 'firstName lastName').populate('receiver', 'firstName lastName').populate('job', 'title').populate('attachment.application', 'workStatus paymentStatus workSubmittedAt dailyPayments');
       if (chatMessage) { emitToUser(String(chatMessage.receiver._id), 'new_message', chatMessage); emitToUser(id(req), 'new_message_echo', chatMessage); }

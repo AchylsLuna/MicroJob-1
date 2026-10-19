@@ -1,4 +1,47 @@
 {
+  "jobHistory": {
+    "title": "Job History",
+    "subtitle": "Review your job postings, held funds, worker payments, and ratings.",
+    "jobTitle": "Title",
+    "status": "Status",
+    "amountHeld": "Amount held",
+    "amountPaid": "Amount paid for worker",
+    "details": "Details",
+    "viewDetails": "View details",
+    "viewDetailsFor": "View details for {{title}}",
+    "refresh": "Refresh",
+    "loading": "Loading job history…",
+    "empty": "You have no job history yet.",
+    "loadFailed": "Failed to load job history.",
+    "moneyNote": "Held funds are remaining reserved funds after payments and refunds. Posting and highlight fees are excluded.",
+    "ratingAfterCompletion": "You can rate this worker after the job is completed.",
+    "location": "Location",
+    "jobType": "Job type",
+    "deadline": "Deadline",
+    "minimumPay": "Minimum worker pay",
+    "skills": "Skills",
+    "requirements": "Requirements",
+    "responsibilities": "Responsibilities",
+    "pagination": {
+      "showing": "Showing {{from}}–{{to}} of {{total}}",
+      "previous": "Prev",
+      "next": "Next",
+      "pageAria": "Job history pages",
+      "goToPage": "Go to page {{page}}"
+    },
+    "statuses": {
+      "Available": "Available",
+      "In Progress": "In Progress",
+      "Completed": "Completed",
+      "Cancelled": "Cancelled",
+      "Closed": "Closed",
+      "Full refund": "Full refund",
+      "Resolved": "Resolved"
+    },
+    "rateWorker": "Rate Worker",
+    "reviewSubmitted": "Review submitted",
+    "showHidden": "Show hidden applications"
+  },
   "chatScreen": {
     "safety": {
       "title": "Stay safe.",

@@ -9,7 +9,7 @@ import FinancialDispute from '../models/FinancialDispute.js';
 import { canFileNonpayment, EVIDENCE_WINDOW_MS, httpError, requireReason } from '../lib/lifecyclePolicy.js';
 import { activeDispute, requestCancellation, respondCancellation } from '../services/jobLifecycle.js';
 import { remainingJobFunds } from '../services/jobFunds.js';
-import { queueNotification } from '../services/notificationOutbox.js';
+import { queueNotification, deliverQueuedNotification } from '../services/notificationOutbox.js';
 
 const actor = (req) => String(req.user?.id || req.user?.userId || '');
 const handle = (fn) => async (req, res) => { try { return await fn(req, res); } catch (error) { return res.status(error.status || 500).json({ message: error.status ? error.message : 'Unable to complete this action.' }); } };
@@ -47,8 +47,9 @@ export const startWork = handle(async (req, res) => {
       job.fundsVersion = Number(job.fundsVersion || 0) + 1; await job.save({ session });
       application.startedAt = new Date(); application.workStatus = 'In Progress';
       application.timeline.push({ type: 'work_started', actor: actor(req), note: 'Worker started work.' }); await application.save({ session });
-      await queueNotification(`work-started:${application._id}`, { userId: String(job.jobPoster), audience: 'employer', type: 'application', title: 'Work started', message: `The worker started ${job.title}.`, entityType: 'application', entityId: String(application._id) }, session);
+      await queueNotification(`work-started:${application._id}`, { userId: String(job.jobPoster), audience: 'employer', type: 'application', title: 'Work in progress', message: `The worker has started work on ${job.title}. Work is now in progress.`, entityType: 'application', entityId: String(application._id), actor: actor(req), metadata: { jobId: String(job._id), workStatus: 'In Progress' } }, session);
     });
+    await deliverQueuedNotification(`work-started:${application._id}`);
     return res.json({ application });
   } finally { await session.endSession(); }
 });

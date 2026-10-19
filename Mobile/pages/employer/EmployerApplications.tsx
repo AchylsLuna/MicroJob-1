@@ -14,6 +14,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  Switch,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -36,6 +37,7 @@ import {
 } from "../../lib/status";
 import { useToast } from "../../contexts/ToastContext";
 import { EmployerModeBanner } from "../../components/employer/EmployerUI";
+import RatingModal, { type MobileRatingTarget } from '../../components/reviews/RatingModal';
 
 type JobItem = {
   paymentMode?: 'assignment' | 'daily';
@@ -84,6 +86,7 @@ type ApplicationItem = {
   } | null;
   agreedAmount?: number;
   workStatus?: string;
+  workSubmittedAt?: string;
   paymentStatus?: string;
   offer?: Offer;
   employerHidden?: boolean;
@@ -167,7 +170,15 @@ export default function EmployerApplications({
   onMessageWorker,
   onOpenNotifications,
   notificationBadgeCount = 0,
+  historyJobId,
+  historyDetails,
+  onBack,
+  onHistoryChange,
 }: {
+  historyJobId?: string;
+  historyDetails?: React.ReactNode;
+  onBack?: () => void;
+  onHistoryChange?: () => void;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
   onMessageWorker?: (payload: {
@@ -184,9 +195,12 @@ export default function EmployerApplications({
   const [jobs, setJobs] = useState<JobItem[]>([]);
   const [cancelOfferId, setCancelOfferId] = useState<string | null>(null);
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(historyJobId || null);
+  const [includeHidden, setIncludeHidden] = useState(Boolean(historyJobId));
+  const [ratingTarget, setRatingTarget] = useState<MobileRatingTarget | null>(null);
+  const [reviewEligibility, setReviewEligibility] = useState<Record<string, any>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [stage, setStage] = useState<Stage>("New");
+  const [stage, setStage] = useState<Stage>(historyJobId ? "Hired" : "New");
   const [search, setSearch] = useState("");
   const [jobSearch, setJobSearch] = useState("");
   const [jobStatus, setJobStatus] = useState("All");
@@ -228,17 +242,18 @@ export default function EmployerApplications({
     try {
       const token = await AsyncStorage.getItem("auth_token");
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-      const [jobsResult, applicationsResult] = await Promise.all([
+      const [jobsResult, applicationsResult, eligibilityResult] = await Promise.all([
         apiRequest(
-          `${API_URL}/jobs/mine`,
+          `${API_URL}/jobs/history`,
           { headers },
           t('employerApplications.errors.loadJobsFailed'),
         ),
         apiRequest(
-          `${API_URL}/applications/employer?includeHidden=true`,
+          `${API_URL}/applications/employer?includeHidden=${includeHidden}${historyJobId ? `&jobId=${encodeURIComponent(historyJobId)}` : ''}`,
           { headers },
           t('employerApplications.errors.loadCandidatesFailed'),
         ),
+        apiRequest(`${API_URL}/reviews/eligible`, { headers }),
       ]);
       if (!jobsResult.ok || !applicationsResult.ok)
         throw new Error(
@@ -259,13 +274,15 @@ export default function EmployerApplications({
           status: normalizeApplicationStatus(item.status),
         })),
       );
+      const eligibility: any = eligibilityResult.data || eligibilityResult.raw;
+      setReviewEligibility(Object.fromEntries((eligibilityResult.ok && Array.isArray(eligibility?.asEmployer) ? eligibility.asEmployer : []).map((item: any) => [item.applicationId, item])));
     } catch (caught: any) {
       setError(caught?.message || t('employerApplications.errors.checkConnection'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [t]);
+  }, [t, includeHidden, historyJobId]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -274,6 +291,7 @@ export default function EmployerApplications({
     const subscription = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
+        if (historyJobId) { onBack?.(); return true; }
         setSelectedJobId(null);
         setExpandedId(null);
         setSearch("");
@@ -281,7 +299,7 @@ export default function EmployerApplications({
       },
     );
     return () => subscription.remove();
-  }, [selectedJobId]);
+  }, [selectedJobId, historyJobId, onBack]);
 
   const categories = useMemo(
     () =>
@@ -379,6 +397,7 @@ export default function EmployerApplications({
       );
       if (!result.ok) throw new Error(result.message);
       await load(true);
+      onHistoryChange?.();
       return true;
     } catch (caught: any) {
       toast.error(caught?.message || t('employerApplications.errors.actionFailed'));
@@ -395,7 +414,7 @@ export default function EmployerApplications({
         question: t('employerApplications.confirm.pay.question', { amount: formatCurrency(preview.amount), name: nameOf(t, item) }),
         detail: `${preview.jobTitle}. ${t('employerApplications.confirm.pay.detail')} ${tc('lifecycle.releaseAmount', { amount: formatCurrency(preview.amount) })}`,
         label: t('employerApplications.confirm.pay.label'),
-        run: async () => { if (await request(item._id, `applications/${item._id}/payment/${action}`)) {
+        run: async () => { if (await request(item._id, `applications/${item._id}/payment/${action}`, action === 'settle' ? { submittedAt: item.workSubmittedAt } : undefined)) {
           if (action === 'settle') toast.success(t('employerApplications.toast.workerPaid'));
         } },
       });
@@ -507,6 +526,7 @@ export default function EmployerApplications({
             <TouchableOpacity
               style={styles.backRow}
               onPress={() => {
+                if (historyJobId) { onBack?.(); return; }
                 setSelectedJobId(null);
                 setExpandedId(null);
                 setSearch("");
@@ -518,8 +538,9 @@ export default function EmployerApplications({
                 size={18}
                 color={tokens.colors.brand}
               />
-              <Text style={styles.backText}>{t('employerApplications.backToJobs')}</Text>
+              <Text style={styles.backText}>{historyJobId ? t('jobHistory.title') : t('employerApplications.backToJobs')}</Text>
             </TouchableOpacity>
+            {historyDetails}
             <View style={styles.selectedJobCard}>
               <Text style={styles.eyebrow}>{t('employerApplications.selectedJobEyebrow')}</Text>
               <Text style={styles.selectedTitle}>{selectedJob.title}</Text>
@@ -549,6 +570,7 @@ export default function EmployerApplications({
                 />
               </View>
             </View>
+            <View style={styles.metaLine}><Switch value={includeHidden} onValueChange={setIncludeHidden} accessibilityLabel={t('jobHistory.showHidden')} /><Text style={styles.metaText}>{t('jobHistory.showHidden')}</Text></View>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -615,6 +637,10 @@ export default function EmployerApplications({
             ) : (
               visibleCandidates.map((item) => (
                 <CandidateCard
+                  history={Boolean(historyJobId)}
+                  reviewEligibility={reviewEligibility[item._id]}
+                  onChanged={() => { void load(true); onHistoryChange?.(); }}
+                  onRate={() => setRatingTarget({ applicationId: item._id, name: nameOf(t, item), jobTitle: item.job.title, roleLabel: 'worker' })}
                   key={item._id}
                   item={item}
                   expanded={expandedId === item._id}
@@ -850,6 +876,7 @@ export default function EmployerApplications({
         )}
       </ScrollView>
       <EmployerNavigation activeTab={activeTab} onTabPress={onTabPress} />
+      {ratingTarget && <RatingModal key={ratingTarget.applicationId} target={ratingTarget} onClose={() => setRatingTarget(null)} onSubmitted={async () => { await load(true); onHistoryChange?.(); }} />}
       <OfferDecisionModal offerId={cancelOfferId} action="cancel" onClose={() => setCancelOfferId(null)} onDone={() => void load(true)} />
       {hireTarget?.offer && <HireChecklistDialog key={hireTarget.offer.id} title={t('employerApplications.confirm.confirmHire.title')} description={t('employerApplications.confirm.confirmHire.question', { name: nameOf(t, hireTarget), amount: formatCurrency(hireTarget.offer.amount) })} warning={t('employerApplications.confirm.confirmHire.detail')} onClose={() => setHireTarget(null)} onConfirm={async (checklist) => {
         await walletRequest(`/job-offers/${hireTarget.offer!.id}/confirm-hire`, { checklist }); toast.success(t('employerApplications.toast.workerHired')); await load(true);
@@ -984,7 +1011,7 @@ function CandidateCard(props: any) {
     <View style={[styles.candidateCard, expanded && styles.candidateExpanded]}>
       {interviewError ? <Text accessibilityRole="alert" style={{ color: tokens.colors.danger }}>{interviewError}</Text> : null}
       {(item.interviews || []).filter((interview: any) => interview.status !== 'completed' && !completedInterviews.includes(interview._id) && new Date(interview.scheduledAt).getTime() <= Date.now() && !['Hired', 'Cancelled', 'Position filled', 'Withdrawn', 'Rejected'].includes(item.status)).map((interview: any) => <TouchableOpacity key={interview._id} style={{ padding: 12 }} accessibilityRole="button" onPress={async () => { try { await walletRequest(`/applications/${item._id}/interviews/${interview._id}`, { status: 'completed' }, 'PATCH'); setCompletedInterviews((old) => [...old, interview._id]); } catch (e: any) { setInterviewError(e.message); } }}><Text style={{ color: tokens.colors.brand }}>{tc('lifecycle.completeInterview')}</Text></TouchableOpacity>)}
-      {['Hired', 'Cancelled'].includes(item.status) && <AssignmentPanel applicationId={item._id} employer />}
+      {['Hired', 'Cancelled'].includes(item.status) && <AssignmentPanel applicationId={item._id} employer onChanged={props.onChanged} />}
       <TouchableOpacity
         style={styles.candidateTap}
         onPress={props.onToggle}
@@ -1246,6 +1273,7 @@ function CandidateCard(props: any) {
               <Text style={styles.removeText}>{t('employerApplications.removeFromList')}</Text>
             </TouchableOpacity>
           )}
+          {props.reviewEligibility?.canReview ? <TouchableOpacity accessibilityRole="button" style={styles.primaryButton} disabled={busy} onPress={props.onRate}><Text style={styles.primaryButtonText}>{t('jobHistory.rateWorker')}</Text></TouchableOpacity> : props.reviewEligibility?.existingReview ? <Text style={styles.panelHelp}>{t('jobHistory.reviewSubmitted')}</Text> : props.history ? <Text style={styles.panelHelp}>{t('jobHistory.ratingAfterCompletion')}</Text> : null}
           {busy ? (
             <ActivityIndicator
               style={styles.busy}

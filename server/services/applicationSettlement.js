@@ -6,7 +6,7 @@ import Transaction from '../models/Transaction.js';
 import User from '../models/User.js';
 import JobOffer from '../models/JobOffer.js';
 import { getDisputeMoneySnapshot } from './financialDisputeMoney.js';
-import { queueNotification } from './notificationOutbox.js';
+import { queueNotification, deliverQueuedNotification } from './notificationOutbox.js';
 import { activeDispute } from './jobLifecycle.js';
 import { refundJobFunds, remainingJobFunds, jobSpendingSources } from './jobFunds.js';
 
@@ -64,11 +64,13 @@ export async function settleApplicationPayment({ applicationId, employerId, expe
       application.paymentStatus = 'Paid'; application.workStatus = 'Completed'; application.paidAmount = payment.alreadyPaidAmount + amount; application.paymentReminderClaimedAt = null; application.paymentReminderClaimedStage = null; application.paidAt = new Date(); application.completedAt = new Date();
       await application.save({ session });
       await finalizeSettledJob(job, employerId, session);
-      await queueNotification(`job-paid:${application._id}`, { userId: String(application.applicant), audience: 'worker', type: 'payment', title: 'Job payment completed', message: `PHP ${amount.toFixed(2)} was added to your worker balance.`, entityType: 'application', entityId: String(application._id) }, session);
+      await queueNotification(`job-paid:${application._id}`, { userId: String(application.applicant), audience: 'worker', type: 'payment', title: 'Job payment completed', message: `Your employer paid PHP ${amount.toFixed(2)} for ${job.title}. The amount was added to your worker balance.`, entityType: 'application', entityId: String(application._id) }, session);
       await queueNotification(`job-paid-employer:${application._id}`, { userId: String(employerId), audience: 'employer', type: 'payment', title: 'Payment sent', message: `PHP ${amount.toFixed(2)} was released to the worker for ${job.title}.`, entityType: 'application', entityId: String(application._id) }, session);
       result = { application, job, transaction, deduplicated: false };
     };
     if (providedSession) await settle(); else await session.withTransaction(settle);
+    // A caller-owned transaction must deliver only after its own commit.
+    if (!providedSession) await deliverQueuedNotification(`job-paid:${result.application._id}`);
     return result;
   } finally { if (!providedSession) await session.endSession(); }
 }

@@ -55,12 +55,13 @@ export default function WorkSubmission({ applicationId, onChanged }: { applicati
     }}><Text style={styles.buttonText}>{t('lifecycle.submitWork')}</Text></TouchableOpacity>
     <Modal visible={open} transparent onRequestClose={() => { if (!busy) setOpen(false); }}>
       <View style={styles.overlay}><View accessibilityViewIsModal style={styles.dialog}><ScrollView>
+        <Text accessibilityRole="header" style={styles.title}>{t('lifecycle.submitWork')}</Text>
         {daily && <><Text style={styles.text}>{t('lifecycle.selectWorkDate')}</Text><View style={styles.dates}>{dates.map((date) => <TouchableOpacity key={date} accessibilityRole="radio" accessibilityState={{ checked: workDate === date }} disabled={busy} style={[styles.date, workDate === date && styles.proofButton]} onPress={() => setWorkDate(date)}><Text style={workDate === date ? styles.buttonText : styles.text}>{date}</Text></TouchableOpacity>)}</View><Text style={styles.text}>{t(dates.length ? 'lifecycle.dailyProofHint' : 'lifecycle.noWorkDates')}</Text></>}
         <Text style={styles.text}>{t('lifecycle.completionStatement')}</Text>
         <TextInput accessibilityLabel={t('lifecycle.completionStatement')} style={styles.input} multiline maxLength={4000} value={statement} onChangeText={setStatement} />
         <TouchableOpacity accessibilityRole="button" disabled={busy} style={styles.button} onPress={async () => { try { const picked = await DocumentPicker.getDocumentAsync({ type: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'], multiple: true, copyToCacheDirectory: true }); if (!picked.canceled) { setFiles(picked.assets); setError(''); } } catch (caught: any) { setError(caught.message); } }}><Text style={styles.buttonText}>{t('lifecycle.completionImages')}</Text></TouchableOpacity>
         <Text style={styles.text}>{t('lifecycle.completionImagesHint')}</Text>
-        {files.map((file, index) => <Text key={`${file.uri}-${index}`} style={styles.text}>{file.name}</Text>)}
+        {files.map((file, index) => <Text key={`${file.uri}-${index}`} style={styles.text}>{file.name}{file.size !== undefined ? ` (${(file.size / 1024 / 1024).toFixed(2)} MB)` : ''}</Text>)}
         {files.length > 0 && <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={() => setFiles([])}><Text style={styles.text}>{t('lifecycle.removeFile')}</Text></TouchableOpacity>}
         {error ? <Text accessibilityRole="alert" style={styles.text}>{error}</Text> : null}
         <TouchableOpacity accessibilityRole="button" disabled={busy || !ready || !files.length || (daily && !workDate)} style={[styles.button, styles.proofButton, (busy || !ready || !files.length || (daily && !workDate)) && { opacity: 0.5 }]} onPress={() => void submit()}><Text style={styles.buttonText}>{t('lifecycle.submitWork')}</Text></TouchableOpacity>
@@ -77,6 +78,7 @@ const styles = StyleSheet.create({
   trigger: { marginVertical: 0, flexShrink: 0 },
   buttonText: { color: tokens.colors.white, fontWeight: '700' },
   text: { color: tokens.colors.text, marginVertical: 8 },
+  title: { color: tokens.colors.text, fontSize: 18, fontWeight: '700', marginVertical: 8 },
   input: { minHeight: 90, padding: 12, color: tokens.colors.text, borderWidth: 1, borderColor: tokens.colors.border, borderRadius: 10 },
   overlay: { flex: 1, justifyContent: 'center', backgroundColor: tokens.colors.brandDark, padding: 20 },
   dialog: { maxHeight: '90%', backgroundColor: tokens.colors.surface, padding: 18, borderRadius: 16 },

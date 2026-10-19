@@ -15,6 +15,7 @@ import Transaction from '../../models/Transaction.js';
 import Category from '../../models/Category.js';
 import Message from '../../models/Message.js';
 import NotificationOutbox from '../../models/NotificationOutbox.js';
+import Notification from '../../models/Notification.js';
 import { createJob, updateJob, repostJob } from '../../controllers/JobController.js';
 import { createJobOffer, respondToJobOffer, confirmOfferHire } from '../../controllers/JobOfferController.js';
 import { submitWork, settleDirect } from '../../controllers/ApplicationPaymentController.js';
@@ -135,6 +136,12 @@ test('daily proofs go to the same chat with exact work/submission dates; future 
   const future = await submit(f, shiftDate(1)); assert.equal(future.statusCode, 400);
   const unknown = await submit(f, shiftDate(-2)); assert.equal(unknown.statusCode, 400); assert.equal(blobs.size, 0);
   for (const date of f.workDates) assert.equal((await submit(f, date)).statusCode, 200);
+  const notices = await Notification.find({ user: f.employer._id, title: 'Work finished — ready for review' }).sort({ createdAt: 1 });
+  assert.equal(notices.length, 2, 'each finished work date immediately notifies the employer');
+  for (let i = 0; i < f.workDates.length; i += 1) {
+    assert.ok(notices[i].message.includes(f.workDates[i]));
+    assert.equal(notices[i].audience, 'employer');
+  }
   const messages = await Message.find({ job: f.job._id }).sort({ createdAt: 1 }); assert.equal(messages.length, 2);
   assert.deepEqual(messages.map((message) => message.attachment.workDate), f.workDates);
   for (const message of messages) {
@@ -189,6 +196,11 @@ test('Confirm and Pay requires confirmation, owner and current revision, pays ea
   const revised = await submit(f, old.workDate); const current = revised.body.application.dailyPayments[0];
   await assert.rejects(settleDailyPayment(args), { status: 409 });
   const results = await Promise.all([settleDailyPayment(paymentArgs(f, current)), settleDailyPayment(paymentArgs(f, current))]);
+  const dailyKey = `daily-payout:${f.application._id}:${current.workDate}:worker`;
+  const notice = await Notification.findOne({ deliveryKey: dailyKey });
+  assert.ok(notice, 'daily payment immediately notifies the worker'); assert.equal(String(notice.user), String(f.worker._id));
+  assert.equal(notice.audience, 'worker'); assert.ok(notice.message.includes(current.workDate)); assert.match(notice.message, /PHP 480\.00/);
+  assert.equal(await Notification.countDocuments({ deliveryKey: dailyKey }), 1);
   assert.equal(results.filter((result) => !result.deduplicated).length, 1);
   assert.equal((await User.findById(f.worker._id)).workerBalance, 480);
   assert.equal((await Job.findById(f.job._id)).status, 'In Progress');

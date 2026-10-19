@@ -1,4 +1,47 @@
 {
+  "jobHistory": {
+    "title": "Kasaysayan ng Trabaho",
+    "subtitle": "Tingnan ang mga trabaho, nakahawak na pondo, bayad sa manggagawa, at rating.",
+    "jobTitle": "Pamagat",
+    "status": "Katayuan",
+    "amountHeld": "Halagang nakahawak",
+    "amountPaid": "Halagang ibinayad sa manggagawa",
+    "details": "Mga detalye",
+    "viewDetails": "Tingnan ang mga detalye",
+    "viewDetailsFor": "Tingnan ang mga detalye ng {{title}}",
+    "refresh": "I-refresh",
+    "loading": "Nilo-load ang kasaysayan ng trabaho…",
+    "empty": "Wala ka pang kasaysayan ng trabaho.",
+    "loadFailed": "Hindi ma-load ang kasaysayan ng trabaho.",
+    "moneyNote": "Ang nakahawak na pondo ay ang natitirang escrow matapos ang mga bayad at refund. Hindi kasama ang posting at highlight fees.",
+    "ratingAfterCompletion": "Maaari mong i-rate ang manggagawa kapag nakumpleto na ang trabaho.",
+    "location": "Lokasyon",
+    "jobType": "Uri ng trabaho",
+    "deadline": "Deadline",
+    "minimumPay": "Minimum na bayad sa manggagawa",
+    "skills": "Mga kasanayan",
+    "requirements": "Mga kinakailangan",
+    "responsibilities": "Mga responsibilidad",
+    "pagination": {
+      "showing": "Ipinapakita ang {{from}}–{{to}} sa {{total}}",
+      "previous": "Nakaraan",
+      "next": "Susunod",
+      "pageAria": "Mga pahina ng kasaysayan ng trabaho",
+      "goToPage": "Pumunta sa pahina {{page}}"
+    },
+    "statuses": {
+      "Available": "Bukas",
+      "In Progress": "Isinasagawa",
+      "Completed": "Nakumpleto",
+      "Cancelled": "Kinansela",
+      "Closed": "Sarado",
+      "Full refund": "Buong refund",
+      "Resolved": "Nalutas"
+    },
+    "rateWorker": "I-rate ang Manggagawa",
+    "reviewSubmitted": "Naisumite ang review",
+    "showHidden": "Ipakita ang mga nakatagong aplikasyon"
+  },
   "chatScreen": {
     "safety": {
       "title": "Mag-ingat.",

@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import AsyncStorage from '../lib/storage';
 import { API_URL } from '../config';
 import { tokens } from '../theme/tokens';
+import PrivateEvidenceImage from './PrivateEvidenceImage';
+import { formatDateTime } from '../lib/formatters';
 
 export default function CompletionEvidence({ items }: { items?: any[] }) {
   const { t } = useTranslation('common');
@@ -32,5 +34,10 @@ export default function CompletionEvidence({ items }: { items?: any[] }) {
     } catch (caught: any) { setMessage(caught.message); }
     finally { if (cached) await FileSystem.deleteAsync(cached, { idempotent: true }).catch(() => {}); setBusy(false); }
   };
-  return <View><Text style={{ color: tokens.colors.text, fontWeight: '700' }}>{t('lifecycle.completionEvidence')}</Text>{items.map((item, index) => <View key={item._id || index}><Text style={{ color: tokens.colors.text }}>{item.statement}</Text>{item.fileUrl && <TouchableOpacity accessibilityRole="button" disabled={busy} style={{ padding: 12, minHeight: 44 }} onPress={() => void download(item)}><Text style={{ color: tokens.colors.text }}>{t('lifecycle.saveEvidence')}: {item.fileName}</Text></TouchableOpacity>}</View>)}{message ? <Text accessibilityRole="alert" style={{ color: tokens.colors.text }}>{message}</Text> : null}</View>;
+  return <View><Text style={{ color: tokens.colors.text, fontWeight: '700' }}>{t('lifecycle.completionEvidence')}</Text>{items.map((item, index) => <View key={item._id || index}>
+    <Text style={{ color: tokens.colors.text }}>{item.statement}</Text>
+    {item.fileUrl && item.contentType?.startsWith('image/') && <PrivateEvidenceImage fileUrl={item.fileUrl} fileName={item.fileName || t('lifecycle.completionEvidence')} />}
+    {item.fileUrl && <TouchableOpacity accessibilityRole="button" disabled={busy} style={{ padding: 12, minHeight: 44 }} onPress={() => void download(item)}><Text style={{ color: tokens.colors.text }}>{t('lifecycle.saveEvidence')}: {item.fileName}</Text></TouchableOpacity>}
+    {(item.submittedAt || item.uploadedAt || item.at) && <Text style={{ color: tokens.colors.text }}>{formatDateTime(item.submittedAt || item.uploadedAt || item.at)}</Text>}
+  </View>)}{message ? <Text accessibilityRole="alert" style={{ color: tokens.colors.text }}>{message}</Text> : null}</View>;
 }
