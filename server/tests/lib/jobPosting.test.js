@@ -6,6 +6,7 @@ import {
   JOB_HIGHLIGHT_FEE,
   JOB_POSTING_FEE,
   getJobPostingCosts,
+  getMinimumJobPay,
   isSupportedJobType,
   parseMinimumPay,
 } from '../../lib/jobPosting.js';
@@ -26,6 +27,13 @@ test('minimum pay accepts positive numbers and rejects malformed or non-positive
   assert.equal(parseMinimumPay(-10), null);
   assert.equal(parseMinimumPay('1,500'), null);
   assert.equal(parseMinimumPay({ amount: 1500 }), null);
+});
+
+test('opportunity minimum pay is 480 for recruiting and 50 for short-term and side hustle', () => {
+  assert.equal(getMinimumJobPay('Recruiting'), 480);
+  assert.equal(getMinimumJobPay('Short-term'), 50);
+  assert.equal(getMinimumJobPay('Side hustle'), 50);
+  assert.equal(getMinimumJobPay('Freelance'), 0);
 });
 
 test('posting costs keep worker pay separate from fixed listing fees', () => {

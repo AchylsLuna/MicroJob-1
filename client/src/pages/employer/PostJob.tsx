@@ -10,7 +10,7 @@ import { toast } from "../../lib/toast";
 import { AlertCard, AlertLayer, Button, ConfirmDialog } from "../../components/ui";
 import { Avatar } from "../../components/ui/Avatar";
 import { ROUTES } from "../../utils/routes";
-import { formatMinimumPay } from "../../lib/jobCompensation";
+import { formatMinimumPay, getMinimumJobPay } from "../../lib/jobCompensation";
 import { formatDateTime } from "../../lib/formatters";
 import PostJobWizard from "../../components/job/PostJobWizard";
 import {
@@ -361,8 +361,8 @@ const PostJob: React.FC = () => {
         return;
       }
 
-      if (!Number.isFinite(salaryAmount) || salaryAmount <= 0) {
-        setFormError(t("postJob.errors.invalidSalary"));
+      if (!Number.isFinite(salaryAmount) || salaryAmount <= 0 || salaryAmount < getMinimumJobPay(formData.jobType)) {
+        setFormError(t("postJob.errors.invalidSalary", { minimum: getMinimumJobPay(formData.jobType) }));
         setSubmitting(false);
         return;
       }

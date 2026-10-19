@@ -23,6 +23,7 @@ import { tokens } from '../../theme/tokens';
 import TabTopNav from '../../components/TabTopNav';
 import { useToast } from '../../contexts/ToastContext';
 import { EmployerAccordion, EmployerModeBanner } from '../../components/employer/EmployerUI';
+import { getMinimumJobPay } from '../../lib/jobCompensation';
 
 type Category = { _id: string; name: string };
 
@@ -410,9 +411,9 @@ export default function EmployerPostJob({
         return;
       }
 
-      if (!Number.isFinite(normalizedSalary) || normalizedSalary <= 0) {
+      if (!Number.isFinite(normalizedSalary) || normalizedSalary <= 0 || normalizedSalary < getMinimumJobPay(formData.jobType)) {
         setExpandedSection('basics');
-        setErrorMessage('Minimum guaranteed pay must be greater than zero.');
+        setErrorMessage(`Minimum guaranteed pay must be at least PHP ${getMinimumJobPay(formData.jobType)} for this opportunity type.`);
         setSubmitting(false);
         return;
       }
@@ -661,7 +662,7 @@ export default function EmployerPostJob({
             keyboardType="numeric"
           />
           <Text style={styles.helperText}>
-            This is the minimum amount guaranteed to each hired worker and secured in escrow.
+            Minimum PHP {getMinimumJobPay(formData.jobType)} per worker. This amount is guaranteed to each hired worker and secured in escrow.
           </Text>
           </EmployerAccordion>
 

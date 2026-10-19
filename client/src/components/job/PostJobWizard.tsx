@@ -6,6 +6,7 @@ import { ClipboardList, FileText, Info, MapPin, WalletCards } from "lucide-react
 import { AlertCard, AlertLayer } from "../ui";
 import { DateField } from "../ui/DateField";
 import { formatCurrency } from "../../lib/formatters";
+import { getMinimumJobPay } from "../../lib/jobCompensation";
 import {
   type FormState,
   type JobEdit,
@@ -123,9 +124,11 @@ export default function PostJobWizard({
     const missing = validateStep(step, formData);
     if (missing.length > 0) {
       setStepError(
-        t("postJob.errors.missingFields", {
-          fields: missing.map((field) => requiredFieldLabels[field]).join(", "),
-        })
+        step === 2 && formData.minimumSalary
+          ? t("postJob.errors.invalidSalary", { minimum: getMinimumJobPay(formData.jobType) })
+          : t("postJob.errors.missingFields", {
+              fields: missing.map((field) => requiredFieldLabels[field]).join(", "),
+            })
       );
       pendingFieldRef.current = missing[0];
       return;
@@ -569,7 +572,7 @@ export default function PostJobWizard({
                       required
                     />
                   </div>
-                  <p className="mt-2 text-xs leading-5 text-slate-500">{t("postJob.modal.pay.helper")}</p>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">{t("postJob.modal.pay.helper", { minimum: getMinimumJobPay(formData.jobType) })}</p>
                 </div>
 
                 <div className="flex flex-col gap-2 rounded-card border border-brand-100 bg-brand-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">

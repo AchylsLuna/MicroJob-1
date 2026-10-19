@@ -14,6 +14,7 @@ import { scoreJobForWorker } from '../lib/jobMatching.js';
 import { getReviewSummaries } from '../lib/reviewSummary.js';
 import {
     getJobPostingCosts,
+    getMinimumJobPay,
     isSupportedJobType,
     parseMinimumPay,
 } from '../lib/jobPosting.js';
@@ -306,6 +307,10 @@ export async function createJob(req, res){
         const normalizedJobType = typeof jobType === 'string' ? jobType.trim() : '';
         if (!isSupportedJobType(normalizedJobType)) {
             return res.status(400).json({ message: 'Please select a valid opportunity type.' });
+        }
+        const minimumPay = getMinimumJobPay(normalizedJobType);
+        if (salaryAmount < minimumPay) {
+            return res.status(400).json({ message: `Minimum guaranteed pay must be at least PHP ${minimumPay} for this opportunity type.` });
         }
         if (!Number.isInteger(positions) || positions < 1) {
             return res.status(400).json({ message: 'positionsNeeded must be a positive whole number.' });
@@ -715,6 +720,12 @@ async function updateJobInTransaction(req, session) {
             }
         }
 
+        if (updates.salary !== undefined || updates.jobType !== undefined) {
+            const minimumPay = getMinimumJobPay(updates.jobType ?? job.jobType);
+            if (Number(updates.salary ?? job.salary) < minimumPay) {
+                return res.status(400).json({ message: `Minimum guaranteed pay must be at least PHP ${minimumPay} for this opportunity type.` });
+            }
+        }
         if (job.cancellationPending || ['Completed', 'Cancelled', 'Full refund', 'Resolved'].includes(job.status)) return res.status(409).json({ message: 'This posting is historical or being cancelled. Use Post again.' });
         if (updates.salary !== undefined && (job.hiredCount > 0 || job.reservedOfferCount > 0)) return res.status(409).json({ message: 'Existing offers and hires fix the job minimum pay.' });
         const nextPositions = Number(updates.positionsNeeded ?? job.positionsNeeded ?? 1);

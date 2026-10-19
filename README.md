@@ -10,6 +10,8 @@ Completion evidence requires private Azure blob settings on the API server. See 
 
 Employers may attach a per-worker checklist at hire confirmation and track its completion in Job Management details. See [Optional hire checklists](docs/HIRE_CHECKLISTS.md); marks never block evidence submission or payment.
 
+Job postings require guaranteed pay per worker of at least PHP 480 for ongoing/long-term roles (the `Recruiting` opportunity type), or PHP 50 for `Short-term` and `Side hustle`. Web, mobile, and API validation enforce these inclusive minimums on creation, reposting, and pay/type edits. Changing the opportunity type also validates the existing pay; legacy opportunity types retain their existing positive-pay rule.
+
 Use Node.js 22.13 LTS or Node.js 24.3 or newer. Install the web and API dependencies from the repository root:
 
 ```powershell

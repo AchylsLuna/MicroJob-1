@@ -23,6 +23,11 @@ export const ALL_JOB_TYPES = Object.freeze([
 export const JOB_POSTING_FEE = 20;
 export const JOB_HIGHLIGHT_FEE = 50;
 
+export function getMinimumJobPay(jobType) {
+  if (jobType.trim() === 'Recruiting') return 480;
+  return ['Short-term', 'Side hustle'].includes(jobType.trim()) ? 50 : 0;
+}
+
 export function getJobPostingCosts({ payPerWorker, positionsNeeded, highlighted = false }) {
   const workerPay = Number(payPerWorker) * Number(positionsNeeded);
   const postingFee = JOB_POSTING_FEE;

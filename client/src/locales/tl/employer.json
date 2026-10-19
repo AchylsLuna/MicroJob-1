@@ -85,7 +85,7 @@
       "missingFields": "Pakikumpleto: {{fields}}.",
       "invalidPositions": "Maglagay ng buong bilang ng mga manggagawang kailangan (minimum 1).",
       "invalidDeadline": "Maglagay ng valid na petsa ng deadline.",
-      "invalidSalary": "Dapat mas mataas sa zero ang minimum na garantisadong bayad.",
+      "invalidSalary": "Dapat hindi bababa sa PHP {{minimum}} ang garantisadong bayad para sa ganitong uri ng trabaho.",
       "updateFailed": "Hindi na-update ang trabaho.",
       "postFailed": "Hindi na-post ang trabaho.",
       "deleteFailed": "Hindi na-delete ang trabaho.",
@@ -206,7 +206,7 @@
         "label": "Minimum na Garantisadong Bayad kada Manggagawa (PHP)",
         "ariaLabel": "Minimum na garantisadong bayad kada manggagawa",
         "placeholder": "hal. 1500",
-        "helper": "Ilagay ang minimum na halagang garantisado sa bawat na-hire na manggagawa. Naka-secure ang halagang ito sa escrow."
+        "helper": "Ilagay ang garantisadong bayad sa bawat manggagawa (minimum PHP {{minimum}}). Naka-secure ang halagang ito sa escrow."
       },
       "deadline": {
         "label": "Deadline *"

@@ -6,7 +6,8 @@ import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import Job from '../../models/Job.js';
 import Transaction from '../../models/Transaction.js';
 import User from '../../models/User.js';
-import { updateJob } from '../../controllers/JobController.js';
+import Category from '../../models/Category.js';
+import { createJob, updateJob } from '../../controllers/JobController.js';
 
 let mongoServer;
 
@@ -91,6 +92,60 @@ test('increasing funded job pay or positions collects only the escrow difference
   assert.equal(transaction.amount, 1400);
   assert.equal(transaction.meta.previousTotal, 1000);
   assert.equal(transaction.meta.updatedTotal, 2400);
+});
+
+test('job edits reject pay below the type minimum without changing funding', async () => {
+  const employer = await createEmployer(100);
+  for (const [jobType, minimum] of [['Recruiting', 480], ['Short-term', 50], ['Side hustle', 50]]) {
+    const job = await createFundedJob(employer._id, { jobType });
+    const response = await update(employer, job, { salary: minimum - 0.01 });
+    assert.equal(response.statusCode, 400);
+    assert.match(response.payload.message, new RegExp(`at least PHP ${minimum}`));
+    assert.equal((await Job.findById(job._id)).salary, 1000);
+    assert.equal((await User.findById(employer._id)).employerBalance, 100);
+    assert.equal(await Transaction.countDocuments({ jobReference: job._id }), 1);
+    const accepted = await update(employer, job, { salary: minimum });
+    assert.equal(accepted.statusCode, 200);
+    assert.equal((await Job.findById(job._id)).salary, minimum);
+    // Reset the balance after checking the successful refund.
+    await User.updateOne({ _id: employer._id }, { employerBalance: 100 });
+  }
+});
+
+test('new postings reject below-minimum pay and accept the exact minimum', async () => {
+  const employer = await createEmployer(2000);
+  await User.updateOne({ _id: employer._id }, { companyName: 'Test Employer', avatarUrl: '/uploads/test.png' });
+  const category = await Category.create({ name: 'Local services' });
+  for (const [jobType, minimum] of [['Recruiting', 480], ['Short-term', 50], ['Side hustle', 50]]) {
+    const body = {
+      title: 'Local work', description: 'Help with local services.', location: 'Pasig City',
+      jobType, salary: minimum - 0.01, category: String(category._id),
+      deadline: '2027-01-01T00:00:00.000Z', positionsNeeded: 1,
+    };
+    const response = createResponse();
+    const user = { id: String(employer._id), role: employer.role };
+    await createJob({ user, body }, response);
+    assert.equal(response.statusCode, 400);
+    assert.match(response.payload.message, new RegExp(`at least PHP ${minimum}`));
+    assert.equal(await Job.countDocuments({ jobType }), 0);
+    const accepted = createResponse();
+    await createJob({ user, body: { ...body, salary: minimum } }, accepted);
+    assert.equal(accepted.statusCode, 201);
+    assert.equal((await Job.findOne({ jobType })).salary, minimum);
+  }
+});
+
+test('changing only the opportunity type validates the existing pay', async () => {
+  const employer = await createEmployer(430);
+  const job = await createFundedJob(employer._id, { salary: 50 });
+  const response = await update(employer, job, { jobType: 'Recruiting' });
+  assert.equal(response.statusCode, 400);
+  assert.equal((await Job.findById(job._id)).jobType, 'Short-term');
+  const accepted = await update(employer, job, { jobType: 'Recruiting', salary: 480 });
+  assert.equal(accepted.statusCode, 200);
+  const updatedJob = await Job.findById(job._id);
+  assert.equal(updatedJob.jobType, 'Recruiting');
+  assert.equal(updatedJob.salary, 480);
 });
 
 test('reducing funded job pay or positions refunds the escrow difference', async () => {

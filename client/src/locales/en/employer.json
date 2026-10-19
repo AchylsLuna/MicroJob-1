@@ -85,7 +85,7 @@
       "missingFields": "Please complete: {{fields}}.",
       "invalidPositions": "Please provide a whole number of workers needed (minimum 1).",
       "invalidDeadline": "Please provide a valid deadline date.",
-      "invalidSalary": "Minimum guaranteed pay must be greater than zero.",
+      "invalidSalary": "Minimum guaranteed pay must be at least PHP {{minimum}} for this opportunity type.",
       "updateFailed": "Failed to update job.",
       "postFailed": "Failed to post job.",
       "deleteFailed": "Failed to delete job.",
@@ -206,7 +206,7 @@
         "label": "Minimum Guaranteed Pay per Worker (PHP)",
         "ariaLabel": "Minimum guaranteed pay per worker",
         "placeholder": "e.g. 1500",
-        "helper": "Enter the minimum amount guaranteed to each hired worker. This amount is reserved for payment."
+        "helper": "Enter the amount guaranteed to each hired worker (minimum PHP {{minimum}}). This amount is reserved for payment."
       },
       "deadline": {
         "label": "Deadline *"

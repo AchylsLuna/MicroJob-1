@@ -1,3 +1,5 @@
+import { getMinimumJobPay } from "../../lib/jobCompensation";
+
 // Shared types and pure helpers for the post-a-job form, split out of
 // PostJobWizard.tsx because Fast Refresh requires a component file to only
 // export components — everything else (types, constants, pure functions)
@@ -242,7 +244,7 @@ export const validateStep = (step: 0 | 1 | 2 | 3, form: FormState): RequiredFiel
     if (!form.deadline) missing.push("deadline");
   } else if (step === 2) {
     const salaryAmount = Number(form.minimumSalary.replace(/[^0-9]/g, "") || 0);
-    if (!salaryAmount) missing.push("salary");
+    if (!Number.isFinite(salaryAmount) || salaryAmount <= 0 || salaryAmount < getMinimumJobPay(form.jobType)) missing.push("salary");
   }
   return missing;
 };
