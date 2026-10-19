@@ -135,6 +135,10 @@ const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, mill
 // This email receipt covers money transferred into a wallet and payouts only.
 const supportsPaymentReceipt = (transaction) => ['TOP_UP', 'PAYOUT'].includes(transaction.type);
 
+const isJobPayment = (transaction) => transaction.type === 'PAYOUT' && Boolean(transaction.jobReference) && !transaction.payoutRequest;
+const isEmployerReceipt = (transaction, user) => isJobPayment(transaction)
+  && Boolean(transaction.jobReference?.jobPoster) && String(transaction.jobReference.jobPoster) === String(user._id);
+
 const getReceiptTitle = (transaction) => {
   if (transaction.type === 'TOP_UP') return 'Wallet top-up receipt';
   if (transaction.type === 'PAYOUT' && transaction.jobReference) return 'Job payment receipt';
@@ -150,10 +154,10 @@ export const getReceiptSections = (transaction, user) => {
   const destination = payout?.destinationSnapshot;
   const transactionDetails = [
     ['Account Holder', `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Not available'],
-    ['Wallet Type', transaction.type === 'TOP_UP' && transaction.meta?.target === 'BOTH'
+    ['Wallet Type', isEmployerReceipt(transaction, user) ? 'Secured job funds' : transaction.type === 'TOP_UP' && transaction.meta?.target === 'BOTH'
       ? 'Employer and worker wallets' : formatWalletType(transaction.balanceTarget)],
     ['Amount', formatMoney(transaction.amount)],
-    ['Payment Method', formatPaymentMethod(transaction)],
+    ['Payment Method', isEmployerReceipt(transaction, user) ? 'Secured job funds to worker wallet' : formatPaymentMethod(transaction)],
     ['Transaction Status', formatStatus(transaction)],
     ['Transaction Date and Time (Asia/Manila)', formatDate(transaction.createdAt)],
   ];
@@ -173,6 +177,10 @@ export const getReceiptSections = (transaction, user) => {
     transactionDetails.push(['Transfer Completed (Asia/Manila)', formatDate(payout.paidAt)]);
   }
   if (transaction.jobReference?.title) transactionDetails.push(['Related Job', transaction.jobReference.title]);
+  if (isJobPayment(transaction)) {
+    transactionDetails.push(['Payment Direction', isEmployerReceipt(transaction, user) ? 'Payment sent' : 'Payment received']);
+    if (transaction.meta?.workDate) transactionDetails.push(['Work Date', transaction.meta.workDate]);
+  }
   if (destination) {
     if (destination.accountName) transactionDetails.push(['Account Name', destination.accountName]);
     if (destination.accountNumberMasked || destination.accountNumber) transactionDetails.push(['Account Number', maskAccountNumber(destination)]);
@@ -184,18 +192,25 @@ export const getReceiptSections = (transaction, user) => {
   ];
 };
 
-const findReceiptTransaction = (transactionId, userId) =>
-  Transaction.findOne({
-    _id: transactionId,
-    $or: [{ sender: userId }, { receiver: userId }],
-  })
-    .populate('jobReference', 'title')
+const findReceiptTransaction = async (transactionId, userId) => {
+  const transaction = await Transaction.findById(transactionId)
+    .populate('jobReference', 'title jobPoster')
     .populate('payoutRequest', 'status destinationSnapshot createdAt reviewedAt paidAt');
+  if (!transaction) return null;
+  if ([transaction.sender, transaction.receiver].some((party) => party && String(party) === String(userId))) return transaction;
+  // Job payouts are sent from reserved funds (sender is null). Only the
+  // owning employer may receive the corresponding payment-sent receipt.
+  return transaction.status === 'COMPLETED' && isEmployerReceipt(transaction, { _id: userId }) ? transaction : null;
+};
 
 export const buildPaymentReceiptMessage = (transaction, user, fromAddress) => {
   if (!supportsPaymentReceipt(transaction)) return null;
   const title = getReceiptTitle(transaction);
-  const statusMessage = {
+  const statusMessage = isJobPayment(transaction) && transaction.status === 'COMPLETED'
+    ? isEmployerReceipt(transaction, user)
+      ? 'Your payment was sent successfully to the worker’s MicroJobs wallet.'
+      : 'Your employer’s payment was received successfully in your MicroJobs worker wallet.'
+    : {
     COMPLETED: 'Your transaction was completed successfully.',
     PENDING: 'Your transaction is pending. This receipt confirms the request, not a completed payment.',
     FAILED: 'Your transaction failed. This receipt is not confirmation of a completed payment.',

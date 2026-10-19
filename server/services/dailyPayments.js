@@ -5,7 +5,7 @@ import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import { activeDispute } from './jobLifecycle.js';
 import { jobSpendingSources, remainingJobFunds } from './jobFunds.js';
-import { queueNotification, deliverOutbox, deliverQueuedNotification } from './notificationOutbox.js';
+import { queueNotification, deliverOutbox, deliverQueuedNotification, queueJobPaymentReceipts, deliverJobPaymentReceipts } from './notificationOutbox.js';
 import { DAILY_REVIEW_INTERVAL_MS, isDailyJob } from '../lib/dailyWorkPolicy.js';
 import { httpError, money } from '../lib/lifecyclePolicy.js';
 
@@ -36,7 +36,8 @@ export async function settleDailyPayment({ applicationId, employerId, workDate, 
       const fundingSources = await jobSpendingSources(job, amount, session);
       const credited = await User.updateOne({ _id: application.applicant }, { $inc: { workerBalance: amount } }, { session });
       if (!credited.matchedCount) throw httpError(409, 'Worker account unavailable.');
-      await Transaction.create([{ receiver: application.applicant, amount, type: 'PAYOUT', status: 'COMPLETED', balanceTarget: 'WORKER', jobReference: job._id, reference, relatedEntityType: 'job_application', relatedEntityId: String(application._id), actor: employerId, label: `Daily pay (${workDate}): ${job.title}`, meta: { fundingSources, workDate } }], { session });
+      const [transaction] = await Transaction.create([{ receiver: application.applicant, amount, type: 'PAYOUT', status: 'COMPLETED', balanceTarget: 'WORKER', jobReference: job._id, reference, relatedEntityType: 'job_application', relatedEntityId: String(application._id), actor: employerId, label: `Daily pay (${workDate}): ${job.title}`, meta: { fundingSources, workDate } }], { session });
+      await queueJobPaymentReceipts(transaction, employerId, application.applicant, session);
       day.paidAt = new Date(); day.nextReminderAt = null;
       application.paidAmount = money(Number(application.paidAmount || 0) + amount);
       application.paymentStatus = application.dailyPayments.every((item) => item.paidAt) ? 'Paid' : 'Partially Paid';
@@ -49,7 +50,7 @@ export async function settleDailyPayment({ applicationId, employerId, workDate, 
       }
       result = { application, job, deduplicated: false };
     });
-    await deliverQueuedNotification(`daily-payout:${result.application._id}:${workDate}:worker`);
+    await Promise.all([deliverQueuedNotification(`daily-payout:${result.application._id}:${workDate}:worker`), deliverJobPaymentReceipts(`daily-payout:${result.application._id}:${workDate}`)]);
     return result;
   } finally { await session.endSession(); }
 }

@@ -125,6 +125,18 @@ test('wallet earnings are described as a wallet credit rather than a withdrawal'
   assert.doesNotMatch(message.text + message.html, /withdrawal|Transfer Successful/i);
 });
 
+test('job payment receipts distinguish sender and receiver, include daily dates, and retain the same public receipt number', () => {
+  const transaction = { ...receiptTransaction, balanceTarget: 'WORKER', jobReference: { title: 'Daily cleanup', jobPoster: 'employer-id' }, meta: { workDate: '2026-10-19' } };
+  const employer = buildPaymentReceiptMessage(transaction, { ...receiptUser, _id: 'employer-id' }, 'receipts@example.test');
+  const worker = buildPaymentReceiptMessage(transaction, receiptUser, 'receipts@example.test');
+  assert.match(employer.text, /Payment Direction: Payment sent/); assert.match(employer.text, /Wallet Type: Secured job funds/);
+  assert.match(worker.text, /Payment Direction: Payment received/); assert.match(worker.text, /MicroJobs worker wallet/);
+  for (const mail of [employer, worker]) {
+    assert.match(mail.text, /Work Date: 2026-10-19/); assert.match(mail.text, /Daily cleanup/);
+    assert.ok(mail.text.includes(getPublicReceiptNumber(transaction))); assert.doesNotMatch(mail.text, /employer-id|private-transaction-id/);
+  }
+});
+
 test('pending, failed, cancelled and missing statuses never claim successful payment', () => {
   for (const status of ['PENDING', 'FAILED', 'CANCELLED', undefined]) {
     const message = buildPaymentReceiptMessage({

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import axios from 'axios';
+import nodemailer from 'nodemailer';
 import crypto from 'node:crypto';
 import express from 'express';
 import jwt from 'jsonwebtoken';
@@ -48,8 +49,12 @@ import { submitWork, settleDirect, authorizePayment } from '../../controllers/Ap
 import { BlobServiceClient } from '@azure/storage-blob';
 import Message from '../../models/Message.js';
 import { escalateOverdueDisputes } from '../../services/disputeEscalation.js';
-import { deliverQueuedNotification, queueNotification } from '../../services/notificationOutbox.js';
+import { deliverQueuedNotification, queueNotification, deliverJobPaymentReceipts } from '../../services/notificationOutbox.js';
+import { sendPaymentReceiptEmail } from '../../services/paymentReceiptService.js';
 import { csvCell, exportLifecycleReport } from '../../controllers/LifecycleReportController.js';
+import { isolateEmailEnvironment } from '../helpers/emailTestEnvironment.js';
+
+isolateEmailEnvironment();
 
 let mongo;
 before(async () => { mongo = await MongoMemoryReplSet.create({ replSet: { count: 1 } }); await mongoose.connect(mongo.getUri(), { dbName: 'lifecycle' }); await Promise.all([Transaction.init(), PayoutRequest.init(), NotificationOutbox.init(), JobApplication.init(), Notification.init(), AuthRateBucket.init()]); });
@@ -256,6 +261,63 @@ test('real evidence endpoints require completion images, preserve dispute docume
   } finally { await new Promise((resolve) => server.close(resolve)); }
 });
 
+function mockReceiptMail(t, sendMail) {
+  const names = ['RESEND_API_KEY', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'MAIL_FROM'];
+  const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+  t.after(() => { for (const name of names) { if (previous[name] === undefined) delete process.env[name]; else process.env[name] = previous[name]; } });
+  delete process.env.RESEND_API_KEY;
+  Object.assign(process.env, { SMTP_HOST: 'mail.example.test', SMTP_PORT: '587', SMTP_USER: 'receipts@example.test', SMTP_PASS: 'test-only', MAIL_FROM: 'receipts@example.test' });
+  t.mock.method(nodemailer, 'createTransport', () => ({ sendMail }));
+}
+
+test('completed job payments email separate receipts to employer and worker once, with private receipt access', async (t) => {
+  const sent = []; mockReceiptMail(t, async (mail) => { sent.push(mail); });
+  const f = await fixture('Submitted');
+  const authorized = response();
+  await authorizePayment({ params: { applicationId: f.application._id }, user: { id: String(f.employer._id) }, body: { confirmed: true } }, authorized);
+  assert.equal(authorized.statusCode, 200); assert.equal(sent.length, 0, 'authorization is not a completed payment receipt');
+  await Promise.all([settleApplicationPayment({ applicationId: f.application._id, employerId: f.employer._id }), settleApplicationPayment({ applicationId: f.application._id, employerId: f.employer._id })]);
+  assert.equal(sent.length, 2);
+  const employerMail = sent.find((mail) => mail.to === f.employer.email);
+  const workerMail = sent.find((mail) => mail.to === f.worker.email);
+  assert.ok(employerMail); assert.ok(workerMail);
+  assert.match(employerMail.text, /Payment Direction: Payment sent/);
+  assert.match(workerMail.text, /Payment Direction: Payment received/);
+  for (const mail of sent) {
+    assert.ok(mail.text.includes(f.job.title)); assert.match(mail.text, /600\.00/);
+    assert.match(mail.text, /MJ-PAYOUT-\d{8}-\d{6}/); assert.match(mail.text, /Asia\/Manila/);
+    assert.ok(!mail.text.includes(String(f.application._id)));
+  }
+  const reference = `application-payout:${f.application._id}`;
+  assert.equal(await NotificationOutbox.countDocuments({ key: { $in: [`payment-receipt:${reference}:employer`, `payment-receipt:${reference}:worker`] }, status: 'delivered' }), 2);
+  await settleApplicationPayment({ applicationId: f.application._id, employerId: f.employer._id });
+  assert.equal(sent.length, 2);
+  const transaction = await Transaction.findOne({ reference }); const outsider = await person('work');
+  assert.equal((await sendPaymentReceiptEmail({ transactionId: transaction._id, userId: outsider._id })).reason, 'not_found');
+  assert.equal(sent.length, 2);
+});
+
+test('a failed worker receipt retries independently without resending the employer receipt or reversing payment', async (t) => {
+  const f = await fixture('Submitted'); const sent = []; let failWorker = true;
+  mockReceiptMail(t, async (mail) => {
+    if (mail.to === f.worker.email && failWorker) throw Object.assign(new Error('Private mail-provider details'), { code: 'EAUTH' });
+    sent.push(mail);
+  });
+  await settleApplicationPayment({ applicationId: f.application._id, employerId: f.employer._id });
+  assert.equal(sent.length, 1); assert.equal(sent[0].to, f.employer.email);
+  assert.equal((await User.findById(f.worker._id)).workerBalance, 600);
+  const reference = `application-payout:${f.application._id}`;
+  const key = `payment-receipt:${reference}:worker`;
+  const pending = await NotificationOutbox.findOne({ key }); assert.equal(pending.status, 'pending');
+  assert.equal(pending.lastError, 'Payment receipt email delivery failed.');
+  failWorker = false; await NotificationOutbox.updateOne({ key }, { $set: { availableAt: new Date(0) } });
+  await deliverJobPaymentReceipts(reference);
+  assert.equal(sent.length, 2); assert.equal(sent.filter((mail) => mail.to === f.employer.email).length, 1);
+  assert.equal((await NotificationOutbox.findOne({ key })).status, 'delivered');
+  assert.equal((await User.findById(f.worker._id)).workerBalance, 600);
+  assert.equal(await Transaction.countDocuments({ reference }), 1);
+});
+
 test('confirmed payment authorization immediately notifies only the worker without moving funds or duplicating notices', async () => {
   const f = await fixture('In Progress');
   const req = { params: { applicationId: f.application._id }, user: { id: String(f.employer._id) }, body: { confirmed: true } };
@@ -301,6 +363,7 @@ test('payment notifications are never delivered before a caller-owned settlement
   } finally { await session.endSession(); }
   assert.equal((await User.findById(f.worker._id)).workerBalance, 0);
   assert.equal(await NotificationOutbox.countDocuments({ key: `job-paid:${f.application._id}` }), 0);
+  assert.equal(await NotificationOutbox.countDocuments({ key: { $regex: '^payment-receipt:' } }), 0, 'aborted payments never queue email receipts');
   assert.equal(await Notification.countDocuments(), 0);
 });
 
@@ -543,11 +606,15 @@ test('authenticated PATCH recruitment routes keep the job in progress and enforc
   } finally { await new Promise((resolve) => server.close(resolve)); }
 });
 
-test('Mark done closes remaining recruitment and settles a partially filled job without duplicate payment', async () => {
+test('Mark done closes remaining recruitment and settles a partially filled job without duplicate payment', async (t) => {
+  const receipts = []; mockReceiptMail(t, async (mail) => { receipts.push(mail); });
   const f = await fixture('Submitted', 2);
   const req = { params: { id: String(f.job._id) }, user: { id: String(f.employer._id) }, body: { status: 'Completed', confirmed: true } };
   const done = response(); await changeJobStatus(req, done); assert.equal(done.statusCode, 200); assert.equal(done.body.job.status, 'Completed');
+  assert.equal(await Notification.countDocuments({ deliveryKey: `job-paid:${f.application._id}`, user: f.worker._id }), 1, 'posting completion delivers the worker payment notification after commit');
+  assert.equal(receipts.length, 2, 'posting completion emails both parties after commit');
   const replay = response(); await changeJobStatus(req, replay); assert.equal(replay.statusCode, 200);
+  assert.equal(receipts.length, 2, 'repeating completion does not resend receipts');
   assert.equal((await User.findById(f.worker._id)).workerBalance, 600); assert.equal(await Transaction.countDocuments({ reference: `application-payout:${f.application._id}` }), 1);
 });
 

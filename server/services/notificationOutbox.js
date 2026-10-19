@@ -4,6 +4,7 @@ import { scoreJobForWorker } from '../lib/jobMatching.js';
 import NotificationOutbox from '../models/NotificationOutbox.js';
 import { createNotification } from '../lib/notificationService.js';
 import { recruitmentState } from '../lib/lifecyclePolicy.js';
+import { sendPaymentReceiptEmail } from './paymentReceiptService.js';
 
 export async function queueNotification(key, payload, session) {
   await NotificationOutbox.updateOne({ key }, { $setOnInsert: { key, payload } }, { upsert: true, ...(session ? { session } : {}) });
@@ -17,7 +18,10 @@ export async function deliverOutbox(limit = 100, deadline = Date.now() + 40000, 
     const item = await NotificationOutbox.findOneAndUpdate({ ...(keys ? { key: { $in: keys } } : {}), availableAt: { $lte: now }, status: { $in: ['pending', 'delivering'] } }, { $set: { status: 'delivering', availableAt: new Date(Date.now() + 120000) }, $inc: { attempts: 1 } }, { returnDocument: 'after', sort: { availableAt: 1 } });
     if (!item) break;
     try {
-      if (item.payload.fanoutJobId) {
+      if (item.payload.paymentReceipt) {
+        const result = await sendPaymentReceiptEmail(item.payload.paymentReceipt).catch(() => { throw new Error('Payment receipt email delivery failed.'); });
+        if (!result.sent) throw new Error(`Payment receipt pending: ${result.reason}`);
+      } else if (item.payload.fanoutJobId) {
         const job = await Job.findById(item.payload.fanoutJobId).populate('category', 'name');
         if (job && recruitmentState(job).recruitmentOpen) {
           const workers = await User.find({ role: { $in: ['work', 'both'] }, status: 'active', _id: { $ne: job.jobPoster, ...(item.payload.cursor ? { $gt: item.payload.cursor } : {}) } }).sort({ _id: 1 }).limit(100).select('skills workExperience jobPreferences preferredCategories jobPosition about totalExperience city province');
@@ -42,4 +46,14 @@ export async function deliverOutbox(limit = 100, deadline = Date.now() + 40000, 
 export async function deliverQueuedNotification(key) {
   try { return await deliverOutbox(1, Date.now() + 15000, [key]); }
   catch { return 0; }
+}
+
+export async function queueJobPaymentReceipts(transaction, employerId, workerId, session) {
+  for (const [audience, userId] of [['employer', employerId], ['worker', workerId]]) {
+    await queueNotification(`payment-receipt:${transaction.reference}:${audience}`, { paymentReceipt: { transactionId: String(transaction._id), userId: String(userId) } }, session);
+  }
+}
+
+export async function deliverJobPaymentReceipts(reference) {
+  return Promise.all(['employer', 'worker'].map((audience) => deliverQueuedNotification(`payment-receipt:${reference}:${audience}`)));
 }

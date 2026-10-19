@@ -4,7 +4,7 @@ import { normalizeWorkTimes } from '../lib/workTime.js';
 import { requestCancellation, syncCapacity } from '../services/jobLifecycle.js';
 import { settleApplicationPayment, finalizeSettledJob } from '../services/applicationSettlement.js';
 import { remainingJobFunds, requiredJobFunds, refundJobFunds } from '../services/jobFunds.js';
-import { queueNotification, deliverQueuedNotification } from '../services/notificationOutbox.js';
+import { queueNotification, deliverQueuedNotification, deliverJobPaymentReceipts } from '../services/notificationOutbox.js';
 import mongoose from 'mongoose';
 import Job from '../models/Job.js';
 import JobApplication from '../models/JobApplication.js';
@@ -532,7 +532,7 @@ export async function changeJobStatus(req, res) {
                 for (const app of apps) await settleApplicationPayment({ applicationId: app._id, employerId: userId, session });
                 await finalizeSettledJob(await Job.findById(job._id).session(session), userId, session);
             }); } finally { await session.endSession(); }
-            await Promise.all(apps.map((app) => deliverQueuedNotification(`job-paid:${app._id}`)));
+            await Promise.all(apps.flatMap((app) => [deliverQueuedNotification(`job-paid:${app._id}`), deliverJobPaymentReceipts(`application-payout:${app._id}`)]));
             return res.json({ job: await Job.findById(job._id), message: 'Submitted worker payments completed.' });
         }
         if (status === 'Available') return reopenJob(req, res);

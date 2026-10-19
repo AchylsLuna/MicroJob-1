@@ -26,6 +26,9 @@ import { requestCancellation, respondCancellation } from '../../services/jobLife
 import { getDisputeMoneySnapshot } from '../../services/financialDisputeMoney.js';
 import { manilaDate, normalizeWorkDates, DAILY_REVIEW_INTERVAL_MS } from '../../lib/dailyWorkPolicy.js';
 import { sendDailyPaymentReminders } from '../../controllers/PaymentReviewReminderController.js';
+import { isolateEmailEnvironment } from '../helpers/emailTestEnvironment.js';
+
+isolateEmailEnvironment();
 
 let mongo;
 before(async () => {
@@ -201,6 +204,9 @@ test('Confirm and Pay requires confirmation, owner and current revision, pays ea
   assert.ok(notice, 'daily payment immediately notifies the worker'); assert.equal(String(notice.user), String(f.worker._id));
   assert.equal(notice.audience, 'worker'); assert.ok(notice.message.includes(current.workDate)); assert.match(notice.message, /PHP 480\.00/);
   assert.equal(await Notification.countDocuments({ deliveryKey: dailyKey }), 1);
+  const receipts = await NotificationOutbox.find({ key: { $in: [`payment-receipt:daily-payout:${f.application._id}:${current.workDate}:employer`, `payment-receipt:daily-payout:${f.application._id}:${current.workDate}:worker`] } });
+  assert.equal(receipts.length, 2, 'daily payment queues one email receipt for each party');
+  assert.deepEqual(receipts.map((item) => item.payload.paymentReceipt.userId).sort(), [String(f.employer._id), String(f.worker._id)].sort());
   assert.equal(results.filter((result) => !result.deduplicated).length, 1);
   assert.equal((await User.findById(f.worker._id)).workerBalance, 480);
   assert.equal((await Job.findById(f.job._id)).status, 'In Progress');
