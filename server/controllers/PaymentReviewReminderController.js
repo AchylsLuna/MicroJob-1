@@ -1,5 +1,7 @@
 import crypto from 'node:crypto';
 import { sendDuePaymentReminders } from '../services/paymentReviewReminderService.js';
+import { checkPendingDailyPayments } from '../services/dailyPayments.js';
+import { deliverOutbox } from '../services/notificationOutbox.js';
 
 const isAuthorizedCronRequest = (req) => {
   const secret = String(process.env.CRON_SECRET || '');
@@ -30,3 +32,13 @@ export async function sendPaymentReminders(req, res) {
 }
 
 export const sendPaymentReviewReminders = sendPaymentReminders;
+
+export async function sendDailyPaymentReminders(req, res) {
+  if (!process.env.CRON_SECRET) return res.status(503).json({ message: 'Payment reminder scheduler is not configured.' });
+  if (!isAuthorizedCronRequest(req)) return res.status(401).json({ message: 'Unauthorized.' });
+  try {
+    const result = await checkPendingDailyPayments();
+    await deliverOutbox(100);
+    return res.json(result);
+  } catch { return res.status(500).json({ message: 'Daily payment reminders could not be processed.' }); }
+}

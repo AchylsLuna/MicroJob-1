@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import JobApplication from '../models/JobApplication.js';
 import JobOffer from '../models/JobOffer.js';
 import { httpError, money } from '../lib/lifecyclePolicy.js';
+import { baseWorkerPay } from '../lib/dailyWorkPolicy.js';
 
 export async function remainingJobFunds(jobId, session) {
   const rows = await Transaction.aggregate([
@@ -14,10 +15,10 @@ export async function remainingJobFunds(jobId, session) {
 }
 
 export async function requiredJobFunds(job, session) {
-  const hires = await JobApplication.find({ job: job._id, status: { $in: ['Hired', 'Accepted'] } }).select('agreedAmount paymentStatus').session(session || null);
+  const hires = await JobApplication.find({ job: job._id, status: { $in: ['Hired', 'Accepted'] } }).select('agreedAmount paidAmount paymentStatus').session(session || null);
   const offers = await JobOffer.find({ job: job._id, status: { $in: ['pending', 'accepted'] } }).select('additionalEscrow').session(session || null);
-  const vacantBase = Math.max(0, Number(job.positionsNeeded || 1) - hires.length) * Number(job.salary);
-  return money(vacantBase + hires.filter((app) => app.paymentStatus !== 'Paid').reduce((total, app) => total + Number(app.agreedAmount || job.salary), 0) + offers.reduce((total, offer) => total + Number(offer.additionalEscrow || 0), 0));
+  const vacantBase = Math.max(0, Number(job.positionsNeeded || 1) - hires.length) * baseWorkerPay(job);
+  return money(vacantBase + hires.filter((app) => app.paymentStatus !== 'Paid').reduce((total, app) => total + Math.max(0, Number(app.agreedAmount || baseWorkerPay(job)) - Number(app.paidAmount || 0)), 0) + offers.reduce((total, offer) => total + Number(offer.additionalEscrow || 0), 0));
 }
 
 /** Replay completed ledger entries so job refunds keep their original wallet. */

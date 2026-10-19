@@ -189,8 +189,10 @@ export const uploadVerificationFile = withUploadErrors(multerDocument.single('do
 export const uploadExperienceMediaFile = withUploadErrors(multerExperienceMedia.single('media'), 'experience-media', '.jpg');
 export const uploadDisputeEvidenceFile = withUploadErrors(multerDisputeEvidence.single('evidence'), 'dispute-evidence', '.bin');
 // Completion photos are validated and stored in Azure by the authorized controller.
-const completionImages = multer({ storage: multer.memoryStorage(), fileFilter: createImageFileFilter(), limits: { fileSize: 5 * 1024 * 1024, files: 10, fields: 1, fieldSize: 16000 } }).array('evidence', 10);
+// Daily proofs include both statement (even when empty) and workDate.
+const completionImages = multer({ storage: multer.memoryStorage(), fileFilter: createImageFileFilter(), limits: { fileSize: 5 * 1024 * 1024, files: 10, fields: 2, fieldSize: 16000 } }).array('evidence', 10);
 export const uploadCompletionEvidenceFile = (req, res, next) => completionImages(req, res, (error) => {
+  if (error?.code === 'LIMIT_FIELD_COUNT') return sendError(res, 400, 'Submit only the statement and workDate text fields.');
   if (error) return sendError(res, error.code === 'LIMIT_FILE_SIZE' ? 413 : 400, error.code === 'LIMIT_FILE_SIZE' ? 'Each image must be 5 MB or smaller.' : 'Choose up to 10 JPG, PNG, GIF, or WEBP images.');
   next();
 });

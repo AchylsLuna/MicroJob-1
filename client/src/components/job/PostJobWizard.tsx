@@ -7,6 +7,10 @@ import { AlertCard, AlertLayer } from "../ui";
 import { DateField } from "../ui/DateField";
 import { formatCurrency } from "../../lib/formatters";
 import { getMinimumJobPay } from "../../lib/jobCompensation";
+import { WorkDatesField } from './WorkDatesField';
+import { WorkTimePicker } from './WorkTimePicker';
+import { getWorkMinutes } from '../../lib/workTime';
+import { DailyWorkSchedule } from '../DailyWorkSchedule';
 import {
   type FormState,
   type JobEdit,
@@ -112,8 +116,8 @@ export default function PostJobWizard({
     if (!Number.isFinite(payPerWorker) || !Number.isInteger(workerCount) || workerCount < 1) {
       return 0;
     }
-    return payPerWorker * workerCount;
-  }, [formData.minimumSalary, formData.positionsNeeded]);
+    return payPerWorker * workerCount * (formData.jobType === 'Recruiting' ? formData.workDates.length : 1);
+  }, [formData.minimumSalary, formData.positionsNeeded, formData.jobType, formData.workDates]);
 
   const selectedCategoryName = categories.find((c) => c._id === formData.category)?.name || "";
   const postingFee = editingJob ? 0 : POSTING_FEE;
@@ -121,6 +125,12 @@ export default function PostJobWizard({
   const checkoutTotal = estimatedEscrow + postingFee + highlightFee;
 
   const goNext = () => {
+    if (step === 1 && formData.jobType === 'Recruiting' && !getWorkMinutes(formData.workStartTime, formData.workEndTime)) {
+      setStepError(tc('workTime.invalid')); pendingFieldRef.current = null; return;
+    }
+    if (step === 1 && formData.jobType === 'Recruiting' && (formData.workDates.length < 2 || formData.workDates.length > 366)) {
+      setStepError(t('postJob.daily.requiredDates')); pendingFieldRef.current = null; return;
+    }
     const missing = validateStep(step, formData);
     if (missing.length > 0) {
       setStepError(
@@ -476,7 +486,7 @@ export default function PostJobWizard({
                         type="button"
                         role="radio"
                         aria-checked={selected}
-                        onClick={() => setFormData((prev) => ({ ...prev, jobType: option.value }))}
+                        onClick={() => setFormData((prev) => ({ ...prev, jobType: option.value, ...(option.value === 'Recruiting' && prev.workDates.length ? { deadline: [...prev.workDates].sort().slice(-1)[0] } : {}) }))}
                         className={`rounded-xl border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-brand-500 ${
                           selected
                             ? "border-brand-600 bg-brand-50 shadow-sm"
@@ -500,6 +510,9 @@ export default function PostJobWizard({
                   </p>
                 )}
               </fieldset>
+
+              {formData.jobType === 'Recruiting' && <WorkDatesField value={formData.workDates} onChange={(workDates) => setFormData((prev) => ({ ...prev, workDates, deadline: workDates[workDates.length - 1] || '' }))} disabled={Boolean(editingJob?.hiredCount || (editingJob as JobEdit & { reservedOfferCount?: number })?.reservedOfferCount)} />}
+              {formData.jobType === 'Recruiting' && <WorkTimePicker start={formData.workStartTime} end={formData.workEndTime} rate={formData.minimumSalary} disabled={Boolean(editingJob?.hiredCount || (editingJob as JobEdit & { reservedOfferCount?: number })?.reservedOfferCount)} onChange={(field, value) => setFormData((prev) => ({ ...prev, [field]: value }))} />}
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
@@ -548,7 +561,7 @@ export default function PostJobWizard({
 
                 <div>
                   <label htmlFor="job-minimum-pay" className="mb-2 block text-sm font-semibold text-slate-700">
-                    {t("postJob.modal.pay.label")} <span className="text-red-500">*</span>
+                    {t(formData.jobType === 'Recruiting' ? 'postJob.daily.payLabel' : "postJob.modal.pay.label")} <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-500">
@@ -581,7 +594,8 @@ export default function PostJobWizard({
                       {editingJob ? t("postJob.modal.walletSummary.estimatedValue") : t("postJob.modal.walletSummary.fundsNeeded")}
                     </p>
                     <p className="mt-0.5 text-xs text-brand-700">
-                      {t("postJob.modal.walletSummary.formula", {
+                      {t(formData.jobType === 'Recruiting' ? 'postJob.daily.formula' : "postJob.modal.walletSummary.formula", {
+                        days: formData.workDates.length,
                         rate: formatCurrency(Number(formData.minimumSalary || 0), { maximumFractionDigits: 0 }),
                         count: Number(formData.positionsNeeded || 0),
                       })}
@@ -667,6 +681,7 @@ export default function PostJobWizard({
                 </dl>
               </section>
 
+              {formData.jobType === 'Recruiting' && <DailyWorkSchedule dates={formData.workDates} rate={Number(formData.minimumSalary || 0)} start={formData.workStartTime} end={formData.workEndTime} />}
               {!editingJob && (
                 <section className="mt-4 rounded-card border border-brand/20 bg-[#F5F9FF] p-4 md:p-6">
                   <h3 className="text-section font-bold text-slate-900">{t("postJob.checkout.title")}</h3>

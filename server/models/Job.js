@@ -4,6 +4,10 @@ import { ALL_JOB_TYPES } from '../lib/jobPosting.js';
 const JobSchema = new mongoose.Schema(
     {
         fundsVersion: { type: Number, default: 0 },
+        paymentMode: { type: String, enum: ['assignment', 'daily'], default: 'assignment' },
+        workDates: { type: [String], default: [] },
+        workStartTime: { type: String, default: null },
+        workEndTime: { type: String, default: null },
         interviewRequired: { type: Boolean, default: false },
         archivedAt: { type: Date, default: null },
         repostOf: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', default: null },

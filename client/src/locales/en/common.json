@@ -1,4 +1,16 @@
 {
+  "workTime": {
+    "title": "Work time per day",
+    "start": "Start work time",
+    "end": "End work time",
+    "select": "Select time",
+    "done": "Done",
+    "hint": "Same shift on each selected day, in Asia/Manila. An end time before the start means the next day.",
+    "duration": "{{hours}}h {{minutes}}m per day",
+    "hourly": "{{amount}}/hour",
+    "nextDay": "(next day)",
+    "invalid": "Select different start and end work times."
+  },
   "language": {
     "label": "Language",
     "english": "English",
@@ -270,6 +282,19 @@
     "hireWarning": "Cannot delete the job after confirming the hire."
   },
   "lifecycle": {
+    "workSchedule": "Daily work and payments",
+    "dailyRate": "PHP {{amount}} per day per worker",
+    "workDate": "Work date: {{date}}",
+    "submittedOn": "Submitted: {{date}} (Asia/Manila)",
+    "selectWorkDate": "Select work date",
+    "dailyProofHint": "Submit pictures for each work date. Proof is sent to the same job chat. Future work dates cannot be submitted.",
+    "noWorkDates": "No unpaid work dates are available yet.",
+    "confirmAndPay": "Confirm and Pay",
+    "dailyPayConfirmation": "Release PHP {{amount}} to the worker for {{date}} now? This pays only this day and keeps the job status unchanged.",
+    "dailyPaid": "Daily payment released",
+    "dailyScheduled": "Scheduled",
+    "dailyAwaiting": "Proof submitted — awaiting payment",
+    "dailyDates": "Selected work dates (Asia/Manila)",
     "jobDescription": "Job description",
     "descriptionUnavailable": "No job description available.",
     "paymentStatus": {

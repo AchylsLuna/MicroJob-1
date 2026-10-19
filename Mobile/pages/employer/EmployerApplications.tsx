@@ -1,3 +1,4 @@
+import DailyWorkSchedule from '../../components/DailyWorkSchedule';
 import OfferDecisionModal from '../../components/OfferDecisionModal';
 import { walletRequest } from '../../lib/lifecycleApi';
 import AssignmentPanel from '../../components/AssignmentPanel';
@@ -37,6 +38,10 @@ import { useToast } from "../../contexts/ToastContext";
 import { EmployerModeBanner } from "../../components/employer/EmployerUI";
 
 type JobItem = {
+  paymentMode?: 'assignment' | 'daily';
+  workDates?: string[];
+  workStartTime?: string | null;
+  workEndTime?: string | null;
   _id: string;
   title: string;
   location?: string;
@@ -706,7 +711,7 @@ export default function EmployerApplications({
                       question: t('employerApplications.confirm.offer.question', { name: nameOf(t, item), amount: formatCurrency(amount) }),
                       detail: t('employerApplications.confirm.offer.detail', {
                         minimum: formatCurrency(item.job.salary),
-                        escrow: formatCurrency(Math.max(0, amount - Number(item.job.salary || 0))),
+                        escrow: formatCurrency(Math.max(0, amount - Number(item.job.salary || 0)) * (item.job.paymentMode === 'daily' ? item.job.workDates?.length || 1 : 1)),
                       }),
                       label: t('employerApplications.confirm.offer.label'),
                       run: async () => {
@@ -1034,6 +1039,7 @@ function CandidateCard(props: any) {
       </TouchableOpacity>
       {expanded ? (
         <View style={styles.expandedBody}>
+          {item.job.paymentMode === 'daily' && <DailyWorkSchedule dates={item.job.workDates || []} rate={Number(item.job.salary)} start={item.job.workStartTime} end={item.job.workEndTime} />}
           <View style={styles.actionGrid}>
             <Action
               icon="person-outline"
@@ -1107,7 +1113,7 @@ function CandidateCard(props: any) {
               </View>
               {offerAmount > Number(item.job.salary || 0) ? (
                 <Text style={styles.escrowText}>
-                  {t('employerApplications.offerPanel.additionalEscrow', { amount: formatCurrency(offerAmount - Number(item.job.salary || 0)) })}
+                  {t('employerApplications.offerPanel.additionalEscrow', { amount: formatCurrency((offerAmount - Number(item.job.salary || 0)) * (item.job.paymentMode === 'daily' ? item.job.workDates?.length || 1 : 1)) })}
                 </Text>
               ) : null}
             </View>
@@ -1120,7 +1126,7 @@ function CandidateCard(props: any) {
                   : t('employerApplications.offerActive.awaiting')}
               </Text>
               <Text style={styles.panelHelp}>
-                {t('employerApplications.offerActive.escrowBacked', { amount: formatCurrency(offer?.amount) })}
+                {t('employerApplications.offerActive.escrowBacked', { amount: formatCurrency(Number(offer?.amount || 0) * (item.job.paymentMode === 'daily' ? item.job.workDates?.length || 1 : 1)) })}
               </Text>
               <View style={styles.twoActions}>
                 {offer?.status === "accepted" ? (
@@ -1152,7 +1158,7 @@ function CandidateCard(props: any) {
                   paymentStatus: item.paymentStatus || t('employerApplications.hiredPanel.paymentStatusDefault'),
                 })}
               </Text>
-              {!["Authorized", "Paid", "Disputed"].includes(
+              {item.job.paymentMode !== 'daily' && !["Authorized", "Paid", "Disputed"].includes(
                 item.paymentStatus || "Secured",
               ) ? (
                 <TouchableOpacity

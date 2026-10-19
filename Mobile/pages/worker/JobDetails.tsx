@@ -1,3 +1,4 @@
+import DailyWorkSchedule from '../../components/DailyWorkSchedule';
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -101,7 +102,7 @@ export default function JobDetails({
 
   const handleShare = async () => {
     const title = jobDetails?.title || t('jobDetails.titleFallback');
-    const pay = formatMinimumPay(jobDetails?.salary, t('jobDetails.common.notAvailable'));
+    const pay = formatMinimumPay(jobDetails?.salary, t('jobDetails.common.notAvailable'), jobDetails?.paymentMode);
     try {
       await Share.share({
         message: t('jobDetails.share.message', {
@@ -392,7 +393,7 @@ export default function JobDetails({
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.heroSalary}>{formatMinimumPay(jobDetails?.salary, t('jobDetails.common.notAvailable'))}</Text>
+        <Text style={styles.heroSalary}>{formatMinimumPay(jobDetails?.salary, t('jobDetails.common.notAvailable'), jobDetails?.paymentMode)}</Text>
 
         <View style={styles.heroChips}>
           {visibleChips.map((chip) => (
@@ -434,6 +435,7 @@ export default function JobDetails({
 
         {activeSection === 'description' ? (
           <>
+            {jobDetails?.paymentMode === 'daily' && <DailyWorkSchedule dates={jobDetails.workDates || []} rate={Number(jobDetails.salary)} start={jobDetails.workStartTime} end={jobDetails.workEndTime} />}
             {(jobDetails?.skills || []).length > 0 ? (
               <>
                 <Text style={styles.sectionTitle}>{t('jobDetails.sections.skills')}</Text>

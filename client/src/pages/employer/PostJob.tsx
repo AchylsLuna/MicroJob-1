@@ -11,6 +11,8 @@ import { AlertCard, AlertLayer, Button, ConfirmDialog } from "../../components/u
 import { Avatar } from "../../components/ui/Avatar";
 import { ROUTES } from "../../utils/routes";
 import { formatMinimumPay, getMinimumJobPay } from "../../lib/jobCompensation";
+import { getWorkMinutes } from '../../lib/workTime';
+import { WorkTimeSummary } from '../../components/WorkTimeSummary';
 import { formatDateTime } from "../../lib/formatters";
 import PostJobWizard from "../../components/job/PostJobWizard";
 import {
@@ -310,6 +312,12 @@ const PostJob: React.FC = () => {
       const composedLocation = composeLocation(formData);
       const deadlineValue = formData.deadline;
       const salaryAmount = Number(formData.minimumSalary.replace(/[^0-9]/g, "") || 0);
+      if (formData.jobType === 'Recruiting' && !getWorkMinutes(formData.workStartTime, formData.workEndTime)) {
+        setFormError(t('workTime.invalid', { ns: 'common' })); setSubmitting(false); return;
+      }
+      if (formData.jobType === 'Recruiting' && (formData.workDates.length < 2 || formData.workDates.length > 366)) {
+        setFormError(t('postJob.daily.requiredDates')); setSubmitting(false); return;
+      }
       const missingFields: RequiredFieldKey[] = [];
 
       if (!trimmedTitle) missingFields.push("title");
@@ -380,6 +388,7 @@ const PostJob: React.FC = () => {
         salary: salaryAmount,
         location: composedLocation,
         jobType: formData.jobType,
+        ...(formData.jobType === 'Recruiting' ? { workDates: formData.workDates, workStartTime: formData.workStartTime, workEndTime: formData.workEndTime } : {}),
         deadline: parsedDeadline.toISOString(),
         positionsNeeded: Number(formData.positionsNeeded) || 1,
         highlighted: formData.highlighted,
@@ -602,8 +611,9 @@ const PostJob: React.FC = () => {
                       {statusLabels[job.status || "Available"] || job.status || t("postJob.status.available")}
                     </span>
                     <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-semibold text-brand-700">
-                      {formatMinimumPay(job.salary, t("postJob.card.payNotSet"))}
+                      {formatMinimumPay(job.salary, t("postJob.card.payNotSet"), job.paymentMode)}
                     </span>
+                    {job.paymentMode === 'daily' && <WorkTimeSummary start={job.workStartTime} end={job.workEndTime} rate={job.salary} />}
                     <span className="rounded-full bg-violet-50 px-3 py-1 text-sm font-semibold text-violet-700">
                       {t("postJob.card.hiredCount", { count: Number(job.hiredCount || 0) })}
                     </span>

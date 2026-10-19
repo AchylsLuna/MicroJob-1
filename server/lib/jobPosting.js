@@ -28,8 +28,8 @@ export function getMinimumJobPay(jobType) {
   return ['Short-term', 'Side hustle'].includes(jobType.trim()) ? 50 : 0;
 }
 
-export function getJobPostingCosts({ payPerWorker, positionsNeeded, highlighted = false }) {
-  const workerPay = Number(payPerWorker) * Number(positionsNeeded);
+export function getJobPostingCosts({ payPerWorker, positionsNeeded, highlighted = false, workdays = 1 }) {
+  const workerPay = Number((Number(payPerWorker) * Number(positionsNeeded) * workdays).toFixed(2));
   const postingFee = JOB_POSTING_FEE;
   const highlightFee = highlighted ? JOB_HIGHLIGHT_FEE : 0;
   return {

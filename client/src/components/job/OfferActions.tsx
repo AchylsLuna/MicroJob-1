@@ -3,13 +3,14 @@ import { useTranslation } from "react-i18next";
 import { FileText, WalletCards } from "lucide-react";
 import { formatCurrency } from "../../lib/formatters";
 import type { JobOffer } from "../../services/api";
+import { DailyWorkSchedule } from '../DailyWorkSchedule';
 
 // Shared offer/payment guards for application actions and Job History cards.
 // The stepped presentation changes labels and layout, not payment transitions.
 export type OfferActionsApplication = {
   _id: string;
   status: string;
-  job: { salary?: number };
+  job: { salary?: number; paymentMode?: string; workDates?: string[]; workStartTime?: string | null; workEndTime?: string | null };
   offer?: JobOffer | null;
   agreedAmount?: number;
   workStatus?: string;
@@ -50,6 +51,8 @@ export function OfferActions({
   onReject?: () => void;
 }) {
   const { t } = useTranslation("employer");
+  const daily = application.job.paymentMode === 'daily';
+  const days = daily ? application.job.workDates?.length || 1 : 1;
   const [offerAmount, setOfferAmount] = useState("");
   const [changeReason, setChangeReason] = useState("");
   const amountId = useId();
@@ -75,6 +78,7 @@ export function OfferActions({
 
   return (
     <div className={stepped ? "space-y-5" : "space-y-2"}>
+      {daily && <DailyWorkSchedule dates={application.job.workDates || []} rate={minimumSalary} start={application.job.workStartTime} end={application.job.workEndTime} />}
       {!excludedFromOfferPanel && !offerActive ? (
         <div className={panelClass}>
           {stepped ? (
@@ -110,7 +114,7 @@ export function OfferActions({
           </div>
           {amountNumber > minimumSalary ? (
             <p className={stepped ? "text-sm text-amber-700" : "text-[11px] text-[#B45309]"}>
-              {t("applicationsManagement.offerPanel.additionalEscrow", { amount: formatCurrency(amountNumber - minimumSalary) })}
+              {t("applicationsManagement.offerPanel.additionalEscrow", { amount: formatCurrency((amountNumber - minimumSalary) * days) })}
             </p>
           ) : null}
         </div>
@@ -137,7 +141,7 @@ export function OfferActions({
             </p>
           ) : null}
           <p className={stepped ? "text-sm text-slate-500" : "text-[11px] text-[#6B7280]"}>
-            {t("applicationsManagement.offerActive.escrowBacked", { amount: formatCurrency(offer?.amount) })}
+            {t("applicationsManagement.offerActive.escrowBacked", { amount: formatCurrency(Number(offer?.amount || 0) * days) })}
           </p>
           <div className="flex flex-wrap gap-2">
             {offer?.status === "accepted" ? (
@@ -173,7 +177,7 @@ export function OfferActions({
                 })}
               </p>
               {stepped ? <p className="text-body-sm text-slate-600">{t(`applicationsManagement.workflow.${paymentStatus === "Paid" ? "paymentPaid" : paymentStatus === "Disputed" ? "paymentDisputed" : paymentStatus === "Authorized" ? "paymentAuthorized" : "paymentHelp"}`)}</p> : null}
-              {!["Authorized", "Paid", "Disputed"].includes(paymentStatus) ? (
+              {!daily && !["Authorized", "Paid", "Disputed"].includes(paymentStatus) ? (
                 <button type="button" disabled={busy} onClick={onAuthorizePayment} className={secondaryButtonClass}>
                   {t("applicationsManagement.hiredPanel.authorizePayment")}
                 </button>

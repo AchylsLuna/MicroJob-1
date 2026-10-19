@@ -1,3 +1,4 @@
+import WorkTimeSummary from '../WorkTimeSummary';
 import React, { memo } from 'react';
 import { StyleSheet, Text, View, type ViewStyle, type StyleProp } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -85,6 +86,7 @@ function JobCard({ job, variant, saved, onPress, onToggleSave, showMatch = false
             </View>
             <Text style={styles.carouselPoster} numberOfLines={1}>{job.posterName}</Text>
             <Text style={styles.carouselSalary}>{job.salaryLabel}</Text>
+            <WorkTimeSummary start={job.workStartTime} end={job.workEndTime} rate={job.dailyRate} />
           </View>
         </View>
       </AnimatedPressable>
@@ -99,6 +101,7 @@ function JobCard({ job, variant, saved, onPress, onToggleSave, showMatch = false
           <View style={styles.compactInfo}>
             <Text style={styles.compactTitle} numberOfLines={1}>{job.title}</Text>
             <Text style={styles.compactMeta} numberOfLines={1}>{job.location}{job.location && job.salaryLabel !== 'Not set' ? ' · ' : ''}{job.salaryLabel !== 'Not set' ? job.salaryLabel : ''}</Text>
+            <WorkTimeSummary start={job.workStartTime} end={job.workEndTime} rate={job.dailyRate} />
           </View>
           {footerSlot}
         </View>
@@ -163,6 +166,7 @@ function JobCard({ job, variant, saved, onPress, onToggleSave, showMatch = false
               </View>
             ) : null}
 
+            <WorkTimeSummary start={job.workStartTime} end={job.workEndTime} rate={job.dailyRate} />
             {visibleSkills.length > 0 ? (
               <>
                 <View style={styles.detailDivider} />

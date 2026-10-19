@@ -1,3 +1,4 @@
+import { WorkTimeSummary } from '../../components/WorkTimeSummary';
 import { CompletionEvidence } from '../../components/CompletionEvidence';
 import { PostingActions } from '../../components/PostingActions';
 import { HiredWorkerChecklists } from '../../components/HireChecklist';
@@ -436,7 +437,8 @@ export function JobsManagement() {
                 <dt className="text-sm text-slate-600">
                   {t("jobsManagement.card.minimumPayLabel")}
                 </dt>
-                <dd className="text-sm font-semibold text-slate-900">{formatSalaryAmount(t, job.salaryAmount)}</dd>
+                <dd className="text-sm font-semibold text-slate-900">{job.source?.paymentMode === 'daily' ? t('lifecycle.dailyRate', { ns: 'common', amount: job.salaryAmount.toLocaleString('en-PH') }) : formatSalaryAmount(t, job.salaryAmount)}
+                  {job.source?.paymentMode === 'daily' && <WorkTimeSummary start={job.source.workStartTime} end={job.source.workEndTime} rate={job.salaryAmount} />}</dd>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-sm text-slate-600">
@@ -590,7 +592,8 @@ export function JobsManagement() {
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 <div className="rounded-card border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("jobsManagement.modal.minimumPayLabel")}</p>
-                  <p className="mt-2 text-base font-bold text-slate-900">{formatSalaryAmount(t, viewingJob.salaryAmount)}</p>
+                  <p className="mt-2 text-base font-bold text-slate-900">{viewingJob.source?.paymentMode === 'daily' ? t('lifecycle.dailyRate', { ns: 'common', amount: viewingJob.salaryAmount.toLocaleString('en-PH') }) : formatSalaryAmount(t, viewingJob.salaryAmount)}</p>
+                  {viewingJob.source?.paymentMode === 'daily' && <WorkTimeSummary start={viewingJob.source.workStartTime} end={viewingJob.source.workEndTime} rate={viewingJob.salaryAmount} />}
                 </div>
                 <div className="rounded-card border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("jobsManagement.modal.opportunityLabel")}</p>

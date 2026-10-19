@@ -1,3 +1,4 @@
+import { WorkTimeSummary } from '../../components/WorkTimeSummary';
 import { WorkSubmission } from '../../components/WorkSubmission';
 import { AssignmentPanel } from '../../components/AssignmentPanel';
 import React, { useEffect, useState } from "react";
@@ -19,6 +20,9 @@ interface JobData {
   location: string;
   salary: string;
   jobType: string;
+  paymentMode?: string;
+  workStartTime?: string | null;
+  workEndTime?: string | null;
   description: string;
   deadline?: string;
   status?: string;
@@ -66,9 +70,10 @@ const STATUS_LABEL_KEYS: Record<"All" | ApplicationStatus, string> = {
 const getStatusLabel = (t: TFunction, status: "All" | ApplicationStatus) =>
   t(`appliedJobs.statusLabels.${STATUS_LABEL_KEYS[status]}`);
 
-const formatMinimumPay = (t: TFunction, value?: string) => {
+const formatMinimumPay = (t: TFunction, value?: string, paymentMode?: string) => {
   const amount = Number(String(value || "").replace(/[^0-9.]/g, ""));
   if (!Number.isFinite(amount) || amount <= 0) return value || t("appliedJobs.card.payFallback");
+  if (paymentMode === 'daily') return t('lifecycle.dailyRate', { ns: 'common', amount: amount.toLocaleString('en-PH') });
   return t("appliedJobs.card.minimumPay", { amount: formatCurrency(amount, { maximumFractionDigits: 0 }) });
 };
 
@@ -317,8 +322,9 @@ const AppliedJobs: React.FC = () => {
                         {application.job?.jobType || t("appliedJobs.card.jobTypeFallback")}
                       </span>
                       <span className="text-sm font-bold text-emerald-700">
-                        {formatMinimumPay(t, application.job?.salary)}
+                        {formatMinimumPay(t, application.job?.salary, application.job?.paymentMode)}
                       </span>
+                      {application.job?.paymentMode === 'daily' && <WorkTimeSummary start={application.job.workStartTime} end={application.job.workEndTime} rate={application.job.salary} />}
                     </div>
 
                     <p className="mt-3 flex items-start gap-1.5 text-sm text-slate-500">
@@ -408,7 +414,7 @@ const AppliedJobs: React.FC = () => {
                         </span>
                       ) : null}
                       {['Hired', 'Cancelled', 'Position filled'].includes(application.status) && <AssignmentPanel applicationId={application._id} onChanged={() => void fetchApplications()} />}
-                      {application.status === 'Hired' && ['In Progress', 'Changes Requested'].includes(application.workStatus || 'In Progress') && <WorkSubmission applicationId={application._id} onChanged={() => void fetchApplications()} />}
+                      {application.status === 'Hired' && application.paymentStatus !== 'Paid' && ['In Progress', 'Changes Requested'].includes(application.workStatus || 'In Progress') && <WorkSubmission applicationId={application._id} onChanged={() => void fetchApplications()} />}
                       {application.status === 'Hired' && application.workStatus === 'Submitted' && !['Paid', 'Disputed'].includes(application.paymentStatus || '') && <button type="button" disabled={actionBusyId === application._id} onClick={() => handleOpenDispute(application)} className="inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-red-200 px-4 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50">{t('appliedJobs.paymentDispute.openButton')}</button>}
                       <button
                         onClick={(e) => {

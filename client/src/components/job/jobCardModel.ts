@@ -12,6 +12,9 @@ export type JobCardData = {
   categoryId?: string;
   categoryName?: string;
   salaryLabel: string;
+  dailyRate?: number;
+  workStartTime?: string | null;
+  workEndTime?: string | null;
   skills: string[];
   urgent: boolean;
   highlighted: boolean;
@@ -33,6 +36,9 @@ type JobCardInput = {
   categoryName?: string;
   salaryLabel?: string;
   salary?: string; // pre-formatted display string
+  dailyRate?: number;
+  workStartTime?: string | null;
+  workEndTime?: string | null;
   skills?: string[];
   urgent?: boolean;
   highlighted?: boolean;
@@ -55,6 +61,9 @@ export function toJobCardData(job: JobCardInput): JobCardData {
     categoryId,
     categoryName,
     salaryLabel: job.salaryLabel || job.salary || "Pay not specified",
+    dailyRate: job.dailyRate,
+    workStartTime: job.workStartTime,
+    workEndTime: job.workEndTime,
     skills: job.skills || [],
     urgent: Boolean(job.urgent),
     highlighted: Boolean(job.highlighted),

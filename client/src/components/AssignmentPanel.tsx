@@ -1,4 +1,5 @@
 import { CompletionEvidence } from './CompletionEvidence';
+import { DailyWorkSchedule } from './DailyWorkSchedule';
 import { ChecklistTable } from './HireChecklist';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -43,6 +44,7 @@ export function AssignmentPanel({ applicationId, onChanged }: { applicationId: s
         </section>
         <p>{(data.job.requirements || []).join(' · ')}</p>
         <CompletionEvidence items={app.completionEvidence} />
+        {app.dailyPayments?.length > 0 && <DailyWorkSchedule dates={app.dailyPayments.map((day: any) => day.workDate)} rate={app.agreedDailyRate} payments={app.dailyPayments} start={data.job.workStartTime} end={data.job.workEndTime} />}
         <p className="text-sm text-slate-600">{t('lifecycle.terms')}</p>
         {command ? <div className="space-y-3 border-t pt-4">
           <h3 className="font-semibold">{t(`lifecycle.${command}`)}</h3>

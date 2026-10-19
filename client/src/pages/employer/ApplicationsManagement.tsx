@@ -98,6 +98,8 @@ type EmployerApplication = {
     company?: string;
     location?: string;
     salary?: number;
+    paymentMode?: string;
+    workDates?: string[];
   };
   offer?: JobOffer | null;
   agreedAmount?: number;
@@ -740,7 +742,7 @@ export function ApplicationsManagement({ historyJobId, onHistoryChange }: { hist
         name,
         amount: formatCurrency(amount),
         minimum: formatCurrency(minimum),
-        escrow: formatCurrency(Math.max(0, amount - minimum)),
+        escrow: formatCurrency(Math.max(0, amount - minimum) * (application.job.paymentMode === 'daily' ? application.job.workDates?.length || 1 : 1)),
       }),
       confirmLabel: t("applicationsManagement.confirmOffer.confirm"),
       run: () => runOfferAction(application._id, () => createJobOffer(application._id, amount), t("applicationsManagement.toast.offerSent")),

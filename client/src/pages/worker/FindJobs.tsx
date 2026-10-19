@@ -22,6 +22,9 @@ import { formatCurrency } from "../../lib/formatters";
 import { getPhilippineLocationOptions } from "../../services/philippineLocations";
 
 interface Job {
+  dailyRate?: number;
+  workStartTime?: string | null;
+  workEndTime?: string | null;
   id: string;
   title: string;
   company: string;
@@ -79,6 +82,9 @@ const JOB_TYPE_FILTER_OPTIONS: Array<{ value: Job["type"]; labelKey: string }> =
 const MIN_PAY_OPTIONS = [100, 200, 500, 1000];
 
 interface ApiJob {
+  workStartTime?: string | null;
+  workEndTime?: string | null;
+  paymentMode?: 'assignment' | 'daily';
   _id: string;
   title: string;
   description: string;
@@ -278,6 +284,7 @@ export function FindJobs() {
       typeof job.category === "string" ? job.category : job.category?.name || t("findJobs.card.categoryFallback");
     const cadenceLabels = getCadenceLabels(t);
     const salaryLabel = (() => {
+      if (job.paymentMode === 'daily') return `${formatCurrency(Number(job.salary), { maximumFractionDigits: 0 })} ${cadenceLabels.day}`;
       if (typeof job.salary === "number") return formatCurrency(job.salary, { maximumFractionDigits: 0 });
       const raw = `${job.salary || ""}`.trim();
       if (!raw) return "—";
@@ -302,6 +309,9 @@ export function FindJobs() {
       type: getJobTypeLabel(job.jobType),
       location: job.location || t("findJobs.card.locationFallback"),
       salary: salaryLabel,
+      dailyRate: job.paymentMode === 'daily' ? Number(job.salary) : undefined,
+      workStartTime: job.workStartTime,
+      workEndTime: job.workEndTime,
       postedDaysAgo: getPostedDays(job.createdAt),
       saved: false,
       category: categoryName,
@@ -821,6 +831,7 @@ export function FindJobs() {
                       location: job.location,
                       type: job.type,
                       salary: getSalaryDisplay(job.salary),
+                      dailyRate: job.dailyRate, workStartTime: job.workStartTime, workEndTime: job.workEndTime,
                       categoryId: job.categoryId,
                       categoryName: job.category,
                       skills: job.skills,
@@ -931,6 +942,7 @@ export function FindJobs() {
                   location: job.location,
                   type: job.type,
                   salary: getSalaryDisplay(job.salary),
+                      dailyRate: job.dailyRate, workStartTime: job.workStartTime, workEndTime: job.workEndTime,
                   categoryId: job.categoryId,
                   categoryName: job.category,
                   skills: job.skills,

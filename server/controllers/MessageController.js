@@ -45,7 +45,7 @@ const withMessagePopulate = (query) =>
     .populate('job', 'title')
     .populate('attachment.settlementRequest', 'status expiresAt settledAt')
     .populate('attachment.jobOffer', 'status amount acceptedAt resolvedAt')
-    .populate({ path: 'attachment.application', select: 'workStatus paymentStatus workSubmittedAt', model: JobApplication });
+    .populate({ path: 'attachment.application', select: 'workStatus paymentStatus workSubmittedAt dailyPayments', model: JobApplication });
 
 /**
  * Loads the job for a job-scoped message and confirms the thread belongs to the

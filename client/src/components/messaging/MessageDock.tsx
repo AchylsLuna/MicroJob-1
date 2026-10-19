@@ -1,3 +1,4 @@
+import { DailyOfferSchedule } from './DailyOfferSchedule';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -377,6 +378,7 @@ export function MessageDock() {
             {messages.map((message, index) => {
               const isOwn = Boolean(currentUserId && message.sender._id === currentUserId);
               if (message.attachment?.type === 'hire_checklist') return <div key={message._id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}><div className="w-full max-w-sm rounded-card border border-slate-200 bg-white p-3 text-slate-900"><p className="mb-2 font-semibold">{message.attachment.jobTitle}</p><ChecklistTable items={message.attachment.checklist || []} /></div></div>;
+              if (message.attachment?.type === 'job_offer' && message.attachment.workDates?.length) return <div key={message._id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}><DailyOfferSchedule message={message} /></div>;
               if (message.attachment?.type === 'completion_evidence') return <div key={message._id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}><CompletionMessageCard message={message} /></div>;
               return (
                 <div key={message._id || `message-${index}`} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>

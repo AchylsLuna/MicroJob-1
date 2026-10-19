@@ -10,6 +10,7 @@ import { CANCELLATION_RESPONSE_MS, EVIDENCE_WINDOW_MS, POLICY_VERSION, httpError
 import { remainingJobFunds, refundJobFunds, jobSpendingSources } from './jobFunds.js';
 import { queueNotification } from './notificationOutbox.js';
 import { resolveJobAvailability } from '../lib/hiringState.js';
+import { baseWorkerPay } from '../lib/dailyWorkPolicy.js';
 
 export const activeDispute = (application, session) => FinancialDispute.exists({ application, status: { $in: ['open', 'investigating'] } }).session(session || null);
 const notice = (key, userId, audience, title, message, entityId, session) => queueNotification(key, { userId: String(userId), audience, type: 'application', title, message, entityType: 'application', entityId: String(entityId) }, session);
@@ -27,7 +28,8 @@ export async function escalateCancellation(cancellation, application, job, sessi
   cancellation.events.push({ type: 'staff_review', note: 'Agreement was not reached. Funds remain held.' });
   await cancellation.save({ session });
   if (!await activeDispute(application._id, session)) {
-    await FinancialDispute.create([{ job: job._id, application: application._id, employer: job.jobPoster, worker: application.applicant, raisedBy: cancellation.actor, kind: 'cancellation', subject: `Cancellation: ${job.title}`, reason: cancellation.reason, amount: Number(application.agreedAmount || job.salary), agreedJobAmount: Number(application.agreedAmount || job.salary), disputedAmount: Number(application.agreedAmount || job.salary), fundsHeldAmount: Math.min(Number(application.agreedAmount || job.salary), Math.max(0, (await remainingJobFunds(job._id, session)).remaining)), workerClaim: cancellation.reason, evidenceDueAt: new Date(Date.now() + EVIDENCE_WINDOW_MS), events: [{ type: 'opened', note: 'Cancellation requires Finance review.' }] }], { session });
+    const unpaid = money(Math.max(0, Number(application.agreedAmount || job.salary) - Number(application.paidAmount || 0)));
+    await FinancialDispute.create([{ job: job._id, application: application._id, employer: job.jobPoster, worker: application.applicant, raisedBy: cancellation.actor, kind: 'cancellation', subject: `Cancellation: ${job.title}`, reason: cancellation.reason, amount: unpaid, agreedJobAmount: Number(application.agreedAmount || job.salary), alreadyPaidAmount: Number(application.paidAmount || 0), disputedAmount: unpaid, fundsHeldAmount: Math.min(unpaid, Math.max(0, (await remainingJobFunds(job._id, session)).remaining)), workerClaim: cancellation.reason, evidenceDueAt: new Date(Date.now() + EVIDENCE_WINDOW_MS), events: [{ type: 'opened', note: 'Cancellation requires Finance review.' }] }], { session });
   }
   for (const [user, audience] of [[job.jobPoster, 'employer'], [application.applicant, 'worker']]) {
     await notice(`cancellation-review:${cancellation._id}:${user}`, user, audience, 'Cancellation under review', 'Finance Staff will review the cancellation. Submit evidence within seven days; affected funds remain held.', application._id, session);
@@ -47,7 +49,9 @@ export async function finishPostingCancellation(job, session) {
 export async function resolveCancelledAssignment({ application, job, cancellation, workerPayment, actor, session, retainBaseFunding = true }) {
   const amount = money(workerPayment);
   const agreed = money(application.agreedAmount || job.salary);
-  if (!Number.isFinite(amount) || amount < 0 || amount > agreed) throw httpError(400, 'Worker payment must be between zero and the agreed amount.');
+  const alreadyPaid = money(application.paidAmount || 0);
+  const unpaid = money(agreed - alreadyPaid);
+  if (!Number.isFinite(amount) || amount < 0 || amount > unpaid) throw httpError(400, 'Worker payment must be between zero and the unpaid agreed amount.');
   if (['Paid', 'Processing'].includes(application.paymentStatus)) throw httpError(409, 'Payment is already completed or processing.');
   if (amount > 0) {
     if ((await remainingJobFunds(job._id, session)).remaining < amount) throw httpError(409, 'Insufficient secured funds.');
@@ -59,12 +63,13 @@ export async function resolveCancelledAssignment({ application, job, cancellatio
   // Before start, keep the base slot funded for a replacement. After start,
   // close recruitment so partially consumed slot funding cannot be promised again.
   const retainBase = retainBaseFunding && !application.startedAt && application.workStatus === 'Not started' && !job.cancellationPending;
-  const refund = money(Math.max(0, agreed - amount - (retainBase ? Number(job.salary) : 0)));
+  const refund = money(Math.max(0, unpaid - amount - (retainBase ? baseWorkerPay(job) : 0)));
   await refundJobFunds({ job, amount: refund, reference: `assignment-cancellation-refund:${application._id}`, actor, application: application._id, session });
   if (!retainBase && !job.cancellationPending) { job.closedManually = true; job.status = 'Closed'; }
   application.status = 'Cancelled'; application.workStatus = 'Cancelled'; application.cancellationPending = false; application.disputePending = false;
-  application.paymentStatus = amount === agreed ? 'Paid' : amount > 0 ? 'Partially paid' : 'Refunded';
-  application.paidAmount = amount; if (amount > 0) application.paidAt = new Date();
+  application.paidAmount = money(alreadyPaid + amount);
+  application.paymentStatus = application.paidAmount === agreed ? 'Paid' : application.paidAmount > 0 ? 'Partially paid' : 'Refunded';
+  if (amount > 0) application.paidAt = new Date();
   application.completedAt = new Date();
   application.timeline.push({ type: 'cancelled', status: 'Cancelled', note: cancellation.reason, actor, meta: { cancellationId: String(cancellation._id), workerPayment: amount, refunded: refund } });
   await application.save({ session });
@@ -84,7 +89,7 @@ async function requestAssignment(application, job, actor, reason, workerPayment,
   if (!['Hired', 'Accepted'].includes(application.status) || ['Paid', 'Processing'].includes(application.paymentStatus) || application.workStatus === 'Completed') throw httpError(409, 'This assignment cannot be cancelled.');
   const beforeStart = application.workStatus === 'Not started' && !application.startedAt;
   const amount = beforeStart ? 0 : money(workerPayment);
-  if (!Number.isFinite(amount) || amount < 0 || amount > Number(application.agreedAmount || job.salary)) throw httpError(400, 'Enter the proposed worker payment from zero to the agreed amount.');
+  if (!Number.isFinite(amount) || amount < 0 || amount > money(Number(application.agreedAmount || job.salary) - Number(application.paidAmount || 0))) throw httpError(400, 'Enter the proposed worker payment from zero to the unpaid agreed amount.');
   const [cancellation] = await Cancellation.create([{ job: job._id, application: application._id, scope: 'assignment', actor, reason, workerPayment: amount, responseDueAt: new Date(Date.now() + CANCELLATION_RESPONSE_MS), policyVersion: POLICY_VERSION, events: [{ type: 'requested', actor, note: reason, amount }] }], { session });
   application.cancellation = cancellation._id; application.cancellationPending = true;
   await application.save({ session });

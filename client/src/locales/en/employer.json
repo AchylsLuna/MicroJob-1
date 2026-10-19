@@ -40,6 +40,16 @@
     }
   },
   "postJob": {
+    "daily": {
+      "workDates": "Work dates (Asia/Manila)",
+      "selectDates": "Select work dates ({{count}} selected)",
+      "scheduleHint": "Select 2–366 days. Pay is per day per worker, minimum PHP 480. All selected days are funded upfront.",
+      "requiredDates": "Select between 2 and 366 work dates for long-term work.",
+      "removeDate": "Remove {{date}}",
+      "useDates": "Use selected dates",
+      "payLabel": "Daily Pay per Worker (PHP)",
+      "formula": "{{rate}} per day × {{days}} workdays × {{count}} workers"
+    },
     "header": {
       "title": "Post a Job",
       "subtitle": "Create job posts, track their status, and manage your listings."

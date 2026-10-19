@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import { serializeCategory } from './categoryPresentation.js';
 import { encodePublicId } from './publicId.js';
 import { recruitmentState } from './lifecyclePolicy.js';
+import { workTimeSummary } from './workTime.js';
 
 export const PUBLIC_JOB_POSTER_SELECT = '_id firstName lastName companyName avatarUrl';
 export const APPLICANT_SELECT = [
@@ -100,7 +101,7 @@ export function sortByProximity(jobs, locality, { prioritizeVerifiedEmployers = 
 }
 
 const PUBLIC_JOB_FIELDS = [
-  'title', 'description', 'location', 'salary', 'jobType', 'deadline', 'skills',
+  'title', 'description', 'location', 'salary', 'jobType', 'paymentMode', 'workDates', 'workStartTime', 'workEndTime', 'deadline', 'skills',
   'responsibilities', 'requirements', 'image', 'status', 'urgent', 'highlighted',
   'positionsNeeded', 'hiredCount', 'viewCount', 'createdAt', 'updatedAt',
   'applicationStatus', 'interviewRequired',
@@ -117,6 +118,7 @@ export function serializePublicJob(job, { viewerId = null } = {}) {
       .filter((field) => value[field] !== undefined)
       .map((field) => [field, value[field]])),
     applicantCount: Array.isArray(value.applicants) ? value.applicants.length : 0,
+    ...workTimeSummary(value),
     employerVerified: hasFullyVerifiedEmployer(job),
     ...recruitmentState(value),
     isOwnJob: Boolean(viewerId && String(poster?._id || poster) === String(viewerId)),

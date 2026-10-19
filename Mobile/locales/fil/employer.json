@@ -376,6 +376,16 @@
     }
   },
   "employerPostJob": {
+    "daily": {
+      "workDates": "Mga petsa ng trabaho (Asia/Manila)",
+      "selectDates": "Piliin ang mga petsa ({{count}} ang napili)",
+      "scheduleHint": "Pumili ng 2–366 araw. Minimum PHP 480 bawat araw bawat manggagawa. Ilalaan agad ang pondo para sa lahat ng napiling araw.",
+      "requiredDates": "Pumili ng 2 hanggang 366 petsa para sa pangmatagalang trabaho.",
+      "removeDate": "Alisin ang {{date}}",
+      "useDates": "Gamitin ang mga napiling petsa",
+      "payLabel": "Bayad bawat Araw bawat Manggagawa (PHP)",
+      "formula": "{{rate}} bawat araw × {{days}} araw × {{count}} manggagawa"
+    },
     "header": { "editTitle": "I-edit ang Trabaho", "createTitle": "Mag-post ng Trabaho" },
     "intro": {
       "editTitle": "I-update ang oportunidad na ito",

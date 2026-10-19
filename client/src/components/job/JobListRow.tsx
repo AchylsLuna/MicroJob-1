@@ -6,6 +6,7 @@ import { MatchBadge } from "./MatchBadge";
 import type { JobCardData } from "./jobCardModel";
 import { useTranslation } from "react-i18next";
 import verifiedBadgeUrl from "../../assets/verified-badge.svg";
+import { WorkTimeSummary } from '../WorkTimeSummary';
 
 type Props = {
   job: JobCardData;
@@ -102,6 +103,7 @@ export function JobListRow({ job, selected, saved, applicationStatus, onPress, o
           ) : null}
         </div>
         <p className="mt-1 text-body-sm font-bold text-slate-950">{job.salaryLabel}</p>
+        <WorkTimeSummary start={job.workStartTime} end={job.workEndTime} rate={job.dailyRate} />
         {applicationStatus ? (
           <div className={`mt-2 rounded-lg px-2.5 py-2 text-[11px] font-bold ${
             applicationStatus === "Rejected"

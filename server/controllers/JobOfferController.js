@@ -13,6 +13,7 @@ import User from '../models/User.js';
 import { emitToUser } from '../lib/socket.js';
 import { normalizeHireChecklist } from '../lib/hireChecklist.js';
 import { buildConversationKey } from '../lib/jobInquiry.js';
+import { isDailyJob, workdayCount, manilaDate } from '../lib/dailyWorkPolicy.js';
 
 const userId = (req) => String(req.user?.id || req.user?.userId || '');
 const serialize = (offer) => ({ id: String(offer._id), applicationId: String(offer.application), jobId: String(offer.job), employerId: String(offer.employer), workerId: String(offer.worker), amount: Number(offer.amount), status: offer.status, createdAt: offer.createdAt, acceptedAt: offer.acceptedAt });
@@ -41,14 +42,15 @@ export async function createJobOffer(req, res) {
       if (await JobOffer.exists({ application: application._id, status: { $in: ['pending', 'accepted'] } }).session(session)) throw Object.assign(new Error('This application already has an active offer.'), { status: 409 });
       const reservation = await Job.updateOne({ _id: job._id, $expr: { $lt: [{ $add: [{ $ifNull: ['$hiredCount', 0] }, { $ifNull: ['$reservedOfferCount', 0] }] }, '$positionsNeeded'] } }, { $inc: { reservedOfferCount: 1 } }, { session });
       if (!reservation.modifiedCount) throw Object.assign(new Error('All job positions are already hired or reserved by offers.'), { status: 409 });
-      const extra = Number((amount - Number(job.salary)).toFixed(2));
+      if (isDailyJob(job) && job.workDates[0] < manilaDate()) throw httpError(409, 'The work schedule has started. Post again with new dates before offering or hiring.');
+      const extra = Number(((amount - Number(job.salary)) * workdayCount(job)).toFixed(2));
       if (extra > 0) {
         const debit = await User.updateOne({ _id: userId(req), employerBalance: { $gte: extra } }, { $inc: { employerBalance: -extra } }, { session });
         if (!debit.modifiedCount) throw Object.assign(new Error('Employer balance is insufficient for the negotiated increase.'), { status: 409 });
       }
       [created] = await JobOffer.create([{ job: job._id, application: application._id, employer: userId(req), worker: application.applicant, amount, additionalEscrow: extra }], { session });
       if (extra > 0) await Transaction.create([{ sender: userId(req), receiver: null, amount: extra, type: 'ESCROW', status: 'COMPLETED', balanceTarget: 'ESCROW', jobReference: job._id, reference: `offer-extra:${created._id}`, meta: { fundingSources: { EMPLOYER: extra, WORKER: 0 } }, label: 'Negotiated offer escrow', relatedEntityType: 'job_offer', relatedEntityId: String(created._id), actor: userId(req) }], { session });
-      const message = await Message.create([{ sender: userId(req), receiver: application.applicant, job: job._id, content: `Formal job offer for ${job.title}`, clientMessageId: `job-offer:${created._id}`, attachment: { type: 'job_offer', jobOffer: created._id, application: application._id, jobTitle: job.title, offerAmount: amount } }], { session });
+      const message = await Message.create([{ sender: userId(req), receiver: application.applicant, job: job._id, content: `Formal job offer for ${job.title}`, clientMessageId: `job-offer:${created._id}`, attachment: { type: 'job_offer', jobOffer: created._id, application: application._id, jobTitle: job.title, offerAmount: amount, ...(isDailyJob(job) ? { workDates: job.workDates, workStartTime: job.workStartTime, workEndTime: job.workEndTime, dailyAmount: amount, totalAmount: Number((amount * workdayCount(job)).toFixed(2)) } : {}) } }], { session });
       created.chatMessage = message[0]._id; await created.save({ session });
       application.status = 'Offer Sent'; await application.save({ session });
       await syncCapacity(job, session);
@@ -58,7 +60,7 @@ export async function createJobOffer(req, res) {
       }
       await queueNotification(`offer-created:${created._id}`, { userId: created.worker, audience: 'worker', type: 'application', title: 'Formal job offer', message: `You received a PHP ${Number(created.amount).toFixed(2)} job offer.`, entityType: 'job_offer', entityId: created._id, actor: created.employer, push: true, pushData: { participantId: String(created.employer), jobId: String(created.job) } }, session);
     });
-    const chatMessage = await Message.findById(created.chatMessage).populate('sender', 'firstName lastName').populate('receiver', 'firstName lastName').populate('job', 'title').populate('attachment.jobOffer', 'status amount acceptedAt resolvedAt');
+    const chatMessage = await Message.findById(created.chatMessage).populate('sender', 'firstName lastName').populate('receiver', 'firstName lastName').populate('job', 'title').populate('attachment.jobOffer', 'status amount acceptedAt resolvedAt').populate('attachment.application', 'workStatus paymentStatus workSubmittedAt dailyPayments');
     if (chatMessage) { emitToUser(String(created.worker), 'new_message', chatMessage); emitToUser(String(created.employer), 'new_message_echo', chatMessage); }
     emitToUser(String(created.worker), 'job_offer_updated', serialize(created));
     return res.status(201).json({ offer: serialize(created) });
@@ -120,7 +122,10 @@ export async function confirmOfferHire(req, res) {
       if (!offer) throw Object.assign(new Error('Accepted offer not found.'), { status: 404 });
       application = await JobApplication.findById(offer.application).session(session); job = await Job.findById(offer.job).session(session);
       if (!application || !job || application.status !== 'Offer Sent' || job.cancellationPending || job.archivedAt || job.closedManually || ['Cancelled', 'Completed'].includes(job.status) || Number(job.hiredCount || 0) >= Number(job.positionsNeeded || 1)) throw Object.assign(new Error('This job no longer has an available position.'), { status: 409 });
-      application.status = 'Hired'; application.hiredAt ||= new Date(); job.hireConfirmedAt ||= application.hiredAt; application.agreedAmount = offer.amount; application.workStatus = 'Not started'; application.startedAt = null; application.paymentStatus = 'Secured'; application.hireChecklist = checklist; await application.save({ session });
+      if (isDailyJob(job) && job.workDates[0] < manilaDate()) throw httpError(409, 'The work schedule has started. Post again with new dates before hiring.');
+      application.agreedDailyRate = isDailyJob(job) ? offer.amount : null;
+      application.dailyPayments = isDailyJob(job) ? job.workDates.map((workDate) => ({ workDate, amount: offer.amount })) : [];
+      application.status = 'Hired'; application.hiredAt ||= new Date(); job.hireConfirmedAt ||= application.hiredAt; application.agreedAmount = Number((offer.amount * workdayCount(job)).toFixed(2)); application.workStatus = 'Not started'; application.startedAt = null; application.paymentStatus = 'Secured'; application.hireChecklist = checklist; await application.save({ session });
       job.hiredCount = Number(job.hiredCount || 0) + 1; job.reservedOfferCount = Math.max(0, Number(job.reservedOfferCount || 0) - 1); job.status = 'In Progress'; await job.save({ session });
       offer.status = 'hired'; offer.resolvedAt = new Date(); await offer.save({ session });
       if (checklist.length) {

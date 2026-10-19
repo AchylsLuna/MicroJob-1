@@ -119,7 +119,7 @@ test('new postings reject below-minimum pay and accept the exact minimum', async
   for (const [jobType, minimum] of [['Recruiting', 480], ['Short-term', 50], ['Side hustle', 50]]) {
     const body = {
       title: 'Local work', description: 'Help with local services.', location: 'Pasig City',
-      jobType, salary: minimum - 0.01, category: String(category._id),
+      jobType, ...(jobType === 'Recruiting' ? { workDates: ['2027-01-02', '2027-01-03'], workStartTime: '08:00', workEndTime: '17:00' } : {}), salary: minimum - 0.01, category: String(category._id),
       deadline: '2027-01-01T00:00:00.000Z', positionsNeeded: 1,
     };
     const response = createResponse();
@@ -136,12 +136,12 @@ test('new postings reject below-minimum pay and accept the exact minimum', async
 });
 
 test('changing only the opportunity type validates the existing pay', async () => {
-  const employer = await createEmployer(430);
+  const employer = await createEmployer(910);
   const job = await createFundedJob(employer._id, { salary: 50 });
   const response = await update(employer, job, { jobType: 'Recruiting' });
   assert.equal(response.statusCode, 400);
   assert.equal((await Job.findById(job._id)).jobType, 'Short-term');
-  const accepted = await update(employer, job, { jobType: 'Recruiting', salary: 480 });
+  const accepted = await update(employer, job, { jobType: 'Recruiting', salary: 480, workDates: ['2027-01-02', '2027-01-03'], workStartTime: '08:00', workEndTime: '17:00' });
   assert.equal(accepted.statusCode, 200);
   const updatedJob = await Job.findById(job._id);
   assert.equal(updatedJob.jobType, 'Recruiting');

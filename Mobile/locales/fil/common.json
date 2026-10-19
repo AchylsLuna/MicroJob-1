@@ -1,4 +1,16 @@
 {
+  "workTime": {
+    "title": "Oras ng trabaho bawat araw",
+    "start": "Oras ng simula ng trabaho",
+    "end": "Oras ng pagtatapos ng trabaho",
+    "select": "Pumili ng oras",
+    "done": "Tapos na",
+    "hint": "Parehong oras sa bawat napiling araw, sa Asia/Manila. Kapag mas maaga ang oras ng pagtatapos kaysa simula, kinabukasan ito matatapos.",
+    "duration": "{{hours}}h {{minutes}}m bawat araw",
+    "hourly": "{{amount}}/oras",
+    "nextDay": "(kinabukasan)",
+    "invalid": "Pumili ng magkaibang oras ng simula at pagtatapos ng trabaho."
+  },
   "language": {
     "label": "Wika",
     "english": "English",
@@ -88,6 +100,19 @@
     "hireWarning": "Hindi na maaaring burahin ang trabaho pagkatapos kumpirmahin ang pag-hire."
   },
   "lifecycle": {
+    "workSchedule": "Araw-araw na trabaho at bayad",
+    "dailyRate": "PHP {{amount}} bawat araw bawat manggagawa",
+    "workDate": "Petsa ng trabaho: {{date}}",
+    "submittedOn": "Isinumite: {{date}} (Asia/Manila)",
+    "selectWorkDate": "Piliin ang petsa ng trabaho",
+    "dailyProofHint": "Magsumite ng mga larawan para sa bawat petsa ng trabaho. Ipapadala ang patunay sa parehong job chat. Hindi puwedeng magsumite para sa susunod na araw.",
+    "noWorkDates": "Wala pang hindi nababayarang petsa ng trabaho na puwedeng isumite.",
+    "confirmAndPay": "Kumpirmahin at Bayaran",
+    "dailyPayConfirmation": "Ilabas na ang PHP {{amount}} sa manggagawa para sa {{date}}? Ang araw na ito lang ang babayaran at mananatili ang status ng trabaho.",
+    "dailyPaid": "Nailabas na ang bayad para sa araw",
+    "dailyScheduled": "Nakatakda",
+    "dailyAwaiting": "Naisumite ang patunay — naghihintay ng bayad",
+    "dailyDates": "Mga napiling petsa ng trabaho (Asia/Manila)",
     "jobDescription": "Paglalarawan ng trabaho",
     "descriptionUnavailable": "Walang paglalarawan ng trabaho.",
     "paymentStatus": {

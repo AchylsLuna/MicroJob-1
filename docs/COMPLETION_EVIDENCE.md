@@ -1,5 +1,7 @@
 # Completion images and employer approval
 
+Scheduled long-term jobs have date-specific proofs and **Confirm and Pay** approval; daily approval never completes the job. See [Long-term daily work](LONG_TERM_DAILY_WORK.md) for the calendar, funding, daily submission contract, and 12-hour reminder checker. The ordinary completion flow described below continues for short-term, side-hustle, and existing unscheduled assignments.
+
 Workers select the green **Submit proof** button after starting their hired assignment, or after an employer requests changes. In Applied Jobs it shares one action row with View details, Assignment details, and any eligible payment-dispute action; narrow screens allow horizontal scrolling. The upload dialog also uses a green Submit proof button, and chat labels the sent submission as proof. Both web and mobile require 1–10 JPG, PNG, GIF, or WEBP images, each at most 5 MiB (5 × 1024 × 1024 bytes, displayed as 5 MB in the UI). A description is optional and accepts up to 4,000 characters. Text-only submissions and documents are rejected for completion; financial-dispute evidence continues to accept its existing document formats.
 
 ## Server configuration
@@ -25,7 +27,7 @@ Azure configuration/upload failures return HTTP 503 with a specific, credential-
 
 ## Submission and chat
 
-`POST /api/applications/:applicationId/work/submit` accepts multipart data with repeated `evidence` file parts and an optional `statement` field. The API enforces count, size, allowed image extensions/MIME types, and image signatures. It assigns unique blob names even when several images have the same original name.
+`POST /api/applications/:applicationId/work/submit` accepts multipart data with repeated `evidence` file parts and an optional `statement` field. Scheduled daily proof also includes `workDate` (`YYYY-MM-DD`); the multipart parser accepts both text fields together, including an empty statement. More than two text fields are rejected with a text-field error instead of an image-selection error. The API enforces count, size, allowed image extensions/MIME types, and image signatures. It assigns unique blob names even when several images have the same original name.
 
 After uploading, a database transaction rechecks worker ownership, assignment state, cancellation/dispute holds, and payment state, then appends the evidence history, marks the work Submitted, creates a `completion_evidence` chat message, resurfaces the participants' archived conversation, and queues the employer notification. The message contains the submitted images and application/submission references. Connected participants receive the chat message through the existing socket events; persisted history supports reconnects.
 

@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 import {
   buildMonths,
   dayState,
+  isSameDay,
   getWeekdayLabels,
   nextRangeSelection,
   type DateRange,
@@ -36,7 +37,15 @@ type RangeProps = {
   onChange: (next: DateRange) => void;
 };
 
-type Props = (SingleProps | RangeProps) & {
+type MultipleProps = {
+  mode: "multiple";
+  value?: undefined;
+  range?: undefined;
+  dates: Date[];
+  onChange: (next: Date[]) => void;
+};
+
+type Props = (SingleProps | RangeProps | MultipleProps) & {
   open: boolean;
   onClose: () => void;
   minDate?: Date;
@@ -96,7 +105,10 @@ export function CalendarPanel(props: Props) {
   if (typeof document === "undefined") return null;
 
   const handleDayPress = (date: Date) => {
-    if (props.mode === "range") {
+    if (props.mode === "multiple") {
+      const selected = props.dates.some((item) => isSameDay(item, date));
+      props.onChange(selected ? props.dates.filter((item) => !isSameDay(item, date)) : [...props.dates, date]);
+    } else if (props.mode === "range") {
       props.onChange(nextRangeSelection(props.range || { start: null, end: null }, date));
     } else {
       props.onChange(date);
@@ -112,11 +124,12 @@ export function CalendarPanel(props: Props) {
             {week.map((date, dayIndex) => {
               if (!date) return <div key={dayIndex} className="flex h-11 flex-1 items-center justify-center" />;
 
-              const state =
+              const baseState =
                 props.mode === "range"
                   ? dayState(date, { mode: "range", range: props.range || { start: null, end: null } }, { minDate, maxDate })
                   : dayState(date, { mode: "single", value: props.value ?? null }, { minDate, maxDate });
 
+              const state = props.mode === "multiple" && baseState !== "disabled" && props.dates.some((item) => isSameDay(item, date)) ? "selected" : baseState;
               const disabled = state === "disabled";
               const selected = state === "selected" || state === "range-start" || state === "range-end";
               const inRange = state === "in-range";

@@ -875,9 +875,10 @@ export function authorizePayment(applicationId: string) {
   return request<{ application: any }>(`/applications/${applicationId}/payment/authorize`, { method: 'POST', body: { confirmed: true } });
 }
 
-export function submitWork(applicationId: string, evidence: { statement: string; files: File[] }) {
+export function submitWork(applicationId: string, evidence: { statement: string; files: File[]; workDate?: string }) {
   const body = new FormData();
   body.append('statement', evidence?.statement || '');
+  if (evidence.workDate) body.append('workDate', evidence.workDate);
   for (const file of evidence.files) body.append('evidence', file);
   return request<{ application: any }>(`/applications/${applicationId}/work/submit`, { method: 'POST', body });
 }
@@ -959,9 +960,9 @@ export function submitFinancialDisputeAppeal(disputeId: string, reason: string) 
   return request<{ message: string; dispute: FinancialDispute }>(`/financial-disputes/${disputeId}/appeal`, { method: 'POST', body: { reason } });
 }
 
-export function settlePayment(applicationId: string, submittedAt?: string) {
+export function settlePayment(applicationId: string, submittedAt?: string, workDate?: string) {
   return request<{ message: string; application: any; job: any }>(`/applications/${applicationId}/payment/settle`, {
-    method: 'POST', body: { confirmed: true, ...(submittedAt ? { submittedAt } : {}) },
+    method: 'POST', body: { confirmed: true, ...(submittedAt ? { submittedAt } : {}), ...(workDate ? { workDate } : {}) },
   });
 }
 

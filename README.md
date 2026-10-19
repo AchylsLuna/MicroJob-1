@@ -10,7 +10,7 @@ Completion evidence requires private Azure blob settings on the API server. See 
 
 Employers may attach a per-worker checklist at hire confirmation and track its completion in Job Management details. See [Optional hire checklists](docs/HIRE_CHECKLISTS.md); marks never block evidence submission or payment.
 
-Job postings require guaranteed pay per worker of at least PHP 480 for ongoing/long-term roles (the `Recruiting` opportunity type), or PHP 50 for `Short-term` and `Side hustle`. Web, mobile, and API validation enforce these inclusive minimums on creation, reposting, and pay/type edits. Changing the opportunity type also validates the existing pay; legacy opportunity types retain their existing positive-pay rule.
+New ongoing/long-term roles (`Recruiting`) require selected calendar dates, start/end work times, and guaranteed daily pay of at least PHP 480 per worker. Listings show the shift, daily hours, daily pay, and hourly equivalent truncated to two decimal places. All selected dates are secured upfront; workers submit date-specific proofs in the same chat and employers use **Confirm and Pay** for each day without changing the job status. A backend checker sends pending-payment reminders every 12 hours. See [Long-term daily work](docs/LONG_TERM_DAILY_WORK.md) for the API, funding rules, compatibility, and scheduler. `Short-term` and `Side hustle` retain their single-assignment flow and PHP 50 minimum; legacy opportunity types retain their positive-pay rule.
 
 Use Node.js 22.13 LTS or Node.js 24.3 or newer. Install the web and API dependencies from the repository root:
 

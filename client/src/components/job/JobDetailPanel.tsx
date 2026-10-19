@@ -21,6 +21,7 @@ import { useSavedJobs } from "../../hooks/useSavedJobs";
 import { useAuth } from "../../hooks/useAuth";
 import { formatCurrency, formatDate } from "../../lib/formatters";
 import verifiedBadgeUrl from "../../assets/verified-badge.svg";
+import { DailyWorkSchedule } from '../DailyWorkSchedule';
 
 type ApiJob = {
   _id: string;
@@ -29,6 +30,10 @@ type ApiJob = {
   location?: string;
   salary?: string;
   jobType?: string;
+  paymentMode?: string;
+  workDates?: string[];
+  workStartTime?: string | null;
+  workEndTime?: string | null;
   deadline?: string;
   createdAt?: string;
   responsibilities?: string[];
@@ -315,6 +320,7 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
   const workModeLabel = t(`jobDetails.workModeLabels.${workModeKey}`);
   const experienceLevel = t(`jobDetails.experienceLevels.${experienceKey}`);
   const salaryDisplay = getSalaryDisplay(t, job?.salary);
+  if (job?.paymentMode === 'daily') salaryDisplay.cadence = t('jobDetails.salaryCadence.perDay');
   const fallbackSkills = [
     t("jobDetails.fallbackSkills.webDevelopment"),
     t("jobDetails.fallbackSkills.mobileApps"),
@@ -471,6 +477,7 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
               <p className="text-[16px] text-[#6B7280] leading-relaxed">
                 {job.description || t("jobDetails.sections.noDescription")}
               </p>
+              {job.paymentMode === 'daily' && <DailyWorkSchedule dates={job.workDates || []} rate={Number(job.salary)} start={job.workStartTime} end={job.workEndTime} />}
             </section>
 
             <section className="bg-white rounded-card border border-[#E5E7EB] p-8">

@@ -1,3 +1,4 @@
+import { DailyOfferSchedule } from '../../components/messaging/DailyOfferSchedule';
 import { OfferCancellationDialog } from '../../components/OfferCancellationDialog';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -1447,6 +1448,7 @@ export function Messages() {
                                 </div>
                                 <div className="mt-3 border-t border-slate-200/70 pt-3">
                                   <p className="text-[18px] font-bold text-slate-900">{formatCurrency(offerAmount)}</p>
+                                  <DailyOfferSchedule message={message} />
                                   <p className="mt-0.5 text-caption text-slate-500">{t("messages.offerCard.escrowHint")}</p>
                                 </div>
                                 {showWorkerActions ? (

@@ -10,6 +10,11 @@ export function requireReason(value) {
   return reason;
 }
 export function canFileNonpayment(application, now = Date.now()) {
+  if (application.dailyPayments?.length) {
+    return !application.cancellationPending && !application.disputePending && application.status !== 'Cancelled'
+      && !['Paid', 'Processing', 'Refunded', 'Disputed'].includes(application.paymentStatus)
+      && application.dailyPayments.some((day) => day.submittedAt && !day.paidAt && now >= new Date(day.submittedAt).getTime() + 72 * HOUR);
+  }
   return !['Paid', 'Processing', 'Refunded', 'Partially paid'].includes(application.paymentStatus)
     && application.status !== 'Cancelled'
     && Boolean(application.firstSubmittedAt || application.workSubmittedAt)

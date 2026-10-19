@@ -33,7 +33,7 @@ export const getAssignmentLifecycle = handle(async (req, res) => {
     FinancialDispute.find({ application: application._id }).sort({ raisedAt: -1 }),
     User.findById(application.applicant).select('firstName lastName'),
   ]);
-  return res.json({ application, recipient: { id: String(application.applicant), name: `${worker?.firstName || ''} ${worker?.lastName || ''}`.trim() || String(application.applicant) }, job: { _id: job._id, title: job.title, description: job.description, requirements: job.requirements, salary: job.salary, jobPoster: job.jobPoster }, cancellations, disputes: disputes.map((item) => shapeFinancialDispute(item)), canRespondCancellation: cancellations.some((item) => item.scope === 'assignment' && item.status === 'pending' && String(item.actor) !== actor(req)), canFileNonpayment: canFileNonpayment(application), funds: await remainingJobFunds(job._id) });
+  return res.json({ application, recipient: { id: String(application.applicant), name: `${worker?.firstName || ''} ${worker?.lastName || ''}`.trim() || String(application.applicant) }, job: { _id: job._id, title: job.title, description: job.description, requirements: job.requirements, salary: job.salary, paymentMode: job.paymentMode, workDates: job.workDates, workStartTime: job.workStartTime, workEndTime: job.workEndTime, jobPoster: job.jobPoster }, cancellations, disputes: disputes.map((item) => shapeFinancialDispute(item)), canRespondCancellation: cancellations.some((item) => item.scope === 'assignment' && item.status === 'pending' && String(item.actor) !== actor(req)), canFileNonpayment: canFileNonpayment(application), funds: await remainingJobFunds(job._id) });
 });
 
 export const startWork = handle(async (req, res) => {

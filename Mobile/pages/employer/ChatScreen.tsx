@@ -1,3 +1,5 @@
+import DailyWorkSchedule from '../../components/DailyWorkSchedule';
+import WorkSubmission from '../../components/WorkSubmission';
 import OfferDecisionModal from '../../components/OfferDecisionModal';
 import CompletionMessageCard from '../../components/messaging/CompletionMessageCard';
 import { ChecklistTable, HireChecklistDialog } from '../../components/HireChecklist';
@@ -25,7 +27,7 @@ interface Message {
   createdAt: string;
   senderName?: string;
   receiverName?: string;
-  attachment?: { type?: string; settlementRequest?: any; qrImageName?: string; jobTitle?: string; totalAmount?: number; expiresAt?: string; jobOffer?: any; application?: any; offerAmount?: number; submittedAt?: string; images?: Array<{ fileUrl: string; fileName: string }>; checklist?: string[] };
+  attachment?: { type?: string; settlementRequest?: any; qrImageName?: string; jobTitle?: string; totalAmount?: number; expiresAt?: string; jobOffer?: any; application?: any; offerAmount?: number; dailyAmount?: number; workDates?: string[]; workStartTime?: string; workEndTime?: string; submittedAt?: string; images?: Array<{ fileUrl: string; fileName: string }>; checklist?: string[] };
 }
 
 interface ChatScreenProps {
@@ -278,6 +280,8 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
               const busy = processingOfferId === offerId;
               return <View style={[styles.invoiceCard, isMine ? styles.invoiceMine : styles.invoiceTheirs]} accessibilityLabel={t('chatScreen.offer.accessibilityLabel', { amount: php(item.attachment.offerAmount), status: offerStatus })}>
                 <View style={styles.invoiceHeader}><View style={styles.invoiceIcon}><Ionicons name="document-text-outline" size={21} color={tokens.colors.brand} /></View><View style={styles.invoiceCopy}><Text style={styles.invoiceEyebrow}>{t('chatScreen.offer.eyebrow')}</Text><Text style={styles.invoiceTitle}>{item.attachment.jobTitle || t('chatScreen.offer.fallbackTitle')}</Text></View><View style={[styles.invoiceStatus, offerStatus !== 'pending' && styles.invoiceStatusMuted]}><Text style={styles.invoiceStatusText}>{offerStatus}</Text></View></View>
+                {Boolean(item.attachment.workDates?.length) && <DailyWorkSchedule dates={item.attachment.workDates || []} rate={Number(item.attachment.dailyAmount)} start={item.attachment.workStartTime} end={item.attachment.workEndTime} />}
+                {item.attachment.workDates?.length && !isEmployer && !isMine && item.attachment.application?.workStatus === 'In Progress' && item.attachment.application?.paymentStatus !== 'Paid' ? <WorkSubmission applicationId={String(item.attachment.application._id)} onChanged={() => void fetchMessages()} /> : null}
                 <View style={styles.invoiceFooter}><Text style={styles.invoiceAmount}>{php(item.attachment.offerAmount)}</Text><Text style={styles.invoiceHint}>{t('chatScreen.offer.escrowHint')}</Text></View>
                 {!isEmployer && !isMine && offerStatus === 'pending' ? <View style={styles.offerActions}><TouchableOpacity style={styles.offerSecondary} disabled={busy} onPress={() => void updateOffer(offerId, 'reject')}><Text style={styles.offerSecondaryText}>{t('chatScreen.offer.decline')}</Text></TouchableOpacity><TouchableOpacity style={styles.offerPrimary} disabled={busy} onPress={() => setOfferDecision({ id: offerId, action: 'accept' })}><Text style={styles.offerPrimaryText}>{t('chatScreen.offer.accept')}</Text></TouchableOpacity></View> : null}
                 {isEmployer && isMine && ['pending', 'accepted'].includes(offerStatus) ? <View style={styles.offerActions}><TouchableOpacity style={styles.offerSecondary} disabled={busy} onPress={() => setOfferDecision({ id: offerId, action: 'cancel' })}><Text style={styles.offerSecondaryText}>{t('chatScreen.offer.cancel')}</Text></TouchableOpacity>{offerStatus === 'accepted' ? <TouchableOpacity style={styles.offerPrimary} disabled={busy} onPress={() => setHireOfferId(offerId)}><Text style={styles.offerPrimaryText}>{t('chatScreen.offer.confirmHire')}</Text></TouchableOpacity> : null}</View> : null}

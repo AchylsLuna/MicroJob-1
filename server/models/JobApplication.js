@@ -95,6 +95,7 @@ const JobApplicationSchema = new mongoose.Schema(
       validate: { validator: (items) => items.length <= 20, message: 'A hire checklist can contain at most 20 items.' },
     },
     completionEvidence: [{
+      workDate: String,
       statement: { type: String, maxlength: 4000 },
       fileUrl: String,
       fileName: String,
@@ -160,6 +161,17 @@ const JobApplicationSchema = new mongoose.Schema(
       index: true,
     },
     agreedAmount: { type: Number, default: null, min: 1 },
+    agreedDailyRate: { type: Number, default: null, min: 480 },
+    dailyPayments: {
+      type: [new mongoose.Schema({
+        workDate: { type: String, required: true },
+        amount: { type: Number, required: true, min: 480 },
+        submittedAt: { type: Date, default: null },
+        paidAt: { type: Date, default: null },
+        nextReminderAt: { type: Date, default: null },
+      }, { _id: false })],
+      default: [],
+    },
     workStatus: {
       type: String,
       enum: ['Not started', 'In Progress', 'Submitted', 'Changes Requested', 'Completed', 'Cancelled'],
@@ -196,5 +208,6 @@ JobApplicationSchema.index({ applicant: 1, status: 1, updatedAt: -1 });
 JobApplicationSchema.index({ job: 1, status: 1, updatedAt: -1 });
 JobApplicationSchema.index({ workStatus: 1, paymentStatus: 1, workSubmittedAt: 1, paymentReminder3hSentAt: 1 });
 JobApplicationSchema.index({ 'completionEvidence.fileUrl': 1 }, { sparse: true });
+JobApplicationSchema.index({ 'dailyPayments.nextReminderAt': 1 });
 
 export default mongoose.model('JobApplication', JobApplicationSchema);

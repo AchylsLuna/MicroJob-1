@@ -18,6 +18,8 @@ import path from 'node:path';
 import { uploadEvidenceToAzure, deleteEvidenceFromAzure } from '../lib/azureEvidenceStorage.js';
 import { emitToUser } from '../lib/socket.js';
 import { buildConversationKey } from '../lib/jobInquiry.js';
+import { isDailyJob, requireDailySubmission, DAILY_REVIEW_INTERVAL_MS } from '../lib/dailyWorkPolicy.js';
+import { settleDailyPayment } from '../services/dailyPayments.js';
 
 const id = (req) => String(req.user?.id || req.user?.userId || '');
 const handle = (fn) => async (req, res) => {
@@ -34,6 +36,7 @@ const handle = (fn) => async (req, res) => {
 export const previewPayment = handle(async (req, res) => {
   const application = await JobApplication.findById(req.params.applicationId); const job = application && await Job.findById(application.job);
   if (!job || String(job.jobPoster) !== id(req)) throw httpError(403, 'You cannot review this payment.');
+  if (isDailyJob(job)) throw httpError(409, 'Review and pay each work date in chat.');
   if (!['Hired', 'Accepted'].includes(application.status) || application.paymentStatus === 'Paid' || application.cancellationPending || job.cancellationPending || await activeDispute(application._id)) throw httpError(409, 'This payment is unavailable or held.');
   const payment = await getDisputeMoneySnapshot({ application, job });
   const worker = await User.findById(application.applicant).select('firstName lastName');
@@ -50,6 +53,7 @@ async function transition(req, kind) {
       const job = await Job.findById(application.job).session(session);
       const workerAction = kind === 'submit';
       if (String(workerAction ? application.applicant : job?.jobPoster) !== id(req)) throw httpError(403, 'You cannot update this assignment.');
+      if (isDailyJob(job) && kind !== 'submit') throw httpError(409, 'Use daily proof and Confirm and Pay in the job chat.');
       if (application.cancellationPending || job.cancellationPending || ['Cancelled', 'Completed'].includes(job.status) || await activeDispute(application._id, session) || ['Paid', 'Processing'].includes(application.paymentStatus)) throw httpError(409, 'This assignment is held or already paid.');
       job.fundsVersion = Number(job.fundsVersion || 0) + 1; await job.save({ session });
       let title; let message;
@@ -62,13 +66,17 @@ async function transition(req, kind) {
         const statement = String(req.body?.statement || '').trim();
         if (!req.completionImages?.length || statement.length > 4000) throw httpError(400, 'Attach at least one completion image and use up to 4000 characters for the description.');
         const submittedAt = new Date();
-        application.completionEvidence.push(...req.completionImages.map((image) => ({ ...image, statement, storage: 'azure', actor: id(req), submittedAt })));
+        const daily = isDailyJob(job);
+        const day = daily ? requireDailySubmission(application, req.body?.workDate, submittedAt) : null;
+        if (day) { day.submittedAt = submittedAt; day.nextReminderAt = new Date(submittedAt.getTime() + DAILY_REVIEW_INTERVAL_MS); }
+        application.completionEvidence.push(...req.completionImages.map((image) => ({ ...image, statement, storage: 'azure', actor: id(req), submittedAt, ...(day ? { workDate: day.workDate } : {}) })));
         application.timeline.push({ type: 'work_submitted', actor: id(req), note: statement.slice(0, 2000) || 'Completion evidence attached.' });
-        application.workStatus = 'Submitted'; application.workSubmittedAt = submittedAt; application.firstSubmittedAt ||= application.workSubmittedAt;
-        await Message.create([{ _id: req.completionMessageId, sender: id(req), receiver: job.jobPoster, job: job._id, content: statement || `Work proof for ${job.title}`, clientMessageId: `completion:${req.completionMessageId}`, attachment: { type: 'completion_evidence', application: application._id, jobTitle: job.title, submittedAt, images: req.completionImages } }], { session });
+        if (!daily) application.workStatus = 'Submitted';
+        application.workSubmittedAt = submittedAt; application.firstSubmittedAt ||= application.workSubmittedAt;
+        await Message.create([{ _id: req.completionMessageId, sender: id(req), receiver: job.jobPoster, job: job._id, content: statement || `Work proof for ${job.title}${day ? ` (${day.workDate})` : ''}`, clientMessageId: `completion:${req.completionMessageId}`, attachment: { type: 'completion_evidence', application: application._id, jobTitle: job.title, submittedAt, images: req.completionImages, ...(day ? { workDate: day.workDate, dailyAmount: day.amount } : {}) } }], { session });
         await User.updateOne({ _id: job.jobPoster }, { $pull: { archivedConversations: buildConversationKey(id(req), String(job._id)) } }, { session });
         await User.updateOne({ _id: id(req) }, { $pull: { archivedConversations: buildConversationKey(String(job.jobPoster), String(job._id)) } }, { session });
-        if (!application.reminderStages.includes(48)) application.nextPaymentReminderAt = new Date(application.firstSubmittedAt.getTime() + (application.reminderStages.includes(24) ? 48 : 24) * HOUR);
+        if (!daily && !application.reminderStages.includes(48)) application.nextPaymentReminderAt = new Date(application.firstSubmittedAt.getTime() + (application.reminderStages.includes(24) ? 48 : 24) * HOUR);
         title = 'Work submitted'; message = `Work for ${job.title} awaits your review and payment.`;
       } else {
         if (application.workStatus !== 'Submitted') throw httpError(409, 'Only submitted work can receive change requests.');
@@ -93,6 +101,8 @@ export const submitWork = handle(async (req, res) => {
     if (!assignment) throw httpError(404, 'Hired assignment not found.');
     if (String(assignment.applicant) !== id(req)) throw httpError(403, 'You cannot update this assignment.');
     if (!['Hired', 'Accepted'].includes(assignment.status) || !['In Progress', 'Changes Requested'].includes(assignment.workStatus)) throw httpError(409, 'Start work before submitting it, or wait for a change request before resubmitting.');
+    const job = await Job.findById(assignment.job);
+    if (isDailyJob(job)) requireDailySubmission(assignment, req.body?.workDate);
     const files = req.files || [];
     if (!files.length || files.length > 10) throw httpError(400, 'Attach between 1 and 10 completion images.');
     if (String(req.body?.statement || '').trim().length > 4000) throw httpError(400, 'The description must be 4000 characters or fewer.');
@@ -111,7 +121,7 @@ export const submitWork = handle(async (req, res) => {
     const application = await transition(req, 'submit');
     saved = true;
     try {
-      const chatMessage = await Message.findById(req.completionMessageId).populate('sender', 'firstName lastName').populate('receiver', 'firstName lastName').populate('job', 'title').populate('attachment.application', 'workStatus paymentStatus workSubmittedAt');
+      const chatMessage = await Message.findById(req.completionMessageId).populate('sender', 'firstName lastName').populate('receiver', 'firstName lastName').populate('job', 'title').populate('attachment.application', 'workStatus paymentStatus workSubmittedAt dailyPayments');
       if (chatMessage) { emitToUser(String(chatMessage.receiver._id), 'new_message', chatMessage); emitToUser(id(req), 'new_message_echo', chatMessage); }
     } catch { /* Persisted chat history remains available if realtime delivery is interrupted. */ }
     return res.json({ application });
@@ -122,7 +132,7 @@ export const submitWork = handle(async (req, res) => {
 export const requestChanges = handle(async (req, res) => res.json({ application: await transition(req, 'changes') }));
 export const settleDirect = handle(async (req, res) => {
   if (req.body?.confirmed !== true) throw httpError(400, 'Confirm the recipient and amount before releasing funds.');
-  const result = await settleApplicationPayment({ applicationId: req.params.applicationId, employerId: id(req), expectedSubmittedAt: req.body?.submittedAt });
+  const result = await (req.body?.workDate !== undefined ? settleDailyPayment : settleApplicationPayment)({ applicationId: req.params.applicationId, employerId: id(req), expectedSubmittedAt: req.body?.submittedAt, workDate: req.body?.workDate });
   return res.json({ message: result.deduplicated ? 'Payment was already completed.' : 'Worker paid successfully.', application: result.application, job: result.job });
 });
 
@@ -155,7 +165,9 @@ export async function openPaymentDispute(req, res) {
           ticketId: activeDispute.ticketId,
         });
       }
-      if (application.workStatus !== 'Submitted' || !['Secured', 'Authorized', 'Failed'].includes(application.paymentStatus)) {
+      const pendingProof = isDailyJob(application.job) ? application.dailyPayments.some((day) => day.submittedAt && !day.paidAt) : application.workStatus === 'Submitted';
+      const pendingStatuses = isDailyJob(application.job) ? ['Secured', 'Authorized', 'Failed', 'Partially Paid'] : ['Secured', 'Authorized', 'Failed'];
+      if (!pendingProof || !pendingStatuses.includes(application.paymentStatus)) {
         throw Object.assign(new Error('Only submitted work with pending payment can be disputed.'), { status: 409 });
       }
       if (req.body?.kind === 'nonpayment' && !canFileNonpayment(application)) throw httpError(409, 'A nonpayment dispute becomes available 72 hours after the first submission.');
@@ -173,7 +185,7 @@ export async function openPaymentDispute(req, res) {
       }
 
       const claimed = await JobApplication.updateOne(
-        { _id: application._id, workStatus: 'Submitted', paymentStatus: { $in: ['Secured', 'Authorized', 'Failed'] } },
+        { _id: application._id, workStatus: application.workStatus, paymentStatus: { $in: pendingStatuses } },
         { $set: { paymentStatus: 'Disputed' } },
         { session },
       );

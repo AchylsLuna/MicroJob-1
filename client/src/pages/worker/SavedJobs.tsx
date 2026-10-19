@@ -1,3 +1,5 @@
+import { WorkTimeSummary } from '../../components/WorkTimeSummary';
+import { formatMinimumPay } from '../../lib/jobCompensation';
 import { useMemo, useState } from "react";
 import {
   Bookmark,
@@ -20,6 +22,9 @@ import type { SavedJobRecord } from "../../services/api";
 import { formatCurrency, formatDate } from "../../lib/formatters";
 
 type SavedJobView = {
+  dailyRate?: number;
+  workStartTime?: string | null;
+  workEndTime?: string | null;
   id: string;
   title: string;
   company: string;
@@ -116,7 +121,9 @@ const mapSavedJob = (t: TFunction, record: SavedJobRecord): SavedJobView | null 
     id: String(job._id),
     title: String(job.title || t("savedJobs.card.untitledJob")),
     company,
-    salary: formatSalary(t, job.salary),
+    salary: job.paymentMode === 'daily' ? formatMinimumPay(job.salary, undefined, job.paymentMode) : formatSalary(t, job.salary),
+    dailyRate: job.paymentMode === 'daily' ? Number(job.salary) : undefined,
+    workStartTime: job.workStartTime, workEndTime: job.workEndTime,
     description: String(job.description || t("savedJobs.card.noDescription")),
     location: String(job.location || t("savedJobs.card.remoteLocation")),
     workMode: getWorkMode(job),
@@ -279,6 +286,7 @@ export function SavedJobs() {
 
               <div className="mb-3">
                 <p className="text-[16px] font-bold text-[#10B981]">{job.salary}</p>
+                <WorkTimeSummary start={job.workStartTime} end={job.workEndTime} rate={job.dailyRate} />
               </div>
 
               <p className="text-body-sm text-[#6B7280] leading-relaxed mb-4 line-clamp-2">{job.description}</p>

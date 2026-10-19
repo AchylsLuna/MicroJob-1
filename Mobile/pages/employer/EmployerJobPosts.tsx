@@ -1,3 +1,4 @@
+import WorkTimeSummary from '../../components/WorkTimeSummary';
 import CompletionEvidence from '../../components/CompletionEvidence';
 import { walletRequest } from '../../lib/lifecycleApi';
 import { formatCurrency } from '../../lib/formatters';
@@ -41,6 +42,10 @@ type JobItem = {
   location: string;
   salary: string;
   jobType: string;
+  paymentMode?: string;
+  workDates?: string[];
+  workStartTime?: string | null;
+  workEndTime?: string | null;
   description?: string;
   requirements?: string[];
   responsibilities?: string[];
@@ -348,8 +353,9 @@ export default function EmployerJobPosts({
 
             <View style={styles.metaRow}>
               <Text style={styles.jobType}>{job.jobType}</Text>
-              <Text style={styles.salary}>{formatMinimumPay(job.salary)}</Text>
+              <Text style={styles.salary}>{formatMinimumPay(job.salary, undefined, job.paymentMode)}</Text>
             </View>
+            {job.paymentMode === 'daily' && <WorkTimeSummary start={job.workStartTime} end={job.workEndTime} rate={job.salary} />}
 
             <View style={styles.footerRow}>
               <Text style={styles.appliedText}>
@@ -486,7 +492,7 @@ export default function EmployerJobPosts({
                 {viewingJob?.urgent ? <Text style={[styles.detailTag, styles.urgentDetailTag]}>{t('jobPosts.badges.urgent')}</Text> : null}
               </View>
               <DetailRow icon="location-outline" label={t('jobPosts.details.labels.location')} value={viewingJob?.location} />
-              <DetailRow icon="cash-outline" label={t('jobPosts.details.labels.minimumPay')} value={formatMinimumPay(viewingJob?.salary || '')} />
+              <DetailRow icon="cash-outline" label={t('jobPosts.details.labels.minimumPay')} value={formatMinimumPay(viewingJob?.salary || '', undefined, viewingJob?.paymentMode)} />
               <DetailRow icon="people-outline" label={t('jobPosts.details.labels.workers')} value={t('jobPosts.details.hiredOfNeeded', { hired: viewingJob?.hiredCount || 0, needed: viewingJob?.positionsNeeded || 1 })} />
               <DetailRow icon="folder-outline" label={t('jobPosts.details.labels.category')} value={viewingJob?.category?.name || t('jobPosts.details.notSpecified')} />
               <DetailRow

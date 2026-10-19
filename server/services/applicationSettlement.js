@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { isDailyJob } from '../lib/dailyWorkPolicy.js';
 import Job from '../models/Job.js';
 import JobApplication from '../models/JobApplication.js';
 import Transaction from '../models/Transaction.js';
@@ -30,6 +31,7 @@ export async function settleApplicationPayment({ applicationId, employerId, expe
       if (!application) throw Object.assign(new Error('Hired application not found.'), { status: 404 });
       const job = await Job.findOne({ _id: application.job, jobPoster: employerId }).session(session);
       if (!job) throw Object.assign(new Error('You cannot pay this application.'), { status: 403 });
+      if (isDailyJob(job)) throw Object.assign(new Error('Use Confirm and Pay on the proof for a specific work date in chat.'), { status: 409 });
       if (application.paymentStatus === 'Paid') {
         result = { application, job, deduplicated: true };
         return;

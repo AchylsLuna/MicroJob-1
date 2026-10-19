@@ -1,3 +1,4 @@
+import DailyWorkSchedule from './DailyWorkSchedule';
 import * as DocumentPicker from 'expo-document-picker';
 import { uploadFile } from '../lib/uploadFile';
 import AsyncStorage from '../lib/storage';
@@ -58,6 +59,7 @@ export default function AssignmentPanel({ applicationId, employer = false, onCha
           <ChecklistTable items={(app.hireChecklist || []).map((item: { description: string }) => item.description)} />
         </View>
         <CompletionEvidence items={app.completionEvidence} />
+        {app.dailyPayments?.length > 0 && <DailyWorkSchedule dates={app.dailyPayments.map((day: any) => day.workDate)} rate={app.agreedDailyRate} payments={app.dailyPayments} start={data.job.workStartTime} end={data.job.workEndTime} />}
         {command ? <>
           <Text style={styles.title}>{t(`lifecycle.${command}`)}</Text>
           {['cancel', 'dispute', 'evidence'].includes(command) && <TextInput style={styles.input} accessibilityLabel={t('lifecycle.reason')} placeholder={t('lifecycle.reason')} value={reason} onChangeText={setReason} multiline maxLength={command === 'evidence' ? 4000 : 2000} />}

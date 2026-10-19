@@ -1,4 +1,6 @@
 import { availableJobFilter } from '../lib/lifecyclePolicy.js';
+import { normalizeWorkDates, baseWorkerPay, workdayCount } from '../lib/dailyWorkPolicy.js';
+import { normalizeWorkTimes } from '../lib/workTime.js';
 import { requestCancellation, syncCapacity } from '../services/jobLifecycle.js';
 import { settleApplicationPayment, finalizeSettledJob } from '../services/applicationSettlement.js';
 import { remainingJobFunds, requiredJobFunds, refundJobFunds } from '../services/jobFunds.js';
@@ -312,6 +314,13 @@ export async function createJob(req, res){
         if (salaryAmount < minimumPay) {
             return res.status(400).json({ message: `Minimum guaranteed pay must be at least PHP ${minimumPay} for this opportunity type.` });
         }
+        let workDates = [];
+        try { if (normalizedJobType === 'Recruiting') workDates = normalizeWorkDates(req.body.workDates); }
+        catch (error) { return res.status(error.status || 400).json({ message: error.message }); }
+        const paymentMode = normalizedJobType === 'Recruiting' ? 'daily' : 'assignment';
+        let workTime = { workStartTime: null, workEndTime: null };
+        try { if (paymentMode === 'daily') workTime = normalizeWorkTimes(req.body.workStartTime, req.body.workEndTime); }
+        catch (error) { return res.status(error.status || 400).json({ message: error.message }); }
         if (!Number.isInteger(positions) || positions < 1) {
             return res.status(400).json({ message: 'positionsNeeded must be a positive whole number.' });
         }
@@ -320,6 +329,7 @@ export async function createJob(req, res){
         // charges are collected separately and are never refundable.
         const costs = getJobPostingCosts({
             payPerWorker: salaryAmount,
+            workdays: paymentMode === 'daily' ? workDates.length : 1,
             positionsNeeded: positions,
             highlighted: Boolean(highlighted),
         });
@@ -408,6 +418,9 @@ export async function createJob(req, res){
                     description,
                     location,
                     salary: salaryAmount,
+                    paymentMode,
+                    workDates,
+                    ...workTime,
                     jobType: normalizedJobType,
                     deadline,
                     skills: skills || [],
@@ -560,9 +573,9 @@ export async function getMyJobs(req, res) {
             .populate('category', 'name')
             .sort({ createdAt: -1 });
         res.status(200).json(await Promise.all(jobs.map(async (job) => {
-            const [funds, assignments] = await Promise.all([remainingJobFunds(job._id), JobApplication.find({ job: job._id, $or: [{ status: { $in: ['Hired', 'Accepted'] } }, { status: 'Cancelled', agreedAmount: { $gt: 0 } }] }).select('paymentStatus workStatus agreedAmount cancellationPending disputePending').lean()]);
+            const [funds, assignments] = await Promise.all([remainingJobFunds(job._id), JobApplication.find({ job: job._id, $or: [{ status: { $in: ['Hired', 'Accepted'] } }, { status: 'Cancelled', agreedAmount: { $gt: 0 } }] }).select('paymentStatus workStatus agreedAmount cancellationPending disputePending dailyPayments').lean()]);
             const held = assignments.some((app) => app.cancellationPending || app.disputePending);
-            const status = held || job.cancellationPending ? 'On hold' : assignments.some((app) => app.paymentStatus === 'Processing') ? 'Processing' : assignments.some((app) => app.workStatus === 'Submitted' && app.paymentStatus !== 'Paid') ? 'Awaiting approval' : funds.paid > 0 ? assignments.length && assignments.every((app) => app.paymentStatus === 'Paid') ? 'Paid' : 'Partially paid' : funds.refunded > 0 && funds.remaining === 0 ? 'Refunded' : 'Funds secured';
+            const status = held || job.cancellationPending ? 'On hold' : assignments.some((app) => app.paymentStatus === 'Processing') ? 'Processing' : assignments.some((app) => (app.workStatus === 'Submitted' || app.dailyPayments?.some((day) => day.submittedAt && !day.paidAt)) && app.paymentStatus !== 'Paid') ? 'Awaiting approval' : funds.paid > 0 ? assignments.length && assignments.every((app) => app.paymentStatus === 'Paid') ? 'Paid' : 'Partially paid' : funds.refunded > 0 && funds.remaining === 0 ? 'Refunded' : 'Funds secured';
             return { ...serializeOwnedJob(job.toObject()), canDelete: false, paymentSummary: { ...funds, status } };
         })));
     } catch (error) {
@@ -659,6 +672,9 @@ async function updateJobInTransaction(req, session) {
             "location",
             "salary",
             "jobType",
+            "workDates",
+            "workStartTime",
+            "workEndTime",
             "deadline",
             "skills",
             "responsibilities",
@@ -720,14 +736,33 @@ async function updateJobInTransaction(req, session) {
             }
         }
 
-        if (updates.salary !== undefined || updates.jobType !== undefined) {
+        if (updates.salary !== undefined && (job.hiredCount > 0 || job.reservedOfferCount > 0)) return res.status(409).json({ message: 'Existing offers and hires fix the job minimum pay.' });
+        if (updates.salary !== undefined || updates.jobType !== undefined || updates.workDates !== undefined) {
             const minimumPay = getMinimumJobPay(updates.jobType ?? job.jobType);
             if (Number(updates.salary ?? job.salary) < minimumPay) {
                 return res.status(400).json({ message: `Minimum guaranteed pay must be at least PHP ${minimumPay} for this opportunity type.` });
             }
         }
+        const sameDates = Array.isArray(updates.workDates) && JSON.stringify([...updates.workDates].sort()) === JSON.stringify([...job.workDates].sort());
+        if (sameDates) delete updates.workDates;
+        if (updates.workDates !== undefined || (updates.jobType !== undefined && updates.jobType !== job.jobType)) {
+            if (job.hiredCount > 0 || job.reservedOfferCount > 0) return res.status(409).json({ message: 'Existing offers and hires fix the work dates and payment schedule.' });
+            const nextType = updates.jobType ?? job.jobType;
+            try { updates.workDates = nextType === 'Recruiting' ? normalizeWorkDates(updates.workDates) : []; }
+            catch (error) { return res.status(error.status || 400).json({ message: error.message }); }
+            updates.paymentMode = nextType === 'Recruiting' ? 'daily' : 'assignment';
+        }
+        const nextMode = updates.paymentMode ?? job.paymentMode;
+        if (updates.workStartTime !== undefined || updates.workEndTime !== undefined || updates.paymentMode === 'daily') {
+            if (nextMode !== 'daily') return res.status(400).json({ message: 'Daily work times require a long-term schedule.' });
+            const start = updates.workStartTime ?? job.workStartTime;
+            const end = updates.workEndTime ?? job.workEndTime;
+            if ((start !== job.workStartTime || end !== job.workEndTime) && (job.hiredCount > 0 || job.reservedOfferCount > 0)) return res.status(409).json({ message: 'Existing offers and hires fix the work times.' });
+            try { Object.assign(updates, normalizeWorkTimes(start, end)); }
+            catch (error) { return res.status(error.status || 400).json({ message: error.message }); }
+        }
+        if (updates.paymentMode === 'assignment') { updates.workStartTime = null; updates.workEndTime = null; }
         if (job.cancellationPending || ['Completed', 'Cancelled', 'Full refund', 'Resolved'].includes(job.status)) return res.status(409).json({ message: 'This posting is historical or being cancelled. Use Post again.' });
-        if (updates.salary !== undefined && (job.hiredCount > 0 || job.reservedOfferCount > 0)) return res.status(409).json({ message: 'Existing offers and hires fix the job minimum pay.' });
         const nextPositions = Number(updates.positionsNeeded ?? job.positionsNeeded ?? 1);
         if (nextPositions < Number(job.hiredCount || 0) + Number(job.reservedOfferCount || 0)) {
             return res.status(400).json({
@@ -738,9 +773,9 @@ async function updateJobInTransaction(req, session) {
         // Available, in-progress, and closed jobs still have funds secured in escrow.
         // Keep wallet and escrow totals aligned when minimum pay or worker count changes.
         const hasActiveEscrow = !['Completed', 'Cancelled', 'Full refund', 'Resolved'].includes(job.status);
-        const currentEscrow = Number(job.salary || 0) * Number(job.positionsNeeded || 1);
+        const currentEscrow = baseWorkerPay(job) * Number(job.positionsNeeded || 1);
         const nextSalary = Number(updates.salary ?? job.salary ?? 0);
-        const nextEscrow = nextSalary * nextPositions;
+        const nextEscrow = Number((nextSalary * workdayCount({ ...job.toObject(), ...updates }) * nextPositions).toFixed(2));
         const escrowDifference = hasActiveEscrow ? nextEscrow - currentEscrow : 0;
 
         if (escrowDifference !== 0) {
@@ -807,6 +842,6 @@ export async function repostJob(req, res) {
     if (!original) return res.status(404).json({ message: 'Historical posting not found.' });
     const deadline = new Date(req.body?.deadline);
     if (!Number.isFinite(deadline.getTime()) || deadline.getTime() <= Date.now()) return res.status(400).json({ message: 'Choose a new future deadline.' });
-    req.body = { ...original, deadline, repostOf: original._id };
+    req.body = { ...original, ...(original.jobType === 'Recruiting' ? { workDates: req.body?.workDates, workStartTime: req.body?.workStartTime ?? original.workStartTime, workEndTime: req.body?.workEndTime ?? original.workEndTime } : {}), deadline, repostOf: original._id };
     return createJob(req, res);
 }

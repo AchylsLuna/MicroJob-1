@@ -1,3 +1,6 @@
+import WorkTimePicker from '../../components/WorkTimePicker';
+import { getWorkMinutes } from '../../lib/workTime';
+import DailyWorkSchedule from '../../components/DailyWorkSchedule';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,7 +26,7 @@ import { tokens } from '../../theme/tokens';
 import TabTopNav from '../../components/TabTopNav';
 import { useToast } from '../../contexts/ToastContext';
 import { EmployerAccordion, EmployerModeBanner } from '../../components/employer/EmployerUI';
-import { getMinimumJobPay } from '../../lib/jobCompensation';
+import { getManilaDate, getMinimumJobPay } from '../../lib/jobCompensation';
 
 type Category = { _id: string; name: string };
 
@@ -53,6 +56,9 @@ type FormData = {
   addressType: 'home' | 'office' | 'place';
   address: string;
   jobType: string;
+  workDates: string[];
+  workStartTime: string;
+  workEndTime: string;
 };
 
 type ProvinceOption = { code: string; name: string };
@@ -144,9 +150,13 @@ export default function EmployerPostJob({
     addressType: 'place',
     address: '',
     jobType: 'Short-term',
+    workDates: [],
+    workStartTime: '',
+    workEndTime: '',
   });
   const [deadlineDate, setDeadlineDate] = useState<Date | null>(null);
   const [deadlineTime, setDeadlineTime] = useState<Date | null>(null);
+  const [showWorkCalendar, setShowWorkCalendar] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [isUrgent, setIsUrgent] = useState(false);
@@ -192,7 +202,8 @@ export default function EmployerPostJob({
     if (!jobToEdit) return;
     const categoryName = typeof jobToEdit.category === 'object' ? jobToEdit.category?.name : '';
     const categoryId = typeof jobToEdit.category === 'object' ? jobToEdit.category?._id : jobToEdit.category;
-    const deadline = jobToEdit.deadline ? new Date(jobToEdit.deadline) : null;
+    const lastWorkDate = jobToEdit.jobType === 'Recruiting' && jobToEdit.workDates?.length ? [...jobToEdit.workDates].sort().slice(-1)[0] : null;
+    const deadline = lastWorkDate ? new Date(`${lastWorkDate}T00:00:00`) : jobToEdit.deadline ? new Date(jobToEdit.deadline) : null;
     const locationParts = parseLocationToParts(jobToEdit.location);
     const salaryValue = String(jobToEdit.salary ?? '').replace(/[^0-9]/g, '');
     setFormData({
@@ -209,13 +220,16 @@ export default function EmployerPostJob({
       addressType: 'place',
       address: locationParts.address,
       jobType: jobToEdit.jobType || 'Short-term',
+      workDates: jobToEdit.workDates || [],
+      workStartTime: jobToEdit.workStartTime || '',
+      workEndTime: jobToEdit.workEndTime || '',
     });
     setProvinceQuery(locationParts.province);
     setCityQuery(locationParts.city);
     setBarangayQuery(locationParts.barangay);
     setCategoryQuery(categoryName || '');
     setDeadlineDate(deadline);
-    setDeadlineTime(deadline);
+    setDeadlineTime(jobToEdit.deadline ? new Date(jobToEdit.deadline) : null);
     setIsUrgent(Boolean(jobToEdit.urgent));
     setIsHighlighted(Boolean(jobToEdit.highlighted));
     setPositionsNeeded(String(jobToEdit.positionsNeeded || 1));
@@ -418,6 +432,13 @@ export default function EmployerPostJob({
         return;
       }
 
+      if (formData.jobType === 'Recruiting' && (formData.workDates.length < 2 || formData.workDates.length > 366)) {
+        setExpandedSection('hiring'); setErrorMessage(t('employerPostJob.daily.requiredDates')); setSubmitting(false); return;
+      }
+
+      if (formData.jobType === 'Recruiting' && !getWorkMinutes(formData.workStartTime, formData.workEndTime)) {
+        setExpandedSection('hiring'); setErrorMessage(t('workTime.invalid', { ns: 'common' })); setSubmitting(false); return;
+      }
       const normalizedPositions = Number(positionsNeeded);
       if (!Number.isInteger(normalizedPositions) || normalizedPositions < 1) {
         setExpandedSection('hiring');
@@ -470,6 +491,7 @@ export default function EmployerPostJob({
         salary: normalizedSalary,
         location: composedLocation,
         jobType: formData.jobType,
+        ...(formData.jobType === 'Recruiting' ? { workDates: formData.workDates, workStartTime: formData.workStartTime, workEndTime: formData.workEndTime } : {}),
         deadline: parsedDeadline.toISOString(),
         urgent: isUrgent,
         positionsNeeded: normalizedPositions,
@@ -502,6 +524,9 @@ export default function EmployerPostJob({
         addressType: 'place',
         address: '',
         jobType: 'Short-term',
+        workDates: [],
+        workStartTime: '',
+        workEndTime: '',
       });
       setDeadlineDate(null);
       setDeadlineTime(null);
@@ -519,7 +544,7 @@ export default function EmployerPostJob({
     }
   };
 
-  const workerPay = Number(formData.salary.replace(/[^0-9]/g, '') || 0) * Number(positionsNeeded || 0);
+  const workerPay = Number(formData.salary.replace(/[^0-9]/g, '') || 0) * Number(positionsNeeded || 0) * (formData.jobType === 'Recruiting' ? formData.workDates.length : 1);
   const checkoutHighlightFee = isHighlighted ? HIGHLIGHT_FEE : 0;
   const checkoutTotal = workerPay + POSTING_FEE + checkoutHighlightFee;
 
@@ -652,7 +677,7 @@ export default function EmployerPostJob({
             placeholderTextColor={tokens.colors.textSubtle}
           />
 
-          <Text style={styles.label}>Minimum Guaranteed Pay per Worker (PHP)</Text>
+          <Text style={styles.label}>{formData.jobType === 'Recruiting' ? t('employerPostJob.daily.payLabel') : 'Minimum Guaranteed Pay per Worker (PHP)'}</Text>
           <TextInput
             style={styles.input}
             value={formData.salary}
@@ -860,7 +885,10 @@ export default function EmployerPostJob({
               <TouchableOpacity
                 key={option.value}
                 style={[styles.opportunityCard, selected && styles.opportunityCardActive]}
-                onPress={() => setFormData((prev) => ({ ...prev, jobType: option.value }))}
+                onPress={() => {
+                  setFormData((prev) => ({ ...prev, jobType: option.value }));
+                  if (option.value === 'Recruiting' && formData.workDates.length) setDeadlineDate(new Date(`${[...formData.workDates].sort().slice(-1)[0]}T00:00:00`));
+                }}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: selected }}
               >
@@ -905,6 +933,18 @@ export default function EmployerPostJob({
               </Text>
             </TouchableOpacity>
           </View>
+
+          {formData.jobType === 'Recruiting' && <>
+            <WorkTimePicker start={formData.workStartTime} end={formData.workEndTime} rate={formData.salary} disabled={Boolean(jobToEdit?.hiredCount || jobToEdit?.reservedOfferCount)} onChange={(field, time) => setFormData((prev) => ({ ...prev, [field]: time }))} />
+            <Text style={styles.label}>{t('employerPostJob.daily.workDates')}</Text>
+            <TouchableOpacity accessibilityRole="button" disabled={Boolean(jobToEdit?.hiredCount || jobToEdit?.reservedOfferCount)} style={styles.deadlineButton} onPress={() => setShowWorkCalendar(true)}><Text style={styles.helperText}>{t('employerPostJob.daily.selectDates', { count: formData.workDates.length })}</Text></TouchableOpacity>
+            <Text style={styles.helperText}>{t('employerPostJob.daily.scheduleHint')}</Text>
+            <CalendarSheet open={showWorkCalendar} onClose={() => setShowWorkCalendar(false)} mode="multiple" dates={formData.workDates.map((date) => new Date(`${date}T12:00:00`))} minDate={new Date(`${getManilaDate()}T00:00:00`)} title={t('employerPostJob.daily.workDates')} onChange={(dates) => {
+              const workDates = dates.map((date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`).sort();
+              setFormData((prev) => ({ ...prev, workDates }));
+              setDeadlineDate(workDates.length ? new Date(`${workDates[workDates.length - 1]}T00:00:00`) : null);
+            }} footer={{ primaryLabel: t('employerPostJob.daily.useDates'), onPrimary: () => setShowWorkCalendar(false), primaryDisabled: formData.workDates.length < 2 || formData.workDates.length > 366 }} />
+          </>}
 
           <CalendarSheet
             open={showDatePicker}
@@ -1039,6 +1079,7 @@ export default function EmployerPostJob({
             <Text style={styles.balanceModalTitle}>{t('employerPostJob.checkout.title')}</Text>
             <Text style={styles.checkoutJobTitle}>{formData.title || t('employerPostJob.checkout.defaultJobTitle')}</Text>
             <Text style={styles.checkoutDescription} numberOfLines={4}>{formData.description}</Text>
+            {formData.jobType === 'Recruiting' && <DailyWorkSchedule dates={formData.workDates} rate={Number(formData.salary)} start={formData.workStartTime} end={formData.workEndTime} />}
             <View style={styles.checkoutRows}>
               <View style={styles.breakdownRow}><Text style={styles.breakdownLabel}>{t('employerPostJob.checkout.workerPay', { count: positionsNeeded || '1' })}</Text><Text style={styles.breakdownValue}>{`PHP ${workerPay.toFixed(2)}`}</Text></View>
               <View style={styles.breakdownRow}><Text style={styles.breakdownLabel}>{t('employerPostJob.checkout.postingFee')}</Text><Text style={styles.breakdownValue}>PHP 20.00</Text></View>

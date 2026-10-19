@@ -10,6 +10,7 @@ import JobCard from '../../components/job/JobCard';
 import type { JobCardData } from '../../components/job/jobCardModel';
 
 type SavedJob = {
+  raw?: any;
   _id: string;
   title: string;
   company: string;
@@ -86,13 +87,16 @@ export default function SavedJobs({
           </View>
         )}
         renderItem={({ item: job }) => {
+          const source = job.raw || job;
           const cardData: JobCardData = {
             id: job._id,
             title: job.title,
             posterName: job.company,
             location: job.location,
             jobType: '',
-            salaryLabel: formatMinimumPay(job.salary),
+            salaryLabel: formatMinimumPay(job.salary, undefined, source.paymentMode),
+            dailyRate: source.paymentMode === 'daily' ? Number(job.salary) : undefined,
+            workStartTime: source.workStartTime, workEndTime: source.workEndTime,
             skills: job.tags,
             urgent: false,
             highlighted: false,

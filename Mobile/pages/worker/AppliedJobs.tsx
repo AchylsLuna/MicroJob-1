@@ -1,3 +1,4 @@
+import WorkTimeSummary from '../../components/WorkTimeSummary';
 import WorkSubmission from '../../components/WorkSubmission';
 import AssignmentPanel from '../../components/AssignmentPanel';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -30,6 +31,9 @@ type AppliedJob = {
   location?: string;
   salary?: string;
   jobType?: string;
+  paymentMode?: string;
+  workStartTime?: string | null;
+  workEndTime?: string | null;
   appliedAt?: string;
   nextInterview?: {
     scheduledAt: string;
@@ -122,6 +126,8 @@ export default function AppliedJobs(props: AppliedJobsProps) {
         location: app.job?.location || '',
         salary: app.job?.salary,
         jobType: app.job?.jobType,
+        paymentMode: app.job?.paymentMode,
+        workStartTime: app.job?.workStartTime, workEndTime: app.job?.workEndTime,
         appliedAt: app.appliedDate || app.createdAt,
         nextInterview: app.nextInterview || null,
         agreedAmount: app.agreedAmount,
@@ -318,7 +324,8 @@ export default function AppliedJobs(props: AppliedJobsProps) {
 
                 <View style={styles.jobMetaRow}>
                   {job.jobType ? <Text style={styles.jobMetaPill}>{job.jobType}</Text> : null}
-                  {job.salary ? <Text style={styles.payText}>{formatMinimumPay(job.salary)}</Text> : null}
+                  {job.salary ? <Text style={styles.payText}>{formatMinimumPay(job.salary, undefined, job.paymentMode)}</Text> : null}
+                  {job.paymentMode === 'daily' && <WorkTimeSummary start={job.workStartTime} end={job.workEndTime} rate={job.salary} />}
                 </View>
                 {job.location ? (
                   <View style={styles.locationRow}>
@@ -347,7 +354,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                 ) : null}
                 <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.assignmentActions}>
                   {['Hired', 'Cancelled', 'Position filled'].includes(job.status) && <AssignmentPanel applicationId={job.id} />}
-                  {job.status === 'Hired' && ['In Progress', 'Changes Requested'].includes(job.workStatus || 'In Progress') ? (
+                  {job.status === 'Hired' && job.paymentStatus !== 'Paid' && ['In Progress', 'Changes Requested'].includes(job.workStatus || 'In Progress') ? (
                     <WorkSubmission applicationId={job.id} onChanged={() => void fetchApplications()} />
                   ) : null}
                   {job.status === 'Hired' && job.workStatus === 'Submitted' && !['Paid', 'Disputed'].includes(job.paymentStatus || '') ? (

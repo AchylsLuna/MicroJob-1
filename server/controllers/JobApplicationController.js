@@ -85,7 +85,7 @@ const populateEmployerApplicationQuery = (query) =>
   query
     .populate({
       path: 'job',
-      select: 'title description company location jobType salary status deadline category skills requirements interviewRequired cancellationPending jobPoster positionsNeeded hiredCount createdAt',
+      select: 'title description company location jobType salary paymentMode workDates workStartTime workEndTime status deadline category skills requirements interviewRequired cancellationPending jobPoster positionsNeeded hiredCount createdAt',
       populate: { path: 'category', select: 'name' },
     })
     .populate(

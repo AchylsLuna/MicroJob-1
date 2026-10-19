@@ -28,6 +28,10 @@ export type JobEdit = {
   responsibilities?: string[];
   skills?: string[];
   salary?: string;
+  paymentMode?: 'assignment' | 'daily';
+  workDates?: string[];
+  workStartTime?: string | null;
+  workEndTime?: string | null;
   location?: string;
   jobType?: string;
   deadline?: string;
@@ -80,6 +84,9 @@ export type FormState = {
   barangay: string;
   address: string;
   jobType: string;
+  workDates: string[];
+  workStartTime: string;
+  workEndTime: string;
   deadline: string;
   positionsNeeded: string;
   highlighted: boolean;
@@ -93,6 +100,7 @@ export type RequiredFieldKey =
   | "jobType"
   | "deadline"
   | "category";
+// Work dates are validated separately so the calendar gets a specific error.
 
 export const getRequiredFieldLabels = (t: TFn): Record<RequiredFieldKey, string> => ({
   title: t("postJob.requiredFields.title"),
@@ -117,6 +125,9 @@ export const createEmptyForm = (): FormState => ({
   barangay: "",
   address: "",
   jobType: "Short-term",
+  workDates: [],
+  workStartTime: '',
+  workEndTime: '',
   deadline: "",
   positionsNeeded: "1",
   highlighted: false,
@@ -223,7 +234,12 @@ export const buildFormFromJob = (job: JobEdit): FormState => {
     barangay: locationParts.barangay,
     address: locationParts.address,
     jobType: job.jobType || "Short-term",
-    deadline: job.deadline ? new Date(job.deadline).toISOString().slice(0, 10) : "",
+    workDates: job.workDates || [],
+    workStartTime: job.workStartTime || '',
+    workEndTime: job.workEndTime || '',
+    deadline: job.jobType === 'Recruiting' && job.workDates?.length
+      ? [...job.workDates].sort().slice(-1)[0]
+      : job.deadline ? new Date(job.deadline).toISOString().slice(0, 10) : "",
     positionsNeeded: job.positionsNeeded ? String(job.positionsNeeded) : "1",
     highlighted: Boolean(job.highlighted),
   };
