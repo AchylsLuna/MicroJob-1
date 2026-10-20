@@ -1,3 +1,5 @@
+import { getMinimumJobPay } from "../../lib/jobCompensation";
+
 // Shared types and pure helpers for the post-a-job form, split out of
 // PostJobWizard.tsx because Fast Refresh requires a component file to only
 // export components — everything else (types, constants, pure functions)
@@ -26,12 +28,19 @@ export type JobEdit = {
   responsibilities?: string[];
   skills?: string[];
   salary?: string;
+  paymentMode?: 'assignment' | 'daily';
+  workDates?: string[];
+  workStartTime?: string | null;
+  workEndTime?: string | null;
   location?: string;
   jobType?: string;
   deadline?: string;
+  interviewRequired?: boolean;
   urgent?: boolean;
   positionsNeeded?: number;
+  hiredCount?: number;
   status?: string;
+  highlighted?: boolean;
   createdAt?: string;
   applicants?: unknown[];
 };
@@ -44,22 +53,26 @@ export const getJobTypeOptions = (t: TFn) =>
       value: "Short-term",
       label: t("postJob.jobType.shortTerm.label"),
       description: t("postJob.jobType.shortTerm.description"),
+      examples: t("postJob.jobType.shortTerm.examples"),
     },
     {
       value: "Side hustle",
       label: t("postJob.jobType.sideHustle.label"),
       description: t("postJob.jobType.sideHustle.description"),
+      examples: t("postJob.jobType.sideHustle.examples"),
     },
     {
       value: "Recruiting",
       label: t("postJob.jobType.recruiting.label"),
       description: t("postJob.jobType.recruiting.description"),
+      examples: t("postJob.jobType.recruiting.examples"),
     },
   ] as const;
 
 export const LEGACY_JOB_TYPES = ["Fulltime", "Part-time", "Freelance", "Contract", "Remote"] as const;
 
 export type FormState = {
+  interviewRequired: boolean;
   title: string;
   category: string;
   description: string;
@@ -71,8 +84,12 @@ export type FormState = {
   barangay: string;
   address: string;
   jobType: string;
+  workDates: string[];
+  workStartTime: string;
+  workEndTime: string;
   deadline: string;
   positionsNeeded: string;
+  highlighted: boolean;
 };
 
 export type RequiredFieldKey =
@@ -83,6 +100,7 @@ export type RequiredFieldKey =
   | "jobType"
   | "deadline"
   | "category";
+// Work dates are validated separately so the calendar gets a specific error.
 
 export const getRequiredFieldLabels = (t: TFn): Record<RequiredFieldKey, string> => ({
   title: t("postJob.requiredFields.title"),
@@ -95,6 +113,7 @@ export const getRequiredFieldLabels = (t: TFn): Record<RequiredFieldKey, string>
 });
 
 export const createEmptyForm = (): FormState => ({
+  interviewRequired: false,
   title: "",
   category: "",
   description: "",
@@ -106,8 +125,12 @@ export const createEmptyForm = (): FormState => ({
   barangay: "",
   address: "",
   jobType: "Short-term",
+  workDates: [],
+  workStartTime: '',
+  workEndTime: '',
   deadline: "",
   positionsNeeded: "1",
+  highlighted: false,
 });
 
 export interface ProvinceOption {
@@ -199,6 +222,7 @@ export const buildFormFromJob = (job: JobEdit): FormState => {
   const salary = extractSalaryValue(job.salary);
   const locationParts = parseLocationToParts(job.location);
   return {
+    interviewRequired: job.interviewRequired === true,
     title: job.title || "",
     category: categoryId || "",
     description: job.description || "",
@@ -210,15 +234,21 @@ export const buildFormFromJob = (job: JobEdit): FormState => {
     barangay: locationParts.barangay,
     address: locationParts.address,
     jobType: job.jobType || "Short-term",
-    deadline: job.deadline ? new Date(job.deadline).toISOString().slice(0, 10) : "",
+    workDates: job.workDates || [],
+    workStartTime: job.workStartTime || '',
+    workEndTime: job.workEndTime || '',
+    deadline: job.jobType === 'Recruiting' && job.workDates?.length
+      ? [...job.workDates].sort().slice(-1)[0]
+      : job.deadline ? new Date(job.deadline).toISOString().slice(0, 10) : "",
     positionsNeeded: job.positionsNeeded ? String(job.positionsNeeded) : "1",
+    highlighted: Boolean(job.highlighted),
   };
 };
 
 /** Pure, per-step field check — the same required-field rules `handleSubmit`
  * enforces as a final safety net, scoped to just the step being left so
  * "Next" can gate progress without duplicating the whole-form validation. */
-export const validateStep = (step: 0 | 1 | 2, form: FormState): RequiredFieldKey[] => {
+export const validateStep = (step: 0 | 1 | 2 | 3, form: FormState): RequiredFieldKey[] => {
   const missing: RequiredFieldKey[] = [];
   if (step === 0) {
     if (!form.title.trim()) missing.push("title");
@@ -228,9 +258,9 @@ export const validateStep = (step: 0 | 1 | 2, form: FormState): RequiredFieldKey
     if (!form.province || !form.city || !form.barangay) missing.push("location");
     if (!form.jobType) missing.push("jobType");
     if (!form.deadline) missing.push("deadline");
-  } else {
+  } else if (step === 2) {
     const salaryAmount = Number(form.minimumSalary.replace(/[^0-9]/g, "") || 0);
-    if (!salaryAmount) missing.push("salary");
+    if (!Number.isFinite(salaryAmount) || salaryAmount <= 0 || salaryAmount < getMinimumJobPay(form.jobType)) missing.push("salary");
   }
   return missing;
 };

@@ -19,6 +19,9 @@ const UserSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    // Private staff password-change address; exposed only by the owner's security API.
+    secondaryEmail: { type: String, lowercase: true, trim: true, default: null, select: false },
+    secondaryEmailVerifiedAt: { type: Date, default: null, select: false },
     googleId: {
       type: String,
       unique: true,
@@ -67,9 +70,44 @@ const UserSchema = new mongoose.Schema(
     archivedConversations: [{ type: String }],
     status: {
       type: String,
-      enum: ['pending', 'active', 'disabled', 'deleted'],
+      enum: ['pending', 'active', 'disabled', 'banned', 'deleted'],
       default: 'pending',
       index: true,
+    },
+    bannedAt: {
+      type: Date,
+      default: null,
+    },
+    bannedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    banReason: {
+      type: String,
+      trim: true,
+      maxLength: 2000,
+      default: null,
+    },
+    suspiciousFlagged: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    suspiciousFlagReason: {
+      type: String,
+      trim: true,
+      maxLength: 1000,
+      default: null,
+    },
+    suspiciousFlaggedAt: {
+      type: Date,
+      default: null,
+    },
+    suspiciousFlaggedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
     },
     deletedAt: {
       type: Date,
@@ -540,23 +578,24 @@ UserSchema.methods.isLoginLocked = function isLoginLocked() {
 
 /**
  * Records one failed attempt. On reaching the threshold it applies a lock whose
- * length escalates with how many times this account has already been locked,
+ * length is fixed at three minutes,
  * and resets the attempt counter so the next lock needs a fresh run of
  * failures. Returns true when this call was the one that locked the account.
  */
 UserSchema.methods.registerFailedLogin = async function registerFailedLogin() {
-  this.failedLoginAttempts = (this.failedLoginAttempts || 0) + 1;
-
-  let lockedNow = false;
-  if (this.failedLoginAttempts >= MAX_FAILED_ATTEMPTS) {
-    this.loginLockCount = (this.loginLockCount || 0) + 1;
-    this.lockUntil = new Date(Date.now() + getLockDurationMs(this.loginLockCount));
-    this.failedLoginAttempts = 0;
-    lockedNow = true;
-  }
-
-  await this.save();
-  return lockedNow;
+  const now = new Date();
+  const count = { $add: [{ $ifNull: ['$failedLoginAttempts', 0] }, 1] };
+  const threshold = { $gte: [count, MAX_FAILED_ATTEMPTS] };
+  const updated = await this.constructor.findOneAndUpdate(
+    { _id: this._id, $or: [{ lockUntil: null }, { lockUntil: { $lte: now } }] },
+    [{ $set: {
+      failedLoginAttempts: { $cond: [threshold, 0, count] },
+      loginLockCount: { $cond: [threshold, { $add: [{ $ifNull: ['$loginLockCount', 0] }, 1] }, { $ifNull: ['$loginLockCount', 0] }] },
+      lockUntil: { $cond: [threshold, new Date(now.getTime() + getLockDurationMs()), null] },
+    } }], { updatePipeline: true, returnDocument: 'after' }
+  ).select('+failedLoginAttempts +loginLockCount +lockUntil');
+  if (updated) { this.failedLoginAttempts = updated.failedLoginAttempts; this.loginLockCount = updated.loginLockCount; this.lockUntil = updated.lockUntil; }
+  return Boolean(updated?.lockUntil);
 };
 
 /**

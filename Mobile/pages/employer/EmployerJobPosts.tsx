@@ -1,3 +1,10 @@
+import WorkTimeSummary from '../../components/WorkTimeSummary';
+import DailyWorkSchedule from '../../components/DailyWorkSchedule';
+import CompletionEvidence from '../../components/CompletionEvidence';
+import { walletRequest } from '../../lib/lifecycleApi';
+import { formatCurrency } from '../../lib/formatters';
+import PostingActions from '../../components/PostingActions';
+import { HiredWorkerChecklists } from '../../components/HireChecklist';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -36,6 +43,10 @@ type JobItem = {
   location: string;
   salary: string;
   jobType: string;
+  paymentMode?: string;
+  workDates?: string[];
+  workStartTime?: string | null;
+  workEndTime?: string | null;
   description?: string;
   requirements?: string[];
   responsibilities?: string[];
@@ -54,6 +65,7 @@ type JobItem = {
 type EmployerJobPostsProps = {
   onEditJob?: (job: JobItem) => void;
   onOpenWallet?: () => void;
+  onOpenJobHistory?: () => void;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
   headerSubtitle?: string;
@@ -70,6 +82,7 @@ type JobAction = 'complete' | 'close' | 'reopen' | 'delete';
 export default function EmployerJobPosts({
   onEditJob,
   onOpenWallet,
+  onOpenJobHistory,
   activeTab,
   onTabPress,
   headerSubtitle,
@@ -82,10 +95,12 @@ export default function EmployerJobPosts({
 }: EmployerJobPostsProps) {
   const toast = useToast();
   const { t } = useTranslation('employer');
+  const { t: tc } = useTranslation('common');
+  const [historyView, setHistoryView] = useState(false);
   const [jobs, setJobs] = useState<JobItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionJobId, setActionJobId] = useState<string | null>(null);
-  const [confirmAction, setConfirmAction] = useState<{ action: JobAction; job: JobItem } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ action: JobAction; job: JobItem; payments?: any[] } | null>(null);
   const [viewingJob, setViewingJob] = useState<JobItem | null>(null);
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
   const [balanceErrorMessage, setBalanceErrorMessage] = useState('');
@@ -136,7 +151,16 @@ export default function EmployerJobPosts({
     void fetchJobs();
   }, [fetchJobs]));
 
-  const requestAction = (job: JobItem, action: JobAction) => setConfirmAction({ job, action });
+  const requestAction = async (job: JobItem, action: JobAction) => {
+    if (action !== 'complete') { setConfirmAction({ job, action }); return; }
+    try {
+      const result = await apiRequest(`${API_URL}/applications/employer`);
+      if (!result.ok) throw new Error(result.message);
+      const unpaid = asList<any>(result.data || result.raw).filter((app) => String(app.job?._id || app.job) === job._id && ['Hired', 'Accepted'].includes(app.status) && app.paymentStatus !== 'Paid');
+      const payments = await Promise.all(unpaid.map((app) => walletRequest(`/applications/${app._id}/payment/preview`, {})));
+      setConfirmAction({ job, action, payments });
+    } catch (caught: any) { toast.error(caught.message); }
+  };
 
   const actionFailureKeys: Record<JobAction, string> = {
     complete: 'jobPosts.errors.completeFailed',
@@ -167,7 +191,7 @@ export default function EmployerJobPosts({
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         ...(isStatusChange
-          ? { body: JSON.stringify({ status: action === 'complete' ? 'Completed' : 'Closed' }) }
+          ? { body: JSON.stringify({ status: action === 'complete' ? 'Completed' : 'Closed', confirmed: action === 'complete' }) }
           : {}),
       }, actionFailureMessage);
 
@@ -240,7 +264,7 @@ export default function EmployerJobPosts({
       </Animated.View>
 
       <Animated.FlatList
-        data={jobs}
+        data={jobs.filter((job) => historyView ? !['Available', 'In Progress'].includes(String(job.status)) || Boolean((job as any).archivedAt) : ['Available', 'In Progress'].includes(String(job.status)) && !(job as any).archivedAt)}
         keyExtractor={(job) => job._id}
         contentContainerStyle={[styles.scroll, { paddingTop: headerHeight + tokens.layout.sectionGap }]}
         showsVerticalScrollIndicator={false}
@@ -252,6 +276,7 @@ export default function EmployerJobPosts({
         scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={loading && jobs.length > 0} onRefresh={() => void fetchJobs()} tintColor={tokens.colors.brand} />}
         ListHeaderComponent={<>
+        <View style={{ flexDirection: 'row', gap: 14, padding: 12 }}><TouchableOpacity accessibilityRole="button" accessibilityState={{ selected: !historyView }} onPress={() => setHistoryView(false)}><Text>{tc('lifecycle.active')}</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityState={{ selected: historyView }} onPress={() => setHistoryView(true)}><Text>{tc('lifecycle.jobHistory')}</Text></TouchableOpacity></View>
         <EmployerModeBanner title={t('jobPosts.banner.title')} detail={t('jobPosts.banner.detail')} />
         <View style={styles.statGrid}>
           <StatTile label={t('jobPosts.metrics.activeJobs')} value={activeJobs} />
@@ -283,6 +308,7 @@ export default function EmployerJobPosts({
           <EmployerAction icon="people-outline" label={t('jobPosts.actions.reviewApplicants')} onPress={onOpenApplications} disabled={!onOpenApplications} />
           <EmployerAction icon="chatbubbles-outline" label={t('jobPosts.actions.messages')} onPress={onOpenMessages} disabled={!onOpenMessages} />
           <EmployerAction icon="wallet-outline" label={t('jobPosts.actions.employerWallet')} onPress={onOpenWallet} disabled={!onOpenWallet} />
+          <EmployerAction icon="time-outline" label={t('jobHistory.title')} onPress={onOpenJobHistory} disabled={!onOpenJobHistory} />
         </View>
         <View style={styles.sectionHeadingRow}><Text style={styles.operationsTitle}>{t('jobPosts.openings.title')}</Text><Text style={styles.sectionCount}>{jobs.length}</Text></View>
 
@@ -307,8 +333,8 @@ export default function EmployerJobPosts({
           return (
           <View style={styles.jobCard}>
             <View style={styles.jobHeader}>
-              <View>
-                <Text style={styles.jobTitle}>{job.title}</Text>
+              <View style={styles.jobHeaderCopy}>
+                <Text style={styles.jobTitle} numberOfLines={2} ellipsizeMode="tail">{job.title}</Text>
                 <Text style={styles.jobLocation}>{job.location}</Text>
                 {job.category?.name ? (
                   <Text style={styles.categoryTag}>{job.category.name}</Text>
@@ -328,8 +354,9 @@ export default function EmployerJobPosts({
 
             <View style={styles.metaRow}>
               <Text style={styles.jobType}>{job.jobType}</Text>
-              <Text style={styles.salary}>{formatMinimumPay(job.salary)}</Text>
+              <Text style={styles.salary}>{formatMinimumPay(job.salary, undefined, job.paymentMode)}</Text>
             </View>
+            {job.paymentMode === 'daily' && <WorkTimeSummary start={job.workStartTime} end={job.workEndTime} rate={job.salary} />}
 
             <View style={styles.footerRow}>
               <Text style={styles.appliedText}>
@@ -358,6 +385,7 @@ export default function EmployerJobPosts({
                 </TouchableOpacity>
             </View>
             {expandedJobId === job._id ? <View style={styles.footerActions}>
+                <PostingActions job={job} onChanged={() => void fetchJobs()} />
                 {status === 'Available' ? (
                   <TouchableOpacity
                     style={styles.closeButton}
@@ -367,7 +395,7 @@ export default function EmployerJobPosts({
                     <Text style={styles.closeButtonText}>{t('jobPosts.card.close')}</Text>
                   </TouchableOpacity>
                 ) : null}
-                {['Closed', 'Completed', 'Cancelled'].includes(status) ? (
+                {status === 'Closed' && !(job as any).cancellationPending ? (
                   <TouchableOpacity
                     style={styles.reopenButton}
                     disabled={actionJobId === job._id}
@@ -420,6 +448,7 @@ export default function EmployerJobPosts({
             <Text style={styles.modalTitle}>{actionCopy?.title}</Text>
             <Text style={styles.modalText}>{actionCopy?.question}</Text>
             <Text style={styles.modalInfo}>{actionCopy?.detail}</Text>
+            {confirmAction?.payments && <ScrollView style={{ maxHeight: 320 }}>{confirmAction.payments.map((payment) => <View key={payment.application._id}><Text style={styles.modalText}>{payment.recipient.name}: {formatCurrency(payment.amount)}</Text><CompletionEvidence items={payment.application.completionEvidence} /></View>)}</ScrollView>}
 
             <View style={styles.modalActions}>
               <TouchableOpacity
@@ -464,7 +493,7 @@ export default function EmployerJobPosts({
                 {viewingJob?.urgent ? <Text style={[styles.detailTag, styles.urgentDetailTag]}>{t('jobPosts.badges.urgent')}</Text> : null}
               </View>
               <DetailRow icon="location-outline" label={t('jobPosts.details.labels.location')} value={viewingJob?.location} />
-              <DetailRow icon="cash-outline" label={t('jobPosts.details.labels.minimumPay')} value={formatMinimumPay(viewingJob?.salary || '')} />
+              <DetailRow icon="cash-outline" label={t('jobPosts.details.labels.minimumPay')} value={formatMinimumPay(viewingJob?.salary || '', undefined, viewingJob?.paymentMode)} />
               <DetailRow icon="people-outline" label={t('jobPosts.details.labels.workers')} value={t('jobPosts.details.hiredOfNeeded', { hired: viewingJob?.hiredCount || 0, needed: viewingJob?.positionsNeeded || 1 })} />
               <DetailRow icon="folder-outline" label={t('jobPosts.details.labels.category')} value={viewingJob?.category?.name || t('jobPosts.details.notSpecified')} />
               <DetailRow
@@ -476,6 +505,8 @@ export default function EmployerJobPosts({
               <DetailSection title={t('jobPosts.details.sections.requirements')} values={viewingJob?.requirements} />
               <DetailSection title={t('jobPosts.details.sections.responsibilities')} values={viewingJob?.responsibilities} />
               <DetailSection title={t('jobPosts.details.sections.skills')} values={viewingJob?.skills} />
+              {viewingJob?.paymentMode === 'daily' && <DailyWorkSchedule dates={viewingJob.workDates || []} rate={Number(viewingJob.salary)} start={viewingJob.workStartTime} end={viewingJob.workEndTime} />}
+              {viewingJob && <HiredWorkerChecklists key={viewingJob._id} jobId={viewingJob._id} />}
             </ScrollView>
             <View style={styles.detailsActions}>
               <TouchableOpacity style={styles.detailsSecondaryButton} onPress={() => setViewingJob(null)}>
@@ -590,8 +621,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    gap: 10,
   },
-  statusColumn: { alignItems: 'flex-end', gap: 6 },
+  jobHeaderCopy: { flex: 1, minWidth: 0 },
+  statusColumn: { flexShrink: 0, alignItems: 'flex-end', gap: 6 },
   jobTitle: { fontSize: 16, fontWeight: '700', color: tokens.colors.brandDark },
   jobLocation: { fontSize: 13, color: tokens.colors.textMuted, marginTop: 4 },
   categoryTag: {
@@ -613,10 +646,12 @@ const styles = StyleSheet.create({
   },
   urgentText: { color: '#b91c1c', fontSize: 11, fontWeight: '700' },
   statusTag: {
+    minWidth: 88,
     backgroundColor: '#dcfce7',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
+    alignItems: 'center',
   },
   statusText: { color: '#15803d', fontSize: 11, fontWeight: '700' },
   metaRow: {

@@ -17,9 +17,10 @@ import About from '../pages/worker/About';
 import DeleteAccount from '../pages/worker/DeleteAccount';
 import ChangePassword from '../pages/worker/ChangePassword';
 import ContactSupport from '../pages/worker/ContactSupport';
+import FinancialDisputes from '../pages/shared/FinancialDisputes';
 import { useAppSession } from '../contexts/AppSessionContext';
 import { useToast } from '../contexts/ToastContext';
-import { resolveNotificationDestination } from '../lib/notifications';
+import { resolveNotificationDestination, getNotificationAssignmentId } from '../lib/notifications';
 import { useWorkerTabNavigation } from './useTabNavigation';
 import { hiddenTabs, stackMotion } from './options';
 
@@ -181,10 +182,13 @@ function WorkerSavedJobsScreen() {
 
 function WorkerAppliedJobsScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const session = useAppSession();
   const workerTabPress = useWorkerTabNavigation();
   return (
     <AppliedJobs
+      requestedApplicationId={route.params?.applicationId}
+      onAssignmentClosed={() => navigation.setParams({ applicationId: undefined })}
       activeTab="Jobs"
       onTabPress={workerTabPress}
       onViewDetails={(job) => navigation.navigate('WorkerJobDetails', { job })}
@@ -205,7 +209,7 @@ function WorkerNotificationsScreen() {
   const workerTabPress = useWorkerTabNavigation();
   const openNotification = (item) => {
     const destination = resolveNotificationDestination(item);
-    if (destination === 'applications') navigation.navigate('WorkerAppliedJobs');
+    if (destination === 'applications') navigation.navigate('WorkerAppliedJobs', { applicationId: getNotificationAssignmentId(item) });
     else if (destination === 'messages') {
       session.setInitialWorkerChatTarget(item.actorId ? { id: item.actorId, name: item.actorName || undefined } : null);
       workerTabPress('Messages');
@@ -213,6 +217,7 @@ function WorkerNotificationsScreen() {
     else if (destination === 'wallet') workerTabPress('EWallet');
     else if (destination === 'support') navigation.navigate('WorkerSupport');
     else if (destination === 'settings') navigation.navigate('WorkerSettings');
+    else if (destination === 'disputes') navigation.navigate('WorkerFinancialDisputes');
   };
   return (
     <NotificationsInbox
@@ -244,6 +249,7 @@ function WorkerSettingsScreen() {
       onNavigateAbout={() => navigation.navigate('WorkerAbout')}
       onNavigateDeleteAccount={() => navigation.navigate('WorkerDeleteAccount')}
       onNavigateSupport={() => navigation.navigate('WorkerSupport')}
+      onNavigateFinancialDisputes={() => navigation.navigate('WorkerFinancialDisputes')}
       currentRole="worker"
       canSwitchAccountMode={session.canSwitchAccountMode}
       onSwitchAccountMode={session.switchViewMode}
@@ -313,8 +319,14 @@ function WorkerStackNavigator() {
       <WorkerStack.Screen name="WorkerDeleteAccount" component={WorkerDeleteAccountScreen} />
       <WorkerStack.Screen name="WorkerChangePassword" component={WorkerChangePasswordScreen} />
       <WorkerStack.Screen name="WorkerSupport" component={WorkerSupportScreen} />
+      <WorkerStack.Screen name="WorkerFinancialDisputes" component={WorkerFinancialDisputesScreen} />
     </WorkerStack.Navigator>
   );
+}
+
+function WorkerFinancialDisputesScreen() {
+  const navigation = useNavigation();
+  return <FinancialDisputes onBack={() => navigation.goBack()} />;
 }
 
 export default WorkerStackNavigator;

@@ -3,9 +3,9 @@ import { getCategoryVisual } from "../../lib/categoryVisuals";
 type Size = "sm" | "md" | "lg";
 
 const DIMENSIONS: Record<Size, { box: number; icon: number; radius: string }> = {
-  sm: { box: 44, icon: 18, radius: "rounded-[14px]" },
-  md: { box: 56, icon: 22, radius: "rounded-[14px]" },
-  lg: { box: 96, icon: 26, radius: "rounded-2xl" },
+  sm: { box: 44, icon: 18, radius: "rounded-card" },
+  md: { box: 56, icon: 22, radius: "rounded-card" },
+  lg: { box: 96, icon: 26, radius: "rounded-card" },
 };
 
 type Props = {
@@ -38,7 +38,7 @@ export function CategoryTile({ category, size = "md", showLabel = false, count, 
       {showLabel ? (
         <div className="flex flex-col items-center gap-0.5 text-center">
           {typeof count === "number" ? <span className="text-[18px] font-extrabold text-[#0F2954]">{count}</span> : null}
-          {name ? <span className="text-[12px] font-semibold leading-tight text-[#475569] line-clamp-2">{name}</span> : null}
+          {name ? <span className="text-caption font-semibold leading-tight text-[#475569] line-clamp-2">{name}</span> : null}
         </div>
       ) : null}
     </div>

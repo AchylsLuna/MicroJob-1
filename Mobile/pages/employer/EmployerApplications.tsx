@@ -1,3 +1,9 @@
+import DailyWorkSchedule from '../../components/DailyWorkSchedule';
+import OfferResponseDeadline from '../../components/OfferResponseDeadline';
+import OfferDecisionModal from '../../components/OfferDecisionModal';
+import { walletRequest } from '../../lib/lifecycleApi';
+import AssignmentPanel from '../../components/AssignmentPanel';
+import { HireChecklistDialog } from '../../components/HireChecklist';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -9,6 +15,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  Switch,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -31,8 +38,13 @@ import {
 } from "../../lib/status";
 import { useToast } from "../../contexts/ToastContext";
 import { EmployerModeBanner } from "../../components/employer/EmployerUI";
+import RatingModal, { type MobileRatingTarget } from '../../components/reviews/RatingModal';
 
 type JobItem = {
+  paymentMode?: 'assignment' | 'daily';
+  workDates?: string[];
+  workStartTime?: string | null;
+  workEndTime?: string | null;
   _id: string;
   title: string;
   location?: string;
@@ -48,7 +60,8 @@ type JobItem = {
 type Offer = {
   id: string;
   amount: number;
-  status: "pending" | "accepted" | "rejected" | "cancelled" | "hired";
+  status: "pending" | "accepted" | "rejected" | "cancelled" | "hired" | "expired";
+  expiresAt?: string | null;
   createdAt?: string;
   acceptedAt?: string;
 } | null;
@@ -75,6 +88,7 @@ type ApplicationItem = {
   } | null;
   agreedAmount?: number;
   workStatus?: string;
+  workSubmittedAt?: string;
   paymentStatus?: string;
   offer?: Offer;
   employerHidden?: boolean;
@@ -158,7 +172,15 @@ export default function EmployerApplications({
   onMessageWorker,
   onOpenNotifications,
   notificationBadgeCount = 0,
+  historyJobId,
+  historyDetails,
+  onBack,
+  onHistoryChange,
 }: {
+  historyJobId?: string;
+  historyDetails?: React.ReactNode;
+  onBack?: () => void;
+  onHistoryChange?: () => void;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
   onMessageWorker?: (payload: {
@@ -171,11 +193,16 @@ export default function EmployerApplications({
 }) {
   const toast = useToast();
   const { t } = useTranslation('employer');
+  const { t: tc } = useTranslation('common');
   const [jobs, setJobs] = useState<JobItem[]>([]);
+  const [cancelOfferId, setCancelOfferId] = useState<string | null>(null);
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(historyJobId || null);
+  const [includeHidden, setIncludeHidden] = useState(Boolean(historyJobId));
+  const [ratingTarget, setRatingTarget] = useState<MobileRatingTarget | null>(null);
+  const [reviewEligibility, setReviewEligibility] = useState<Record<string, any>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [stage, setStage] = useState<Stage>("New");
+  const [stage, setStage] = useState<Stage>(historyJobId ? "Hired" : "New");
   const [search, setSearch] = useState("");
   const [jobSearch, setJobSearch] = useState("");
   const [jobStatus, setJobStatus] = useState("All");
@@ -191,6 +218,9 @@ export default function EmployerApplications({
   const [changeReasons, setChangeReasons] = useState<Record<string, string>>(
     {},
   );
+  const [paymentDisputeTarget, setPaymentDisputeTarget] = useState<ApplicationItem | null>(null);
+  const [paymentDisputeReason, setPaymentDisputeReason] = useState('');
+  const [hireTarget, setHireTarget] = useState<ApplicationItem | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(
     null,
   );
@@ -214,17 +244,18 @@ export default function EmployerApplications({
     try {
       const token = await AsyncStorage.getItem("auth_token");
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
-      const [jobsResult, applicationsResult] = await Promise.all([
+      const [jobsResult, applicationsResult, eligibilityResult] = await Promise.all([
         apiRequest(
-          `${API_URL}/jobs/mine`,
+          `${API_URL}/jobs/history`,
           { headers },
           t('employerApplications.errors.loadJobsFailed'),
         ),
         apiRequest(
-          `${API_URL}/applications/employer?includeHidden=true`,
+          `${API_URL}/applications/employer?includeHidden=${includeHidden}${historyJobId ? `&jobId=${encodeURIComponent(historyJobId)}` : ''}`,
           { headers },
           t('employerApplications.errors.loadCandidatesFailed'),
         ),
+        apiRequest(`${API_URL}/reviews/eligible`, { headers }),
       ]);
       if (!jobsResult.ok || !applicationsResult.ok)
         throw new Error(
@@ -245,13 +276,15 @@ export default function EmployerApplications({
           status: normalizeApplicationStatus(item.status),
         })),
       );
+      const eligibility: any = eligibilityResult.data || eligibilityResult.raw;
+      setReviewEligibility(Object.fromEntries((eligibilityResult.ok && Array.isArray(eligibility?.asEmployer) ? eligibility.asEmployer : []).map((item: any) => [item.applicationId, item])));
     } catch (caught: any) {
       setError(caught?.message || t('employerApplications.errors.checkConnection'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [t]);
+  }, [t, includeHidden, historyJobId]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -260,6 +293,7 @@ export default function EmployerApplications({
     const subscription = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
+        if (historyJobId) { onBack?.(); return true; }
         setSelectedJobId(null);
         setExpandedId(null);
         setSearch("");
@@ -267,7 +301,7 @@ export default function EmployerApplications({
       },
     );
     return () => subscription.remove();
-  }, [selectedJobId]);
+  }, [selectedJobId, historyJobId, onBack]);
 
   const categories = useMemo(
     () =>
@@ -359,12 +393,13 @@ export default function EmployerApplications({
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          ...(body ? { body: JSON.stringify(body) } : {}),
+          body: JSON.stringify({ ...body, ...(path.includes('/payment/authorize') || path.includes('/payment/settle') ? { confirmed: true } : {}) }),
         },
         t('employerApplications.errors.actionFailed'),
       );
       if (!result.ok) throw new Error(result.message);
       await load(true);
+      onHistoryChange?.();
       return true;
     } catch (caught: any) {
       toast.error(caught?.message || t('employerApplications.errors.actionFailed'));
@@ -372,6 +407,20 @@ export default function EmployerApplications({
     } finally {
       setBusyId(null);
     }
+  };
+  const reviewPayment = async (item: ApplicationItem, action: 'authorize' | 'settle') => {
+    try {
+      const preview = await walletRequest(`/applications/${item._id}/payment/preview`, {});
+      setConfirmAction({
+        title: t('employerApplications.confirm.pay.title'),
+        question: t('employerApplications.confirm.pay.question', { amount: formatCurrency(preview.amount), name: nameOf(t, item) }),
+        detail: `${preview.jobTitle}. ${t('employerApplications.confirm.pay.detail')} ${tc('lifecycle.releaseAmount', { amount: formatCurrency(preview.amount) })}`,
+        label: t('employerApplications.confirm.pay.label'),
+        run: async () => { if (await request(item._id, `applications/${item._id}/payment/${action}`, action === 'settle' ? { submittedAt: item.workSubmittedAt } : undefined)) {
+          if (action === 'settle') toast.success(t('employerApplications.toast.workerPaid'));
+        } },
+      });
+    } catch (caught: any) { toast.error(caught?.message || t('employerApplications.errors.actionFailed')); }
   };
   const changeStatus = async (item: ApplicationItem, status: string) => {
     setBusyId(item._id);
@@ -479,6 +528,7 @@ export default function EmployerApplications({
             <TouchableOpacity
               style={styles.backRow}
               onPress={() => {
+                if (historyJobId) { onBack?.(); return; }
                 setSelectedJobId(null);
                 setExpandedId(null);
                 setSearch("");
@@ -490,8 +540,9 @@ export default function EmployerApplications({
                 size={18}
                 color={tokens.colors.brand}
               />
-              <Text style={styles.backText}>{t('employerApplications.backToJobs')}</Text>
+              <Text style={styles.backText}>{historyJobId ? t('jobHistory.title') : t('employerApplications.backToJobs')}</Text>
             </TouchableOpacity>
+            {historyDetails}
             <View style={styles.selectedJobCard}>
               <Text style={styles.eyebrow}>{t('employerApplications.selectedJobEyebrow')}</Text>
               <Text style={styles.selectedTitle}>{selectedJob.title}</Text>
@@ -521,6 +572,7 @@ export default function EmployerApplications({
                 />
               </View>
             </View>
+            <View style={styles.metaLine}><Switch value={includeHidden} onValueChange={setIncludeHidden} accessibilityLabel={t('jobHistory.showHidden')} /><Text style={styles.metaText}>{t('jobHistory.showHidden')}</Text></View>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -587,6 +639,10 @@ export default function EmployerApplications({
             ) : (
               visibleCandidates.map((item) => (
                 <CandidateCard
+                  history={Boolean(historyJobId)}
+                  reviewEligibility={reviewEligibility[item._id]}
+                  onChanged={() => { void load(true); onHistoryChange?.(); }}
+                  onRate={() => setRatingTarget({ applicationId: item._id, name: nameOf(t, item), jobTitle: item.job.title, roleLabel: 'worker' })}
                   key={item._id}
                   item={item}
                   expanded={expandedId === item._id}
@@ -683,7 +739,7 @@ export default function EmployerApplications({
                       question: t('employerApplications.confirm.offer.question', { name: nameOf(t, item), amount: formatCurrency(amount) }),
                       detail: t('employerApplications.confirm.offer.detail', {
                         minimum: formatCurrency(item.job.salary),
-                        escrow: formatCurrency(Math.max(0, amount - Number(item.job.salary || 0))),
+                        escrow: formatCurrency(Math.max(0, amount - Number(item.job.salary || 0)) * (item.job.paymentMode === 'daily' ? item.job.workDates?.length || 1 : 1)),
                       }),
                       label: t('employerApplications.confirm.offer.label'),
                       run: async () => {
@@ -698,63 +754,10 @@ export default function EmployerApplications({
                       },
                     });
                   }}
-                  onCancelOffer={() =>
-                    setConfirmAction({
-                      title: t('employerApplications.confirm.cancelOffer.title'),
-                      question: t('employerApplications.confirm.cancelOffer.question', { amount: formatCurrency(item.offer?.amount) }),
-                      detail: t('employerApplications.confirm.cancelOffer.detail'),
-                      label: t('employerApplications.confirm.cancelOffer.label'),
-                      destructive: true,
-                      run: async () => {
-                        if (item.offer)
-                          await request(
-                            item._id,
-                            `job-offers/${item.offer.id}/cancel`,
-                          );
-                      },
-                    })
-                  }
-                  onConfirmHire={() =>
-                    setConfirmAction({
-                      title: t('employerApplications.confirm.confirmHire.title'),
-                      question: t('employerApplications.confirm.confirmHire.question', { name: nameOf(t, item), amount: formatCurrency(item.offer?.amount) }),
-                      detail: t('employerApplications.confirm.confirmHire.detail'),
-                      label: t('employerApplications.confirm.confirmHire.label'),
-                      run: async () => {
-                        if (
-                          item.offer &&
-                          (await request(
-                            item._id,
-                            `job-offers/${item.offer.id}/confirm-hire`,
-                          ))
-                        )
-                          toast.success(t('employerApplications.toast.workerHired'));
-                      },
-                    })
-                  }
-                  onAuthorize={() =>
-                    void request(
-                      item._id,
-                      `applications/${item._id}/payment/authorize`,
-                    )
-                  }
-                  onPay={() =>
-                    setConfirmAction({
-                      title: t('employerApplications.confirm.pay.title'),
-                      question: t('employerApplications.confirm.pay.question', { amount: formatCurrency(item.agreedAmount || item.job.salary), name: nameOf(t, item) }),
-                      detail: t('employerApplications.confirm.pay.detail'),
-                      label: t('employerApplications.confirm.pay.label'),
-                      run: async () => {
-                        if (
-                          await request(
-                            item._id,
-                            `applications/${item._id}/payment/settle`,
-                          )
-                        )
-                          toast.success(t('employerApplications.toast.workerPaid'));
-                      },
-                    })
-                  }
+                  onCancelOffer={() => { if (item.offer) setCancelOfferId(item.offer.id); }}
+                  onConfirmHire={() => { if (item.offer) setHireTarget(item); }}
+                  onAuthorize={() => void reviewPayment(item, 'authorize')}
+                  onPay={() => void reviewPayment(item, 'settle')}
                   onRequestChanges={() =>
                     void request(
                       item._id,
@@ -762,6 +765,10 @@ export default function EmployerApplications({
                       { reason: changeReasons[item._id] },
                     )
                   }
+                  onOpenDispute={() => {
+                    setPaymentDisputeTarget(item);
+                    setPaymentDisputeReason('');
+                  }}
                 />
               ))
             )}
@@ -871,6 +878,11 @@ export default function EmployerApplications({
         )}
       </ScrollView>
       <EmployerNavigation activeTab={activeTab} onTabPress={onTabPress} />
+      {ratingTarget && <RatingModal key={ratingTarget.applicationId} target={ratingTarget} onClose={() => setRatingTarget(null)} onSubmitted={async () => { await load(true); onHistoryChange?.(); }} />}
+      <OfferDecisionModal offerId={cancelOfferId} action="cancel" onClose={() => setCancelOfferId(null)} onDone={() => void load(true)} />
+      {hireTarget?.offer && <HireChecklistDialog key={hireTarget.offer.id} title={t('employerApplications.confirm.confirmHire.title')} description={t('employerApplications.confirm.confirmHire.question', { name: nameOf(t, hireTarget), amount: formatCurrency(hireTarget.offer.amount) })} warning={t('employerApplications.confirm.confirmHire.detail')} onClose={() => setHireTarget(null)} onConfirm={async (checklist) => {
+        await walletRequest(`/job-offers/${hireTarget.offer!.id}/confirm-hire`, { checklist }); toast.success(t('employerApplications.toast.workerHired')); await load(true);
+      }} />}
       <ConfirmModal
         visible={Boolean(confirmAction)}
         title={confirmAction?.title || ""}
@@ -941,6 +953,27 @@ export default function EmployerApplications({
         }}
         footer={{ primaryLabel: t('employerApplications.interviewModal.calendarSetDate'), onPrimary: () => setDatePicker(false) }}
       />
+      <PaymentDisputeModal
+        item={paymentDisputeTarget}
+        reason={paymentDisputeReason}
+        busy={Boolean(busyId)}
+        onReasonChange={setPaymentDisputeReason}
+        onClose={() => setPaymentDisputeTarget(null)}
+        onSubmit={async () => {
+          if (!paymentDisputeTarget || !paymentDisputeReason.trim()) return;
+          const target = paymentDisputeTarget;
+          const opened = await request(
+            target._id,
+            `applications/${target._id}/payment/disputes`,
+            { reason: paymentDisputeReason.trim() },
+          );
+          if (opened) {
+            setPaymentDisputeTarget(null);
+            setPaymentDisputeReason('');
+            toast.success(t('employerApplications.disputeDialog.opened'));
+          }
+        }}
+      />
       {timePicker ? (
         <DateTimePicker
           value={interviewAt}
@@ -967,6 +1000,9 @@ export default function EmployerApplications({
 
 function CandidateCard(props: any) {
   const { t } = useTranslation('employer');
+  const { t: tc } = useTranslation('common');
+  const [completedInterviews, setCompletedInterviews] = useState<string[]>([]);
+  const [interviewError, setInterviewError] = useState('');
   const { item, expanded, busy } = props;
   const offer = item.offer as Offer;
   const offerActive = offer && ["pending", "accepted"].includes(offer.status);
@@ -975,6 +1011,10 @@ function CandidateCard(props: any) {
     Number.isFinite(offerAmount) && offerAmount >= Number(item.job.salary || 0);
   return (
     <View style={[styles.candidateCard, expanded && styles.candidateExpanded]}>
+      <OfferResponseDeadline offer={offer} />
+      {interviewError ? <Text accessibilityRole="alert" style={{ color: tokens.colors.danger }}>{interviewError}</Text> : null}
+      {(item.interviews || []).filter((interview: any) => interview.status !== 'completed' && !completedInterviews.includes(interview._id) && new Date(interview.scheduledAt).getTime() <= Date.now() && !['Hired', 'Cancelled', 'Position filled', 'Withdrawn', 'Rejected'].includes(item.status)).map((interview: any) => <TouchableOpacity key={interview._id} style={{ padding: 12 }} accessibilityRole="button" onPress={async () => { try { await walletRequest(`/applications/${item._id}/interviews/${interview._id}`, { status: 'completed' }, 'PATCH'); setCompletedInterviews((old) => [...old, interview._id]); } catch (e: any) { setInterviewError(e.message); } }}><Text style={{ color: tokens.colors.brand }}>{tc('lifecycle.completeInterview')}</Text></TouchableOpacity>)}
+      {['Hired', 'Cancelled'].includes(item.status) && <AssignmentPanel applicationId={item._id} employer onChanged={props.onChanged} />}
       <TouchableOpacity
         style={styles.candidateTap}
         onPress={props.onToggle}
@@ -1029,6 +1069,7 @@ function CandidateCard(props: any) {
       </TouchableOpacity>
       {expanded ? (
         <View style={styles.expandedBody}>
+          {item.job.paymentMode === 'daily' && <DailyWorkSchedule dates={item.job.workDates || []} rate={Number(item.job.salary)} start={item.job.workStartTime} end={item.job.workEndTime} />}
           <View style={styles.actionGrid}>
             <Action
               icon="person-outline"
@@ -1040,7 +1081,7 @@ function CandidateCard(props: any) {
               label={t('employerApplications.actions.message')}
               onPress={props.onMessage}
             />
-            {!["Hired", "Rejected", "Withdrawn"].includes(item.status) ? (
+            {!["Hired", "Rejected", "Withdrawn", "Cancelled", "Position filled"].includes(item.status) ? (
               <Action
                 icon="calendar-outline"
                 label={item.nextInterview ? t('employerApplications.actions.reschedule') : t('employerApplications.actions.interview')}
@@ -1073,7 +1114,7 @@ function CandidateCard(props: any) {
               </View>
             </View>
           ) : null}
-          {!["Hired", "Rejected", "Withdrawn"].includes(item.status) &&
+          {!["Hired", "Rejected", "Withdrawn", "Cancelled", "Position filled"].includes(item.status) &&
           !offerActive ? (
             <View style={styles.offerPanel}>
               <Text style={styles.panelTitle}>{t('employerApplications.offerPanel.title')}</Text>
@@ -1102,7 +1143,7 @@ function CandidateCard(props: any) {
               </View>
               {offerAmount > Number(item.job.salary || 0) ? (
                 <Text style={styles.escrowText}>
-                  {t('employerApplications.offerPanel.additionalEscrow', { amount: formatCurrency(offerAmount - Number(item.job.salary || 0)) })}
+                  {t('employerApplications.offerPanel.additionalEscrow', { amount: formatCurrency((offerAmount - Number(item.job.salary || 0)) * (item.job.paymentMode === 'daily' ? item.job.workDates?.length || 1 : 1)) })}
                 </Text>
               ) : null}
             </View>
@@ -1115,7 +1156,7 @@ function CandidateCard(props: any) {
                   : t('employerApplications.offerActive.awaiting')}
               </Text>
               <Text style={styles.panelHelp}>
-                {t('employerApplications.offerActive.escrowBacked', { amount: formatCurrency(offer?.amount) })}
+                {t('employerApplications.offerActive.escrowBacked', { amount: formatCurrency(Number(offer?.amount || 0) * (item.job.paymentMode === 'daily' ? item.job.workDates?.length || 1 : 1)) })}
               </Text>
               <View style={styles.twoActions}>
                 {offer?.status === "accepted" ? (
@@ -1147,7 +1188,7 @@ function CandidateCard(props: any) {
                   paymentStatus: item.paymentStatus || t('employerApplications.hiredPanel.paymentStatusDefault'),
                 })}
               </Text>
-              {!["Authorized", "Paid"].includes(
+              {item.job.paymentMode !== 'daily' && !["Authorized", "Paid", "Disputed"].includes(
                 item.paymentStatus || "Secured",
               ) ? (
                 <TouchableOpacity
@@ -1161,7 +1202,7 @@ function CandidateCard(props: any) {
                 </TouchableOpacity>
               ) : null}
               {item.workStatus === "Submitted" &&
-              item.paymentStatus !== "Paid" ? (
+              !["Paid", "Disputed"].includes(item.paymentStatus || "") ? (
                 <TouchableOpacity
                   style={styles.primaryButton}
                   disabled={busy}
@@ -1171,7 +1212,7 @@ function CandidateCard(props: any) {
                 </TouchableOpacity>
               ) : null}
               {item.workStatus === "Submitted" &&
-              item.paymentStatus !== "Paid" ? (
+              !["Paid", "Disputed"].includes(item.paymentStatus || "") ? (
                 <View style={styles.inputAction}>
                   <TextInput
                     style={styles.compactInput}
@@ -1194,9 +1235,17 @@ function CandidateCard(props: any) {
                   </TouchableOpacity>
                 </View>
               ) : null}
+              {item.workStatus === "Submitted" && item.paymentStatus === "Disputed" ? (
+                <Text style={styles.disputeHoldText}>{t('employerApplications.hiredPanel.paymentOnHold')}</Text>
+              ) : null}
+              {item.workStatus === "Submitted" && !["Paid", "Disputed"].includes(item.paymentStatus || "") ? (
+                <TouchableOpacity style={styles.dangerOutline} disabled={busy} onPress={props.onOpenDispute}>
+                  <Text style={styles.dangerText}>{t('employerApplications.hiredPanel.openDispute')}</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           ) : null}
-          {!["Hired", "Rejected", "Withdrawn"].includes(item.status) ? (
+          {!["Hired", "Rejected", "Withdrawn", "Cancelled", "Position filled"].includes(item.status) ? (
             <TouchableOpacity
               style={styles.rejectButton}
               disabled={busy}
@@ -1227,6 +1276,7 @@ function CandidateCard(props: any) {
               <Text style={styles.removeText}>{t('employerApplications.removeFromList')}</Text>
             </TouchableOpacity>
           )}
+          {props.reviewEligibility?.canReview ? <TouchableOpacity accessibilityRole="button" style={styles.primaryButton} disabled={busy} onPress={props.onRate}><Text style={styles.primaryButtonText}>{t('jobHistory.rateWorker')}</Text></TouchableOpacity> : props.reviewEligibility?.existingReview ? <Text style={styles.panelHelp}>{t('jobHistory.reviewSubmitted')}</Text> : props.history ? <Text style={styles.panelHelp}>{t('jobHistory.ratingAfterCompletion')}</Text> : null}
           {busy ? (
             <ActivityIndicator
               style={styles.busy}
@@ -1578,6 +1628,60 @@ function InterviewModal({
               <Text style={styles.primaryButtonText}>{t('employerApplications.interviewModal.saveButton')}</Text>
             )}
           </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function PaymentDisputeModal({
+  item,
+  reason,
+  busy,
+  onReasonChange,
+  onClose,
+  onSubmit,
+}: {
+  item: ApplicationItem | null;
+  reason: string;
+  busy: boolean;
+  onReasonChange: (value: string) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  const { t } = useTranslation('employer');
+  return (
+    <Modal visible={Boolean(item)} transparent animationType="fade" onRequestClose={() => { if (!busy) onClose(); }}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.disputeModalCard}>
+          <Text style={styles.panelTitle}>{t('employerApplications.disputeDialog.title')}</Text>
+          <Text style={styles.panelHelp}>
+            {t('employerApplications.disputeDialog.description', { subject: item?.job.title || '' })}
+          </Text>
+          <Text style={styles.fieldLabel}>{t('employerApplications.disputeDialog.reasonLabel')}</Text>
+          <TextInput
+            style={styles.disputeInput}
+            value={reason}
+            onChangeText={onReasonChange}
+            placeholder={t('employerApplications.disputeDialog.reasonPlaceholder')}
+            placeholderTextColor={tokens.colors.textSubtle}
+            multiline
+            maxLength={2000}
+            textAlignVertical="top"
+          />
+          <Text style={styles.disputeHoldText}>{t('employerApplications.disputeDialog.holdNotice')}</Text>
+          <View style={styles.twoActions}>
+            <TouchableOpacity style={styles.secondaryButton} disabled={busy} onPress={onClose}>
+              <Text style={styles.secondaryButtonText}>{t('employerApplications.disputeDialog.cancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.primaryButton, (!reason.trim() || busy) && styles.disabled]}
+              disabled={!reason.trim() || busy}
+              onPress={onSubmit}
+            >
+              {busy ? <ActivityIndicator color={tokens.colors.surface} /> : <Text style={styles.primaryButtonText}>{t('employerApplications.disputeDialog.submit')}</Text>}
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -2048,6 +2152,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  disputeModalCard: {
+    width: "100%",
+    maxWidth: 520,
+    borderRadius: 22,
+    backgroundColor: tokens.colors.surface,
+    padding: 20,
+  },
+  disputeInput: {
+    minHeight: 120,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+    padding: 12,
+    color: tokens.colors.text,
+    fontSize: 14,
+  },
+  disputeHoldText: { marginTop: 10, color: "#92400e", fontSize: 12, lineHeight: 17 },
   filterSheet: {
     width: "100%",
     maxWidth: 520,

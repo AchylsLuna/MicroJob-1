@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildAuthTokensPayload, isNativeAuthRequest, setSessionCookies } from '../../lib/authSession.js';
+import { buildAuthTokensPayload, isBearerAuthRequest, isNativeAuthRequest, setSessionCookies } from '../../lib/authSession.js';
 
 test('setSessionCookies uses the provided expiry dates for all auth cookies', () => {
   const cookies = [];
@@ -52,4 +52,11 @@ test('refresh tokens are returned only to native-style authentication requests',
   assert.equal(isNativeAuthRequest(browserRequest), false);
   assert.equal(buildAuthTokensPayload(nativeRequest, authSession).refreshToken, 'refresh-token');
   assert.equal('refreshToken' in buildAuthTokensPayload(browserRequest, authSession), false);
+});
+
+test('cross-origin bearer transport receives rotating tokens', () => {
+  const authSession = { accessToken: 'access-token', refreshToken: 'refresh-token', expiresAt: new Date() };
+  const request = { get: (name) => name.toLowerCase() === 'x-microjobs-auth-transport' ? 'bearer' : undefined };
+  assert.equal(isBearerAuthRequest(request), true);
+  assert.equal(buildAuthTokensPayload(request, authSession).refreshToken, 'refresh-token');
 });

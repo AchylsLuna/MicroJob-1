@@ -17,6 +17,8 @@ import About from '../pages/worker/About';
 import DeleteAccount from '../pages/worker/DeleteAccount';
 import ChangePassword from '../pages/worker/ChangePassword';
 import ContactSupport from '../pages/worker/ContactSupport';
+import EmployerJobHistory from '../pages/employer/EmployerJobHistory';
+import FinancialDisputes from '../pages/shared/FinancialDisputes';
 import { useAppSession } from '../contexts/AppSessionContext';
 import { resolveNotificationDestination } from '../lib/notifications';
 import { useEmployerTabNavigation } from './useTabNavigation';
@@ -34,6 +36,7 @@ function EmployerHomeScreen() {
     <EmployerJobPosts
       onEditJob={(job) => navigation.navigate('EmployerPostJobScreen', { jobToEdit: job })}
       onOpenWallet={() => navigation.navigate('EmployerEWallet')}
+      onOpenJobHistory={() => navigation.navigate('EmployerJobHistory')}
       activeTab="Home"
       onTabPress={employerTabPress}
       headerSubtitle={localArea || 'Set your local area'}
@@ -57,10 +60,10 @@ function EmployerApplicationsScreen() {
       onTabPress={employerTabPress}
       onOpenNotifications={() => navigation.navigate('EmployerNotifications')}
       notificationBadgeCount={session.employerNotificationUnreadCount}
-      onMessageWorker={({ workerId, workerName }) => {
+      onMessageWorker={({ workerId, workerName, jobId }) => {
         if (!workerId) return;
-        session.setInitialEmployerChatTarget({ id: String(workerId), name: workerName || 'Worker' });
-        navigateToEmployerTab(navigation, 'Messages');
+        session.setInitialEmployerChatTarget({ id: String(workerId), name: workerName || 'Worker', jobId });
+        employerTabPress('Messages');
       }}
     />
   );
@@ -73,7 +76,7 @@ function EmployerPostJobScreen() {
   const session = useAppSession();
   return (
     <EmployerPostJob
-      onPosted={() => navigateToEmployerTab(navigation, 'Home')}
+      onPosted={() => employerTabPress('Home')}
       onOpenWallet={() => navigation.navigate('EmployerEWallet')}
       onOpenProfile={() => navigation.navigate('EmployerAccountInformation', { initialSection: 'profile' })}
       currentUser={session.user}
@@ -117,6 +120,7 @@ function EmployerNotificationsScreen() {
     else if (destination === 'wallet') navigation.navigate('EmployerEWallet', item?.entityType === 'payment_request' ? { invoiceRequestId: item.entityId } : undefined);
     else if (destination === 'support') navigation.navigate('EmployerSupport');
     else if (destination === 'settings') navigation.navigate('EmployerSettings');
+    else if (destination === 'disputes') navigation.navigate('EmployerFinancialDisputes');
   };
   return <EmployerNotifications onBack={() => navigation.goBack()} liveNotifications={session.employerNotifications} onOpenNotification={openNotification} />;
 }
@@ -163,6 +167,7 @@ function EmployerSettingsScreen() {
       onNavigateDeleteAccount={() => navigation.navigate('EmployerDeleteAccount')}
       onNavigateSupport={() => navigation.navigate('EmployerSupport')}
       onNavigatePaymentMethods={() => navigation.navigate('EmployerPaymentMethods')}
+      onNavigateFinancialDisputes={() => navigation.navigate('EmployerFinancialDisputes')}
       currentRole="employer"
       canSwitchAccountMode={session.canSwitchAccountMode}
       onSwitchAccountMode={session.switchViewMode}
@@ -254,8 +259,26 @@ function EmployerStackNavigator() {
       <EmployerStack.Screen name="EmployerDeleteAccount" component={EmployerDeleteAccountScreen} />
       <EmployerStack.Screen name="EmployerChangePassword" component={EmployerChangePasswordScreen} />
       <EmployerStack.Screen name="EmployerSupport" component={EmployerSupportScreen} />
+      <EmployerStack.Screen name="EmployerJobHistory" component={EmployerJobHistoryScreen} />
+      <EmployerStack.Screen name="EmployerFinancialDisputes" component={EmployerFinancialDisputesScreen} />
     </EmployerStack.Navigator>
   );
+}
+
+function EmployerJobHistoryScreen() {
+  const navigation = useNavigation();
+  const employerTabPress = useEmployerTabNavigation();
+  const session = useAppSession();
+  return <EmployerJobHistory onBack={() => navigation.goBack()} onTabPress={employerTabPress} onMessageWorker={({ workerId, workerName, jobId }) => {
+    if (!workerId) return;
+    session.setInitialEmployerChatTarget({ id: String(workerId), name: workerName || 'Worker', jobId });
+    employerTabPress('Messages');
+  }} />;
+}
+
+function EmployerFinancialDisputesScreen() {
+  const navigation = useNavigation();
+  return <FinancialDisputes onBack={() => navigation.goBack()} isEmployer />;
 }
 
 export default EmployerStackNavigator;

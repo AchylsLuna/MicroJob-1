@@ -1,6 +1,8 @@
+import WorkTimeSummary from '../WorkTimeSummary';
 import React, { memo } from 'react';
 import { StyleSheet, Text, View, type ViewStyle, type StyleProp } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { tokens } from '../../theme/tokens';
 import AnimatedPressable from '../ui/AnimatedPressable';
 import CategoryTile from '../ui/CategoryTile';
@@ -42,9 +44,10 @@ function BookmarkButton({ saved, onToggleSave, tone = 'default' }: { saved?: boo
 }
 
 function JobCard({ job, variant, saved, onPress, onToggleSave, showMatch = false, footerSlot, style }: Props) {
+  const { t } = useTranslation('worker');
   if (variant === 'carousel') {
     return (
-      <AnimatedPressable containerStyle={[styles.carouselCard, style]} onPress={onPress} accessibilityRole="button" accessibilityLabel={`View ${job.title}`}>
+      <AnimatedPressable containerStyle={[styles.carouselCard, job.highlighted && styles.highlightedCarouselCard, style]} onPress={onPress} accessibilityRole="button" accessibilityLabel={`${t('jobs.jobCard.viewJob', { title: job.title })}${job.highlighted ? `, ${t('jobs.jobCard.highlightedByEmployer')}` : ''}`}>
         <View style={styles.carouselInner}>
           <View style={styles.carouselHero}>
             <CategoryTile category={{ id: job.categoryId, name: job.categoryName }} size="lg" />
@@ -63,6 +66,12 @@ function JobCard({ job, variant, saved, onPress, onToggleSave, showMatch = false
                 <Text style={styles.urgentText}>Urgent</Text>
               </View>
             ) : null}
+            {job.highlighted ? (
+              <View style={styles.highlightedBadge}>
+                <Ionicons name="sparkles" size={11} color={tokens.colors.text} />
+                <Text style={styles.highlightedBadgeText}>{t('jobs.jobCard.highlightedLabel')}</Text>
+              </View>
+            ) : null}
           </View>
 
           <View style={styles.carouselBody}>
@@ -77,6 +86,7 @@ function JobCard({ job, variant, saved, onPress, onToggleSave, showMatch = false
             </View>
             <Text style={styles.carouselPoster} numberOfLines={1}>{job.posterName}</Text>
             <Text style={styles.carouselSalary}>{job.salaryLabel}</Text>
+            <WorkTimeSummary start={job.workStartTime} end={job.workEndTime} rate={job.dailyRate} />
           </View>
         </View>
       </AnimatedPressable>
@@ -91,6 +101,7 @@ function JobCard({ job, variant, saved, onPress, onToggleSave, showMatch = false
           <View style={styles.compactInfo}>
             <Text style={styles.compactTitle} numberOfLines={1}>{job.title}</Text>
             <Text style={styles.compactMeta} numberOfLines={1}>{job.location}{job.location && job.salaryLabel !== 'Not set' ? ' · ' : ''}{job.salaryLabel !== 'Not set' ? job.salaryLabel : ''}</Text>
+            <WorkTimeSummary start={job.workStartTime} end={job.workEndTime} rate={job.dailyRate} />
           </View>
           {footerSlot}
         </View>
@@ -104,7 +115,7 @@ function JobCard({ job, variant, saved, onPress, onToggleSave, showMatch = false
   const hasSalary = job.salaryLabel !== 'Not set';
 
   return (
-    <AnimatedPressable containerStyle={[styles.listCard, style]} onPress={onPress} accessibilityRole="button" accessibilityLabel={`View ${job.title}${job.location ? ` in ${job.location}` : ''}`}>
+    <AnimatedPressable containerStyle={[styles.listCard, job.highlighted && styles.highlightedListCard, style]} onPress={onPress} accessibilityRole="button" accessibilityLabel={`${t('jobs.jobCard.viewJob', { title: job.title })}${job.location ? ` in ${job.location}` : ''}${job.highlighted ? `, ${t('jobs.jobCard.highlightedByEmployer')}` : ''}`}>
       <View style={styles.listInner}>
         <View style={styles.listHeader}>
           <CategoryTile category={{ id: job.categoryId, name: job.categoryName }} size="md" />
@@ -116,6 +127,12 @@ function JobCard({ job, variant, saved, onPress, onToggleSave, showMatch = false
         </View>
 
         <View style={styles.badgeRow}>
+          {job.highlighted ? (
+            <View style={styles.highlightedInlineBadge}>
+              <Ionicons name="sparkles" size={11} color={tokens.colors.text} />
+              <Text style={styles.highlightedInlineText}>{t('jobs.jobCard.highlightedLabel').toUpperCase()}</Text>
+            </View>
+          ) : null}
           {job.jobType ? (
             <View style={styles.typeBadge}>
               <Text style={styles.typeBadgeText} numberOfLines={1}>{job.jobType.toUpperCase()}</Text>
@@ -149,6 +166,7 @@ function JobCard({ job, variant, saved, onPress, onToggleSave, showMatch = false
               </View>
             ) : null}
 
+            <WorkTimeSummary start={job.workStartTime} end={job.workEndTime} rate={job.dailyRate} />
             {visibleSkills.length > 0 ? (
               <>
                 <View style={styles.detailDivider} />
@@ -199,6 +217,7 @@ export default memo(JobCard);
 const styles = StyleSheet.create({
   // Carousel
   carouselCard: { width: 240, borderRadius: tokens.radius.lg, backgroundColor: tokens.colors.surface, overflow: 'hidden', ...tokens.shadow.card },
+  highlightedCarouselCard: { borderWidth: 1, borderColor: tokens.colors.highlightedBorder },
   carouselInner: { width: '100%' },
   carouselHero: { width: '100%', height: 128, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.colors.brandSoft },
   carouselHeroOverlay: { position: 'absolute', left: tokens.spacing.sm, bottom: tokens.spacing.sm },
@@ -219,6 +238,8 @@ const styles = StyleSheet.create({
   urgentBadge: { position: 'absolute', top: tokens.spacing.sm, left: tokens.spacing.sm, paddingHorizontal: 8, paddingVertical: 3, borderRadius: tokens.radius.pill, backgroundColor: tokens.colors.danger },
   urgentBadgeInline: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: tokens.radius.pill, backgroundColor: tokens.colors.dangerSoft },
   urgentText: { color: tokens.colors.onBrand, fontSize: 10, fontWeight: '800' },
+  highlightedBadge: { position: 'absolute', right: tokens.spacing.sm, bottom: tokens.spacing.sm, flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 4, borderRadius: tokens.radius.pill, backgroundColor: tokens.colors.highlightedBadge },
+  highlightedBadgeText: { color: tokens.colors.text, fontSize: 9, fontWeight: '800' },
   jobTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: tokens.spacing.sm },
   tag: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: tokens.radius.pill, backgroundColor: tokens.colors.brandSoft },
   tagText: { color: tokens.colors.brand, fontSize: 11, fontWeight: '700' },
@@ -227,6 +248,7 @@ const styles = StyleSheet.create({
 
   // List
   listCard: { width: '100%', borderRadius: 22, backgroundColor: tokens.colors.surface, borderWidth: 1, borderColor: tokens.colors.border, ...tokens.shadow.card },
+  highlightedListCard: { borderColor: tokens.colors.highlightedBorder, backgroundColor: tokens.colors.highlightedSurface },
   listInner: { width: '100%', padding: tokens.spacing.md, gap: tokens.spacing.sm },
   listHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: tokens.spacing.sm },
   listInfo: { flex: 1, gap: 2 },
@@ -234,6 +256,8 @@ const styles = StyleSheet.create({
   listPoster: { color: tokens.colors.textMuted, fontSize: 13 },
   postedLabel: { color: tokens.colors.textSubtle, fontSize: 11, fontWeight: '600' },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: tokens.spacing.xs },
+  highlightedInlineBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 4, borderRadius: tokens.radius.pill, backgroundColor: tokens.colors.highlightedBadge },
+  highlightedInlineText: { color: tokens.colors.text, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
   typeBadge: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: tokens.radius.pill, backgroundColor: tokens.colors.warningSoft },
   typeBadgeText: { color: '#92610A', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
   urgentTextInline: { color: tokens.colors.danger, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },

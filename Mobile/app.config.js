@@ -10,7 +10,7 @@ const expo = {
   },
   scheme: 'microjobs',
   linking: {
-    prefixes: ['microjobs://', 'https://m1cro-job.vercel.app'],
+    prefixes: ['microjobs://', 'https://micro-jobs.online'],
   },
   plugins: [
     '@react-native-community/datetimepicker',
@@ -32,7 +32,7 @@ const expo = {
       autoVerify: true,
       data: [{
         scheme: 'https',
-        host: 'm1cro-job.vercel.app',
+        host: 'micro-jobs.online',
         pathPrefix: '/reset-password',
       }],
       category: ['BROWSABLE', 'DEFAULT'],
@@ -46,7 +46,7 @@ const expo = {
     bundleIdentifier: 'com.bananas1.mobile',
     buildNumber: '1',
     supportsTablet: true,
-    associatedDomains: ['applinks:m1cro-job.vercel.app'],
+    associatedDomains: ['applinks:micro-jobs.online'],
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
     },

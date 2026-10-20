@@ -1,14 +1,82 @@
 {
-  "chatScreen": {
-    "toast": {
-      "sendFailed": "Unable to send message.",
-      "networkError": "Network error.",
-      "workerHired": "Worker hired successfully.",
-      "offerAccepted": "Offer accepted.",
-      "offerRejected": "Offer rejected.",
-      "offerCancelled": "Offer cancelled.",
-      "offerUpdateFailed": "Unable to update this offer."
+  "jobHistory": {
+    "title": "Job History",
+    "subtitle": "Review your job postings, held funds, worker payments, and ratings.",
+    "jobTitle": "Title",
+    "status": "Status",
+    "amountHeld": "Amount held",
+    "amountPaid": "Amount paid for worker",
+    "details": "Details",
+    "viewDetails": "View details",
+    "viewDetailsFor": "View details for {{title}}",
+    "refresh": "Refresh",
+    "loading": "Loading job history…",
+    "empty": "You have no job history yet.",
+    "loadFailed": "Failed to load job history.",
+    "moneyNote": "Held funds are remaining reserved funds after payments and refunds. Posting and highlight fees are excluded.",
+    "ratingAfterCompletion": "You can rate this worker after the job is completed.",
+    "location": "Location",
+    "jobType": "Job type",
+    "deadline": "Deadline",
+    "minimumPay": "Minimum worker pay",
+    "skills": "Skills",
+    "requirements": "Requirements",
+    "responsibilities": "Responsibilities",
+    "pagination": {
+      "showing": "Showing {{from}}–{{to}} of {{total}}",
+      "previous": "Prev",
+      "next": "Next",
+      "pageAria": "Job history pages",
+      "goToPage": "Go to page {{page}}"
     },
+    "statuses": {
+      "Available": "Available",
+      "In Progress": "In Progress",
+      "Completed": "Completed",
+      "Cancelled": "Cancelled",
+      "Closed": "Closed",
+      "Full refund": "Full refund",
+      "Resolved": "Resolved"
+    },
+    "rateWorker": "Rate Worker",
+    "reviewSubmitted": "Review submitted",
+    "showHidden": "Show hidden applications"
+  },
+  "chatScreen": {
+    "safety": {
+      "title": "Stay safe.",
+      "description": "Keep chats respectful. Never share passwords or verification codes. Keep payments in MicroJobs and report abuse, threats, or suspected scams."
+    },
+    "report": {
+      "action": "Report user",
+      "title": "Report {{name}}",
+      "description": "Tell admins about abusive language, harassment, or a suspected scam in this conversation.",
+      "reason": "Reason for reporting",
+      "chooseReason": "Choose a reason",
+      "reasons": {
+        "abuse": "Swearing, abusive language, or harassment",
+        "scam": "Scam or fraud",
+        "threats": "Threats or unsafe behavior",
+        "other": "Other concern"
+      },
+      "details": "Additional details (optional)",
+      "evidenceNotice": "The latest 20 messages from this conversation will be shared with admins for review. Reporting does not automatically block or penalize this person.",
+      "cancel": "Cancel",
+      "submit": "Submit report",
+      "submitting": "Submitting…",
+      "success": "Report submitted. Admins will review the conversation.",
+      "alreadyPending": "This conversation already has a report awaiting admin review.",
+      "failed": "Unable to submit your report. Please try again."
+    },
+  "toast": {
+    "sendFailed": "Unable to send message.",
+    "networkError": "Network error.",
+    "workerHired": "Worker hired successfully.",
+    "offerAccepted": "Offer accepted.",
+    "offerRejected": "Offer rejected.",
+    "offerCancelled": "Offer cancelled.",
+    "offerUpdateFailed": "Unable to update this offer."
+  },
     "header": {
       "backLabel": "Back to conversations",
       "fallbackTitle": "Chat",
@@ -20,7 +88,7 @@
       "accessibilityLabel": "Formal job offer, {{amount}}, {{status}}",
       "eyebrow": "FORMAL JOB OFFER",
       "fallbackTitle": "Local job",
-      "escrowHint": "Escrow-backed guaranteed pay",
+      "escrowHint": "Guaranteed pay from reserved funds",
       "decline": "Decline",
       "accept": "Accept Offer",
       "cancel": "Cancel",
@@ -52,17 +120,17 @@
       "deleteFailed": "Failed to delete job."
     },
     "toast": {
-      "completed": "Job completed. Worker payouts were triggered automatically from escrow.",
+      "completed": "Job completed. Confirmed worker payments remain recorded in payment history.",
       "closed": "Job closed. New applications are paused.",
       "reopened": "Job reopened. Workers can apply again.",
-      "deleted": "Job deleted. Any eligible escrow refund was returned to your wallet."
+      "deleted": "Job deleted. Any eligible reserved funds refund was returned to your wallet."
     },
     "confirm": {
       "cancelLabel": "Cancel",
-      "complete": { "title": "Mark Job as Done", "question": "Complete \"{{title}}\"?", "detail": "Escrow funds will automatically be paid to hired workers. This action should only be used after the work is finished.", "button": "Confirm Done" },
-      "close": { "title": "Close Job", "question": "Pause new applications for \"{{title}}\"?", "detail": "The secured funds stay in escrow, and you can reopen this job later.", "button": "Close Job" },
-      "reopen": { "title": "Reopen Job", "question": "Reopen \"{{title}}\"?", "detailEscrow": "The required amount will be secured in escrow again before workers can apply.", "detailDefault": "Workers will be able to submit applications again.", "button": "Reopen Job" },
-      "delete": { "title": "Delete Job", "question": "Permanently delete \"{{title}}\"?", "detail": "Associated applications will be removed. Any eligible unused escrow is refunded automatically.", "button": "Delete Job" }
+      "complete": { "title": "Mark Job as Done", "question": "Complete \"{{title}}\"?", "detail": "Confirming releases the listed payments from reserved job funds. Check each worker, amount, and completion evidence before continuing.", "button": "Confirm Done" },
+      "close": { "title": "Close Job", "question": "Pause new applications for \"{{title}}\"?", "detail": "The secured funds stay on hold, and you can reopen this job later.", "button": "Close Job" },
+      "reopen": { "title": "Reopen Job", "question": "Reopen \"{{title}}\"?", "detailEscrow": "The required amount will be reserved for payment again before workers can apply.", "detailDefault": "Workers will be able to submit applications again.", "button": "Reopen Job" },
+      "delete": { "title": "Delete Job", "question": "Permanently delete \"{{title}}\"?", "detail": "Eligible unused funds are returned to their original wallet; payment and application history is retained.", "button": "Delete Job" }
     },
     "header": { "title": "Home" },
     "banner": { "title": "Hiring operations", "detail": "Manage local job posts, candidates, conversations, and secured employer funds." },
@@ -87,7 +155,7 @@
       "reopen": "Reopen",
       "markDone": "Mark Done",
       "delete": "Delete",
-      "autoPayHintReady": "Marking this job done automatically releases escrow to hired workers.",
+      "autoPayHintReady": "Confirming releases the listed payments from reserved job funds. Check each worker, amount, and completion evidence before continuing.",
       "autoPayHintBlocked": "Hire at least one worker before marking this job as done."
     },
     "details": {
@@ -140,18 +208,26 @@
       "actionLabel": "Top Up",
       "quickActionLabel": "Scan to Pay"
     },
-    "metrics": { "credited": "Total credited", "spent": "Spent / escrowed", "pending": "Pending" },
+    "metrics": { "credited": "Total credited", "spent": "Spent / held for jobs", "pending": "Pending" },
     "topup": {
       "accordionTitle": "Top up employer funds",
       "accordionSubtitle": "Minimum PHP 100 through secure checkout.",
       "cardTitle": "Top Up Wallet",
       "cardSubtitle": "Add employer funds through the secure payment page.",
       "depositAmount": "Deposit Amount",
-      "processingFee": "Processing Fee (2.5%)",
-      "totalAmountCharged": "Total Amount Charged",
+      "processingFee": "No processing fee",
+      "totalAmountCharged": "Amount Charged",
       "inputLabel": "Top Up Amount (PHP)",
       "inputAccessibilityLabel": "Top up amount in Philippine pesos",
       "submitButton": "Create Top Up"
+    },
+    "withdrawal": {
+      "accordionTitle": "Withdraw employer funds",
+      "accordionSubtitle": "Available to withdraw: {{amount}}. Requests are reviewed before payment.",
+      "cardTitle": "Withdraw Funds",
+      "cardSubtitle": "Withdraw uncommitted employer funds to your bank or e-wallet.",
+      "amountLabel": "Amount (PHP)", "methodLabel": "Method", "institutionLabel": "Institution", "accountNameLabel": "Account name", "accountNumberLabel": "Account number",
+      "submitButton": "Submit Withdrawal", "historyTitle": "Withdrawal History", "historySubtitle": "Employer-balance withdrawal requests.", "emptyTitle": "No withdrawals yet", "emptyBody": "Your employer withdrawal requests will appear here."
     },
     "invoices": {
       "sectionTitle": "Worker Payment Requests",
@@ -189,6 +265,11 @@
       "topupStartFailed": "Unable to start top up right now.",
       "sessionExpired": "Your security session has expired. Please refresh or sign in again.",
       "csrfError": "Security check failed. Please refresh your wallet."
+      ,"invalidWithdrawalAmount": "Enter a valid withdrawal amount."
+      ,"withdrawalExceedsBalance": "Withdrawal amount cannot exceed your employer balance."
+      ,"incompleteWithdrawalDestination": "Complete the destination details before submitting your withdrawal."
+      ,"withdrawalSubmitted": "Employer withdrawal submitted."
+      ,"withdrawalFailed": "Failed to submit employer withdrawal."
     },
     "errors": {
       "profileFailed": "Failed to load wallet profile.",
@@ -198,6 +279,8 @@
       "confirmTopupFailed": "Failed to confirm top-up.",
       "createTopupFailed": "Failed to create top-up session.",
       "checkConnection": "Check your connection and try again."
+      ,"withdrawalsFailed": "Failed to load withdrawals."
+      ,"createWithdrawalFailed": "Failed to create employer withdrawal."
     }
   },
   "employerPaymentMethods": {
@@ -336,6 +419,16 @@
     }
   },
   "employerPostJob": {
+    "daily": {
+      "workDates": "Work dates (Asia/Manila)",
+      "selectDates": "Select work dates ({{count}} selected)",
+      "scheduleHint": "Select 2–366 days. Pay is per day per worker, minimum PHP 480. All selected days are funded upfront.",
+      "requiredDates": "Select between 2 and 366 work dates for long-term work.",
+      "removeDate": "Remove {{date}}",
+      "useDates": "Use selected dates",
+      "payLabel": "Daily Pay per Worker (PHP)",
+      "formula": "{{rate}} per day × {{days}} workdays × {{count}} workers"
+    },
     "header": { "editTitle": "Edit Job", "createTitle": "Post a Job" },
     "intro": {
       "editTitle": "Update this opportunity",
@@ -370,7 +463,7 @@
       "skillsPlaceholder": "React, TypeScript, GraphQL",
       "salaryLabel": "Minimum Guaranteed Pay per Worker (PHP)",
       "salaryPlaceholder": "e.g. 1500",
-      "salaryHelper": "This is the minimum amount guaranteed to each hired worker and secured in escrow."
+      "salaryHelper": "This is the minimum amount guaranteed to each hired worker and reserved for payment."
     },
     "location": {
       "accordionTitle": "Philippine work location",
@@ -408,7 +501,27 @@
       "calendarTitle": "Application deadline",
       "calendarSetDeadline": "Set deadline",
       "calendarClear": "Clear",
-      "urgentLabel": "Mark as urgent"
+      "urgentLabel": "Mark as urgent",
+      "urgentHint": "Marks the listing as time-sensitive."
+    },
+    "highlight": {
+      "title": "Highlight job · PHP 50",
+      "description": "Places this listing more prominently near the top of job search. This fee is not refundable.",
+      "accessibilityLabel": "Highlight job for 50 Philippine pesos"
+    },
+    "checkout": {
+      "title": "Checkout",
+      "accessibilityLabel": "Job posting checkout",
+      "defaultJobTitle": "Job posting",
+      "reviewButton": "Review checkout",
+      "workerPay": "Workers' pay ({{count}})",
+      "postingFee": "Posting fee",
+      "highlightFee": "Highlight fee",
+      "total": "Total",
+      "nonRefundable": "Posting and highlight fees are non-refundable, even if you delete this listing. Workers receive their full secured pay.",
+      "back": "Back",
+      "submit": "Submit job",
+      "submitAccessibilityLabel": "Submit job posting"
     },
     "submit": { "update": "Update Job", "post": "Post Job" },
     "toast": { "updated": "Job updated successfully.", "posted": "Job posted successfully." },
@@ -529,16 +642,16 @@
       "otherMode": "other"
     },
     "offerPanel": {
-      "title": "Formal escrow-backed offer",
+      "title": "Formal funded offer",
       "guaranteedMinimum": "Guaranteed minimum {{amount}}",
       "amountPlaceholder": "PHP amount",
       "reviewOffer": "Review Offer",
-      "additionalEscrow": "Additional escrow: {{amount}}"
+      "additionalEscrow": "Additional reserved funds: {{amount}}"
     },
     "offerActive": {
       "accepted": "Offer accepted",
       "awaiting": "Awaiting worker",
-      "escrowBacked": "{{amount}} escrow-backed offer",
+      "escrowBacked": "{{amount}} funded offer",
       "confirmHire": "Confirm Hire",
       "cancelOffer": "Cancel Offer"
     },
@@ -550,7 +663,19 @@
       "authorizePayment": "Authorize Payment · Held Until Approval",
       "approveAndPay": "Approve and Pay",
       "changeReasonPlaceholder": "Required change reason",
-      "requestChanges": "Request Changes"
+      "requestChanges": "Request Changes",
+      "openDispute": "Open payment dispute",
+      "paymentOnHold": "Payment is on hold while the finance team reviews this dispute."
+    },
+    "disputeDialog": {
+      "title": "Open payment dispute",
+      "description": "Explain the payment issue for {{subject}}.",
+      "reasonLabel": "Reason",
+      "reasonPlaceholder": "Describe the payment issue",
+      "holdNotice": "Payment remains secured until a finance admin reviews the case.",
+      "opened": "Payment dispute opened.",
+      "cancel": "Cancel",
+      "submit": "Submit dispute"
     },
     "rejectCandidate": "Reject Candidate",
     "removeFromList": "Remove from employer list",
@@ -571,19 +696,19 @@
       "offer": {
         "title": "Send formal offer?",
         "question": "Offer {{name}} {{amount}}?",
-        "detail": "Advertised minimum: {{minimum}}. Additional escrow: {{escrow}}.",
+        "detail": "Advertised minimum: {{minimum}}. Additional reserved funds: {{escrow}}.",
         "label": "Send Offer"
       },
       "cancelOffer": {
         "title": "Cancel offer?",
         "question": "Cancel the {{amount}} offer?",
-        "detail": "Any additional negotiated escrow will be returned safely.",
+        "detail": "Any additional negotiated reserved funds will be returned safely.",
         "label": "Cancel Offer"
       },
       "confirmHire": {
         "title": "Confirm hiring?",
         "question": "Hire {{name}} for {{amount}}?",
-        "detail": "This starts the worker assignment using the accepted escrow-backed terms.",
+        "detail": "This starts the worker assignment using the accepted funded terms.",
         "label": "Confirm Hire"
       },
       "pay": {

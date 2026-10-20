@@ -20,7 +20,13 @@ const safeError = (status: number, message: string, fallback: string, translate:
   if (status === 0) return translate('personalInformation.phoneVerification.errors.connection');
   if (status === 401) return translate('personalInformation.phoneVerification.errors.sessionExpired');
   if (status === 429) return translate('personalInformation.phoneVerification.errors.tooManyAttempts');
-  if (message && typeof message === 'string' && message.trim() && !/https?:\/\//i.test(message)) {
+  if (
+    message
+    && typeof message === 'string'
+    && message.trim()
+    && !/https?:\/\//i.test(message)
+    && !/(?:HTTP|status|status code|request failed).*\b(?:4\d{2}|5\d{2})\b/i.test(message)
+  ) {
     return message;
   }
   if (status >= 500) return translate('personalInformation.phoneVerification.errors.serviceUnavailable');

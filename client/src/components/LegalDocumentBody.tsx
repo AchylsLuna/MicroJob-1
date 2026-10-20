@@ -19,11 +19,11 @@ export function LegalDocumentBody({
   return (
     <>
       {hideHeading ? (
-        <p className="mb-6 text-[14px] text-[#6B7280]">Effective date: {effectiveDate}</p>
+        <p className="mb-6 text-body text-[#6B7280]">Effective date: {effectiveDate}</p>
       ) : (
         <div className="mb-8 border-b border-[#E5E7EB] pb-6">
           <h1 className="text-[30px] font-bold leading-tight text-[#111827]">{doc.title}</h1>
-          <p className="mt-2 text-[14px] text-[#6B7280]">Effective date: {effectiveDate}</p>
+          <p className="mt-2 text-body text-[#6B7280]">Effective date: {effectiveDate}</p>
         </div>
       )}
 
@@ -44,12 +44,12 @@ export function LegalDocumentBody({
 
       <div className="mt-8 rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-4">
         <h2 className="text-[15px] font-semibold text-[#111827]">{doc.contactHeading}</h2>
-        {doc.showLegalEntity ? <p className="mt-2 text-[14px] text-[#4B5563]">{legalEntity}</p> : null}
-        <div className="mt-2 flex flex-wrap gap-3 text-[14px]">
-          <a className="font-medium text-[#1C4D8D] hover:opacity-80" href={`mailto:${supportEmail}`}>
+        {doc.showLegalEntity ? <p className="mt-2 text-body text-[#4B5563]">{legalEntity}</p> : null}
+        <div className="mt-2 flex flex-wrap gap-3 text-body">
+          <a className="font-medium text-brand hover:opacity-80" href={`mailto:${supportEmail}`}>
             {supportEmail}
           </a>
-          <a className="font-medium text-[#1C4D8D] hover:opacity-80" href={supportPhoneHref}>
+          <a className="font-medium text-brand hover:opacity-80" href={supportPhoneHref}>
             {supportPhone}
           </a>
         </div>

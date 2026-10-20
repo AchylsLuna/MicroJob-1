@@ -14,6 +14,7 @@ export const workerPrimaryNavigation: WorkerNavigationItem[] = [
 export const workerMoreNavigation: WorkerNavigationItem[] = [
   { label: "Saved Jobs", path: ROUTES.worker.savedJobs },
   { label: "E-Wallet", path: ROUTES.worker.eWallet },
+  { label: "Financial Disputes", path: ROUTES.worker.financialDisputes },
   { label: "Support", path: ROUTES.worker.support },
   { label: "Settings", path: ROUTES.worker.settings },
 ];

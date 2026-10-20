@@ -11,13 +11,33 @@ test("a staff role only holds the permissions in its matrix row", () => {
   assert.equal(hasPermission("analytics_team", "analytics.view"), true);
   assert.equal(hasPermission("analytics_team", "users.view"), false);
   assert.equal(hasPermission("support_staff", "users.suspend"), false);
+  assert.equal(hasPermission("support_staff", "users.flag"), true);
+  assert.equal(hasPermission("support_staff", "users.flags.view"), false);
+  assert.equal(hasPermission("moderator", "users.staff.view"), true);
+  assert.equal(hasPermission("finance_team", "users.view"), true);
+  assert.equal(hasPermission("finance_team", "users.flag"), true);
+  assert.equal(hasPermission("finance_team", "users.flags.view"), true);
+  assert.equal(hasPermission("support_staff", "jobs.manage"), false);
   assert.equal(hasPermission("moderator", "moderation.enforce"), true);
+  assert.equal(hasPermission("moderator", "jobs.manage"), true);
   assert.equal(hasPermission("finance_team", "finance.payouts.review"), true);
+  assert.equal(hasPermission("admin_team", "backups.manage"), false);
 });
 
 test("a missing or non-staff role holds nothing", () => {
   assert.equal(hasPermission(null, "users.view"), false);
   assert.equal(hasPermission(undefined, "users.view"), false);
+});
+
+test("only administrators and moderators may suspend or ban marketplace users", () => {
+  for (const role of ["superadmin", "admin_team", "moderator"]) {
+    assert.equal(hasPermission(role, "users.suspend"), true, role);
+    assert.equal(hasPermission(role, "users.ban"), true, role);
+  }
+  for (const role of ["support_staff", "finance_team", "analytics_team"]) {
+    assert.equal(hasPermission(role, "users.suspend"), false, role);
+    assert.equal(hasPermission(role, "users.ban"), false, role);
+  }
 });
 
 test("role names are normalized across spellings", () => {

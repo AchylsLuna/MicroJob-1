@@ -19,7 +19,7 @@ import { ROUTES } from "../../utils/routes";
 import type { AdminPermission } from "../../lib/adminPermissions";
 import { formatDate } from "../../lib/formatters";
 
-const panelClass = "rounded-2xl border border-slate-200 bg-white shadow-sm";
+const panelClass = "rounded-card border border-slate-200 bg-white shadow-sm";
 
 const getPosterName = (job: AdminJob, t: TFunction<"admin">) => {
   if (!job.jobPoster || typeof job.jobPoster === "string") return t("dashboard.recentJobs.unassignedEmployer");
@@ -46,7 +46,7 @@ function AdminDashboardContent() {
     reload,
   } = useAdminData();
 
-  const totalApplications = jobs.reduce((total, job) => total + (job.applicants?.length || 0), 0);
+  const totalApplications = jobs.reduce((total, job) => total + (job.applicantsCount ?? job.applicants?.length ?? 0), 0);
   const recentJobs = [...jobs]
     .sort((left, right) => {
       const leftTime = left.createdAt ? new Date(left.createdAt).getTime() : 0;
@@ -61,7 +61,8 @@ function AdminDashboardContent() {
       value: stats.totalJobs,
       detail: t("dashboard.metrics.totalJobs.detail", { count: stats.availableJobs }),
       icon: BriefcaseBusiness,
-      iconClass: "bg-blue-50 text-blue-700",
+      iconClass: "bg-brand-50 text-brand-700",
+      visible: can("jobs.view") || can("analytics.view"),
     },
     {
       label: t("dashboard.metrics.applications.label"),
@@ -69,6 +70,7 @@ function AdminDashboardContent() {
       detail: t("dashboard.metrics.applications.detail"),
       icon: ClipboardList,
       iconClass: "bg-violet-50 text-violet-700",
+      visible: can("jobs.view") || can("analytics.view"),
     },
     {
       label: t("dashboard.metrics.totalUsers.label"),
@@ -76,15 +78,17 @@ function AdminDashboardContent() {
       detail: t("dashboard.metrics.totalUsers.detail", { count: stats.activeUsers }),
       icon: Users,
       iconClass: "bg-emerald-50 text-emerald-700",
+      visible: can("users.view") || can("analytics.view"),
     },
     {
       label: t("dashboard.metrics.completedValue.label"),
-      value: formatCurrency(walletStats.completedTotal),
+      value: formatCurrency(can("finance.transactions.view") ? walletStats.completedTotal : stats.completedPayoutVolume),
       detail: t("dashboard.metrics.completedValue.detail", { count: walletStats.completedCount }),
       icon: Wallet,
       iconClass: "bg-amber-50 text-amber-700",
+      visible: can("finance.transactions.view") || can("analytics.view"),
     },
-  ];
+  ].filter((metric) => metric.visible);
 
   // Matches the permission each destination page is gated by (AdminGate), so
   // a tile is never a dead end that only reveals its own restriction on click.
@@ -98,28 +102,30 @@ function AdminDashboardContent() {
 
   return (
     <div className="mx-auto max-w-[1341px] space-y-6">
-      <section className="flex flex-col gap-4 rounded-2xl border border-[#1C4D8D]/20 bg-[#1C4D8D] p-5 text-white shadow-lg shadow-[#1C4D8D]/10 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+      <section className="flex flex-col gap-4 rounded-card border border-brand/20 bg-brand p-5 text-white shadow-lg shadow-brand/10 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white">
             <ShieldCheck className="h-4 w-4" aria-hidden="true" />
             {t("dashboard.badge")}
           </div>
-          <h2 className="text-xl font-bold sm:text-2xl">{t("dashboard.header.title")}</h2>
+          <h2 className="text-section font-bold sm:text-2xl">{t("dashboard.header.title")}</h2>
           <p className="mt-2 max-w-2xl text-sm text-white/85">
             {t("dashboard.header.description")}
           </p>
         </div>
-        <Link
-          to={ROUTES.admin.reports}
-          className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-blue-800 transition hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-        >
-          {t("dashboard.header.reportsLink")}
-          <ArrowRight className="h-4 w-4" aria-hidden="true" />
-        </Link>
+        {can("analytics.view") ? (
+          <Link
+            to={ROUTES.admin.reports}
+            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-brand-800 transition hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          >
+            {t("dashboard.header.reportsLink")}
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        ) : null}
       </section>
 
       {loadError && (
-        <section role="alert" className="flex flex-col gap-4 rounded-2xl border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <section role="alert" className="flex flex-col gap-4 rounded-card border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 gap-3">
             <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-700" aria-hidden="true" />
             <div>
@@ -140,7 +146,7 @@ function AdminDashboardContent() {
       )}
 
       {(stats.pendingUsers > 0 || stats.pendingPayouts > 0 || stats.openSupportTickets > 0) && !loadError && (
-        <section className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <section className="flex flex-col gap-3 rounded-card border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex gap-3">
             <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" aria-hidden="true" />
             <div>
@@ -155,16 +161,16 @@ function AdminDashboardContent() {
             </div>
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm font-semibold text-amber-900">
-            {stats.pendingUsers > 0 && <Link to={ROUTES.admin.userManagement} className="underline-offset-4 hover:underline">{t("dashboard.pendingBanner.reviewAccounts")}</Link>}
-            {stats.pendingPayouts > 0 && <Link to={ROUTES.admin.payouts} className="underline-offset-4 hover:underline">{t("dashboard.pendingBanner.reviewPayouts")}</Link>}
-            {stats.openSupportTickets > 0 && <Link to={ROUTES.admin.support} className="underline-offset-4 hover:underline">{t("dashboard.pendingBanner.reviewSupport")}</Link>}
+            {stats.pendingUsers > 0 && can("users.view") && <Link to={ROUTES.admin.userManagement} className="underline-offset-4 hover:underline">{t("dashboard.pendingBanner.reviewAccounts")}</Link>}
+            {stats.pendingPayouts > 0 && can("finance.payouts.review") && <Link to={ROUTES.admin.payouts} className="underline-offset-4 hover:underline">{t("dashboard.pendingBanner.reviewPayouts")}</Link>}
+            {stats.openSupportTickets > 0 && can("support.tickets.handle") && <Link to={ROUTES.admin.support} className="underline-offset-4 hover:underline">{t("dashboard.pendingBanner.reviewSupport")}</Link>}
           </div>
         </section>
       )}
 
       <section aria-labelledby="platform-summary-title" className="space-y-3">
         <div>
-          <h2 id="platform-summary-title" className="text-lg font-bold text-slate-950">{t("dashboard.summary.title")}</h2>
+          <h2 id="platform-summary-title" className="text-section font-bold text-slate-950">{t("dashboard.summary.title")}</h2>
           <p className="mt-1 text-sm text-slate-600">{t("dashboard.summary.subtitle")}</p>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -188,7 +194,7 @@ function AdminDashboardContent() {
 
       <section aria-labelledby="quick-actions-title" className="space-y-3">
         <div>
-          <h2 id="quick-actions-title" className="text-lg font-bold text-slate-950">{t("dashboard.quickActions.title")}</h2>
+          <h2 id="quick-actions-title" className="text-section font-bold text-slate-950">{t("dashboard.quickActions.title")}</h2>
           <p className="mt-1 text-sm text-slate-600">{t("dashboard.quickActions.subtitle")}</p>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -198,9 +204,9 @@ function AdminDashboardContent() {
               <Link
                 key={action.label}
                 to={action.to}
-                className={`${panelClass} group flex min-h-28 items-start gap-3 p-4 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600`}
+                className={`${panelClass} group flex min-h-28 items-start gap-3 p-4 transition hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600`}
               >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 group-hover:bg-blue-50 group-hover:text-blue-700">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700 group-hover:bg-brand-50 group-hover:text-brand-700">
                   <Icon className="h-5 w-5" aria-hidden="true" />
                 </span>
                 <span className="min-w-0">
@@ -214,13 +220,13 @@ function AdminDashboardContent() {
       </section>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <section aria-labelledby="recent-jobs-title" className={`${panelClass} overflow-hidden`}>
+        {(can("jobs.view") || can("analytics.view")) ? <section aria-labelledby="recent-jobs-title" className={`${panelClass} overflow-hidden`}>
           <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
             <div>
               <h2 id="recent-jobs-title" className="font-bold text-slate-950">{t("dashboard.recentJobs.title")}</h2>
               <p className="mt-1 text-sm text-slate-500">{t("dashboard.recentJobs.subtitle")}</p>
             </div>
-            <Link to={ROUTES.admin.jobs} className="text-sm font-semibold text-blue-700 hover:text-blue-900">{t("dashboard.recentJobs.viewAll")}</Link>
+            {can("jobs.view") ? <Link to={ROUTES.admin.jobs} className="text-sm font-semibold text-brand-700 hover:underline">{t("dashboard.recentJobs.viewAll")}</Link> : null}
           </div>
           <div className="divide-y divide-slate-100">
             {isLoading && <p role="status" className="p-6 text-center text-sm text-slate-500">{t("dashboard.recentJobs.loading")}</p>}
@@ -237,15 +243,15 @@ function AdminDashboardContent() {
               </article>
             ))}
           </div>
-        </section>
+        </section> : null}
 
-        <section aria-labelledby="recent-payouts-title" className={`${panelClass} overflow-hidden`}>
+        {can("finance.payouts.review") ? <section aria-labelledby="recent-payouts-title" className={`${panelClass} overflow-hidden`}>
           <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
             <div>
               <h2 id="recent-payouts-title" className="font-bold text-slate-950">{t("dashboard.recentPayouts.title")}</h2>
               <p className="mt-1 text-sm text-slate-500">{t("dashboard.recentPayouts.subtitle")}</p>
             </div>
-            <Link to={ROUTES.admin.eWallet} className="text-sm font-semibold text-blue-700 hover:text-blue-900">{t("dashboard.recentPayouts.viewWallet")}</Link>
+            {can("finance.transactions.view") ? <Link to={ROUTES.admin.eWallet} className="text-sm font-semibold text-brand-700 hover:underline">{t("dashboard.recentPayouts.viewWallet")}</Link> : null}
           </div>
           <div className="divide-y divide-slate-100">
             {isLoading && <p role="status" className="p-6 text-center text-sm text-slate-500">{t("dashboard.recentPayouts.loading")}</p>}
@@ -266,7 +272,7 @@ function AdminDashboardContent() {
               );
             })}
           </div>
-        </section>
+        </section> : null}
       </div>
     </div>
   );

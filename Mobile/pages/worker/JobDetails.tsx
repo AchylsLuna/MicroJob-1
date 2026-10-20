@@ -1,3 +1,4 @@
+import DailyWorkSchedule from '../../components/DailyWorkSchedule';
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -76,19 +77,6 @@ export default function JobDetails({
   const toast = useToast();
   const { t } = useTranslation('worker');
 
-  const getCurrentUserId = async () => {
-    const raw = await AsyncStorage.getItem('auth_user');
-    if (!raw) return '';
-    const parsed = JSON.parse(raw);
-    return String(parsed?.id || parsed?._id || parsed?.userId || '').trim();
-  };
-
-  const resolveApplicantId = (value: any) => {
-    if (!value) return '';
-    if (typeof value === 'string') return value;
-    return String(value?._id || value?.id || value?.userId || '').trim();
-  };
-
   const handleTabPress = (tab: string) => {
     onTabPress?.(tab);
   };
@@ -114,7 +102,7 @@ export default function JobDetails({
 
   const handleShare = async () => {
     const title = jobDetails?.title || t('jobDetails.titleFallback');
-    const pay = formatMinimumPay(jobDetails?.salary, t('jobDetails.common.notAvailable'));
+    const pay = formatMinimumPay(jobDetails?.salary, t('jobDetails.common.notAvailable'), jobDetails?.paymentMode);
     try {
       await Share.share({
         message: t('jobDetails.share.message', {
@@ -287,15 +275,8 @@ export default function JobDetails({
       const data = asObject<any>(result.data) || asObject<any>(result.raw) || {};
       setJobDetails(data);
 
-      const userId = await getCurrentUserId();
-        setApplicationStatus(data?.applicationStatus || null);
-        if (userId) {
-        const applicants = Array.isArray(data?.applicants) ? data.applicants : [];
-        const alreadyApplied = applicants.some((applicant: any) => resolveApplicantId(applicant) === userId);
-        setHasApplied(Boolean(data?.applicationStatus) || alreadyApplied);
-      } else {
-        setHasApplied(false);
-      }
+      setApplicationStatus(data?.applicationStatus || null);
+      setHasApplied(Boolean(data?.applicationStatus));
     } catch (error: any) {
       setErrorMessage(error?.message || t('jobDetails.apiFallback.loadJobFailed'));
     } finally {
@@ -412,7 +393,7 @@ export default function JobDetails({
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.heroSalary}>{formatMinimumPay(jobDetails?.salary, t('jobDetails.common.notAvailable'))}</Text>
+        <Text style={styles.heroSalary}>{formatMinimumPay(jobDetails?.salary, t('jobDetails.common.notAvailable'), jobDetails?.paymentMode)}</Text>
 
         <View style={styles.heroChips}>
           {visibleChips.map((chip) => (
@@ -454,6 +435,7 @@ export default function JobDetails({
 
         {activeSection === 'description' ? (
           <>
+            {jobDetails?.paymentMode === 'daily' && <DailyWorkSchedule dates={jobDetails.workDates || []} rate={Number(jobDetails.salary)} start={jobDetails.workStartTime} end={jobDetails.workEndTime} />}
             {(jobDetails?.skills || []).length > 0 ? (
               <>
                 <Text style={styles.sectionTitle}>{t('jobDetails.sections.skills')}</Text>

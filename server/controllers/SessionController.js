@@ -3,8 +3,8 @@ import Session from '../models/Session.js';
 import User from '../models/User.js';
 import TrustedDevice from '../models/TrustedDevice.js';
 import { disconnectSession } from '../lib/socket.js';
-import { createAccessToken, cookieSecurityOptions, isNativeAuthRequest, SESSION_TTL_MS } from '../lib/authSession.js';
-import { clearTrustedDevicesForUser, listTrustedDevicesForUser } from '../lib/trustedDevice.js';
+import { createAccessToken, cookieSecurityOptions, isBearerAuthRequest, isNativeAuthRequest, SESSION_TTL_MS } from '../lib/authSession.js';
+import { clearTrustedDevicesForUser, listTrustedDevicesForUser, requirePasswordForTrustedDevice } from '../lib/trustedDevice.js';
 import monitor from '../lib/monitor.js';
 
 export const SELF_SERVICE_ROLES = new Set(['hire', 'work', 'both']);
@@ -66,13 +66,13 @@ const refreshSession = async (req, res) => {
       ip: req.ip || null,
       userAgent: req.get('user-agent'),
       status: 'success',
-      meta: { sessionId: String(rotatedSession._id), client: isNativeAuthRequest(req) ? 'native' : 'web' },
+      meta: { sessionId: String(rotatedSession._id), client: isNativeAuthRequest(req) ? 'native' : isBearerAuthRequest(req) ? 'bearer-web' : 'web' },
     });
 
     return res.status(200).json({
       token: newAccess,
       accessTokenExpiresAt: new Date(Date.now() + 15 * 60 * 1000),
-      ...(isNativeAuthRequest(req) ? { refreshToken: newRefresh, sessionExpiresAt: rotatedSession.expiresAt } : {}),
+      ...(isNativeAuthRequest(req) || isBearerAuthRequest(req) ? { refreshToken: newRefresh, sessionExpiresAt: rotatedSession.expiresAt } : {}),
     });
   } catch (err) {
     console.error('Refresh error', err);
@@ -233,6 +233,12 @@ const logout = async (req, res) => {
       console.warn('Failed to update session on logout', err);
     }
   }
+  // A normal sign-out ends this session, not the user's 30-day OTP exemption.
+  // Require a password before the retained device can restore a session.
+  await requirePasswordForTrustedDevice({
+    token: req.cookies?.trustedDevice || req.body?.trustedDeviceToken,
+    userId: req.user?.id,
+  });
 
   res.clearCookie('refreshToken', { ...cookieSecurityOptions, httpOnly: true });
   res.clearCookie('sessionId', { ...cookieSecurityOptions, httpOnly: true });

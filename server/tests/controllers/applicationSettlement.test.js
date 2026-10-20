@@ -7,6 +7,9 @@ import JobApplication from '../../models/JobApplication.js';
 import Transaction from '../../models/Transaction.js';
 import User from '../../models/User.js';
 import { settleApplicationPayment } from '../../services/applicationSettlement.js';
+import { isolateEmailEnvironment } from '../helpers/emailTestEnvironment.js';
+
+isolateEmailEnvironment();
 
 let mongo;
 const makeUser = async (role, email) => { const item = new User({ email, firstName: 'Test', lastName: 'User', role, status: 'active' }); await item.setPassword('Password123!'); return item.save(); };

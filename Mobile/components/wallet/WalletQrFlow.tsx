@@ -139,7 +139,7 @@ export function EmployerQrScannerModal({ visible, onClose, onSettled, initialReq
     if (!preview || busy) return;
     setBusy(true); setError('');
     try {
-      const result = await apiRequest(`${API_URL}/payment/qr-requests/${preview.requestId}/settle`, { method: 'POST', headers: await authHeaders() }, 'Settlement failed.');
+      const result = await apiRequest(`${API_URL}/payment/qr-requests/${preview.requestId}/settle`, { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ confirmed: true }) }, 'Settlement failed.');
       if (!result.ok) throw new Error(result.message);
       onSettled(); onClose();
     } catch (caught: any) { setError(caught?.message || 'Settlement failed.'); }

@@ -1,3 +1,4 @@
+import WithdrawalPanel from '../../components/wallet/WithdrawalPanel';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AppState,
@@ -36,7 +37,6 @@ type EmployerEWalletProps = {
 };
 
 const PENDING_TOPUP_KEY = PENDING_TOPUP_STORAGE_KEY;
-const TOPUP_FEE_PERCENT = 2.5;
 
 type WalletTransaction = {
   id: string;
@@ -67,6 +67,7 @@ export default function EmployerEWallet({
   const [hasLoadedWallet, setHasLoadedWallet] = useState(false);
   const [walletError, setWalletError] = useState('');
   const [isTopupExpanded, setIsTopupExpanded] = useState(false);
+  const [isWithdrawalExpanded, setIsWithdrawalExpanded] = useState(false);
   const [isScannerVisible, setIsScannerVisible] = useState(false);
   const [pendingInvoiceId, setPendingInvoiceId] = useState<string | null>(initialInvoiceRequestId);
   const [isBalanceHidden, setIsBalanceHidden] = useState(false);
@@ -87,8 +88,7 @@ export default function EmployerEWallet({
 
   const parsedTopupAmount = Number(String(topupAmount || '').replace(/[^0-9.]/g, ''));
   const canCreatePayment = !isCreatingPayment && Number.isFinite(parsedTopupAmount) && parsedTopupAmount >= 100;
-  const topupFee = Number((parsedTopupAmount * TOPUP_FEE_PERCENT / 100).toFixed(2));
-  const topupTotal = Number((parsedTopupAmount + topupFee).toFixed(2));
+  const topupTotal = parsedTopupAmount;
 
   const formatDate = useCallback((value?: string) => {
     if (!value) return '—';
@@ -106,7 +106,7 @@ export default function EmployerEWallet({
     const typeLabels: Record<string, string> = {
       TOP_UP: t('employerEWallet.transactions.topUp'),
       ESCROW: t('employerEWallet.transactions.escrow'),
-      PAYOUT: t('employerEWallet.transactions.payout'),
+      PAYOUT: t(tx?.jobReference ? 'wallet.jobPayment' : 'wallet.withdraw', { ns: 'common' }),
       REFUND: t('employerEWallet.transactions.refund'),
     };
     const defaultTitle = typeLabels[type] || t('employerEWallet.transactions.defaultTitle');
@@ -217,7 +217,6 @@ export default function EmployerEWallet({
           preview: item?.preview || item,
         })));
       }
-
       if (showFeedback && hasBalanceResult) {
         if (refreshedBalance <= 0) {
           toast.info(t('employerEWallet.toast.noBalance'));
@@ -376,6 +375,7 @@ export default function EmployerEWallet({
     }
   };
 
+
   return (
     <View style={styles.container}>
       <AppHeader
@@ -427,7 +427,6 @@ export default function EmployerEWallet({
           <Text style={styles.cardSubtitle}>{t('employerEWallet.topup.cardSubtitle')}</Text>
           <View style={styles.breakdown}>
             <View style={styles.breakdownRow}><Text style={styles.breakdownLabel}>{t('employerEWallet.topup.depositAmount')}</Text><Text style={styles.breakdownValue}>{php(parsedTopupAmount)}</Text></View>
-            <View style={styles.breakdownRow}><Text style={styles.breakdownLabel}>{t('employerEWallet.topup.processingFee')}</Text><Text style={styles.breakdownValue}>{php(topupFee)}</Text></View>
             <View style={styles.breakdownTotal}><Text style={styles.breakdownTotalLabel}>{t('employerEWallet.topup.totalAmountCharged')}</Text><Text style={styles.breakdownTotalValue}>{php(topupTotal)}</Text></View>
           </View>
 
@@ -459,6 +458,10 @@ export default function EmployerEWallet({
             )}
           </TouchableOpacity>
           </View>
+        </EmployerAccordion>
+
+        <EmployerAccordion title={t('employerEWallet.withdrawal.accordionTitle')} subtitle={t('employerEWallet.withdrawal.accordionSubtitle', { amount: php(liveBalance) })} expanded={isWithdrawalExpanded} onToggle={() => setIsWithdrawalExpanded((expanded) => !expanded)}>
+          <WithdrawalPanel sourceWallet="EMPLOYER" balance={liveBalance} onChanged={() => void refreshWalletData(false)} />
         </EmployerAccordion>
 
         <WalletSection title={t('employerEWallet.invoices.sectionTitle')} subtitle={t('employerEWallet.invoices.sectionSubtitle')} collapsible collapsed={areInvoicesCollapsed} onToggle={() => setAreInvoicesCollapsed((collapsed) => !collapsed)}>

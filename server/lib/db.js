@@ -34,13 +34,19 @@ export const connectDB = async ({ mongoUri, dbName, isProduction, allowInMemoryM
     }
 
     if (mongoose.connection.readyState !== 1) {
-        const { MongoMemoryServer } = await import('mongodb-memory-server');
-        inMemoryMongoServer = await MongoMemoryServer.create({
-            instance: { dbName },
+        // A standalone MongoMemoryServer can't run transactions, and every
+        // write path that matters for a demo (offers, hire, settlement,
+        // top-up) uses mongoose.startSession()/withTransaction -- those
+        // would 500 against a standalone instance. A single-node replica
+        // set supports transactions and is the same pattern already used in
+        // server/tests/controllers/applicationSettlement.test.js.
+        const { MongoMemoryReplSet } = await import('mongodb-memory-server');
+        inMemoryMongoServer = await MongoMemoryReplSet.create({
+            replSet: { count: 1 },
         });
         const inMemoryUri = inMemoryMongoServer.getUri();
         await mongoose.connect(inMemoryUri, { dbName });
-        console.warn(`Connected to in-memory MongoDB (${dbName})`);
+        console.warn(`Connected to in-memory MongoDB replica set (${dbName})`);
     }
 };
 

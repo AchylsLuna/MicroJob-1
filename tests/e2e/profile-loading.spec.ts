@@ -39,13 +39,19 @@ test("profile and settings load once while settings preserves an in-progress dra
   });
 
   await page.goto("/settings?tab=personal");
-  const firstName = page.getByLabel("First name");
-  await firstName.fill("My unsaved draft");
+  // "About Me" rather than "First name": the name fields are deliberately
+  // locked now (they mirror ID-verified data, so Settings.tsx renders them
+  // `readOnly`), which made this test's premise impossible -- it was typing
+  // into a field the product no longer lets anyone type into. The behaviour
+  // under test is unchanged: an in-flight /auth/me refresh must not overwrite
+  // what the user is part-way through editing.
+  const draftField = page.getByLabel("About Me");
+  await draftField.fill("My unsaved draft");
 
   await expect(page.getByText("Loading profile...")).toBeHidden();
-  await expect(firstName).toHaveValue("My unsaved draft");
+  await expect(draftField).toHaveValue("My unsaved draft");
   await page.waitForTimeout(750);
-  await expect(firstName).toHaveValue("My unsaved draft");
+  await expect(draftField).toHaveValue("My unsaved draft");
   expect(profileRequests).toBe(1);
 
   await page.goto("/worker/profile");

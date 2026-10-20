@@ -5,6 +5,7 @@ import speakeasy from 'speakeasy';
 import { getEmailTransporter, getMailFrom } from './emailTransporter.js';
 import { getJwtSecret } from './jwtSecret.js';
 import { issueOtpChallenge } from './otpChallenges.js';
+import { isStaffAccount, hasVerifiedSecondaryEmail } from './staffSecurity.js';
 
 export const MFA_LOGIN_PURPOSE = 'mfa-login';
 export const LOGIN_OTP_PURPOSE = 'login-otp';
@@ -48,12 +49,19 @@ export const getTestLoginOtpCode = (email) =>
   process.env.NODE_ENV === 'test' ? testLoginOtpCodes.get(String(email || '').toLowerCase().trim()) : undefined;
 
 export const issueLoginOtpChallenge = async (user, includePhone = false) => {
-  const email = String(user.email || '').toLowerCase().trim();
+  const staff = isStaffAccount(user);
+  if (staff && !hasVerifiedSecondaryEmail(user)) throw new Error('A verified secondary email is required.');
+  const email = String(staff ? user.secondaryEmail : user.email).toLowerCase().trim();
+  const transporter = getEmailTransporter();
+  if (staff && !transporter && process.env.NODE_ENV !== 'test') throw new Error('Email service is not configured.');
   const { challenge, code } = await issueOtpChallenge({
     purpose: 'login',
     subject: String(user._id),
     user: user._id,
-    metadata: { includePhone: Boolean(includePhone), email },
+    metadata: { includePhone: Boolean(includePhone), email,
+      ...(staff ? { staffLogin: true, primaryEmail: user.email, secondaryEmailVerifiedAt: user.secondaryEmailVerifiedAt.toISOString() } : {}) },
+    // A resend must not hand back a fresh five guesses -- see issueOtpChallenge.
+    carryAttempts: true,
   });
   const otpToken = createLoginOtpChallengeToken(String(user._id), challenge.challengeId, includePhone);
 
@@ -64,7 +72,6 @@ export const issueLoginOtpChallenge = async (user, includePhone = false) => {
   // of hard-failing every login -- mirroring UserController.sendOtp's existing
   // dev fallback for the signup OTP -- so local dev keeps working without real
   // email credentials configured.
-  const transporter = getEmailTransporter();
   if (!transporter) {
     if (process.env.NODE_ENV === 'production') {
       throw new Error('Email service is not configured.');
@@ -80,7 +87,7 @@ export const issueLoginOtpChallenge = async (user, includePhone = false) => {
   const displayName = user.firstName || 'there';
   await transporter.sendMail({
     from: `MicroJobs <${fromAddress}>`,
-    to: user.email,
+    to: email,
     subject: 'MicroJobs login verification code',
     text: `Hi ${displayName},\n\nUse this code to continue logging in to MicroJobs: ${code}\n\nThis code expires in 5 minutes.`,
     html: `

@@ -14,10 +14,11 @@ server/uploads/*
 !server/uploads/.gitkeep
 
 # Dependencies and local tooling
-node_modules/
-**/node_modules/
+node_modules
+**/node_modules
 .expo/
 Mobile/.expo/
+Mobile/android/
 .vercel/
 
 # Build and test output
@@ -35,6 +36,12 @@ Thumbs.db
 
 graphify-out
 .github
+!.github/
+!.github/workflows/
+!.github/workflows/azure-static-web-apps.yml
+!.github/workflows/azure-app-service.yml
+!.github/workflows/maintenance.yml
+server/.github/
 .vercel
 
 # ShipStudio metadata
@@ -44,3 +51,12 @@ graphify-out
 # Skills live in the Obsidian vault (MicroJobs/Claude Skills), not here.
 .claude/
 .agents/
+.agent/
+skills-lock.json
+
+# Playwright auth state saved by tests/e2e/auth.setup.ts
+tests/e2e/.auth/
+
+#Dockerfiles
+.dockerignore
+Dockerfile

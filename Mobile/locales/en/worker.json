@@ -205,6 +205,19 @@
       "submitWork": "Submit Work",
       "message": "Message"
     },
+    "paymentDispute": {
+      "openButton": "Open payment dispute",
+      "onHold": "Payment is on hold while the finance team reviews this dispute.",
+      "title": "Open payment dispute",
+      "description": "Explain the payment issue for {{title}}.",
+      "reasonPlaceholder": "Describe the payment issue",
+      "reasonRequired": "A reason is required.",
+      "submitFailed": "Unable to open the payment dispute.",
+      "holdNotice": "Payment remains secured until a finance admin reviews the case.",
+      "opened": "Payment dispute opened.",
+      "cancel": "Cancel",
+      "submit": "Submit dispute"
+    },
     "withdrawButton": {
       "label": "Withdraw"
     },
@@ -243,7 +256,7 @@
       "subtitle": "Open tickets and track replies"
     },
     "hero": {
-      "title": "Need help with payouts, applications, or account issues?",
+      "title": "Need help with payments, applications, or account issues?",
       "body": "Submit a ticket, monitor status changes, and continue the thread without leaving the app."
     },
     "metrics": {
@@ -253,8 +266,8 @@
     },
     "faqs": {
       "payoutReviews": {
-        "title": "Payout reviews",
-        "body": "Payout requests are reviewed manually. Track every review decision from your wallet history."
+        "title": "Payment reviews",
+        "body": "Withdrawal requests are reviewed manually. Track every review decision from your wallet history."
       },
       "applicationStages": {
         "title": "Application stages",
@@ -282,7 +295,7 @@
       "title": "Create Support Ticket",
       "subtitle": "Describe the issue clearly so support can route it correctly.",
       "subjectLabel": "Subject",
-      "subjectPlaceholder": "Payout review delay",
+      "subjectPlaceholder": "Payment review delay",
       "categoryLabel": "Category",
       "priorityLabel": "Priority",
       "messageLabel": "Message",
@@ -377,7 +390,7 @@
     },
     "warning": {
       "title": "Before you continue",
-      "body": "Deletion is only allowed when balances are zero, payout requests are resolved, and active jobs or applications are closed.",
+      "body": "Deletion is only allowed when balances are zero, withdrawal requests are resolved, and active jobs or applications are closed.",
       "sessionsRevoked": "Current sessions are revoked after deletion.",
       "identifiersAnonymized": "Personal identifiers are anonymized for audit retention.",
       "savedRemoved": "Saved jobs and push devices are removed automatically."
@@ -461,8 +474,8 @@
       },
       "type": {
         "topUp": "Top-up",
-        "escrow": "Escrow",
-        "payout": "Payout",
+        "escrow": "Payment on Hold",
+        "payout": "Payment",
         "refund": "Refund",
         "generic": "Transaction"
       }
@@ -486,12 +499,12 @@
       "statusUnknown": "unknown"
     },
     "toast": {
-      "workerOnlyPayout": "Payout requests are only available from worker balances.",
-      "invalidAmount": "Enter a valid payout amount.",
+      "workerOnlyPayout": "Withdrawal requests are only available from worker balances.",
+      "invalidAmount": "Enter a valid payment amount.",
       "noBalance": "No available balance. Your wallet balance is ₱0.00.",
       "noBalanceWithdraw": "No available balance to withdraw. Your wallet balance is ₱0.00.",
       "insufficientBalance": "Insufficient balance. You need at least {{required}} (Available: {{available}}).",
-      "amountExceedsBalance": "Payout amount cannot exceed your worker balance.",
+      "amountExceedsBalance": "Payment amount cannot exceed your worker balance.",
       "amountExceedsBalanceDetailed": "Insufficient balance. You requested {{requested}} but your available balance is {{available}}.",
       "belowMinimum": "Amount is below the minimum required limit of {{min}}.",
       "belowMinimumWithdrawal": "Amount is below the minimum required withdrawal limit of {{min}}.",
@@ -503,7 +516,7 @@
     "apiFallback": {
       "loadProfileFailed": "Failed to load wallet profile.",
       "loadTransactionsFailed": "Failed to load transactions.",
-      "loadPayoutsFailed": "Failed to load payout requests.",
+      "loadPayoutsFailed": "Failed to load withdrawal requests.",
       "loadInvoicesFailed": "Failed to load invoices.",
       "refreshFailed": "Some wallet details could not be refreshed.",
       "connectionFailed": "Check your connection and try again.",
@@ -749,12 +762,19 @@
     },
     "jobsAvailable_one": "{{count}} Job Available",
     "jobsAvailable_other": "{{count}} Jobs Available",
+    "recommended": {
+      "title": "Recommended for you",
+      "emptyProfileBody": "Add your skills and preferred categories and we'll match jobs to your profile."
+    },
     "nearest": {
       "title": "Suggested Near You",
       "viewAccessibility": "View {{title}} near {{location}}"
     },
     "jobCard": {
-      "messageEmployerButton": "Message Employer"
+      "messageEmployerButton": "Message Employer",
+      "highlightedByEmployer": "Highlighted by the employer",
+      "highlightedLabel": "Highlighted",
+      "viewJob": "View {{title}}"
     },
     "common": {
       "employerFallback": "Employer"
@@ -766,6 +786,8 @@
       "loadCategoriesFailed": "Failed to load categories.",
       "loadApplicationsFailed": "Failed to load applications.",
       "loadJobsFailed": "Failed to load jobs.",
+      "loadRecommendedFailed": "Failed to load recommended jobs.",
+      "realtimeUnavailable": "Live updates are temporarily unavailable. Your data will refresh when you reopen or refresh the page.",
       "loadProfileLocationFailed": "Failed to load profile location.",
       "openConversationFailed": "Failed to open a conversation with this employer.",
       "saveJobPreferencesFailed": "Failed to save job preferences."

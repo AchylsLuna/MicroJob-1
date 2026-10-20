@@ -1,8 +1,8 @@
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
 
-const envApiUrl = process.env.EXPO_PUBLIC_API_URL;
-export const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '';
+export const PRODUCTION_API_URL = 'https://microjobs-api-test.azurewebsites.net/api';
+export const PRODUCTION_SOCKET_URL = 'https://microjobs-api-test.azurewebsites.net';
+const envApiUrl = process.env.EXPO_PUBLIC_API_URL || PRODUCTION_API_URL;
 const envSocketUrl = process.env.EXPO_PUBLIC_SOCKET_URL;
 const envSocketPath = process.env.EXPO_PUBLIC_SOCKET_PATH;
 const envApiSource = process.env.EXPO_PUBLIC_API_SOURCE;
@@ -56,54 +56,37 @@ const hostCandidates = [
   (Constants as any).linkingUri,
 ];
 
-const detectedHosts = hostCandidates.map(extractHost).filter(Boolean);
 const detectedExpoOrigin = hostCandidates.map(normalizeExpoOrigin).find(Boolean) || '';
-const isLoopbackHost = (value: string) => /^(?:localhost|127(?:\.\d{1,3}){3}|::1)$/i.test(value);
-const isWildcardHost = (value: string) => /^(?:0\.0\.0\.0|::)$/i.test(value);
-const host = detectedHosts.find((value) => !isLoopbackHost(value)) || detectedHosts[0] || '';
-// Keep this aligned with scripts/dev.cjs. Port 5000 is commonly occupied by
-// macOS Control Center/AirPlay and can surface misleading HTTP 0/CORS errors.
-const defaultApiPort = process.env.EXPO_PUBLIC_API_PORT || '5050';
-
-// Uses EXPO_PUBLIC_API_URL if provided, otherwise auto-detects the Expo host IP.
-// This keeps mobile working across different networks without editing this file.
-const fallbackHost = host && !(Platform.OS === 'android' && isLoopbackHost(host))
-  ? host
-  : Platform.OS === 'android'
-    ? '10.0.2.2'
-    : 'localhost';
-const fallbackOrigin = `http://${fallbackHost}:${defaultApiPort}`;
 const resolveConfiguredApiUrl = (value: string | undefined) => {
-  if (!value) return `${fallbackOrigin}/api`;
+  if (!value) return PRODUCTION_API_URL;
   try {
     const configured = new URL(value);
-    if (isWildcardHost(configured.hostname)) configured.hostname = fallbackHost;
+    if (/^(?:localhost|127(?:\.\d{1,3}){3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}|0\.0\.0\.0|::1)$/i.test(configured.hostname)) {
+      return PRODUCTION_API_URL;
+    }
     return configured.toString();
   } catch {
-    return value;
+    return PRODUCTION_API_URL;
   }
 };
-const usesMetroProxy = envApiSource === 'development-metro-proxy' && Boolean(detectedExpoOrigin);
-const normalizedApiUrl = (usesMetroProxy
-  ? `${detectedExpoOrigin}/microjobs-api/api`
-  : resolveConfiguredApiUrl(envApiUrl)).replace(/\/$/, '');
+const normalizedApiUrl = resolveConfiguredApiUrl(envApiUrl).replace(/\/$/, '');
 
 export const API_URL = normalizedApiUrl.endsWith('/api')
   ? normalizedApiUrl
   : `${normalizedApiUrl}/api`;
 
-export const SOCKET_URL = (usesMetroProxy ? detectedExpoOrigin : envSocketUrl || API_URL.replace(/\/api$/, '')).replace(/\/$/, '');
+export const SOCKET_URL = (envSocketUrl || PRODUCTION_SOCKET_URL).replace(/\/$/, '');
 export const SOCKET_PATH = envSocketPath || '/socket.io';
 
 export const API_DIAGNOSTICS = Object.freeze({
   apiUrl: API_URL,
   socketUrl: SOCKET_URL,
-  source: envApiSource || (envApiUrl ? 'environment' : host && !isLoopbackHost(host) ? 'expo-host' : 'platform-fallback'),
-  transport: usesMetroProxy ? 'metro-proxy' : API_URL.startsWith('https:') ? 'https' : 'direct-http',
+  source: envApiSource || (process.env.EXPO_PUBLIC_API_URL ? 'environment' : 'production-default'),
+  transport: API_URL.startsWith('https:') ? 'https' : 'direct-http',
   expoOrigin: detectedExpoOrigin || undefined,
   host: extractHost(API_URL),
   port: (() => {
     try { return new URL(API_URL).port || (API_URL.startsWith('https:') ? '443' : '80'); }
-    catch { return defaultApiPort; }
+    catch { return '443'; }
   })(),
 });

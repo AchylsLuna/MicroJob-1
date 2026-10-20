@@ -1,21 +1,75 @@
 {
+  "jobHistory": {
+    "title": "Job History",
+    "subtitle": "Review your job postings, held funds, worker payments, and ratings.",
+    "jobTitle": "Title",
+    "status": "Status",
+    "amountHeld": "Amount held",
+    "amountPaid": "Amount paid for worker",
+    "details": "Details",
+    "viewDetails": "View details",
+    "viewDetailsFor": "View details for {{title}}",
+    "refresh": "Refresh",
+    "loading": "Loading job history…",
+    "empty": "You have no job history yet.",
+    "loadFailed": "Failed to load job history.",
+    "moneyNote": "Held funds are remaining reserved funds after payments and refunds. Posting and highlight fees are excluded.",
+    "ratingAfterCompletion": "You can rate this worker after the job is completed.",
+    "location": "Location",
+    "jobType": "Job type",
+    "deadline": "Deadline",
+    "minimumPay": "Minimum worker pay",
+    "skills": "Skills",
+    "requirements": "Requirements",
+    "responsibilities": "Responsibilities",
+    "pagination": {
+      "showing": "Showing {{from}}–{{to}} of {{total}}",
+      "previous": "Prev",
+      "next": "Next",
+      "pageAria": "Job history pages",
+      "goToPage": "Go to page {{page}}"
+    },
+    "statuses": {
+      "Available": "Available",
+      "In Progress": "In Progress",
+      "Completed": "Completed",
+      "Cancelled": "Cancelled",
+      "Closed": "Closed",
+      "Full refund": "Full refund",
+      "Resolved": "Resolved"
+    }
+  },
   "postJob": {
+    "daily": {
+      "workDates": "Work dates (Asia/Manila)",
+      "selectDates": "Select work dates ({{count}} selected)",
+      "scheduleHint": "Select 2–366 days. Pay is per day per worker, minimum PHP 480. All selected days are funded upfront.",
+      "requiredDates": "Select between 2 and 366 work dates for long-term work.",
+      "removeDate": "Remove {{date}}",
+      "useDates": "Use selected dates",
+      "payLabel": "Daily Pay per Worker (PHP)",
+      "formula": "{{rate}} per day × {{days}} workdays × {{count}} workers"
+    },
     "header": {
       "title": "Post a Job",
       "subtitle": "Create job posts, track their status, and manage your listings."
     },
     "jobType": {
+      "examplesLabel": "Examples",
       "shortTerm": {
         "label": "Short-term",
-        "description": "One-time or temporary work with a clear finish."
+        "description": "One-time or temporary work with a clear finish.",
+        "examples": "Event setup, one-day cleaning, and moving help."
       },
       "sideHustle": {
         "label": "Side hustle",
-        "description": "Flexible work someone can take on for extra income."
+        "description": "Flexible work someone can take on for extra income.",
+        "examples": "Evening tutoring, weekend delivery, and freelance design."
       },
       "recruiting": {
         "label": "Recruiting",
-        "description": "Hire for an ongoing or longer-term role."
+        "description": "Hire for an ongoing or longer-term role.",
+        "examples": "Ongoing shop assistant, receptionist, and customer support roles."
       }
     },
     "requiredFields": {
@@ -36,14 +90,17 @@
     },
     "errors": {
       "loadFailed": "Failed to load job postings.",
+      "popupTitle": "Please check your details",
+      "popupDismiss": "Got it",
       "missingFields": "Please complete: {{fields}}.",
       "invalidPositions": "Please provide a whole number of workers needed (minimum 1).",
       "invalidDeadline": "Please provide a valid deadline date.",
-      "invalidSalary": "Minimum guaranteed pay must be greater than zero.",
+      "invalidSalary": "Minimum guaranteed pay must be at least PHP {{minimum}} for this opportunity type.",
       "updateFailed": "Failed to update job.",
       "postFailed": "Failed to post job.",
       "deleteFailed": "Failed to delete job.",
-      "statusUpdateFailed": "Failed to update job status."
+      "statusUpdateFailed": "Failed to update job status.",
+      "loadHiredFailed": "Failed to load hired workers."
     },
     "actions": {
       "postJob": "Post a Job",
@@ -72,10 +129,29 @@
       "locationNotSet": "Location not set",
       "jobTypeNotSet": "Job type not set",
       "payNotSet": "Not set",
+      "hiredCount_one": "{{count}} hired",
+      "hiredCount_other": "{{count}} hired",
+      "viewDetails": "View details",
       "edit": "Edit",
       "reopen": "Reopen",
       "close": "Close",
       "delete": "Delete"
+    },
+    "hiredDialog": {
+      "title_one": "Hired ({{count}})",
+      "title_other": "Hired ({{count}})",
+      "subtitle": "Workers hired for this job.",
+      "closeAria": "Close job details",
+      "loading": "Loading hired workers...",
+      "empty": "No workers have been hired for this job yet.",
+      "workerFallback": "Worker",
+      "table": {
+        "profilePicture": "Profile picture",
+        "name": "Name",
+        "dateHired": "Date hired",
+        "actions": "Actions",
+        "viewProfile": "View profile"
+      }
     },
     "noMatch": {
       "title": "No jobs match your filters",
@@ -140,7 +216,7 @@
         "label": "Minimum Guaranteed Pay per Worker (PHP)",
         "ariaLabel": "Minimum guaranteed pay per worker",
         "placeholder": "e.g. 1500",
-        "helper": "Enter the minimum amount guaranteed to each hired worker. This amount is secured in escrow."
+        "helper": "Enter the amount guaranteed to each hired worker (minimum PHP {{minimum}}). This amount is reserved for payment."
       },
       "deadline": {
         "label": "Deadline *"
@@ -187,20 +263,38 @@
     "profileIncomplete": {
       "toast": "Add a profile photo in Settings before posting a job."
     },
+    "highlight": {
+      "title": "Highlight job",
+      "tooltip": "Highlighted listings appear more prominently near the top of job search results.",
+      "description": "Make this listing easier to find for {{amount}}. This fee is not refundable."
+    },
+    "checkout": {
+      "title": "Checkout",
+      "workerPay_one": "Worker's pay · {{count}} worker",
+      "workerPay_other": "Workers' pay · {{count}} workers",
+      "postingFee": "Posting fee",
+      "highlightFee": "Highlight fee",
+      "total": "Total",
+      "nonRefundable": "The posting and highlight fees are non-refundable, including if you delete this listing. Workers receive their full secured pay."
+    },
     "wizard": {
       "stepAria": "Step {{step}} of {{total}}: {{title}}",
       "steps": {
         "job": {
           "title": "The job",
-          "subtitle": "Name it, categorize it, and describe the work."
+          "subtitle": "Name it, categorize it, describe the work, and add helpful requirements or skills."
         },
         "whereWhen": {
           "title": "Where & when",
           "subtitle": "Set the location, opportunity type, and deadline."
         },
-        "payReview": {
-          "title": "Pay & review",
-          "subtitle": "Set the pay, add optional details, and confirm."
+        "pay": {
+          "title": "Pay & highlight",
+          "subtitle": "Set the guaranteed pay and optional listing promotion."
+        },
+        "review": {
+          "title": "Review & checkout",
+          "subtitle": "Confirm the listing and checkout total before posting."
         }
       },
       "back": "Back",
@@ -208,6 +302,7 @@
       "summary": {
         "title": "Review before you post",
         "job": "Job",
+        "description": "Description",
         "category": "Category",
         "location": "Location",
         "jobType": "Type",
@@ -216,9 +311,115 @@
       }
     }
   },
+  "eWallet": {
+    "balanceLabel": "Available employer balance",
+    "description": "Use this balance to fund jobs or withdraw uncommitted funds to your bank or e-wallet. Pending job reserved funds cannot be withdrawn.",
+    "topUp": "Top Up",
+    "withdraw": "Withdraw Funds",
+    "topUpDescription": "Add funds through secure checkout.",
+    "cancel": "Cancel",
+    "continue": "Continue to Checkout",
+    "loading": "Loading...",
+    "stats": {
+      "available": "Available",
+      "pending": "Pending withdrawals",
+      "withdrawals": "Withdrawals",
+      "availableHelper": "Balance you can fund jobs with or withdraw",
+      "pendingHelper": "Withdrawals awaiting review",
+      "withdrawalsHelper": "Requested, approved, and paid withdrawal requests"
+    },
+    "status": {
+      "requested": "Requested",
+      "approved": "Approved",
+      "paid": "Paid",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled"
+    },
+    "history": {
+      "title": "Withdrawal History",
+      "description": "Track employer-balance withdrawals while they are reviewed.",
+      "empty": "No employer withdrawals yet.",
+      "requested": "Requested",
+      "cancelling": "Cancelling...",
+      "cancel": "Cancel Withdrawal",
+      "loading": "Loading withdrawals...",
+      "emptyDescription": "Withdrawals you request will appear here with their review status.",
+      "reviewed": "Reviewed",
+      "paid": "Paid"
+    },
+    "form": {
+      "title": "Withdraw Employer Funds",
+      "available": "Available to withdraw: {{amount}}. Withdrawals debit your employer balance immediately and remain pending until reviewed.",
+      "amount": "Amount (PHP)",
+      "method": "Method",
+      "bank": "Bank transfer",
+      "institutionName": "Institution",
+      "accountName": "Account name",
+      "accountNumber": "Account number",
+      "submitting": "Submitting withdrawal...",
+      "submit": "Withdraw Funds",
+      "methodOptions": {
+        "bankTransfer": "Bank transfer",
+        "gcash": "GCash",
+        "maya": "Maya"
+      },
+      "institutionPlaceholder": "BDO, GCash, Maya",
+      "accountNamePlaceholder": "Juan Dela Cruz",
+      "accountNumberPlaceholder": "09171234567 or bank account number"
+    },
+    "transactions": {
+      "title": "Employer Transactions",
+      "empty": "No employer transactions yet.",
+      "helper": "Linked transaction status and payment references included",
+      "loading": "Loading transactions...",
+      "columns": {
+        "type": "Type",
+        "status": "Status",
+        "label": "Label",
+        "amount": "Amount",
+        "reference": "Reference",
+        "linkedEntity": "Linked Entity",
+        "date": "Date"
+      }
+    },
+    "toast": {
+      "loadFailed": "Failed to load employer wallet data.",
+      "invalidTopUp": "Enter a valid top-up amount.",
+      "topUpFailed": "Failed to start top-up.",
+      "invalidWithdrawal": "Enter a valid withdrawal amount.",
+      "exceedsBalance": "Withdrawal amount cannot exceed your employer balance.",
+      "destinationRequired": "Complete the destination details before submitting your withdrawal.",
+      "withdrawalSubmitted": "Employer withdrawal submitted.",
+      "withdrawalFailed": "Failed to submit employer withdrawal.",
+      "withdrawalCancelled": "Employer withdrawal cancelled.",
+      "withdrawalCancelFailed": "Failed to cancel employer withdrawal."
+    },
+    "pager": {
+      "ariaLabel": "Wallet sections",
+      "previous": "Previous section",
+      "next": "Next section"
+    },
+    "txLabel": {
+      "topUp": "Top-up",
+      "escrow": "Payment on Hold",
+      "payout": "Payment",
+      "refund": "Refund",
+      "transaction": "Transaction"
+    },
+    "linkedEntity": {
+      "walletTopUp": "Wallet deposit",
+      "job": "Job payment"
+    },
+    "transactionStatus": {
+      "COMPLETED": "COMPLETED",
+      "PENDING": "PENDING",
+      "FAILED": "FAILED",
+      "CANCELLED": "CANCELLED"
+    }
+  },
   "applicationsManagement": {
     "title": "Applications",
-    "subtitle": "Review applicants by stage, schedule interviews, and run bulk workflow actions safely.",
+    "subtitle": "Select a job to review its applicants, schedule interviews, and manage offers and hiring.",
     "viewToggle": {
       "board": "Board",
       "table": "Table"
@@ -230,7 +431,10 @@
       "allStages": "All stages",
       "jobAriaLabel": "Filter applications by job",
       "allJobs": "All jobs",
-      "showHidden": "Show hidden"
+      "showHidden": "Show hidden",
+      "jobLabel": "Job",
+      "loadingJobs": "Loading jobs...",
+      "noJobs": "No posted jobs"
     },
     "status": {
       "applied": "Applied",
@@ -240,7 +444,9 @@
       "offerSent": "Offer Sent",
       "hired": "Hired",
       "rejected": "Rejected",
-      "withdrawn": "Withdrawn"
+      "withdrawn": "Withdrawn",
+      "cancelled": "Cancelled",
+      "positionFilled": "Position filled"
     },
     "bulk": {
       "selectedCount_one": "{{count}} application selected",
@@ -252,7 +458,8 @@
       "hideSelected": "Hide Selected"
     },
     "errors": {
-      "loadFailed": "Failed to load applications."
+      "loadFailed": "Failed to load applications.",
+      "jobsLoadFailed": "Failed to load your jobs."
     },
     "states": {
       "loading": "Loading applications...",
@@ -293,20 +500,52 @@
     },
     "table": {
       "headers": {
-        "applicant": "Applicant",
+        "applicant": "Name",
         "role": "Role",
         "stage": "Stage",
         "interview": "Interview",
-        "applied": "Applied",
+        "applied": "Applied on",
         "resume": "Resume",
-        "actions": "Actions"
+        "actions": "Actions",
+        "profile": "View Profile",
+        "hide": "Hide"
       },
+      "selectAll": "Select all applications",
+      "selectApplicant": "Select application for {{name}}",
       "notScheduled": "Not scheduled",
       "noResume": "No resume",
       "actions": {
         "interview": "Interview",
         "rate": "Rate"
       }
+    },
+    "workflow": {
+      "stepCaption": "Step {{step}} of {{total}} · {{title}}",
+      "statusSubtitle": "Update the application stage before sending an offer.",
+      "offerSubtitle": "Set the agreed amount and send it to the applicant for review.",
+      "reviewSubtitle": "Wait for the applicant to accept or decline your formal offer.",
+      "hireSubtitle": "Confirm the hire or reject the accepted offer.",
+      "paymentSubtitle": "Manage the agreed payment and approve submitted work.",
+      "title": "Applicant Actions",
+      "stepsLabel": "Application steps",
+      "statusStep": "Status & offer",
+      "reviewStep": "Offer review",
+      "hireStep": "Hire decision",
+      "paymentStep": "Payment",
+      "changeStatus": "Change Status",
+      "waiting": "Applicant is reviewing your offer",
+      "hireQuestion": "Do you wish to hire this applicant?",
+      "hireWarning": "Confirming a hire secures the assignment. The worker selects Start work when ready; job and payment records remain in history.",
+      "hire": "Hire",
+      "reject": "Reject",
+      "rejectTitle": "Reject applicant",
+      "rejectDescription": "Cancel the {{amount}} offer and reject {{name}}? Any additional reserved funds will be refunded to your balance.",
+      "offerDeclined": "The applicant declined your offer. You may change the status or send a new offer.",
+      "rejectedHelp": "This applicant is rejected. Change the status before sending a new offer.",
+      "paymentHelp": "Authorize the agreed payment for this applicant. Funds remain secured until submitted work is approved and paid.",
+      "paymentAuthorized": "Payment is authorized. Funds remain secured until you approve the submitted work.",
+      "paymentPaid": "Payment has been released to the worker.",
+      "paymentDisputed": "Payment is on hold while the dispute is reviewed."
     },
     "messageDraft": "Hi {{name}}, I would like to discuss your application for {{job}}.",
     "toast": {
@@ -339,12 +578,12 @@
       "guaranteedMinimum": "Guaranteed minimum: {{amount}}",
       "amountPlaceholder": "Offer amount",
       "reviewOffer": "Review Offer",
-      "additionalEscrow": "Additional {{amount}} will be held in escrow."
+      "additionalEscrow": "Additional {{amount}} will be reserved for payment."
     },
     "offerActive": {
       "accepted": "Offer accepted",
       "awaiting": "Offer awaiting response",
-      "escrowBacked": "{{amount}} held in escrow",
+      "escrowBacked": "{{amount}} reserved for payment",
       "confirmHire": "Confirm Hire",
       "cancelOffer": "Cancel Offer"
     },
@@ -354,21 +593,34 @@
       "authorizePayment": "Authorize Payment",
       "approveAndPay": "Approve & Pay",
       "requestChanges": "Request Changes",
-      "changeReasonPlaceholder": "What needs to change?"
+      "changeReasonPlaceholder": "What needs to change?",
+      "openDispute": "Open payment dispute",
+      "paymentOnHold": "Payment is on hold while this dispute is reviewed."
+    },
+    "disputeDialog": {
+      "title": "Open payment dispute",
+      "description": "Explain the payment issue for {{subject}}. The payment will be held for finance review.",
+      "reasonLabel": "Reason",
+      "reasonRequired": "A reason is required.",
+      "holdNotice": "The worker payment and employer refund will remain on hold until a finance admin resolves the case.",
+      "opened": "Payment dispute opened.",
+      "cancel": "Cancel",
+      "submit": "Submit dispute"
     },
     "confirmOffer": {
       "title": "Send Formal Offer",
-      "description": "Send {{name}} an offer of {{amount}} (minimum {{minimum}}, {{escrow}} additional escrow)?",
+      "description": "Send {{name}} an offer of {{amount}} (minimum {{minimum}}, {{escrow}} additional reserved funds)?",
       "confirm": "Send Offer"
     },
     "confirmCancelOffer": {
       "title": "Cancel Offer",
-      "description": "Cancel the {{amount}} offer? Any additional escrow will be refunded to your balance.",
+      "description": "Cancel the {{amount}} offer? Any additional reserved funds will be refunded to your balance.",
       "confirm": "Cancel Offer"
     },
     "confirmHire": {
       "title": "Confirm Hire",
-      "description": "Confirm hiring {{name}} for {{amount}}? This reserves the position and secures escrow.",
+      "warning": "Cannot delete the job after confirming the hire.",
+      "description": "Confirm hiring {{name}} for {{amount}}? This reserves the position and secures reserved funds.",
       "confirm": "Confirm Hire"
     },
     "confirmPay": {
@@ -405,6 +657,23 @@
       "subtitle": "See what needs attention and move candidates forward.",
       "manageJobs": "Manage jobs",
       "postJob": "Post a job"
+    },
+    "profileCompleteness": {
+      "title": "Identity verification",
+      "description": "Complete the remaining verification steps to earn a Verified badge and help more people see your listings.",
+      "verifiedDescription": "All four checks are complete. Your Verified badge is active.",
+      "progressAria": "Employer profile verification progress",
+      "progressText": "{{completed}} of {{total}} verification steps completed",
+      "requirementsTitle": "Complete these requirements to verify your profile",
+      "actions": {
+        "view": "View verification",
+        "retry": "Try again",
+        "verifyEmail": "Verify email",
+        "verifyPhone": "Verify phone",
+        "addPhone": "Add phone number",
+        "verifyId": "Verify ID",
+        "uploadDocument": "Upload document"
+      }
     },
     "stats": {
       "activeJobs": "Active jobs",
@@ -516,7 +785,7 @@
       "reopening": "Reopening...",
       "reopen": "Reopen",
       "markDoneTooltipBlocked": "Move at least one worker application to Hired first",
-      "markDoneTooltip": "Mark done and auto-pay workers from escrow",
+      "markDoneTooltip": "Review submitted work and confirm worker payments",
       "markDoneBlockedHelper": "You need at least one hired worker, and that worker must submit finished work, before you can mark this job done.",
       "marking": "Marking...",
       "markAsDone": "Mark as Done",
@@ -524,11 +793,11 @@
       "deleting": "Deleting...",
       "delete": "Delete",
       "viewDetails": "View details",
-      "escrowNote": "Completing the job automatically releases escrow to hired workers' e-wallets."
+      "escrowNote": "Review each worker's submitted evidence and confirm their payment before completing the job."
     },
     "toast": {
       "alreadyCompleted": "This job is already marked as completed.",
-      "markedDoneSuccess": "Job marked as done. Worker payouts were triggered automatically from escrow.",
+      "markedDoneSuccess": "Job completed. Confirmed worker payments remain recorded in payment history.",
       "markDoneFailed": "Failed to mark job as done.",
       "alreadyOpen": "This job is already open.",
       "cannotReopenInProgress": "Cannot reopen a job that is currently in progress.",
@@ -560,20 +829,20 @@
     "confirmDone": {
       "title": "Mark Job as Done",
       "body": "You are about to complete <b>{{title}}</b>.",
-      "info": "Once completed, escrow funds are automatically released to hired workers' e-wallets.",
+      "info": "Confirming releases the listed payments from reserved job funds. Check each worker, amount, and completion evidence before continuing.",
       "confirm": "Confirm Done"
     },
     "confirmReopen": {
       "title": "Reopen Job",
       "body": "You are about to reopen <b>{{title}}</b>.",
-      "infoRecollect": "Reopening will re-collect the escrow from your employer balance. Workers will be able to apply again.",
+      "infoRecollect": "Reopening will re-collect the reserved funds from your employer balance. Workers will be able to apply again.",
       "infoSimple": "The job will be set back to open and workers will be able to apply again.",
       "confirm": "Reopen Job"
     },
     "confirmDelete": {
       "title": "Delete Job",
       "body": "Are you sure you want to delete <b>{{title}}</b>? This action cannot be undone.",
-      "info": "All applications for this job will also be removed. Any unspent escrow will be refunded to your employer balance.",
+      "info": "Cancel this posting with a reason. Eligible unused funds are returned to their original wallet; payment and application history is retained.",
       "confirm": "Delete Job"
     }
   },

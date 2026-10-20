@@ -77,8 +77,8 @@ export const jobsAPI = {
   respondToJobOffer: async (offerId: string, action: 'accept' | 'reject') => (
     asData(await respondToJobOffer(offerId, action))
   ),
-  submitWork: async (applicationId: string) => (
-    asData(await submitWork(applicationId))
+  submitWork: async (applicationId: string, evidence: { statement: string; files: File[] }) => (
+    asData(await submitWork(applicationId, evidence))
   ),
 };
 

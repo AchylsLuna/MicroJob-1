@@ -9,25 +9,25 @@ import {
 
 const MINUTE = 60 * 1000;
 
-test('the escalation schedule lengthens with each consecutive lock', () => {
-  assert.equal(getLockDurationMs(1), 15 * MINUTE);
-  assert.equal(getLockDurationMs(2), 30 * MINUTE);
-  assert.equal(getLockDurationMs(3), 60 * MINUTE);
+test('every lock lasts exactly three minutes', () => {
+  assert.equal(getLockDurationMs(1), 3 * MINUTE);
+  assert.equal(getLockDurationMs(2), 3 * MINUTE);
+  assert.equal(getLockDurationMs(3), 3 * MINUTE);
 });
 
 test('the schedule caps rather than growing without bound', () => {
   // An attacker must not be able to push a real user's lock out to days by
   // continuing to fail against their account.
-  assert.equal(getLockDurationMs(4), 60 * MINUTE);
-  assert.equal(getLockDurationMs(50), 60 * MINUTE);
-  assert.equal(getLockDurationMs(Number.MAX_SAFE_INTEGER), 60 * MINUTE);
+  assert.equal(getLockDurationMs(4), 3 * MINUTE);
+  assert.equal(getLockDurationMs(50), 3 * MINUTE);
+  assert.equal(getLockDurationMs(Number.MAX_SAFE_INTEGER), 3 * MINUTE);
 });
 
 test('a missing or nonsensical lock count is treated as the first lock', () => {
-  assert.equal(getLockDurationMs(0), 15 * MINUTE);
-  assert.equal(getLockDurationMs(-3), 15 * MINUTE);
-  assert.equal(getLockDurationMs(undefined), 15 * MINUTE);
-  assert.equal(getLockDurationMs(NaN), 15 * MINUTE);
+  assert.equal(getLockDurationMs(0), 3 * MINUTE);
+  assert.equal(getLockDurationMs(-3), 3 * MINUTE);
+  assert.equal(getLockDurationMs(undefined), 3 * MINUTE);
+  assert.equal(getLockDurationMs(NaN), 3 * MINUTE);
 });
 
 test('the threshold leaves room for ordinary typos', () => {
@@ -52,7 +52,7 @@ test('isLockActive treats an unset lock as unlocked', () => {
   assert.equal(isLockActive(new Date('not-a-date')), false);
 });
 
-test('every duration in the table is positive and ordered', () => {
+test('the policy contains one fixed duration', () => {
   let previous = 0;
   for (const duration of LOCK_DURATIONS_MS) {
     assert.ok(duration > previous, 'durations must increase');

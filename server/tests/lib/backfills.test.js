@@ -9,6 +9,8 @@ import JobApplication from '../../models/JobApplication.js';
 import Transaction from '../../models/Transaction.js';
 import User from '../../models/User.js';
 import Session from '../../models/Session.js';
+import FinancialDispute from '../../models/FinancialDispute.js';
+import SupportTicket from '../../models/SupportTicket.js';
 
 let mongoServer;
 
@@ -52,6 +54,7 @@ test('runDataBackfills canonicalizes application statuses and backfills missing 
   const topupTransactionId = new mongoose.Types.ObjectId();
   const escrowTransactionId = new mongoose.Types.ObjectId();
   const legacySessionId = new mongoose.Types.ObjectId();
+  const legacyDisputeId = new mongoose.Types.ObjectId();
 
   await Session.collection.insertOne({
     _id: legacySessionId,
@@ -114,6 +117,17 @@ test('runDataBackfills canonicalizes application statuses and backfills missing 
       updatedAt: new Date('2026-03-03T08:00:00.000Z'),
     },
   ]);
+  await FinancialDispute.collection.insertOne({
+    _id: legacyDisputeId,
+    subject: 'Legacy payment dispute',
+    raisedBy: user._id,
+    application: legacyApplicationId,
+    amount: 800,
+    reason: 'Legacy claim',
+    status: 'open',
+    raisedAt: new Date('2026-03-05T08:00:00.000Z'),
+    updatedAt: new Date('2026-03-05T08:00:00.000Z'),
+  });
 
   await runDataBackfills();
 
@@ -122,15 +136,16 @@ test('runDataBackfills canonicalizes application statuses and backfills missing 
   let topupTransaction = await Transaction.findById(topupTransactionId).lean();
   let escrowTransaction = await Transaction.findById(escrowTransactionId).lean();
   let migratedSession = await Session.collection.findOne({ _id: legacySessionId });
+  let migratedDispute = await FinancialDispute.findById(legacyDisputeId).lean();
 
   assert.equal(application.status, 'Applied');
   assert.equal(application.timeline.length, 1);
   assert.equal(application.timeline[0].status, 'Applied');
   assert.equal(application.timeline[0].type, 'status_changed');
   assert.match(application.timeline[0].note, /Applied/);
-  assert.equal(interviewApplication.status, 'Interview Scheduled');
+  assert.equal(interviewApplication.status, 'Interviewed');
   assert.equal(interviewApplication.timeline.length, 1);
-  assert.equal(interviewApplication.timeline[0].status, 'Interview Scheduled');
+  assert.equal(interviewApplication.timeline[0].status, 'Interviewed');
 
   assert.equal(topupTransaction.status, 'COMPLETED');
   assert.equal(topupTransaction.balanceTarget, 'WORKER');
@@ -144,6 +159,13 @@ test('runDataBackfills canonicalizes application statuses and backfills missing 
   assert.equal(escrowTransaction.relatedEntityType, 'job');
   assert.equal(escrowTransaction.relatedEntityId, String(job._id));
   assert.equal(Object.hasOwn(migratedSession, 'token'), false);
+  assert.equal(migratedDispute.ticketId, `FIN-LEGACY-${String(legacyDisputeId).slice(-12).toUpperCase()}`);
+  assert.equal(String(migratedDispute.worker), String(user._id));
+  assert.equal(String(migratedDispute.employer), String(user._id));
+  assert.equal(migratedDispute.investigationStatus, 'UNDER_INVESTIGATION');
+  assert.equal(migratedDispute.active, true);
+  assert.ok(migratedDispute.supportTicket);
+  assert.equal(await SupportTicket.countDocuments({ financialDispute: legacyDisputeId }), 1);
 
   await runDataBackfills();
 
@@ -152,14 +174,17 @@ test('runDataBackfills canonicalizes application statuses and backfills missing 
   topupTransaction = await Transaction.findById(topupTransactionId).lean();
   escrowTransaction = await Transaction.findById(escrowTransactionId).lean();
   migratedSession = await Session.collection.findOne({ _id: legacySessionId });
+  migratedDispute = await FinancialDispute.findById(legacyDisputeId).lean();
 
   assert.equal(application.status, 'Applied');
   assert.equal(application.timeline.length, 1);
-  assert.equal(interviewApplication.status, 'Interview Scheduled');
+  assert.equal(interviewApplication.status, 'Interviewed');
   assert.equal(interviewApplication.timeline.length, 1);
   assert.equal(topupTransaction.balanceTarget, 'WORKER');
   assert.equal(topupTransaction.providerReference, 'chk_test_123');
   assert.equal(escrowTransaction.relatedEntityType, 'job');
   assert.equal(escrowTransaction.relatedEntityId, String(job._id));
   assert.equal(Object.hasOwn(migratedSession, 'token'), false);
+  assert.equal(migratedDispute.auditLogs.length, 1);
+  assert.equal(await SupportTicket.countDocuments({ financialDispute: legacyDisputeId }), 1);
 });

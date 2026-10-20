@@ -14,8 +14,12 @@ export type JobCardData = {
   categoryId?: string;
   categoryName?: string;
   salaryLabel: string;
+  dailyRate?: number;
+  workStartTime?: string | null;
+  workEndTime?: string | null;
   skills: string[];
   urgent: boolean;
+  highlighted: boolean;
   /** Relative posting age, e.g. "2d ago". Empty when the job has no createdAt. */
   postedLabel: string;
   matchPercentage?: number;
@@ -28,8 +32,12 @@ type RawJob = {
   title: string;
   location?: string;
   salary?: unknown;
+  paymentMode?: string;
+  workStartTime?: string | null;
+  workEndTime?: string | null;
   jobType?: string;
   urgent?: boolean;
+  highlighted?: boolean;
   skills?: string[];
   deadline?: string;
   createdAt?: string;
@@ -54,9 +62,13 @@ export function toJobCardData(job: RawJob): JobCardData {
     jobType: job.jobType || '',
     categoryId,
     categoryName,
-    salaryLabel: formatMinimumPay(job.salary),
+    salaryLabel: formatMinimumPay(job.salary, undefined, job.paymentMode),
+    dailyRate: job.paymentMode === 'daily' ? Number(job.salary) : undefined,
+    workStartTime: job.workStartTime,
+    workEndTime: job.workEndTime,
     skills: job.skills || [],
     urgent: Boolean(job.urgent),
+    highlighted: Boolean(job.highlighted),
     postedLabel: job.createdAt ? formatNotificationTime(job.createdAt) : '',
     matchPercentage: job.match?.percentage,
     matchLevel: job.match?.level,

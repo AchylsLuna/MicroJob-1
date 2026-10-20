@@ -5,7 +5,7 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 function deriveTarget(req, payload) {
   const params = req.params || {};
-  const paramTarget = params.userId || params.payoutRequestId || params.ticketId || params.reportId || params.disputeId || params.id;
+  const paramTarget = params.userId || params.verificationId || params.payoutRequestId || params.ticketId || params.reportId || params.disputeId || params.id;
   if (paramTarget) {
     return params.documentType ? `${paramTarget}:${params.documentType}` : String(paramTarget);
   }

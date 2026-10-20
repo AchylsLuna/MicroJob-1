@@ -13,7 +13,9 @@
       "offerSent": "Ipinadala ang Alok",
       "hired": "Nakuha",
       "rejected": "Tinanggihan",
-      "withdrawn": "Binawi"
+      "withdrawn": "Binawi",
+      "cancelled": "Kinansela",
+      "positionFilled": "Napunan na ang posisyon"
     },
     "summary": {
       "loading": "Naglo-load ng mga aplikasyon...",
@@ -45,6 +47,19 @@
     },
     "submitWork": {
       "button": "Isumite ang natapos na trabaho"
+    },
+    "paymentDispute": {
+      "openButton": "Magbukas ng dispute sa bayad",
+      "onHold": "Naka-hold ang bayad habang sinusuri ito ng finance team.",
+      "viewExisting": "Tingnan ang kasalukuyang ticket",
+      "title": "Magbukas ng dispute sa bayad",
+      "description": "Ipaliwanag ang isyu sa bayad para sa {{subject}}. Ihihinto muna ang bayad habang sinusuri ng finance team.",
+      "reasonLabel": "Dahilan",
+      "reasonRequired": "Kinakailangan ang dahilan.",
+      "holdNotice": "Mananatiling naka-secure ang bayad hanggang masuri ng finance admin ang kaso.",
+      "opened": "Nabuksan ang dispute sa bayad.",
+      "cancel": "Kanselahin",
+      "submit": "Isumite ang dispute"
     },
     "card": {
       "unavailableJob": "Hindi available na trabaho",
@@ -150,14 +165,37 @@
     "hero": {
       "eyebrow": "Paghahanap ng trabaho",
       "title": "Hanapin ang iyong susunod na oportunidad",
-      "subtitle": "Maghanap ng lokal na trabaho, ihambing ang garantisadong bayad, at i-save ang mga oportunidad na gusto mo.",
+      "subtitle": "Maghanap ng trabaho sa buong Pilipinas, ihambing ang garantisadong bayad, at i-save ang mga oportunidad na gusto mo.",
+      "locationSearchAria": "Lokasyon para sa paghahanap ng trabaho",
+      "locationPlaceholder": "Lokasyon",
+      "nationwide": "Buong bansa",
+      "searchNationwide": "Maghanap sa buong bansa",
+      "locationHelp": "Pumili ng lungsod o lalawigan, o iwang blangko ang lokasyon para sa trabaho sa buong bansa. Pindutin ang Hanapin para makita ang mga resulta.",
+      "clearLocation": "Burahin ang lokasyon para maghanap sa buong bansa",
+      "submit": "Hanapin",
+      "savedJobs": "Mga na-save na trabaho",
       "searchAria": "Maghanap ng trabaho",
-      "searchPlaceholder": "Pamagat ng trabaho, kompanya, o kategorya",
+      "searchPlaceholder": "Maghanap ng pamagat ng trabaho o keyword",
       "categoryFilterAria": "I-filter ayon sa kategorya",
       "allCategories": "Lahat ng kategorya",
       "cityButtonAriaSet": "Mga trabaho sa: {{location}}",
       "cityButtonAriaUnset": "Itakda ang lungsod para sa paghahanap ng trabaho: {{location}}",
       "setCityLabel": "Itakda ang lungsod"
+    },
+    "recommended": {
+      "title": "Inirerekomenda para sa iyo",
+      "subtitle": "Itinugma sa iyong mga kasanayan, piniling kategorya at karanasan.",
+      "showAll": "Ipakita ang lahat ng {{count}} rekomendasyon",
+      "showLess": "Ipakita ang mas kaunti",
+      "emptyProfileBody": "Idagdag ang iyong mga kasanayan at piniling kategorya para matugma namin ang mga trabaho sa iyong profile.",
+      "emptyProfileAction": "Kumpletuhin ang iyong profile",
+      "percentage": "{{percentage}}% tugma",
+      "level": {
+        "excellent": "Napakahusay na tugma",
+        "strong": "Malakas na tugma",
+        "good": "Magandang tugma",
+        "potential": "Posibleng tugma"
+      }
     },
     "locationBanner": {
       "title": "Idagdag ang iyong lungsod para makita muna ang malalapit na trabaho",
@@ -175,6 +213,8 @@
       "save": "I-save ang mga preference"
     },
     "results": {
+      "inLocation": "Ipinapakita ang mga trabaho sa {{location}}.",
+      "nationwide": "Ipinapakita ang mga trabaho sa buong Pilipinas.",
       "countLabel_one": "{{count}} trabahong nahanap",
       "countLabel_other": "{{count}} na trabahong nahanap",
       "sortedBy": "Nakaayos ang mga oportunidad ayon sa {{sort}}.",
@@ -201,7 +241,7 @@
       "empty": {
         "searchTitle": "Walang trabahong tumugma sa iyong paghahanap",
         "defaultTitle": "Walang available na trabaho",
-        "searchDescription": "Sumubok ng ibang pamagat, kompanya, o kategorya.",
+        "searchDescription": "Sumubok ng ibang pamagat, kompanya, kategorya, o lokasyon.",
         "defaultDescription": "Pakisuri muli sa ibang pagkakataon para sa mga bagong oportunidad."
       }
     },
@@ -224,6 +264,9 @@
       "categoryFallback": "Pangkalahatan",
       "locationFallback": "Walang tinukoy na lokasyon",
       "salaryMinimum": "{{salary}} minimum",
+      "highlightedByEmployer": "Naka-highlight ng employer",
+      "verifiedEmployer": "Ganap na napatunayang employer",
+      "verifiedEmployerTooltip": "Nakumpleto ng taong ito ang lahat ng pagsusuri sa pagkakakilanlan.",
       "alreadyApplied": "Nakapag-apply na",
       "applicationRejected": "Tinanggihan ang Aplikasyon"
     },
@@ -236,7 +279,7 @@
       "activeCount_one": "{{count}} filter",
       "activeCount_other": "{{count}} na filter",
       "datePosted": {
-        "label": "Petsa ng pag-post",
+        "label": "Oras ng pag-post",
         "past24Hours": "Nakaraang 24 oras",
         "pastWeek": "Nakaraang linggo",
         "pastMonth": "Nakaraang buwan"
@@ -245,11 +288,14 @@
         "label": "Uri ng trabaho"
       },
       "minimumPay": {
-        "label": "Minimum na sahod",
+        "label": "Sahod",
         "option": "{{amount}}+ minimum"
       },
       "fewApplicants": {
-        "label": "Wala pang 10 aplikante"
+        "label": "Kaunting aplikante (<10)"
+      },
+      "category": {
+        "label": "Kategorya"
       }
     }
   },
@@ -260,6 +306,8 @@
     "notAvailable": "Hindi available ang detalye ng trabaho.",
     "locationFallback": "Remote",
     "employerFallback": "Employer",
+    "verifiedEmployer": "Ganap na napatunayang employer",
+    "verifiedEmployerTooltip": "Nakumpleto ng taong ito ang lahat ng pagsusuri sa pagkakakilanlan.",
     "messageDraft": "Kumusta {{employerName}}, interesado ako sa posisyong {{jobTitle}}. Gusto ko sanang pag-usapan pa ang oportunidad na ito.",
     "adminReadOnly": "Read-only admin view. Gamitin ang Admin Job Monitoring para tanggalin ang trabahong ito.",
     "applicationSubmitted": "Naisumite ang Aplikasyon",
@@ -341,7 +389,8 @@
       "employerInfoMissing": "Hindi available ang impormasyon ng employer para sa trabahong ito.",
       "startConversationFailed": "Hindi ma-simulan ang usapan sa employer na ito.",
       "employerProfileMissing": "Hindi available ang profile ng employer para sa trabahong ito.",
-      "profileIncomplete": "Idagdag ang larawan sa profile sa Settings bago mag-apply sa trabaho."
+      "profileIncomplete": "Idagdag ang larawan sa profile sa Settings bago mag-apply sa trabaho.",
+      "applicationRejected": "Tinanggihan ang aplikasyon. Hindi ka na maaaring mag-apply muli para sa trabahong ito."
     }
   },
   "eWallet": {
@@ -405,7 +454,13 @@
       "moneyInHelper": "Nakumpletong top-up, payout, at refund na natanggap",
       "moneyOut": "Palabas na Pera",
       "moneyOutHelper": "Nakumpletong escrow ng trabaho at mga withdrawal sa wallet",
-      "withdrawals": "Mga Withdrawal"
+      "withdrawals": "Mga Withdrawal",
+      "withdrawalsHelper": "Mga hiniling, naaprubahan, at nabayarang withdrawal"
+    },
+    "pager": {
+      "ariaLabel": "Mga seksyon ng wallet",
+      "previous": "Nakaraang seksyon",
+      "next": "Susunod na seksyon"
     },
     "history": {
       "title": "Kasaysayan ng Withdrawal",
@@ -413,6 +468,7 @@
       "workerOnly": "Para sa wallet ng manggagawa lamang",
       "loading": "Naglo-load ng mga withdrawal...",
       "empty": "Wala pang withdrawal.",
+      "emptyDescription": "Lilitaw dito ang mga withdrawal na hihilingin mo kasama ang status ng pagsusuri.",
       "requested": "Hiniling",
       "reviewed": "Nasuri",
       "paid": "Nabayaran",
@@ -459,14 +515,39 @@
       "amountLabel": "Halaga (PHP)",
       "description": "Ang pagpopondo ng employer lamang ang top-up flow dito. Ang mga account ng manggagawa ay nag-wi-withdraw mula sa nakitang balanse.",
       "depositAmount": "Halaga ng Deposito",
-      "processingFee": "Bayad sa Pagproseso (2.5%)",
-      "totalAmountCharged": "Kabuuang Sisingiling Halaga",
+      "processingFee": "Walang bayad sa pagproseso",
+      "totalAmountCharged": "Halagang Sisingilin",
       "cancel": "Kanselahin",
       "proceed": "Magpatuloy sa Checkout",
       "redirecting": "Nire-redirect..."
     }
   },
   "messages": {
+    "safety": {
+      "title": "Mag-ingat.",
+        "description": "Maging magalang sa chat. Huwag ibigay ang password o verification code. Panatilihin ang bayad sa MicroJobs at i-report ang pang-aabuso, pagbabanta, o posibleng scam."
+      },
+      "report": {
+        "action": "I-report ang user",
+        "title": "I-report si {{name}}",
+        "description": "Ipaalam sa mga admin ang pagmumura, pang-aabuso, o posibleng scam sa pag-uusap na ito.",
+        "reason": "Dahilan ng pag-report",
+        "chooseReason": "Pumili ng dahilan",
+        "reasons": {
+          "abuse": "Pagmumura, pang-aabuso, o pangha-harass",
+          "scam": "Scam o panloloko",
+          "threats": "Pagbabanta o mapanganib na asal",
+          "other": "Iba pang alalahanin"
+        },
+        "details": "Karagdagang detalye (opsyonal)",
+        "evidenceNotice": "Ibabahagi sa mga admin ang pinakahuling 20 mensahe sa pag-uusap na ito para sa pagsusuri. Hindi awtomatikong iba-block o paparusahan ang taong ito kapag ni-report.",
+        "cancel": "Kanselahin",
+        "submit": "Isumite ang report",
+        "submitting": "Isinusumite…",
+        "success": "Naisumite ang report. Susuriin ng mga admin ang pag-uusap.",
+        "alreadyPending": "May report na ang pag-uusap na ito na naghihintay ng pagsusuri ng admin.",
+        "failed": "Hindi naisumite ang report. Subukan muli."
+      },
     "title": "Mga Mensahe",
     "listOptionsLabel": "Mga opsyon sa listahan",
     "backToInbox": "Bumalik sa Inbox",
@@ -485,6 +566,7 @@
     "unarchive": "I-unarchive",
     "archive": "I-archive",
     "viewProfile": "Tingnan ang profile",
+    "viewProfileAria": "Tingnan ang profile ni {{name}}",
     "blockUser": "I-block ang user",
     "deleteConversation": "Tanggalin ang usapan",
     "noMessagesYet": "Wala pang mensahe. Simulan ang usapan!",
@@ -628,6 +710,15 @@
       "incomplete": "Idagdag ang mga kulang na detalye para mas mabilis kang masuri ng mga employer.",
       "refreshingAria": "Nire-refresh ang profile",
       "ariaLabel": "Kakumpletuhan ng profile"
+    },
+    "identityVerification": {
+      "title": "Pag-verify ng pagkakakilanlan",
+      "description": "Kumpletuhin ang lahat ng apat na pagsusuri upang makuha ang iyong Verified badge.",
+      "verifiedDescription": "Kumpleto ang lahat ng apat na pagsusuri. Aktibo ang iyong Verified badge.",
+      "refreshingAria": "Nire-refresh ang pag-verify ng pagkakakilanlan",
+      "ariaLabel": "Progreso ng pag-verify ng pagkakakilanlan",
+      "progressText": "{{completed}} sa {{total}} requirement sa pag-verify ng pagkakakilanlan ang nakumpleto",
+      "requirementsTitle": "Kumpletuhin ang mga requirement na ito upang ma-verify ang iyong pagkakakilanlan"
     },
     "overviewTab": {
       "aboutMe": "Tungkol sa Akin",
@@ -835,6 +926,12 @@
       "business": "Impormasyon ng Negosyo",
       "experience": "Karanasan",
       "resume": "CV/Resume"
+    },
+    "privacyTabs": {
+      "aria": "Mga seksyon ng seguridad at privacy",
+      "security": "Seguridad",
+      "verification": "Beripikasyon",
+      "privacy": "Privacy"
     },
     "personal": {
       "businessHeading": "Impormasyon ng Negosyo",
@@ -1125,7 +1222,7 @@
     },
     "mfa": {
       "title": "Two-factor authentication",
-      "description": "Magdagdag ng pangalawang hakbang sa pag-sign in para hindi sapat ang nanakaw na password para makapasok sa iyong account.",
+      "description": "Magdagdag ng beripikasyon gamit ang authenticator o backup code sa pag-sign in. Nilalaktawan ng trusted device ang karaniwang email code, pero nangangailangan pa rin ng beripikasyon ang setting na ito.",
       "statusDisabled": "Naka-off",
       "statusEnabled": "Naka-on",
       "statusLoading": "Sinusuri...",
@@ -1170,12 +1267,14 @@
       "typeDeleteLabel": "I-type ang DELETE para kumpirmahin",
       "confirmWarning": "Permanenteng buburahin nito ang iyong account at ang lahat ng nasa loob nito. Walang paraan para mabawi ito.",
       "deleteButton": "Burahin ang account",
+      "superadminDisabled": "Hindi maaaring burahin ang mga Superadmin account para maprotektahan ang pagmamay-ari at access ng platform.",
       "deletingButton": "Binubura...",
       "confirmButton": "Burahin ang aking account",
       "cancelButton": "Kanselahin",
       "toast": {
         "enterPassword": "Ilagay ang iyong kasalukuyang password.",
         "typeDeleteConfirm": "I-type ang DELETE para kumpirmahin.",
+        "superadminProtected": "Hindi maaaring burahin ang mga Superadmin account.",
         "deleteSuccess": "Nabura na ang iyong account.",
         "deleteFailed": "Hindi nabura ang iyong account."
       }

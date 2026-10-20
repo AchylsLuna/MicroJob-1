@@ -4,8 +4,11 @@ import Session from '../models/Session.js';
 import Job from '../models/Job.js';
 import Category from '../models/Category.js';
 import Notification from '../models/Notification.js';
+import FinancialDispute from '../models/FinancialDispute.js';
+import SupportTicket from '../models/SupportTicket.js';
 import { LEGACY_APPLICATION_STATUS_MAP, APPLICATION_STATUSES } from './applicationStatus.js';
 import { ensureDefaultJobCategories } from './jobCategories.js';
+import { getDisputeMoneySnapshot } from '../services/financialDisputeMoney.js';
 
 function inferBalanceTarget(tx) {
   if (tx.balanceTarget) return tx.balanceTarget;
@@ -60,6 +63,90 @@ function initialTimelineEntry(status, createdAt) {
     createdAt: createdAt || new Date(),
     meta: { source: 'backfill' },
   };
+}
+
+async function migrateLegacyFinancialDisputes() {
+  const legacyDisputes = await FinancialDispute.collection.find({
+    application: { $type: 'objectId' },
+    $or: [
+      { ticketId: { $exists: false } },
+      { job: { $exists: false } },
+      { worker: { $exists: false } },
+      { employer: { $exists: false } },
+      { investigationStatus: { $exists: false } },
+    ],
+  }).toArray();
+
+  for (const dispute of legacyDisputes) {
+    const application = await JobApplication.findById(dispute.application).lean();
+    if (!application) continue;
+    const job = await Job.findById(application.job).lean();
+    if (!job?.jobPoster || !application.applicant) continue;
+    const money = await getDisputeMoneySnapshot({ application, job });
+    const disputedAmount = Math.max(0, Number(dispute.amount || money.remainingAgreedAmount || money.agreedAmount || 0));
+    const fundsHeldAmount = Math.min(disputedAmount, money.fundsHeldAmount);
+    const outstandingAmount = Math.max(0, Number((disputedAmount - fundsHeldAmount).toFixed(2)));
+    const active = !['resolved', 'rejected'].includes(String(dispute.status || '').toLowerCase());
+    const ticketId = dispute.ticketId || `FIN-LEGACY-${String(dispute._id).slice(-12).toUpperCase()}`;
+    const raisedBy = dispute.raisedBy || application.applicant;
+    const paymentStatus = active
+      ? money.alreadyPaidAmount > 0 ? 'PARTIALLY_PAID' : fundsHeldAmount > 0 ? 'FUNDS_HELD' : 'OUTSTANDING_PAYMENT'
+      : Number(dispute.workerPayoutAmount || 0) > 0 ? 'PAID' : Number(dispute.employerRefundAmount || 0) > 0 ? 'REFUNDED' : 'SETTLED';
+    let supportTicketId = dispute.supportTicket || null;
+    if (!supportTicketId) {
+      const supportTicket = await SupportTicket.create({
+        requester: raisedBy,
+        financialDispute: dispute._id,
+        relatedUsers: [application.applicant, job.jobPoster],
+        subject: `[${ticketId}] ${dispute.subject || 'Financial dispute'}`,
+        category: 'financial_dispute',
+        priority: 'high',
+        status: active ? 'in_progress' : 'resolved',
+        resolvedAt: active ? null : dispute.resolvedAt || dispute.updatedAt || new Date(),
+        messages: dispute.reason ? [{ author: raisedBy, actorRole: 'user', body: String(dispute.reason).slice(0, 4000) }] : [],
+      });
+      supportTicketId = supportTicket._id;
+    }
+    const uploaderRole = String(raisedBy) === String(job.jobPoster) ? 'employer' : 'worker';
+    await FinancialDispute.collection.updateOne(
+      { _id: dispute._id },
+      {
+        $set: {
+          ticketId,
+          raisedBy,
+          job: job._id,
+          worker: application.applicant,
+          employer: job.jobPoster,
+          supportTicket: supportTicketId,
+          agreedJobAmount: money.agreedAmount,
+          alreadyPaidAmount: money.alreadyPaidAmount,
+          disputedAmount,
+          fundsHeldAmount,
+          outstandingAmount,
+          fundStatus: fundsHeldAmount === 0 ? 'OUTSTANDING_PAYMENT' : outstandingAmount > 0 ? 'PARTIALLY_HELD' : 'FUNDS_HELD',
+          workerClaim: String(dispute.reason || 'Legacy payment dispute'),
+          investigationStatus: active ? 'UNDER_INVESTIGATION' : 'RESOLVED',
+          active,
+          settlementStatus: active ? 'NONE' : 'VERIFIED',
+          paymentStatus,
+          messages: Array.isArray(dispute.messages) && dispute.messages.length > 0
+            ? dispute.messages
+            : [{ author: raisedBy, authorRole: uploaderRole, body: String(dispute.reason || 'Legacy payment dispute'), visibleToParties: true, createdAt: dispute.raisedAt || new Date() }],
+          auditLogs: Array.isArray(dispute.auditLogs) && dispute.auditLogs.length > 0
+            ? dispute.auditLogs
+            : [{ userId: null, role: 'system', action: 'LEGACY_DISPUTE_MIGRATED', previousStatus: dispute.status || null, newStatus: active ? 'UNDER_INVESTIGATION' : 'RESOLVED', details: {}, timestamp: new Date() }],
+        },
+      },
+    );
+  }
+
+  const indexes = await FinancialDispute.collection.indexes().catch(() => []);
+  const obsoleteIndex = indexes.find((index) => index.unique && index.key?.application === 1 && !index.partialFilterExpression?.active);
+  if (obsoleteIndex) await FinancialDispute.collection.dropIndex(obsoleteIndex.name);
+  await FinancialDispute.collection.createIndex(
+    { application: 1 },
+    { name: 'active_financial_dispute_application', unique: true, partialFilterExpression: { application: { $type: 'objectId' }, active: true } },
+  );
 }
 
 export async function runDataBackfills() {
@@ -171,4 +258,6 @@ export async function runDataBackfills() {
       }
     );
   }
+
+  await migrateLegacyFinancialDisputes();
 }

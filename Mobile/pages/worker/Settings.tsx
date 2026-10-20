@@ -28,6 +28,7 @@ type SettingsProps = {
   onNavigateSupport?: () => void;
   onNavigatePaymentMethods?: () => void;
   onNavigateWithdrawals?: () => void;
+  onNavigateFinancialDisputes?: () => void;
   currentRole?: 'worker' | 'employer' | 'both';
   canSwitchAccountMode?: boolean;
   onSwitchAccountMode?: (role: 'worker' | 'employer') => Promise<boolean>;
@@ -50,6 +51,7 @@ export default function Settings({
   onNavigateSupport,
   onNavigatePaymentMethods,
   onNavigateWithdrawals,
+  onNavigateFinancialDisputes,
   currentRole = 'worker',
   canSwitchAccountMode = false,
   onSwitchAccountMode,
@@ -230,6 +232,7 @@ export default function Settings({
   }));
 
   const supportMenus: SettingsItem[] = [
+    ...(onNavigateFinancialDisputes ? [{ title: 'Financial disputes', onPress: onNavigateFinancialDisputes, icon: 'alert-circle-outline' as const }] : []),
     { title: t('settings.menu.contactSupport'), onPress: onNavigateSupport, icon: 'help-circle-outline' as const },
     { title: t('settings.menu.about'), onPress: onNavigateAbout, icon: 'information-circle-outline' as const },
   ].map((item) => ({

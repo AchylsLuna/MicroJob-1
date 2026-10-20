@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createNavigationContainerRef, DefaultTheme, NavigationContainer } from '@react-navigation/native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tokens } from './theme/tokens';
 import AuthNavigator from './navigation/AuthStack';
 import WorkerStackNavigator from './navigation/WorkerStack';
@@ -21,7 +21,7 @@ import { resolveNotificationDestination } from './lib/notifications';
 
 const navigationRef = createNavigationContainerRef();
 
-const resetLinkPrefixes = ['microjobs://', 'https://m1cro-job.vercel.app'];
+const resetLinkPrefixes = ['microjobs://', 'https://micro-jobs.online'];
 
 const parseResetLinkUrl = (linkUrl) => {
   if (!linkUrl) return null;
@@ -56,7 +56,9 @@ function AppNavigator() {
     return <ApiConnectionScreen session={session} />;
   }
 
-  return session.isAuthenticated ? (session.viewMode === 'employer' && session.canAccessEmployer ? <EmployerStackNavigator key="employer-mode" /> : <WorkerStackNavigator key="worker-mode" />) : <AuthNavigator />;
+  return session.isAuthenticated
+    ? (session.viewMode === 'employer' && session.canAccessEmployer ? <EmployerStackNavigator key="employer-mode" /> : <WorkerStackNavigator key="worker-mode" />)
+    : <AuthNavigator />;
 }
 
 function ApiConnectionScreen({ session }) {
@@ -91,13 +93,25 @@ function ApiConnectionScreen({ session }) {
 
 function SessionOverlays() {
   const session = useAppSession();
+  const insets = useSafeAreaInsets();
 
   return (
     <>
       {session.showLogoutModal ? (
-        <View style={styles.logoutOverlay}>
-          <View style={styles.logoutCard}>
-            <TouchableOpacity style={styles.logoutClose} onPress={session.closeLogoutConfirm}>
+        <View style={styles.logoutOverlay} accessibilityViewIsModal>
+          <TouchableOpacity
+            style={styles.logoutBackdrop}
+            onPress={session.closeLogoutConfirm}
+            accessibilityRole="button"
+            accessibilityLabel="Close sign out confirmation"
+          />
+          <View style={[styles.logoutCard, { paddingBottom: Math.max(insets.bottom, 18) + 18 }]} accessibilityRole="alert">
+            <TouchableOpacity
+              style={styles.logoutClose}
+              onPress={session.closeLogoutConfirm}
+              accessibilityRole="button"
+              accessibilityLabel="Close sign out confirmation"
+            >
               <Ionicons name="close" size={20} color="#6B7280" />
             </TouchableOpacity>
             <View style={styles.logoutIconWrap}>
@@ -109,7 +123,12 @@ function SessionOverlays() {
               <TouchableOpacity style={styles.logoutSecondary} onPress={session.closeLogoutConfirm}>
                 <Text style={styles.logoutSecondaryText}>NO</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.logoutPrimary} onPress={() => void session.logout()}>
+              <TouchableOpacity
+                style={styles.logoutPrimary}
+                onPress={() => void session.logout()}
+                accessibilityRole="button"
+                accessibilityLabel="Sign out"
+              >
                 <Text style={styles.logoutPrimaryText}>SIGN OUT</Text>
               </TouchableOpacity>
             </View>
@@ -139,6 +158,11 @@ function RootApp() {
   const language = useLanguage();
   const [showLaunch, setShowLaunch] = useState(true);
   const [navigationReady, setNavigationReady] = useState(false);
+  // Bumped by the error boundary's "Try again": changing the key remounts the
+  // NavigationContainer, which is the only way to actually clear a crashed
+  // screen on native. Without it the boundary re-renders the same broken
+  // subtree and throws again immediately.
+  const [navigatorGeneration, setNavigatorGeneration] = useState(0);
   const navigationTheme = useMemo(() => ({
     ...DefaultTheme,
     colors: { ...DefaultTheme.colors, background: tokens.colors.signedInCanvas, primary: tokens.colors.brand, card: tokens.colors.contentSurface },
@@ -213,6 +237,8 @@ function RootApp() {
       navigationRef.navigate(employer ? 'EmployerEWallet' : 'WorkerTabs', employer ? { invoiceRequestId: entityId } : { screen: 'EWallet' });
     } else if (destination === 'support') {
       navigationRef.navigate(employer ? 'EmployerSupport' : 'WorkerSupport', { ticketId: entityId });
+    } else if (destination === 'disputes') {
+      navigationRef.navigate(employer ? 'EmployerFinancialDisputes' : 'WorkerFinancialDisputes');
     } else if (destination === 'settings') {
       navigationRef.navigate(employer ? 'EmployerSettings' : 'WorkerSettings');
     } else {
@@ -225,11 +251,18 @@ function RootApp() {
       style={{ flex: 1, overflow: 'hidden', backgroundColor: tokens.colors.signedInCanvas }}
       onStartShouldSetResponder={() => true}
       onResponderGrant={() => session.registerActivity()}
+      onResponderMove={() => session.registerActivity()}
       onTouchStart={() => session.registerActivity()}
     >
       <StatusBar style="dark" />
-      <ErrorBoundary>
-        <NavigationContainer ref={navigationRef} theme={navigationTheme} linking={linking} onReady={() => setNavigationReady(true)} onStateChange={() => session.registerActivity()}>
+      <ErrorBoundary
+        onReset={() => {
+          setNavigationReady(false);
+          setNavigatorGeneration((generation) => generation + 1);
+        }}
+      >
+        <NavigationContainer key={navigatorGeneration} ref={navigationRef} theme={navigationTheme} linking={linking} onReady={() => setNavigationReady(true)} onStateChange={() => session.registerActivity()}>
+
           <AppNavigator />
         </NavigationContainer>
       </ErrorBoundary>
@@ -274,23 +307,36 @@ const styles = StyleSheet.create({
   connectionHint: { maxWidth: 500, marginTop: 14, color: tokens.colors.textSubtle, fontSize: 11, lineHeight: 17, textAlign: 'center' },
   logoutOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(15, 23, 42, 0.48)',
+  },
+  logoutBackdrop: {
+    ...StyleSheet.absoluteFillObject,
   },
   logoutCard: {
     width: '100%',
-    maxWidth: 360,
-    borderRadius: 24,
-    backgroundColor: '#fff',
-    padding: 24,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    backgroundColor: tokens.colors.surface,
+    paddingHorizontal: 28,
+    paddingTop: 28,
     alignItems: 'center',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 12,
   },
   logoutClose: {
     position: 'absolute',
-    right: 18,
+    right: 20,
     top: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colors.surfaceMuted,
   },
   logoutIconWrap: {
     width: 72,
@@ -299,50 +345,52 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEF2F7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: 4,
   },
   logoutTitle: {
-    marginTop: 18,
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#111827',
+    marginTop: 20,
+    fontSize: 24,
+    fontWeight: '800',
+    color: tokens.colors.text,
   },
   logoutSubtitle: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#6B7280',
+    marginTop: 10,
+    fontSize: 15,
+    color: tokens.colors.textMuted,
     textAlign: 'center',
   },
   logoutActions: {
-    marginTop: 22,
+    marginTop: 28,
     width: '100%',
     flexDirection: 'row',
-    gap: 12,
+    gap: 14,
   },
   logoutSecondary: {
     flex: 1,
-    borderRadius: 16,
+    minHeight: 56,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#D1D5DB',
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: 'center',
   },
   logoutSecondaryText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: 15,
+    fontWeight: '800',
+    color: tokens.colors.text,
   },
   logoutPrimary: {
     flex: 1,
-    borderRadius: 16,
+    minHeight: 56,
+    borderRadius: 18,
     backgroundColor: '#EF4444',
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: 'center',
   },
   logoutPrimaryText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+    color: tokens.colors.onBrand,
   },
   idleOverlay: {
     ...StyleSheet.absoluteFillObject,

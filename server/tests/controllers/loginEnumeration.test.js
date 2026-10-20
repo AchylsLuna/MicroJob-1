@@ -13,6 +13,17 @@ before(async () => {
   const user = new User({ firstName: 'Real', lastName: 'User', email: 'real@example.ph', status: 'active' });
   await user.setPassword('CorrectHorse1!');
   await user.save();
+
+  const superadmin = new User({
+    firstName: 'Super',
+    lastName: 'Admin',
+    email: 'superadmin@example.ph',
+    role: 'superadmin',
+    status: 'active',
+    mfaEnabled: true,
+  });
+  await superadmin.setPassword('SuperAdmin123!');
+  await superadmin.save();
 });
 
 after(async () => {
@@ -65,5 +76,56 @@ test('the generic message never names the failure cause', async () => {
 test('correct credentials still authenticate', async () => {
   const res = await attempt('real@example.ph', 'CorrectHorse1!');
   assert.equal(res.statusCode, 200, 'a valid login must succeed, not merely avoid a 401');
-  assert.equal(res.payload.data.user.email, 'real@example.ph');
+  // Correct credentials now land on the mandatory email-OTP challenge rather
+  // than straight on a session. Reaching the challenge *is* the success signal
+  // here: a rejected credential never gets this far, it 401s above.
+  assert.equal(res.payload.data.otpRequired, true);
+  assert.ok(res.payload.data.otpToken, 'the challenge must carry an otpToken');
+});
+
+/**
+ * Regression guard for the second-factor bypass.
+ *
+ * `requireOtp` used to be read straight off the request body, so a caller that
+ * simply omitted it skipped the email OTP entirely and a password alone was
+ * enough to get full session cookies -- while the comment above the code
+ * asserted the decision was made server-side. `attempt()` sends no
+ * `requireOtp` at all, which is exactly the bypass shape, so this test fails
+ * if that gate is ever reintroduced.
+ */
+test('a login that omits requireOtp is still challenged and gets no session', async () => {
+  const res = await attempt('real@example.ph', 'CorrectHorse1!');
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.payload.data.otpRequired, true);
+  assert.equal(res.payload.data.user, undefined, 'no user may be returned before the OTP is verified');
+  assert.equal(res.payload.data.accessToken, undefined, 'no access token may be issued before the OTP is verified');
+  assert.equal(res.payload.data.refreshToken, undefined, 'no refresh token may be issued before the OTP is verified');
+});
+
+/**
+ * The bypass was reachable with an explicitly falsy flag too, not only by
+ * omitting it, so both shapes are pinned.
+ */
+test('a login that sends requireOtp:false is still challenged', async () => {
+  const res = response();
+  await loginUser(
+    { body: { emailOrUsername: 'real@example.ph', password: 'CorrectHorse1!', requireOtp: false }, ip: '127.0.0.1', get: () => 'test', headers: {} },
+    res,
+  );
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.payload.data.otpRequired, true);
+  assert.equal(res.payload.data.user, undefined);
+});
+
+test('an administrator without a verified secondary email signs in with OTP off', async () => {
+  const res = await attempt('superadmin@example.ph', 'SuperAdmin123!');
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.payload.data.user.role, 'superadmin');
+  assert.ok(res.payload.data.token, 'an administrator receives a session token');
+  assert.equal(res.payload.data.otpRequired, undefined);
+  assert.equal(res.payload.data.methodSelectionRequired, undefined);
+  assert.equal(res.payload.data.user.otpEnabled, false);
 });

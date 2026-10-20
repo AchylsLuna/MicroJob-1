@@ -9,6 +9,7 @@ import {
   safeExt,
   saveStoredUpload,
 } from '../lib/uploadStore.js';
+import { deleteAvatarFromAzure } from '../lib/azureAvatarStorage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,6 +20,7 @@ const resumeStorage = multer.memoryStorage();
 const avatarStorage = multer.memoryStorage();
 const documentStorage = multer.memoryStorage();
 const experienceMediaStorage = multer.memoryStorage();
+const disputeEvidenceStorage = multer.memoryStorage();
 
 const multerResume = multer({
   storage: resumeStorage,
@@ -84,6 +86,25 @@ const multerDocument = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
+const multerDisputeEvidence = multer({
+  storage: disputeEvidenceStorage,
+  fileFilter: (req, file, cb) => {
+    const allowed = new Set(['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.doc', '.docx']);
+    const allowedMime = new Set([
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ]);
+    const ext = safeExt(path.extname(file.originalname));
+    if (allowed.has(ext) && allowedMime.has(String(file.mimetype || '').toLowerCase())) cb(null, true);
+    else cb(new Error('Evidence must be a JPG, PNG, WEBP, PDF, DOC, or DOCX file'));
+  },
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
 export const hasValidResumeFileSignature = (file) => {
   const bytes = file?.buffer ? Buffer.from(file.buffer) : null;
   if (!bytes) return false;
@@ -120,6 +141,9 @@ export const hasValidVerificationFileSignature = (file) => {
   if (extension === '.jpg' || extension === '.jpeg') return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
   return false;
 };
+
+export const hasValidDisputeEvidenceFileSignature = (file) =>
+  hasValidVerificationFileSignature(file) || hasValidResumeFileSignature(file);
 
 const persistUpload = async (req, file, kind, defaultExt) => {
   const filename = buildUploadFileName(kind, file.originalname, req.user?.id);
@@ -163,6 +187,15 @@ export const uploadResumeFile = withUploadErrors(multerResume.single('resume'), 
 export const uploadVerificationFile = withUploadErrors(multerDocument.single('document'), 'verification', '.bin');
 // Same image rules and signature check as avatars -- see hasValidAvatarFileSignature.
 export const uploadExperienceMediaFile = withUploadErrors(multerExperienceMedia.single('media'), 'experience-media', '.jpg');
+export const uploadDisputeEvidenceFile = withUploadErrors(multerDisputeEvidence.single('evidence'), 'dispute-evidence', '.bin');
+// Completion photos are validated and stored in Azure by the authorized controller.
+// Daily proofs include both statement (even when empty) and workDate.
+const completionImages = multer({ storage: multer.memoryStorage(), fileFilter: createImageFileFilter(), limits: { fileSize: 5 * 1024 * 1024, files: 10, fields: 2, fieldSize: 16000 } }).array('evidence', 10);
+export const uploadCompletionEvidenceFile = (req, res, next) => completionImages(req, res, (error) => {
+  if (error?.code === 'LIMIT_FIELD_COUNT') return sendError(res, 400, 'Submit only the statement and workDate text fields.');
+  if (error) return sendError(res, error.code === 'LIMIT_FILE_SIZE' ? 413 : 400, error.code === 'LIMIT_FILE_SIZE' ? 'Each image must be 5 MB or smaller.' : 'Choose up to 10 JPG, PNG, GIF, or WEBP images.');
+  next();
+});
 
 export const removeUploadFile = async (value) => {
   try {
@@ -170,6 +203,17 @@ export const removeUploadFile = async (value) => {
   } catch (error) {
     console.warn(`Failed to remove upload ${String(value || '')}:`, error?.message || error);
   }
+};
+
+// Avatars are mirrored in MongoDB by persistUpload. Delete both copies so the
+// MongoDB record remains a genuine fallback without accumulating stale blobs.
+export const removeAvatarFile = async (value) => {
+  try {
+    await deleteAvatarFromAzure(value);
+  } catch (error) {
+    console.warn(`Failed to remove Azure avatar ${String(value || '')}:`, error?.message || error);
+  }
+  await removeUploadFile(value);
 };
 
 export { uploadsDir, uploadsRoot, safeExt, isSafeUploadFileName };

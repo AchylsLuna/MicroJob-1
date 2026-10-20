@@ -1,11 +1,20 @@
 import User from '../models/User.js';
 import Job from '../models/Job.js';
+import { availableJobFilter } from '../lib/lifecyclePolicy.js';
 import JobApplication from '../models/JobApplication.js';
 import Transaction from '../models/Transaction.js';
 import Category from '../models/Category.js';
 import PayoutRequest from '../models/PayoutRequest.js';
 import SupportTicket from '../models/SupportTicket.js';
 import AuditLog from '../models/AuditLog.js';
+import Session from '../models/Session.js';
+import { requestPasswordResetOtp } from './UserController.js';
+import { hasPermission, resolveStaffRole } from '../lib/adminPermissions.js';
+import {
+  CATEGORY_PUBLIC_FIELDS,
+  serializeCategories,
+  withPublicCategories,
+} from '../lib/categoryPresentation.js';
 
 export async function getAdminStats(req, res) {
   try {
@@ -30,7 +39,7 @@ export async function getAdminStats(req, res) {
       User.countDocuments({ status: 'disabled' }),
       User.countDocuments({ status: 'deleted' }),
       Job.countDocuments(),
-      Job.countDocuments({ status: 'Available' }),
+      Job.countDocuments(availableJobFilter()),
       Job.countDocuments({ status: 'Completed' }),
       Transaction.countDocuments(),
       Transaction.aggregate([
@@ -63,16 +72,251 @@ export async function getAdminStats(req, res) {
   }
 }
 
+/**
+ * Privacy-limited dataset for Analytics and Reports. Analytics staff need real
+ * platform trends without inheriting the much broader users.view, jobs.view,
+ * or finance.transactions.view permissions. Personal names, emails, wallet
+ * destinations, counterparties, and document data are intentionally omitted.
+ */
+export async function getAdminAnalyticsData(req, res) {
+  try {
+    const [users, jobs, transactions, stats] = await Promise.all([
+      User.find({}).select('_id role status createdAt').sort({ createdAt: -1 }).lean(),
+      Job.find({})
+        .select('_id title status salary createdAt category applicants hiredCount viewCount')
+        .populate('category', 'name')
+        .sort({ createdAt: -1 })
+        .lean(),
+      Transaction.find({})
+        .select('_id amount type status balanceTarget createdAt')
+        .sort({ createdAt: -1 })
+        .lean(),
+      Promise.all([
+        User.countDocuments(),
+        User.countDocuments({ status: 'active' }),
+        User.countDocuments({ status: 'pending' }),
+        User.countDocuments({ status: 'disabled' }),
+        User.countDocuments({ status: 'deleted' }),
+        Job.countDocuments(),
+        Job.countDocuments(availableJobFilter()),
+        Job.countDocuments({ status: 'Completed' }),
+        Job.distinct('applicants').then((applicantIds) => applicantIds.length),
+        Transaction.countDocuments(),
+        Transaction.aggregate([
+          { $match: { type: 'PAYOUT', status: 'COMPLETED' } },
+          { $group: { _id: null, total: { $sum: '$amount' } } },
+        ]).then((result) => result[0]?.total || 0),
+        Category.countDocuments(),
+        PayoutRequest.countDocuments({ status: { $in: ['requested', 'approved'] } }),
+        SupportTicket.countDocuments({ status: { $in: ['open', 'in_progress', 'waiting_user'] } }),
+      ]),
+    ]);
+
+    const [
+      totalUsers,
+      activeUsers,
+      pendingUsers,
+      disabledUsers,
+      deletedUsers,
+      totalJobs,
+      availableJobs,
+      completedJobs,
+      uniqueApplicants,
+      totalTransactions,
+      completedPayoutVolume,
+      totalCategories,
+      pendingPayouts,
+      openSupportTickets,
+    ] = stats;
+
+    return res.status(200).json({
+      stats: {
+        totalUsers,
+        activeUsers,
+        pendingUsers,
+        disabledUsers,
+        deletedUsers,
+        totalJobs,
+        availableJobs,
+        completedJobs,
+        uniqueApplicants,
+        totalTransactions,
+        completedPayoutVolume,
+        totalCategories,
+        pendingPayouts,
+        openSupportTickets,
+      },
+      users: users.map((user) => ({ ...user, firstName: '', lastName: '', email: '' })),
+      jobs: withPublicCategories(jobs.map((job) => ({
+        ...job,
+        applicantsCount: Array.isArray(job.applicants) ? job.applicants.length : 0,
+        applicants: [],
+        jobPoster: null,
+      }))),
+      transactions: transactions.map((transaction) => ({
+        ...transaction,
+        sender: null,
+        receiver: null,
+        reference: '',
+      })),
+    });
+  } catch (error) {
+    console.error('Admin analytics data error:', error);
+    return res.status(500).json({ message: 'Failed to fetch analytics data.' });
+  }
+}
+
 export async function getAdminUserList(req, res) {
   try {
-    const users = await User.find({})
-      .select('-passwordHashed -mfaSecret -mfaPendingSecret -mfaBackupCodes')
+    const staffRole = resolveStaffRole(req.user);
+    const mayViewStaffAccounts = hasPermission(staffRole, 'users.staff.view');
+    const accountFilter = mayViewStaffAccounts
+      ? { role: { $ne: 'superadmin' } }
+      : { role: { $in: ['work', 'hire', 'both'] } };
+    const users = await User.find(accountFilter)
+      .select('-passwordHashed -mfaSecret -mfaPendingSecret -mfaBackupCodes +lockUntil +secondaryEmail +secondaryEmailVerifiedAt')
       .sort({ createdAt: -1 })
       .lean();
-    res.status(200).json(users);
+    const mayReviewVerification = hasPermission(staffRole, 'verification.review');
+    res.status(200).json(users.map(({ lockUntil, secondaryEmail, secondaryEmailVerifiedAt, ...user }) => {
+      if (!mayReviewVerification && user.verification) {
+        for (const documentKey of ['identityDocument', 'addressDocument']) {
+          if (user.verification[documentKey]) delete user.verification[documentKey].documentUrl;
+        }
+      }
+      return {
+        ...user,
+        ...(user.role === 'admin' ? { otpEnabled: Boolean(secondaryEmail && secondaryEmailVerifiedAt) } : {}),
+        loginLocked: Boolean(lockUntil && new Date(lockUntil).getTime() > Date.now()),
+      };
+    }));
   } catch (error) {
     console.error('Get admin users error:', error);
     res.status(500).json({ message: 'Failed to fetch users', error: error.message });
+  }
+}
+
+const isMarketplaceAccount = (user) => ['work', 'hire', 'both'].includes(String(user?.role || ''));
+
+export async function updateAdminUserSuspiciousFlag(req, res) {
+  try {
+    const flagged = req.body?.flagged !== false;
+    const reason = String(req.body?.reason || '').trim();
+    if (flagged && !reason) {
+      return res.status(400).json({ message: 'A reason is required when flagging a user as suspicious.' });
+    }
+
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+    if (!isMarketplaceAccount(user)) {
+      return res.status(403).json({ message: 'Only worker and employer accounts can be flagged as suspicious.' });
+    }
+
+    user.suspiciousFlagged = flagged;
+    user.suspiciousFlagReason = flagged ? reason : null;
+    user.suspiciousFlaggedAt = flagged ? new Date() : null;
+    user.suspiciousFlaggedBy = flagged ? (req.user?.id || req.user?.userId || null) : null;
+    await user.save();
+
+    return res.status(200).json({
+      message: flagged ? 'User flagged as suspicious.' : 'Suspicious flag cleared.',
+      user: {
+        _id: user._id,
+        suspiciousFlagged: user.suspiciousFlagged,
+        suspiciousFlagReason: user.suspiciousFlagReason,
+        suspiciousFlaggedAt: user.suspiciousFlaggedAt,
+        suspiciousFlaggedBy: user.suspiciousFlaggedBy,
+      },
+    });
+  } catch (error) {
+    console.error('Update suspicious user flag error:', error);
+    return res.status(500).json({ message: 'Failed to update the suspicious-user flag.' });
+  }
+}
+
+export async function banAdminUser(req, res) {
+  try {
+    const reason = String(req.body?.reason || '').trim();
+    if (!reason) return res.status(400).json({ message: 'A ban reason is required.' });
+
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+    if (!isMarketplaceAccount(user)) {
+      return res.status(403).json({ message: 'Staff accounts cannot be banned from User Management.' });
+    }
+    if (String(user._id) === String(req.user?.id || req.user?.userId || '')) {
+      return res.status(403).json({ message: 'You cannot ban your own account.' });
+    }
+
+    user.status = 'banned';
+    user.bannedAt = new Date();
+    user.bannedBy = req.user?.id || req.user?.userId || null;
+    user.banReason = reason;
+    await user.save();
+    await Session.updateMany(
+      { user: user._id, active: true },
+      { $set: { active: false, endedAt: new Date() } },
+    );
+
+    return res.status(200).json({
+      message: 'User banned.',
+      user: {
+        _id: user._id,
+        status: user.status,
+        bannedAt: user.bannedAt,
+        bannedBy: user.bannedBy,
+        banReason: user.banReason,
+      },
+    });
+  } catch (error) {
+    console.error('Ban admin user error:', error);
+    return res.status(500).json({ message: 'Failed to ban user.' });
+  }
+}
+
+export async function unlockAdminUser(req, res) {
+  try {
+    const user = await User.findById(req.params.userId).select('+failedLoginAttempts +loginLockCount +lockUntil');
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+    if (!isMarketplaceAccount(user)) {
+      return res.status(403).json({ message: 'Staff accounts cannot be unlocked from User Management.' });
+    }
+
+    await user.clearLoginLock();
+    return res.status(200).json({ message: 'Account login lock cleared.', userId: user._id, loginLocked: false });
+  } catch (error) {
+    console.error('Unlock admin user error:', error);
+    return res.status(500).json({ message: 'Failed to unlock account.' });
+  }
+}
+
+export async function requestAdminUserPasswordReset(req, res) {
+  try {
+    const user = await User.findById(req.params.userId).select('email role status');
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+    if (!isMarketplaceAccount(user) || user.status === 'deleted') {
+      return res.status(403).json({ message: 'Password reset is unavailable for this account.' });
+    }
+
+    // A purpose-built request object rather than `Object.create(req)`.
+    //
+    // Prototype-chaining the caller's request carried the *staff member's* own
+    // `Origin`/`Referer` headers into getFrontendResetUrl, so a support agent
+    // could trigger a genuine reset email for any marketplace user with the
+    // link pointing at a host of their choosing (this endpoint is gated only on
+    // `users.resetPassword`, which support_staff holds). The headers are now
+    // dropped deliberately, which makes the reset URL fall back to configured
+    // origins only -- see lib/runtimeConfig.originFromRequest.
+    const resetRequest = {
+      body: { email: user.email },
+      headers: {},
+      ip: req.ip,
+      get: () => undefined,
+    };
+    return requestPasswordResetOtp(resetRequest, res);
+  } catch (error) {
+    console.error('Admin password reset request error:', error);
+    return res.status(500).json({ message: 'Failed to send password reset email.' });
   }
 }
 
@@ -171,7 +415,7 @@ export async function getAdminJobs(req, res) {
       })
     );
 
-    res.status(200).json(jobsWithCounts);
+    res.status(200).json(withPublicCategories(jobsWithCounts));
   } catch (error) {
     console.error('Get admin jobs error:', error);
     res.status(500).json({ message: 'Failed to fetch jobs', error: error.message });
@@ -180,8 +424,8 @@ export async function getAdminJobs(req, res) {
 
 export async function getAdminCategories(req, res) {
   try {
-    const categories = await Category.find({}).lean();
-    res.status(200).json(categories);
+    const categories = await Category.find({}, CATEGORY_PUBLIC_FIELDS).lean();
+    res.status(200).json(serializeCategories(categories));
   } catch (error) {
     console.error('Get categories error:', error);
     res.status(500).json({ message: 'Failed to fetch categories', error: error.message });

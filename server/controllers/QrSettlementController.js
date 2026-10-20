@@ -12,6 +12,7 @@ import monitor from '../lib/monitor.js';
 import { createNotification } from '../lib/notificationService.js';
 import { deleteStoredUpload, getStoredUpload, saveStoredUpload } from '../lib/uploadStore.js';
 import { emitToUser } from '../lib/socket.js';
+import { resolvePublicId } from '../lib/publicId.js';
 
 const hash = (value) => crypto.createHash('sha256').update(String(value || '')).digest('hex');
 const cipherKey = () => crypto.createHash('sha256').update(String(process.env.QR_INVOICE_SECRET || process.env.JWT_SECRET || 'microjobs-local-qr-secret')).digest();
@@ -82,7 +83,9 @@ export async function createQrSettlementRequest(req, res) {
     const userId = getUserId(req);
     const user = await User.findById(userId).select('role');
     if (!user || !isWorkerRole(user.role)) return res.status(403).json({ message: 'Only worker accounts can request job settlement.' });
-    const job = await Job.findById(req.body?.jobId);
+    const jobId = typeof req.body?.jobId === 'string' ? resolvePublicId(req.body.jobId) : null;
+    if (!jobId) return res.status(400).json({ message: 'Invalid job identifier. Refresh your jobs and try again.' });
+    const job = await Job.findById(jobId);
     if (!job) return res.status(404).json({ message: 'Job not found.' });
     if (!['Available', 'In Progress', 'Closed'].includes(job.status)) return res.status(409).json({ message: 'Only an active hired job can be settled by QR.' });
     const application = await JobApplication.findOne({ job: job._id, applicant: userId, status: 'Hired' });
@@ -205,6 +208,7 @@ export async function resolveQrSettlementRequest(req, res) {
 }
 
 export async function settleQrSettlementRequest(req, res) {
+  if (req.body?.confirmed !== true) return res.status(400).json({ message: 'Confirm the recipient and agreed amount before payment.' });
   const userId = getUserId(req);
   let request;
   let settlementCommitted = false;

@@ -7,6 +7,8 @@ export const APPLICATION_STATUSES = [
   'Hired',
   'Rejected',
   'Withdrawn',
+  'Cancelled',
+  'Position filled',
 ];
 
 export const LEGACY_APPLICATION_STATUS_MAP = {
@@ -14,7 +16,6 @@ export const LEGACY_APPLICATION_STATUS_MAP = {
   Reviewed: 'Shortlisted',
   Terms: 'Offer Sent',
   Accepted: 'Hired',
-  Interviewed: 'Interview Scheduled',
   Shortlisted: 'Shortlisted',
   Rejected: 'Rejected',
   Hired: 'Hired',
@@ -33,10 +34,12 @@ export const APPLICATION_STATUS_LABELS = {
   Hired: 'Hired',
   Rejected: 'Rejected',
   Withdrawn: 'Withdrawn',
+  Cancelled: 'Cancelled',
+  'Position filled': 'Position filled',
 };
 
 export const ACTIVE_APPLICATION_STATUSES = APPLICATION_STATUSES.filter(
-  (status) => !['Rejected', 'Withdrawn', 'Hired'].includes(status)
+  (status) => !['Rejected', 'Withdrawn', 'Hired', 'Cancelled', 'Position filled'].includes(status)
 );
 
 export function toCanonicalApplicationStatus(status) {
@@ -50,7 +53,7 @@ export function isCanonicalApplicationStatus(status) {
 }
 
 export function isTerminalApplicationStatus(status) {
-  return ['Hired', 'Rejected', 'Withdrawn'].includes(status);
+  return ['Hired', 'Rejected', 'Withdrawn', 'Cancelled', 'Position filled'].includes(status);
 }
 
 export function getApplicationTimelineLabel(status) {

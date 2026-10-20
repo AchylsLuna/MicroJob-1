@@ -12,6 +12,7 @@ import StoredUpload from '../../models/StoredUpload.js';
 import Transaction from '../../models/Transaction.js';
 import User from '../../models/User.js';
 import { createQrSettlementRequest, getQrSettlementImage, listQrSettlementRequests } from '../../controllers/QrSettlementController.js';
+import { serializePublicJob } from '../../lib/jobDiscovery.js';
 
 let mongoServer;
 const response = () => ({ statusCode: 200, payload: null, headers: {}, status(code) { this.statusCode = code; return this; }, json(value) { this.payload = value; return this; }, set(key, value) { this.headers[key] = value; return this; }, type(value) { this.headers['Content-Type'] = value; return this; }, send(value) { this.payload = value; return this; } });
@@ -21,7 +22,7 @@ before(async () => { mongoServer = await MongoMemoryServer.create(); await mongo
 beforeEach(async () => mongoose.connection.db.dropDatabase());
 after(async () => { await mongoose.disconnect(); await mongoServer.stop(); });
 
-test('invoice creation stores one private QR chat card and one employer notification', async () => {
+test('invoice creation accepts public job IDs and stores one private QR chat card and employer notification', async () => {
   const [worker, employer] = await Promise.all([user('work', 'worker-qr@example.com'), user('hire', 'employer-qr@example.com')]);
   const job = await Job.create({ title: 'Barangay cleanup', description: 'Clean the covered court.', location: 'Pasig City, Metro Manila', salary: 750, jobType: 'Short-term', deadline: new Date('2027-01-01'), positionsNeeded: 1, hiredCount: 1, status: 'In Progress', jobPoster: employer._id, applicants: [worker._id] });
   await Promise.all([
@@ -30,7 +31,8 @@ test('invoice creation stores one private QR chat card and one employer notifica
   ]);
 
   const first = response();
-  await createQrSettlementRequest({ user: { id: String(worker._id) }, body: { jobId: String(job._id) } }, first);
+  // Workers receive this encoded identifier from the applications API.
+  await createQrSettlementRequest({ user: { id: String(worker._id) }, body: { jobId: serializePublicJob(job)._id } }, first);
   assert.equal(first.statusCode, 201);
   assert.match(first.payload.qrPayload, /^microjobs:\/\/wallet\/settle\?token=/);
   assert.equal(first.payload.preview.totalAmount, 750);
@@ -63,6 +65,19 @@ test('invoice creation stores one private QR chat card and one employer notifica
   const deniedImage = response();
   await getQrSettlementImage({ user: { id: String(outsider._id) }, params: { requestId: first.payload.requestId } }, deniedImage);
   assert.equal(deniedImage.statusCode, 404);
+});
+
+test('invalid job identifiers return a client error without creating an invoice', async () => {
+  const worker = await user('work', 'invalid-job-qr@example.com');
+  for (const jobId of [undefined, '', 'invalid-job-id', { unexpected: 'object' }]) {
+    const result = response();
+    await createQrSettlementRequest({ user: { id: String(worker._id) }, body: { jobId } }, result);
+    assert.equal(result.statusCode, 400);
+    assert.match(result.payload.message, /Invalid job identifier/);
+  }
+  assert.equal(await QrSettlementRequest.countDocuments(), 0);
+  assert.equal(await StoredUpload.countDocuments(), 0);
+  assert.equal(await Message.countDocuments(), 0);
 });
 
 test('invoice listing isolates worker and employer modes for Both accounts', async () => {

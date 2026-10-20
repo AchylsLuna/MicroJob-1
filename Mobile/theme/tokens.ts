@@ -29,12 +29,16 @@ export const tokens = {
     onBrand: '#FFFFFF',
     onBrandMuted: '#CBD5F0',
     success: '#10B981',
+    successStrong: '#047857',
     danger: '#EF4444',
     warning: '#F59E0B',
     info: '#0369A1',
     successSoft: '#ECFDF5',
     dangerSoft: '#FEF2F2',
     warningSoft: '#FEF3C7',
+    highlightedSurface: '#FFF9E8',
+    highlightedBorder: '#F3D38A',
+    highlightedBadge: '#FFF1CC',
     infoSoft: '#E0F2FE',
     white: '#FFFFFF',
     // Floating glass navigation bar. The bar blurs whatever scrolls behind it, so
@@ -43,10 +47,16 @@ export const tokens = {
     navGlassBorder: 'rgba(255,255,255,0.75)',
     navMutedIcon: '#5A6474',
     navSheen: 'rgba(255,255,255,0.85)',
+    profileMutedIcon: '#64748B',
+    profileDangerStrong: '#B91C1C',
   },
   radius: {
     sm: 10,
     md: 14,
+    // Mirrors `client/src/constants/tokens.ts`, where 16 is the dominant panel
+    // radius. Added here to satisfy the bidirectional drift check rather than
+    // because mobile needs it today -- no mobile component is being restyled.
+    card: 16,
     lg: 18,
     pill: 999,
   },
@@ -64,6 +74,9 @@ export const tokens = {
     h2: 22,
     h3: 18,
     body: 14,
+    // Mirrors `client/src/constants/tokens.ts`, where 13 is the most-used text
+    // size. Added for drift parity; no mobile component is being restyled.
+    bodySm: 13,
     caption: 12,
     label: 14,
     control: 15,

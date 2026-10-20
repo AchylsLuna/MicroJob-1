@@ -28,11 +28,12 @@ type Props = {
   email?: string;
   mode?: 'emailVerification' | 'loginOtp' | 'passwordReset';
   otpToken?: string;
+  rememberDevice?: boolean;
   onVerified?: (code?: string) => void;
   onBack?: () => void;
 };
 
-export default function VerifyEmail({ email: emailProp, mode = 'emailVerification', otpToken: initialOtpToken = '', onVerified, onBack }: Props) {
+export default function VerifyEmail({ email: emailProp, mode = 'emailVerification', otpToken: initialOtpToken = '', rememberDevice = false, onVerified, onBack }: Props) {
   const sendOtpRef = useRef<() => Promise<void>>(async () => undefined);
   const { width: screenWidth, height: screenHeight, fontScale } = useWindowDimensions();
   const [code, setCode] = useState(Array(6).fill(''));
@@ -271,7 +272,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
             // Mobile has no separate "trust this device" toggle -- a device
             // that just proved itself with an OTP is trusted so the next
             // login on it can skip a second one.
-            body: JSON.stringify({ otpToken, code: otpCode, rememberDevice: true }),
+            body: JSON.stringify({ otpToken, code: otpCode, rememberDevice }),
           },
           t('verifyEmail.toast.verificationFailedFallback'),
         );

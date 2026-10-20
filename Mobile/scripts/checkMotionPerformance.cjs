@@ -31,7 +31,12 @@ const virtualizedScreens = [
 
 for (const relativePath of virtualizedScreens) {
   const source = fs.readFileSync(path.join(mobileRoot, relativePath), 'utf8');
-  if (!/<FlatList/.test(source)) findings.push(`${relativePath}: long collection must remain virtualized`);
+  // `Animated.FlatList` -- the standard RN pattern for a scroll-driven header
+  // (see useHideOnScroll) -- is still a real, virtualized FlatList under the
+  // Animated wrapper. Matching only the bare tag produced a false positive on
+  // EmployerJobPosts.tsx, which already passes removeClippedSubviews and
+  // initialNumToRender.
+  if (!/<(Animated\.)?FlatList/.test(source)) findings.push(`${relativePath}: long collection must remain virtualized`);
 }
 
 if (findings.length) {

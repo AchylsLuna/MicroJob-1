@@ -1,12 +1,13 @@
 import User from '../models/User.js';
+import mongoose from 'mongoose';
+import PendingIdScan from '../models/PendingIdScan.js';
+import { persistIdVerification } from '../services/governmentIdVerification.js';
 import IdAnalyzer from 'idanalyzer2';
 import { hasValidVerificationFileSignature } from '../middleware/uploadConfig.js';
 import {
   ALLOWED_DOCUMENT_TYPES,
-  buildVerificationPayload,
   deletePendingScan,
   findField,
-  getPendingScan,
   getUserId,
   isTruthy,
   normalize,
@@ -54,6 +55,7 @@ const runScan = async ({ req, selectedDocumentType }) => {
 
   const fullName = findField(resp, ['fullname', 'name']).trim();
   const extracted = {
+    fullName,
     firstName: findField(resp, ['firstname', 'givenname', 'namefirst']),
     lastName: findField(resp, ['lastname', 'surname', 'namelast']),
     documentNumber: findField(resp, ['documentnumber', 'idnumber', 'idno', 'license']),
@@ -114,12 +116,15 @@ export const verifyIdDocument = async (req, res) => {
     const { userId, extracted, decision, profileMatch, accepted } = scan.body;
 
     if (finalize) {
-      const payload = buildVerificationPayload({ accepted, decision, profileMatch });
-      await User.findByIdAndUpdate(userId, payload.update);
+      const payload = await mongoose.connection.transaction(async (session) => {
+        const result = await persistIdVerification(userId, { accepted, decision, profileMatch, extracted, selectedDocumentType }, session);
+        await PendingIdScan.deleteOne({ user: userId }, { session });
+        return result;
+      });
       return res.status(200).json({ ...payload.response, extracted });
     }
 
-    savePendingScan(userId, {
+    await savePendingScan(userId, {
       decision,
       profileMatch,
       accepted,
@@ -135,6 +140,7 @@ export const verifyIdDocument = async (req, res) => {
       pending: true,
     });
   } catch (error) {
+    if (error.status === 404) return res.status(404).json({ message: error.message });
     if (error && (error.code !== undefined || String(error.name).toLowerCase().includes('apierror') || error?.statusCode)) {
       const code = String(error.code || error?.statusCode || '');
       const msg = error.msg || error?.message || 'KYC provider error.';
@@ -164,20 +170,21 @@ export const confirmIdVerification = async (req, res) => {
     const userId = String(getUserId(req) || '');
     if (!userId) return res.status(401).json({ message: 'Unauthorized.' });
 
-    const pending = getPendingScan(userId);
-    if (!pending) {
-      return res.status(400).json({ message: 'No pending scan found. Please scan your document again.' });
-    }
-    if (pending.expiresAt <= Date.now()) {
-      deletePendingScan(userId);
-      return res.status(400).json({ message: 'Your pending scan expired. Please scan your document again.' });
-    }
-
-    const payload = buildVerificationPayload(pending);
-    await User.findByIdAndUpdate(userId, payload.update);
-    deletePendingScan(userId);
+    const { payload, pending } = await mongoose.connection.transaction(async (session) => {
+      const pending = await PendingIdScan.findOne({ user: userId }).session(session).lean();
+      if (!pending) {
+        throw Object.assign(new Error('No pending scan found. Please scan your document again.'), { status: 400 });
+      }
+      if (pending.expiresAt <= Date.now()) {
+        throw Object.assign(new Error('Your pending scan expired. Please scan your document again.'), { status: 400 });
+      }
+      const payload = await persistIdVerification(userId, pending, session);
+      await PendingIdScan.deleteOne({ _id: pending._id }, { session });
+      return { payload, pending };
+    });
     return res.status(200).json({ ...payload.response, extracted: pending.extracted });
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ message: error.message });
     console.error('KYC confirm error:', error?.message || error);
     return res.status(500).json({ message: 'Failed to finalize KYC verification.' });
   }
@@ -186,7 +193,7 @@ export const confirmIdVerification = async (req, res) => {
 export const discardIdVerification = async (req, res) => {
   const userId = String(getUserId(req) || '');
   if (!userId) return res.status(401).json({ message: 'Unauthorized.' });
-  deletePendingScan(userId);
+  await deletePendingScan(userId);
   return res.status(200).json({ cleared: true });
 };
 

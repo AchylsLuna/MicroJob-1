@@ -25,7 +25,7 @@ const MessageSchema = new mongoose.Schema({
   attachment: {
     type: {
       type: String,
-      enum: ['settlement_request', 'job_offer'],
+      enum: ['settlement_request', 'job_offer', 'completion_evidence', 'hire_checklist'],
       default: undefined,
     },
     settlementRequest: { type: mongoose.Schema.Types.ObjectId, ref: 'QrSettlementRequest', default: null },
@@ -36,6 +36,14 @@ const MessageSchema = new mongoose.Schema({
     jobOffer: { type: mongoose.Schema.Types.ObjectId, ref: 'JobOffer', default: null },
     application: { type: mongoose.Schema.Types.ObjectId, ref: 'JobApplication', default: null },
     offerAmount: { type: Number, default: null, min: 0 },
+    submittedAt: Date,
+    workDate: String,
+    dailyAmount: Number,
+    workDates: [String],
+    workStartTime: String,
+    workEndTime: String,
+    images: [{ fileUrl: String, fileName: String, contentType: String }],
+    checklist: [{ type: String, maxlength: 500 }],
   },
   clientMessageId: {
     type: String,
@@ -47,6 +55,13 @@ const MessageSchema = new mongoose.Schema({
     type: Date,
     required: false,
   },
+  // Per-participant soft delete. A message document is shared by both parties,
+  // so "delete this conversation" cannot be a `deleteMany` without destroying
+  // the counterparty's copy -- which is what it used to do, letting either side
+  // irreversibly erase the other's inbox, settlement invoices and job offers
+  // included. Each side's deletion is recorded here instead, and the document
+  // is only really removed once both have deleted it.
+  deletedFor: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true }],
   isEdited: {
     type: Boolean,
     default: false,

@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 
 const NotificationSchema = new mongoose.Schema(
   {
+    deliveryKey: { type: String },
+    pushDeliveredAt: Date,
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -46,6 +48,7 @@ const NotificationSchema = new mongoose.Schema(
   { timestamps: true, versionKey: false }
 );
 
+NotificationSchema.index({ deliveryKey: 1 }, { unique: true, partialFilterExpression: { deliveryKey: { $type: 'string' } } });
 NotificationSchema.index({ user: 1, createdAt: -1 });
 NotificationSchema.index({ user: 1, readAt: 1, createdAt: -1 });
 NotificationSchema.index({ user: 1, audience: 1, readAt: 1, _id: -1 });
