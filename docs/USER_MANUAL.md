@@ -5,6 +5,8 @@
 **Applies to:** the current MicroJobs web application  
 **Audience:** visitors, workers, employers, and authorized administrative staff
 
+**Financial workflow supplement — 21 October 2026:** For the updated web/Android withdrawal, proof review, payment and dispute procedures, use the [Financial workflow manual](FINANCIAL_WORKFLOW_MANUAL.md). It explains preview expiry, Finance ownership checks, transfer references, evidence history, batch/QR approval and the six public dispute states.
+
 ## Contents
 
 1. [About MicroJobs](#1-about-microjobs)
