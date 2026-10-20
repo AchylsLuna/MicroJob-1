@@ -41,7 +41,7 @@ export const previewPayment = handle(async (req, res) => {
   const payment = await getDisputeMoneySnapshot({ application, job });
   const worker = await User.findById(application.applicant).select('firstName lastName');
   await queueNotification(`payment-review:${application._id}:${application.workSubmittedAt?.getTime() || 0}`, { userId: id(req), audience: 'employer', type: 'payment', title: 'Review before releasing funds', message: `Confirm PHP ${payment.remainingAgreedAmount.toFixed(2)} from secured funds for ${job.title}. No additional wallet debit is required.`, entityType: 'application', entityId: String(application._id) });
-  return res.json({ application, jobTitle: job.title, recipient: { id: String(application.applicant), name: `${worker?.firstName || ''} ${worker?.lastName || ''}`.trim() }, amount: payment.remainingAgreedAmount, source: 'Secured job funds', walletDebit: 0 });
+  return res.json({ application, submittedAt: application.workSubmittedAt || null, jobTitle: job.title, recipient: { id: String(application.applicant), name: `${worker?.firstName || ''} ${worker?.lastName || ''}`.trim() }, amount: payment.remainingAgreedAmount, source: 'Secured job funds', walletDebit: 0 });
 });
 
 async function transition(req, kind) {
@@ -83,6 +83,8 @@ async function transition(req, kind) {
       } else {
         if (application.workStatus !== 'Submitted') throw httpError(409, 'Only submitted work can receive change requests.');
         const reason = requireReason(req.body?.reason);
+        const latest = application.completionEvidence.find((entry) => entry.submittedAt?.getTime() === application.workSubmittedAt?.getTime());
+        if (latest) latest.feedback = { reason, actor: id(req), at: new Date() };
         application.workStatus = 'Changes Requested'; application.changesRequestedAt = new Date();
         application.timeline.push({ type: 'changes_requested', actor: id(req), note: reason });
         await Message.create([{ sender: id(req), receiver: application.applicant, job: job._id, content: `Changes requested: ${reason}`, clientMessageId: `changes:${application._id}:${application.changesRequestedAt.getTime()}` }], { session });

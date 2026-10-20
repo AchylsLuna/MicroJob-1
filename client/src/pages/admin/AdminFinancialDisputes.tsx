@@ -1,4 +1,5 @@
-import { CompletionEvidence } from '../../components/CompletionEvidence';
+import { useTranslation } from 'react-i18next';
+import { CompletionEvidence, EvidenceDownload } from '../../components/CompletionEvidence';
 import { useEffect, useMemo, useState } from "react";
 import { ClipboardCheck, FileSearch, FileUp, MessageSquareText, Scale, ShieldCheck } from "lucide-react";
 import { AdminGate } from "./admin/AdminGate";
@@ -6,9 +7,10 @@ import { Badge, Button, Card, ConfirmDialog, Input, Select, StatusState, Tabs, T
 import { useAdminPermissions } from "../../hooks/useAdminPermissions";
 import { useAuth } from "../../hooks/useAuth";
 import { formatCurrency, formatDateTime } from "../../lib/formatters";
-import { toAbsoluteAssetUrl } from "../../lib/assetUrl";
+
 import { toast } from "../../lib/toast";
 import {
+  lifecycleRequest,
   addFinancialDisputeMessage,
   approveFinancialDisputeSettlement,
   assignFinancialDisputeSupport,
@@ -26,6 +28,9 @@ const personName = (person: any) => [person?.firstName, person?.lastName].filter
 const tone = (status: string) => status === "RESOLVED" || status === "VERIFIED" ? "bg-emerald-100 text-emerald-800" : status.includes("PENDING") || status.includes("AWAITING") ? "bg-amber-100 text-amber-900" : "bg-brand-100 text-brand-800";
 
 function AdminFinancialDisputesContent() {
+  const { t } = useTranslation('common');
+  const [closeReason, setCloseReason] = useState('');
+  const [confirmClose, setConfirmClose] = useState(false);
   const { user } = useAuth();
   const { can } = useAdminPermissions();
   const canInvestigate = can("finance.disputes.investigate");
@@ -102,14 +107,14 @@ function AdminFinancialDisputesContent() {
         <Card className="min-w-0 self-start">
           <h2 className="font-bold text-slate-950">Cases</h2>
           <div className="mt-4"><Select label="Queue" value={filter} onChange={(event) => setFilter(event.target.value)}><option value="ACTIVE">Active cases</option><option value="FOR_FINANCE_REVIEW">For Finance review</option><option value="PENDING_FINANCE_APPROVAL">Pending approval</option><option value="RESOLVED">Resolved</option><option value="ALL">All cases</option></Select></div>
-          <div className="mt-4 space-y-3">{filtered.length === 0 ? <p className="text-sm text-slate-500">No disputes in this queue.</p> : filtered.map((item) => <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} className={`w-full rounded-xl border p-3 text-left ${selectedId === item.id ? "border-brand-500 bg-brand-50" : "border-slate-200 bg-white"}`}><p className="text-sm font-bold text-slate-950">{item.ticketId}</p><p className="mt-1 truncate text-sm text-slate-600">{item.job?.title || item.subject}</p><div className="mt-2 flex flex-wrap gap-2"><Badge className={tone(item.investigationStatus)}>{label(item.investigationStatus)}</Badge><Badge className={tone(item.paymentStatus)}>{label(item.paymentStatus)}</Badge></div></button>)}</div>
+          <div className="mt-4 space-y-3">{filtered.length === 0 ? <p className="text-sm text-slate-500">No disputes in this queue.</p> : filtered.map((item) => <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} className={`w-full rounded-xl border p-3 text-left ${selectedId === item.id ? "border-brand-500 bg-brand-50" : "border-slate-200 bg-white"}`}><p className="text-sm font-bold text-slate-950">{item.ticketId}</p><p className="mt-1 truncate text-sm text-slate-600">{item.job?.title || item.subject}</p><div className="mt-2 flex flex-wrap gap-2"><Badge className={tone(item.investigationStatus)}>{item.caseStatus ? t(`financialWorkflow.states.${item.caseStatus}`) : label(item.investigationStatus)}</Badge><Badge className={tone(item.paymentStatus)}>{label(item.paymentStatus)}</Badge></div></button>)}</div>
         </Card>
 
         {selected ? <Tabs<DetailTab> label="Case details" value={activeTab} onChange={setActiveTab} tabs={[
           { id: "Overview", label: "Overview", content: (<>
             <Card>
-              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-brand-700">{selected.ticketId}</p><h2 className="text-xl font-bold text-slate-950">{selected.job?.title || selected.subject}</h2><p className="mt-1 text-sm text-slate-500">Opened {selected.raisedAt ? formatDateTime(selected.raisedAt) : "Unknown"}</p></div><div className="flex flex-wrap gap-2"><Badge className={tone(selected.investigationStatus)}>Investigation: {label(selected.investigationStatus)}</Badge><Badge className={tone(selected.paymentStatus)}>Payment: {label(selected.paymentStatus)}</Badge></div></div>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">{[["Agreed",selected.agreedJobAmount],["Already paid",selected.alreadyPaidAmount],["Disputed",selected.disputedAmount],["Held by platform",selected.fundsHeldAmount],["Outstanding externally",selected.outstandingAmount]].map(([name,value]) => <div key={String(name)} className="rounded-xl bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-500">{name}</p><p className="mt-1 font-bold">{formatCurrency(Number(value))}</p></div>)}</div>
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold text-brand-700">{selected.ticketId}</p><h2 className="text-xl font-bold text-slate-950">{selected.job?.title || selected.subject}</h2><p className="mt-1 text-sm text-slate-500">Opened {selected.raisedAt ? formatDateTime(selected.raisedAt) : "Unknown"}</p></div><div className="flex flex-wrap gap-2"><Badge className={tone(selected.investigationStatus)}>Investigation: {selected.caseStatus ? t(`financialWorkflow.states.${selected.caseStatus}`) : label(selected.investigationStatus)}</Badge><Badge className={tone(selected.paymentStatus)}>Payment: {label(selected.paymentStatus)}</Badge></div></div>
+              <div className="mt-4">{canInvestigate && selected.caseStatus === "resolved" && <><Textarea label={t("financialWorkflow.closeReason")} value={closeReason} maxLength={2000} onChange={(event) => setCloseReason(event.target.value)} /><Button disabled={busy || !closeReason.trim()} onClick={() => setConfirmClose(true)}>{t("financialWorkflow.close")}</Button><ConfirmDialog open={confirmClose} title={t("financialWorkflow.close")} description={t("financialWorkflow.closeNotice")} pending={busy} onClose={() => setConfirmClose(false)} onConfirm={() => void run(async () => { const result = await lifecycleRequest(`/admin/finance/disputes/${selected.id}/close`, { reason: closeReason }); setConfirmClose(false); setCloseReason(""); return { ...result, message: t("financialWorkflow.closeSuccess") }; })} /></>}</div><div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">{[["Agreed",selected.agreedJobAmount],["Already paid",selected.alreadyPaidAmount],["Disputed",selected.disputedAmount],["Held by platform",selected.fundsHeldAmount],["Outstanding externally",selected.outstandingAmount]].map(([name,value]) => <div key={String(name)} className="rounded-xl bg-slate-50 p-3"><p className="text-xs font-semibold text-slate-500">{name}</p><p className="mt-1 font-bold">{formatCurrency(Number(value))}</p></div>)}</div>
               <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><p className="font-bold">Funds classification: {label(selected.fundStatus)}</p><p className="mt-1">Only “funds held” are controlled by MicroJobs. Outstanding payment is recorded as an external employer obligation, not presented as escrow.</p></div>
               <div className="mt-5 grid gap-4 text-sm sm:grid-cols-2"><div><p className="font-semibold text-slate-500">Worker</p><p>{personName(selected.worker)}</p></div><div><p className="font-semibold text-slate-500">Employer</p><p>{personName(selected.employer)}</p></div></div>
               <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2"><div><h3 className="font-bold">Worker statement</h3><p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{selected.workerClaim}</p></div><div><h3 className="font-bold">Employer statement</h3><p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{selected.employerResponse || "Awaiting employer response."}</p></div></div>
@@ -124,7 +129,7 @@ function AdminFinancialDisputesContent() {
 
             <Card>
               <div className="flex items-center gap-2"><FileUp className="h-5 w-5 text-brand-700"/><h3 className="font-bold text-slate-950">Evidence</h3></div>
-              <div className="mt-5"><div className="space-y-3">{(selected.evidence || []).length === 0 ? <p className="text-sm text-slate-500">No evidence submitted.</p> : (selected.evidence || []).map((evidence: any) => <div key={evidence._id} className="rounded-xl border border-slate-200 p-3 text-sm"><p className="font-semibold">{label(evidence.evidenceType)} · {evidence.uploaderRole}</p><p className="mt-1 text-slate-600">{evidence.description || evidence.fileName}</p>{evidence.fileUrl ? <a href={toAbsoluteAssetUrl(evidence.fileUrl) || "#"} target="_blank" rel="noreferrer" className="mt-2 inline-block font-semibold text-brand-700 underline">Open evidence</a> : null}</div>)}</div></div>
+              <div className="mt-5"><div className="space-y-3">{(selected.evidence || []).length === 0 ? <p className="text-sm text-slate-500">No evidence submitted.</p> : (selected.evidence || []).map((evidence: any) => <div key={evidence._id} className="rounded-xl border border-slate-200 p-3 text-sm"><p className="font-semibold">{label(evidence.evidenceType)} · {evidence.uploaderRole}</p><p className="mt-1 text-slate-600">{evidence.description || evidence.fileName}</p>{evidence.fileUrl ? <EvidenceDownload fileUrl={evidence.fileUrl} fileName={evidence.fileName} /> : null}</div>)}</div></div>
             </Card>
           </>) },
           { id: "Conversation", label: "Conversation", content: (<>

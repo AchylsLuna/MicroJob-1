@@ -46,11 +46,11 @@ export async function settleDailyPayment({ applicationId, employerId, workDate, 
       await application.save({ session });
       // Daily approval deliberately leaves assignment workStatus and posting status unchanged.
       for (const [userId, audience] of [[application.applicant, 'worker'], [employerId, 'employer']]) {
-        await queueNotification(`${reference}:${audience}`, { userId: String(userId), audience, type: 'payment', title: 'Daily payment completed', message: `PHP ${amount.toFixed(2)} paid for ${job.title}, work date ${workDate}.`, entityType: 'application', entityId: String(application._id) }, session);
+        await queueNotification(`${reference}:${audience}`, { userId: String(userId), audience, type: 'payment', title: 'Daily payment completed', message: `PHP ${amount.toFixed(2)} paid for ${job.title}, work date ${workDate}.`, entityType: 'application', entityId: String(application._id), metadata: { transactionId: String(transaction._id), reference, amount, jobId: String(job._id), workerId: String(application.applicant), workDate, paidAt: day.paidAt.toISOString() } }, session);
       }
       result = { application, job, deduplicated: false };
     });
-    await Promise.all([deliverQueuedNotification(`daily-payout:${result.application._id}:${workDate}:worker`), deliverJobPaymentReceipts(`daily-payout:${result.application._id}:${workDate}`)]);
+    await Promise.all([deliverQueuedNotification(`daily-payout:${result.application._id}:${workDate}:worker`), deliverQueuedNotification(`daily-payout:${result.application._id}:${workDate}:employer`), deliverJobPaymentReceipts(`daily-payout:${result.application._id}:${workDate}`)]);
     return result;
   } finally { await session.endSession(); }
 }

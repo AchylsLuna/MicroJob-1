@@ -1,4 +1,5 @@
 import DailyWorkSchedule from '../../components/DailyWorkSchedule';
+import CompletionEvidence from '../../components/CompletionEvidence';
 import OfferResponseDeadline from '../../components/OfferResponseDeadline';
 import OfferDecisionModal from '../../components/OfferDecisionModal';
 import { walletRequest } from '../../lib/lifecycleApi';
@@ -95,6 +96,7 @@ type ApplicationItem = {
 };
 type Stage = "New" | "Shortlisted" | "Interview" | "Offer" | "Hired" | "Closed";
 type ConfirmAction = {
+  evidence?: any[];
   title: string;
   question: string;
   detail: string;
@@ -416,7 +418,8 @@ export default function EmployerApplications({
         question: t('employerApplications.confirm.pay.question', { amount: formatCurrency(preview.amount), name: nameOf(t, item) }),
         detail: `${preview.jobTitle}. ${t('employerApplications.confirm.pay.detail')} ${tc('lifecycle.releaseAmount', { amount: formatCurrency(preview.amount) })}`,
         label: t('employerApplications.confirm.pay.label'),
-        run: async () => { if (await request(item._id, `applications/${item._id}/payment/${action}`, action === 'settle' ? { submittedAt: item.workSubmittedAt } : undefined)) {
+        evidence: action === 'settle' ? preview.application.completionEvidence : undefined,
+        run: async () => { if (await request(item._id, `applications/${item._id}/payment/${action}`, action === 'settle' ? { submittedAt: preview.submittedAt } : undefined)) {
           if (action === 'settle') toast.success(t('employerApplications.toast.workerPaid'));
         } },
       });
@@ -885,6 +888,7 @@ export default function EmployerApplications({
       }} />}
       <ConfirmModal
         visible={Boolean(confirmAction)}
+        content={<ScrollView style={{ maxHeight: 260 }}><CompletionEvidence items={confirmAction?.evidence} /></ScrollView>}
         title={confirmAction?.title || ""}
         description={[confirmAction?.question, confirmAction?.detail]
           .filter(Boolean)

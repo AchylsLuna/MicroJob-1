@@ -95,6 +95,7 @@ const JobApplicationSchema = new mongoose.Schema(
       validate: { validator: (items) => items.length <= 20, message: 'A hire checklist can contain at most 20 items.' },
     },
     completionEvidence: [{
+      feedback: { reason: { type: String, maxlength: 2000 }, actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, at: Date },
       workDate: String,
       statement: { type: String, maxlength: 4000 },
       fileUrl: String,

@@ -191,7 +191,7 @@ export default function EmployerJobPosts({
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         ...(isStatusChange
-          ? { body: JSON.stringify({ status: action === 'complete' ? 'Completed' : 'Closed', confirmed: action === 'complete' }) }
+          ? { body: JSON.stringify({ status: action === 'complete' ? 'Completed' : 'Closed', confirmed: action === 'complete', payments: confirmAction.payments?.map((payment) => ({ applicationId: payment.application._id, submittedAt: payment.submittedAt })) }) }
           : {}),
       }, actionFailureMessage);
 

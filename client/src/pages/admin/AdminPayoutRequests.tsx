@@ -35,6 +35,8 @@ function AdminPayoutRequestsContent() {
   const { t } = useTranslation("admin");
   const { t: tc } = useTranslation("common");
   const [transferReference, setTransferReference] = useState("");
+  const [ownershipReference, setOwnershipReference] = useState("");
+  const [ownershipConfirmed, setOwnershipConfirmed] = useState(false);
   const [providerTransferIds, setProviderTransferIds] = useState<Record<string, string>>({});
   // The page itself is already gated on this permission (AdminGate below),
   // so this is defense-in-depth: it keeps the actions correctly hidden if a
@@ -85,6 +87,7 @@ function AdminPayoutRequestsContent() {
   }), [requests]);
 
   const openReview = (request: PayoutRequest, status: ReviewStatus) => {
+    setOwnershipReference(""); setOwnershipConfirmed(false);
     setTransferReference("");
     setReviewTarget({ request, status });
     setReviewNotes("");
@@ -112,6 +115,8 @@ function AdminPayoutRequestsContent() {
         status: reviewTarget.status,
         reviewNotes: notes || undefined,
         transferReference: transferReference.trim() || undefined,
+        ownershipVerificationReference: ownershipReference.trim() || undefined,
+        ownershipConfirmed,
       });
       const updated = response?.payoutRequest;
       if (updated) {
@@ -205,8 +210,8 @@ function AdminPayoutRequestsContent() {
                         <td className="px-3 py-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusStyle[request.status]}`}>{tc(`wallet.status.${request.status}`)}</span><p className="mt-2 text-xs text-slate-500">{tc(request.sourceWallet === "EMPLOYER" ? "wallet.employer" : "wallet.worker")}</p>{request.failureReason && <p className="text-xs text-red-700">{request.failureReason}</p>}{(request.providerRailReference || request.providerTransferId || request.transferReference) && <p className="text-xs text-slate-500">{request.providerRailReference || request.providerTransferId || request.transferReference}</p>}{request.reviewNotes ? <p className="mt-2 max-w-52 text-xs text-slate-500">{request.reviewNotes}</p> : null}</td>
                         <td className="px-3 py-4"><div className="flex justify-end gap-2">
                           {request.reviewReason && <p className="text-sm text-amber-900">{request.reviewReason}</p>}{canReviewPayouts && request.processingMode === 'automatic' && request.status === 'processing' && <div><Input label={tc('lifecycle.transferReference')} value={providerTransferIds[request._id] || ""} onChange={(e) => setProviderTransferIds((current) => ({ ...current, [request._id]: e.target.value }))} /><Button onClick={async () => { try { await lifecycleRequest(`/admin/payout-requests/${request._id}/reconcile`, { transferId: providerTransferIds[request._id] || undefined }); await loadRequests(); } catch (e: any) { toast.error(e.message); } }}>{tc('lifecycle.reconcile')}</Button></div>}
-                          {canReviewPayouts && request.processingMode !== "automatic" && request.status === "requested" ? <Button onClick={() => openReview(request, "approved")}>{t("payoutRequests.actions.approve")}</Button> : null}
-                          {canReviewPayouts && request.processingMode !== "automatic" && request.status === "approved" ? <Button onClick={() => openReview(request, "paid")} className="!bg-emerald-700 hover:!bg-emerald-800">{t("payoutRequests.actions.markPaid")}</Button> : null}
+                          {canReviewPayouts && request.processingMode !== "automatic" && (request.status === "requested" || (request.status === "approved" && !request.ownershipVerification?.verifiedBy)) ? <Button onClick={() => openReview(request, "approved")}>{t("payoutRequests.actions.approve")}</Button> : null}
+                          {canReviewPayouts && request.processingMode !== "automatic" && request.status === "approved" && request.ownershipVerification?.verifiedBy ? <Button onClick={() => openReview(request, "paid")} className="!bg-emerald-700 hover:!bg-emerald-800">{t("payoutRequests.actions.markPaid")}</Button> : null}
                           {canReviewPayouts && request.processingMode !== "automatic" && (request.status === "requested" || request.status === "approved") ? <Button onClick={() => openReview(request, "rejected")} className="!bg-white !text-red-700 ring-1 ring-red-300 hover:!bg-red-50"><XCircle className="h-4 w-4" aria-hidden="true" />{t("payoutRequests.actions.reject")}</Button> : null}
                         </div></td>
                       </tr>
@@ -227,6 +232,7 @@ function AdminPayoutRequestsContent() {
         closeDisabled={isReviewing}
       >
         {reviewTarget?.status === "paid" && <Input label={tc("lifecycle.transferReference")} value={transferReference} onChange={(e) => setTransferReference(e.target.value)} required />}
+        {reviewTarget?.status === "approved" && <div className="space-y-3"><p>{tc("wallet.ownershipInstructions")}</p><Input label={tc("wallet.ownershipReference")} value={ownershipReference} maxLength={200} onChange={(e) => setOwnershipReference(e.target.value)} required /><label className="flex items-center gap-3"><input type="checkbox" checked={ownershipConfirmed} onChange={(e) => setOwnershipConfirmed(e.target.checked)} />{tc("wallet.ownershipConfirmed")}</label></div>}
         <Textarea
           label={reviewTarget?.status === "rejected" ? t("payoutRequests.reviewDialog.notesLabelRejected") : t("payoutRequests.reviewDialog.notesLabelOptional")}
           value={reviewNotes}

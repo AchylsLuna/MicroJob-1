@@ -9,6 +9,7 @@ import { API_URL } from '../../config';
 import { apiRequest, asList, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
 import { php } from './walletFormat';
+import CompletionEvidence from '../CompletionEvidence';
 
 type Preview = {
   requestId: string; status: string; expiresAt: string;
@@ -17,7 +18,7 @@ type Preview = {
   employer: { id: string; name: string };
   workers: Array<{ applicationId: string; workerId: string; name: string; amount: number }>;
   amountPerWorker: number; totalAmount: number;
-  application?: { id: string; workStatus?: string; paymentStatus?: string };
+  application?: { id: string; workStatus?: string; paymentStatus?: string; submittedAt?: string | null; completionEvidence?: any[] };
 };
 
 const authHeaders = async () => {
@@ -139,7 +140,7 @@ export function EmployerQrScannerModal({ visible, onClose, onSettled, initialReq
     if (!preview || busy) return;
     setBusy(true); setError('');
     try {
-      const result = await apiRequest(`${API_URL}/payment/qr-requests/${preview.requestId}/settle`, { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ confirmed: true }) }, 'Settlement failed.');
+      const result = await apiRequest(`${API_URL}/payment/qr-requests/${preview.requestId}/settle`, { method: 'POST', headers: await authHeaders(), body: JSON.stringify({ confirmed: true, submittedAt: preview.application?.submittedAt }) }, 'Settlement failed.');
       if (!result.ok) throw new Error(result.message);
       onSettled(); onClose();
     } catch (caught: any) { setError(caught?.message || 'Settlement failed.'); }
@@ -154,6 +155,7 @@ export function EmployerQrScannerModal({ visible, onClose, onSettled, initialReq
         <Text style={styles.eyebrow}>REVIEW JOB SETTLEMENT</Text><Text style={styles.title}>{preview.job.title}</Text><Text style={styles.amount}>{php(preview.totalAmount)}</Text>
         <Text style={styles.muted}>Requested by {preview.requestingWorker.name} · Employer {preview.employer.name}</Text>
         <View style={styles.workerList}>{preview.workers.map((worker) => <View key={worker.applicationId} style={styles.workerRow}><Text style={styles.jobTitle}>{worker.name}</Text><Text style={styles.jobTitle}>{php(worker.amount)}</Text></View>)}</View>
+        <CompletionEvidence items={preview.application?.completionEvidence} />
         <Text style={styles.security}>Confirming approves this worker’s submitted work and releases only their agreed escrow payment. It cannot be paid twice.</Text>
         <TouchableOpacity style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void settle()} disabled={busy} accessibilityRole="button" accessibilityState={{ busy, disabled: busy }}>{busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>Approve and Pay Worker</Text>}</TouchableOpacity>
         <TouchableOpacity style={styles.secondaryButton} onPress={() => { setPreview(null); setScanned(false); }}><Text style={styles.secondaryText}>Scan Another</Text></TouchableOpacity>

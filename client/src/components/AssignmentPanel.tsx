@@ -32,7 +32,7 @@ export function AssignmentPanel({ applicationId, onChanged, defaultOpen = false,
     if (command === 'dispute') return lifecycleRequest(`/applications/${applicationId}/disputes`, { reason, kind });
     if (command === 'evidence') return lifecycleRequest(`/financial-disputes/${dispute._id}/evidence`, { statement: reason, noEvidence: checked });
     if (command === 'accept' || command === 'reject') return lifecycleRequest(`/cancellations/${pending._id}/respond`, { action: command });
-    if (command === 'pay') return lifecycleRequest(`/applications/${applicationId}/payment/settle`, { confirmed: checked });
+    if (command === 'pay') return lifecycleRequest(`/applications/${applicationId}/payment/settle`, { confirmed: checked, submittedAt: paymentPreview?.submittedAt });
   };
   return <>
     {!hideTrigger && <Button className="shrink-0 whitespace-nowrap border border-black !bg-white !text-black" onClick={() => { setOpen(true); setCommand(''); void run(refresh, false); }}>{t('lifecycle.details')}</Button>}
@@ -59,7 +59,7 @@ export function AssignmentPanel({ applicationId, onChanged, defaultOpen = false,
           {command === 'cancel' && app.workStatus !== 'Not started' && <Input label={t('lifecycle.proposed')} type="number" min="0" max={app.agreedAmount || data.job.salary} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />}
           {command === 'dispute' && <Select label={t('lifecycle.disputeType')} value={kind} onChange={(e) => setKind(e.target.value)}><option value="other">{t('lifecycle.other')}</option><option value="nonpayment" disabled={!data.canFileNonpayment}>{t('lifecycle.nonpayment')}</option></Select>}
           {['cancel', 'evidence', 'pay'].includes(command) && <label className="flex items-center gap-3"><input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} />{t(command === 'evidence' ? 'lifecycle.noEvidence' : command === 'pay' ? 'lifecycle.releaseNotice' : 'lifecycle.acknowledge')}</label>}
-          {command === 'pay' && <><p>{t('lifecycle.recipient', { name: data.recipient?.name })}</p><p>{t('lifecycle.releaseAmount', { amount: formatCurrency(paymentPreview?.amount || 0) })}</p></>}
+          {command === 'pay' && <><CompletionEvidence items={paymentPreview?.application?.completionEvidence} /><p>{t('lifecycle.recipient', { name: paymentPreview?.recipient?.name })}</p><p>{t('lifecycle.releaseAmount', { amount: formatCurrency(paymentPreview?.amount || 0) })}</p></>}
           {['accept', 'reject'].includes(command) && <p>{t('lifecycle.respondNotice', { amount: formatCurrency(pending?.workerPayment || 0) })}</p>}
           <Button disabled={busy || (['cancel', 'pay'].includes(command) && !checked)} onClick={() => void run(act)}>{t('lifecycle.confirm')}</Button><Button disabled={busy} onClick={() => setCommand('')}>{t('wallet.back')}</Button>
         </div> : <div className="flex gap-2 flex-wrap">

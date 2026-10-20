@@ -68,10 +68,14 @@ unrelated assignments continue. Resolution records remain available for audit.
 
 ## Withdrawals
 
-Employer unused available funds may be withdrawn without first posting a job and
-without Finance approval. Job escrow, disputed allocations, and pending withdrawals
+Employer unused available funds may be withdrawn without first posting a job. Automatic
+transfers require a Finance ownership check for the exact destination within the last
+90 days and an amount within the configured automatic-review threshold. Unverified
+destinations require manual Finance approval. Job escrow, disputed allocations, and pending withdrawals
 are unavailable. Confirmation and details review are required; there is no additional
-password or OTP requirement. Review does not establish external account ownership.
+password or OTP requirement. The user's details confirmation does not establish external
+account ownership. Finance must inspect account-holder evidence and record its secure
+reference before approving a manual request. A matching name alone is insufficient.
 
 The initial automatic rail is InstaPay, up to PHP 50,000 per request, using supported
 institutions returned by the provider. Provider transfer fees are absorbed by the

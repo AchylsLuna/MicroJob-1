@@ -8,7 +8,7 @@ async function mockAdminDisputes(page: Page, staffRole: "support_staff" | "finan
     id: "open-case", ticketId: "FD-OPEN", subject: "Unpaid work", investigationStatus: "UNDER_INVESTIGATION", settlementStatus: "PENDING", paymentStatus: "DISPUTED", fundStatus: "PARTIALLY_HELD",
     agreedJobAmount: 600, alreadyPaidAmount: 100, disputedAmount: 500, fundsHeldAmount: 300, outstandingAmount: 200,
     workerClaim: "The submitted work remains unpaid.", job: { title: "Park cleanup", description: "Clean the park grounds" }, worker: { firstName: "Maria", lastName: "Santos" }, employer: { companyName: "Cleanup Services" },
-    evidence: [{ _id: "evidence-one", evidenceType: "PAYMENT_RECEIPT", uploaderRole: "worker", description: "Original payment receipt", fileUrl: "/uploads/receipt.pdf" }],
+    evidence: [{ _id: "evidence-one", evidenceType: "PAYMENT_RECEIPT", uploaderRole: "worker", description: "Original payment receipt", fileUrl: "/uploads/receipt.pdf", fileName: "receipt.pdf" }],
     messages: [{ _id: "message-one", authorRole: "support", createdAt: "2026-10-01T08:00:00Z", body: "Please share the payment receipt.", visibleToParties: true }],
     auditLogs: [{ _id: "audit-one", action: "DISPUTE_OPENED", timestamp: "2026-10-01T08:00:00Z" }],
   };
@@ -59,7 +59,10 @@ test("support uses evidence, conversation, investigation, and audit tabs without
   await expect(evidence).toBeFocused();
   const evidencePanel = page.getByRole("tabpanel", { name: "Evidence", exact: true });
   await expect(evidencePanel).toContainText("Original payment receipt");
-  await expect(evidencePanel.getByRole("link", { name: "Open evidence" })).toHaveAttribute("href", /\/uploads\/receipt\.pdf$/);
+  await page.route('**/uploads/receipt.pdf', (route) => route.fulfill({ status: 200, contentType: 'application/pdf', body: '%PDF-1.4\nTest receipt' }));
+  const download = page.waitForEvent('download');
+  await evidencePanel.getByRole('button', { name: 'receipt.pdf', exact: true }).click();
+  expect((await download).suggestedFilename()).toBe('receipt.pdf');
   await page.getByRole("button", { name: "Assign to me and investigate", exact: true }).click();
   await expect(evidencePanel).toContainText("Assigned to Test Staff");
   await page.getByRole("textbox", { name: "Evidence request", exact: true }).fill("Please upload a receipt.");

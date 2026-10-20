@@ -37,6 +37,19 @@ export async function listAdminFinancialDisputes(req, res) {
   }
 }
 
+// Administrative closure records the end of a resolved case and moves no money.
+export async function closeFinancialDispute(req, res) {
+  const reason = String(req.body?.reason || '').trim();
+  if (!reason || reason.length > 2000) return res.status(400).json({ message: 'A closure reason of up to 2000 characters is required.' });
+  try {
+    const dispute = await FinancialDispute.findOneAndUpdate({ _id: req.params.disputeId, active: false, status: 'resolved', closedAt: null,
+      settlementStatus: { $in: ['VERIFIED', 'RECORDED_OUTSTANDING'] },
+    }, { $set: { closedAt: new Date(), closedBy: id(req) }, $push: { auditLogs: { userId: id(req), role: 'support', action: 'CASE_CLOSED', previousStatus: 'resolved', newStatus: 'closed', details: { reason }, timestamp: new Date() } } }, { returnDocument: 'after' });
+    if (!dispute) return res.status(409).json({ message: 'Only a resolved case with a recorded settlement can be closed.' });
+    return res.json({ dispute: shapeFinancialDispute(dispute, { staff: true }) });
+  } catch { return res.status(500).json({ message: 'Failed to close the financial dispute.' }); }
+}
+
 export async function assignFinancialDisputeSupport(req, res) {
   try {
     const assignedSupportUserId = String(req.body?.assignedSupportUserId || id(req));

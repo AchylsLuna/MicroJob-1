@@ -9,7 +9,7 @@ const configuredAmount = (name, fallback) => {
 };
 
 export function withdrawalPolicy(sourceWallet) {
-  const minimum = configuredAmount('WITHDRAWAL_MIN_AMOUNT', 1);
+  const minimum = configuredAmount('WITHDRAWAL_MIN_AMOUNT', 100);
   // Preserve the existing employer ceiling and worker policy unless configured.
   const maximum = configuredAmount(`WITHDRAWAL_${sourceWallet}_MAX_AMOUNT`, sourceWallet === 'EMPLOYER' ? 50000 : 0);
   const reviewThreshold = configuredAmount('WITHDRAWAL_REVIEW_THRESHOLD', 50000);
@@ -25,5 +25,6 @@ export function validateWithdrawalAmount(amount, sourceWallet) {
   const reviewReason = amount > policy.reviewThreshold
     ? `This withdrawal exceeds the configured review threshold of PHP ${policy.reviewThreshold.toFixed(2)} and requires Finance approval before transfer.`
     : requiresReview ? 'Worker withdrawals require Finance approval before transfer.' : null;
-  return { ...policy, requiresReview, reviewReason, processingMode: requiresReview ? 'manual' : 'automatic' };
+  const reviewCodes = amount > policy.reviewThreshold ? ['threshold'] : requiresReview ? ['worker'] : [];
+  return { ...policy, requiresReview, reviewReason, reviewCodes, processingMode: requiresReview ? 'manual' : 'automatic' };
 }

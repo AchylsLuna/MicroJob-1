@@ -105,6 +105,8 @@ const FinancialDisputeSchema = new mongoose.Schema(
     kind: { type: String, enum: ['nonpayment', 'cancellation', 'other'], default: 'other' },
     evidenceDueAt: Date,
     escalatedAt: { type: Date, default: null },
+    closedAt: { type: Date, default: null },
+    closedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     workerPayment: { type: Number, default: null },
     events: [{ actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, type: { type: String }, note: String, at: { type: Date, default: Date.now } }],
     subject: { type: String, required: true, trim: true, maxlength: 200 },

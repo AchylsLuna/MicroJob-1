@@ -1,4 +1,30 @@
 {
+  "financialWorkflow": {
+    "reviews": {
+      "worker": "Kailangan ng pag-apruba ng Finance bago ilipat ang withdrawal ng manggagawa.",
+      "threshold": "Lampas sa {{threshold}} na hangganan ng pagsusuri ang withdrawal na ito at kailangan ng pag-apruba ng Finance bago ilipat.",
+      "ownership": "Dapat beripikahin ng Finance ang pagmamay-ari ng destinasyong ito gamit ang ebidensya ng may-ari bago aprubahan ang panlabas na paglilipat."
+    },
+    "states": {
+      "open": "Bukas",
+      "under_review": "Sinusuri",
+      "awaiting_evidence": "Naghihintay ng Ebidensya",
+      "escalated": "Iniakyat para sa Mas Mataas na Pagsusuri",
+      "resolved": "Nalutas",
+      "closed": "Sarado"
+    },
+    "close": "Isara ang nalutas na kaso",
+    "closeReason": "Dahilan ng pagsasara",
+    "closeNotice": "Isara ang nalutas na kasong ito? Mananatili sa kasaysayan ang ebidensya at mga desisyon. Hindi na maaaring umapela matapos isara at walang ililipat na pondo.",
+    "closeSuccess": "Naisara ang usaping pinansyal.",
+    "evidenceStatement": "Pahayag ng ebidensya",
+    "chooseFile": "Pumili ng file ng ebidensya (hanggang 5 MB)",
+    "sendEvidence": "Isumite ang ebidensya",
+    "noEvidence": "Wala akong maibibigay na ebidensya",
+    "evidenceDue": "Huling araw ng ebidensya: {{date}}",
+    "feedback": "Puna ng employer: {{reason}}",
+    "previewExpires": "Mawawalan ng bisa ang preview sa {{date}}. Suriin muli pagkatapos nito."
+  },
   "offerResponse": {
     "respondBy": "Tumugon bago ang {{date}} (Asia/Manila). Kapag walang tugon, mapapaso ang alok at mababakante ang nakareserbang posisyon.",
     "expired": "Napaso na ang alok na ito. Makipag-ugnayan sa employer kung interesado ka pa rin.",
@@ -215,6 +241,9 @@
     }
   },
   "wallet": {
+    "ownershipInstructions": "Ihambing ang dokumento ng may-ari o kumpirmasyon ng provider sa humihiling na user at eksaktong destinasyon. Itala ang sanggunian sa ligtas na ebidensya o kaso ng beripikasyon; hindi sapat ang magkatugmang pangalan lamang.",
+    "ownershipReference": "Sanggunian ng ebidensya / beripikasyon ng pagmamay-ari",
+    "ownershipConfirmed": "Naberipika kong pag-aari ng humihiling na user ang destinasyong ito.",
     "title": "E-wallet",
     "withdraw": "Mag-withdraw",
     "available": "Maaaring i-withdraw: {{amount}}",

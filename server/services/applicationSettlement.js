@@ -36,7 +36,7 @@ export async function settleApplicationPayment({ applicationId, employerId, expe
         result = { application, job, deduplicated: true };
         return;
       }
-      if (expectedSubmittedAt !== undefined && (!application.workSubmittedAt || new Date(expectedSubmittedAt).getTime() !== application.workSubmittedAt.getTime())) throw Object.assign(new Error('New completion evidence is available. Review the latest submission before releasing funds.'), { status: 409 });
+      if (application.workSubmittedAt && new Date(expectedSubmittedAt).getTime() !== application.workSubmittedAt.getTime()) throw Object.assign(new Error('New completion evidence is available. Review the latest submission before releasing funds.'), { status: 409 });
       if (application.paymentStatus === 'Disputed' || job.cancellationPending || ['Cancelled', 'Completed'].includes(job.status) || application.cancellationPending || await activeDispute(application._id, session)) throw Object.assign(new Error('Affected funds are held while this cancellation or dispute is unresolved.'), { status: 409 });
       job.fundsVersion = Number(job.fundsVersion || 0) + 1; await job.save({ session });
       if (application.workStatus !== 'Submitted') throw Object.assign(new Error('The worker must submit finished work before payment.'), { status: 409 });
@@ -64,14 +64,15 @@ export async function settleApplicationPayment({ applicationId, employerId, expe
       application.paymentStatus = 'Paid'; application.workStatus = 'Completed'; application.paidAmount = payment.alreadyPaidAmount + amount; application.paymentReminderClaimedAt = null; application.paymentReminderClaimedStage = null; application.paidAt = new Date(); application.completedAt = new Date();
       await application.save({ session });
       await finalizeSettledJob(job, employerId, session);
-      await queueNotification(`job-paid:${application._id}`, { userId: String(application.applicant), audience: 'worker', type: 'payment', title: 'Job payment completed', message: `Your employer paid PHP ${amount.toFixed(2)} for ${job.title}. The amount was added to your worker balance.`, entityType: 'application', entityId: String(application._id) }, session);
-      await queueNotification(`job-paid-employer:${application._id}`, { userId: String(employerId), audience: 'employer', type: 'payment', title: 'Payment sent', message: `PHP ${amount.toFixed(2)} was released to the worker for ${job.title}.`, entityType: 'application', entityId: String(application._id) }, session);
+      const metadata = { transactionId: String(transaction._id), reference, amount, jobId: String(job._id), workerId: String(application.applicant), paidAt: application.paidAt.toISOString() };
+      await queueNotification(`job-paid:${application._id}`, { userId: String(application.applicant), audience: 'worker', type: 'payment', title: 'Job payment completed', message: `Your employer paid PHP ${amount.toFixed(2)} for ${job.title}. The amount was added to your worker balance.`, entityType: 'application', entityId: String(application._id), metadata }, session);
+      await queueNotification(`job-paid-employer:${application._id}`, { userId: String(employerId), audience: 'employer', type: 'payment', title: 'Payment sent', message: `PHP ${amount.toFixed(2)} was released to the worker for ${job.title}.`, entityType: 'application', entityId: String(application._id), metadata }, session);
       await queueJobPaymentReceipts(transaction, employerId, application.applicant, session);
       result = { application, job, transaction, deduplicated: false };
     };
     if (providedSession) await settle(); else await session.withTransaction(settle);
     // A caller-owned transaction must deliver only after its own commit.
-    if (!providedSession) await Promise.all([deliverQueuedNotification(`job-paid:${result.application._id}`), deliverJobPaymentReceipts(`application-payout:${result.application._id}`)]);
+    if (!providedSession) await Promise.all([deliverQueuedNotification(`job-paid:${result.application._id}`), deliverQueuedNotification(`job-paid-employer:${result.application._id}`), deliverJobPaymentReceipts(`application-payout:${result.application._id}`)]);
     return result;
   } finally { if (!providedSession) await session.endSession(); }
 }

@@ -520,7 +520,7 @@ export async function changeJobStatus(req, res) {
         if (status === 'Cancelled') return res.json({ cancellation: await requestCancellation({ ...req.body, jobId: job._id, actor: userId }) });
         if (status === 'Completed') {
             if (req.body?.confirmed !== true) return res.status(400).json({ message: 'Confirm the worker payments before completing this posting.' });
-            const apps = await JobApplication.find({ job: job._id, status: { $in: ['Hired', 'Accepted'] } });
+            let apps = await JobApplication.find({ job: job._id, status: { $in: ['Hired', 'Accepted'] } });
             if (!apps.length || apps.some((app) => !['Submitted', 'Completed'].includes(app.workStatus))) return res.status(409).json({ message: 'All hired workers must submit work first.' });
             // Each worker settles through the same idempotent service as direct/QR payment.
             const session = await mongoose.startSession();
@@ -529,10 +529,15 @@ export async function changeJobStatus(req, res) {
                 if (!current || current.cancellationPending || current.archivedAt || ['Cancelled', 'Full refund', 'Resolved'].includes(current.status)) throw Object.assign(new Error('This posting cannot be completed now.'), { status: 409 });
                 if (await JobOffer.exists({ job: job._id, status: { $in: ['pending', 'accepted'] } }).session(session)) throw Object.assign(new Error('Resolve active offers before completing this posting.'), { status: 409 });
                 current.closedManually = true; current.fundsVersion = Number(current.fundsVersion || 0) + 1; await current.save({ session });
-                for (const app of apps) await settleApplicationPayment({ applicationId: app._id, employerId: userId, session });
+                apps = await JobApplication.find({ job: job._id, status: { $in: ['Hired', 'Accepted'] } }).session(session);
+                const previews = Array.isArray(req.body?.payments) ? req.body.payments : [];
+                for (const app of apps) {
+                    const preview = previews.find((item) => item.applicationId === String(app._id));
+                    await settleApplicationPayment({ applicationId: app._id, employerId: userId, expectedSubmittedAt: preview?.submittedAt, session });
+                }
                 await finalizeSettledJob(await Job.findById(job._id).session(session), userId, session);
             }); } finally { await session.endSession(); }
-            await Promise.all(apps.flatMap((app) => [deliverQueuedNotification(`job-paid:${app._id}`), deliverJobPaymentReceipts(`application-payout:${app._id}`)]));
+            await Promise.all(apps.flatMap((app) => [deliverQueuedNotification(`job-paid:${app._id}`), deliverQueuedNotification(`job-paid-employer:${app._id}`), deliverJobPaymentReceipts(`application-payout:${app._id}`)]));
             return res.json({ job: await Job.findById(job._id), message: 'Submitted worker payments completed.' });
         }
         if (status === 'Available') return reopenJob(req, res);

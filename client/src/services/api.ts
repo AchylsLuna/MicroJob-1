@@ -248,6 +248,7 @@ export type PayoutRequest = {
   providerFee?: number;
   failureReason?: string;
   transferReference?: string;
+  ownershipVerification?: { verifiedBy?: string; verifiedAt?: string; reference?: string };
   destinationSnapshot: {
     methodType: string;
     institutionName: string;
@@ -654,8 +655,8 @@ export function applyForJob(jobId: string, payload?: { resume?: string; coverLet
   return request(`/jobs/${jobId}/apply`, { method: 'POST', body: payload });
 }
 
-export function changeJobStatus(jobId: string, status: string) {
-  return request(`/jobs/${jobId}/status`, { method: 'PATCH', body: { status, ...(status === 'Completed' ? { confirmed: true } : {}) } });
+export function changeJobStatus(jobId: string, status: string, payments?: { applicationId: string; submittedAt: string | null }[]) {
+  return request(`/jobs/${jobId}/status`, { method: 'PATCH', body: { status, ...(status === 'Completed' ? { confirmed: true, payments } : {}) } });
 }
 
 export function reopenJob(jobId: string) {
@@ -899,7 +900,10 @@ export function openPaymentDispute(applicationId: string, reason: string, disput
 }
 
 export type FinancialDispute = {
+  active?: boolean;
   displayStatus?: string;
+  caseStatus?: string;
+  closedAt?: string | null;
   id: string;
   _id?: string;
   ticketId: string;
@@ -941,11 +945,13 @@ export function getFinancialDispute(disputeId: string) {
   return request<{ dispute: FinancialDispute }>(`/financial-disputes/${disputeId}`, { method: 'GET' });
 }
 
-export function uploadFinancialDisputeEvidence(disputeId: string, payload: { file?: File | null; evidenceType: string; description: string }) {
+export function uploadFinancialDisputeEvidence(disputeId: string, payload: { file?: File | null; evidenceType: string; description: string; noEvidence?: boolean }) {
   const formData = new FormData();
   if (payload.file) formData.append('evidence', payload.file);
   formData.append('evidenceType', payload.evidenceType);
-  formData.append('description', payload.description);
+  formData.append('statement', payload.description);
+  formData.append('description', payload.description.slice(0, 1000));
+  formData.append('noEvidence', String(payload.noEvidence === true));
   return request<{ message: string; dispute: FinancialDispute }>(`/financial-disputes/${disputeId}/evidence`, { method: 'POST', body: formData });
 }
 
@@ -1589,7 +1595,7 @@ export function getAdminPayoutRequests(params?: QueryParams) {
 
 export function updateAdminPayoutRequest(
   payoutRequestId: string,
-  payload: { status: 'approved' | 'rejected' | 'paid'; reviewNotes?: string; transferReference?: string }
+  payload: { status: 'approved' | 'rejected' | 'paid'; reviewNotes?: string; transferReference?: string; ownershipVerificationReference?: string; ownershipConfirmed?: boolean }
 ) {
   return request<{ payoutRequest: PayoutRequest }>(`/admin/payout-requests/${payoutRequestId}`, {
     method: 'PATCH',
@@ -1678,6 +1684,8 @@ export function approveFinancialDisputeSettlement(disputeId: string) {
 }
 
 export type WithdrawalPreview = {
+  reviewCodes?: string[];
+  expiresAt?: string;
   reviewReason?: string | null; requiresReview?: boolean; minimum: number; maximum: number | null; reviewThreshold: number;
   previewToken: string; sourceWallet: 'EMPLOYER' | 'WORKER'; amount: number; fee: number; totalDebit: number; remainingBalance: number;
   destination: { institutionName: string; accountName: string; accountNumberMasked: string };

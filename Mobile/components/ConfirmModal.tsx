@@ -7,6 +7,7 @@ type ConfirmModalProps = {
   visible: boolean;
   title: string;
   description: string;
+  content?: React.ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
@@ -20,6 +21,7 @@ export default function ConfirmModal({
   visible,
   title,
   description,
+  content,
   confirmLabel,
   cancelLabel,
   destructive = false,
@@ -37,6 +39,7 @@ export default function ConfirmModal({
         <View style={styles.dialog} accessibilityRole="alert">
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.description}>{description}</Text>
+          {content}
           {error ? <Text style={styles.error} accessibilityLiveRegion="assertive">{error}</Text> : null}
           <View style={styles.actions}>
             <Pressable accessibilityRole="button" accessibilityLabel={resolvedCancelLabel} disabled={pending} onPress={onCancel} style={({ pressed }) => [styles.button, styles.cancelButton, pressed && styles.pressed, pending && styles.disabled]}>

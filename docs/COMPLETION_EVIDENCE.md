@@ -37,6 +37,8 @@ Image URLs use `/uploads/:fileName`. The API authorizes the worker, owning emplo
 
 Starting work queues an employer notification saying **Work in progress**. Submitting valid proof queues **Work finished — ready for review**; daily proof names the specific work date. Both attempt delivery immediately after the work transaction commits, creating the employer's notification-feed entry and using the existing socket/push delivery. Failed delivery remains in the outbox for maintenance retries. Submission still means awaiting employer review, and never releases payment by itself. Applied Jobs refreshes after Start work on both web and mobile so Submit proof becomes available.
 
+Change requests preserve employer feedback, actor and timestamp on the reviewed submission. Web/mobile history shows that feedback alongside its original images after resubmission. Every ordinary confirmation with a recorded submission timestamp must send the `submittedAt` from its actual preview, including assignment, Applications, batch job completion and mobile QR flows. A missing or stale timestamp is rejected before release. Historical submitted assignments without recorded timestamps remain supported. See [Financial workflow alignment](financial-workflow-alignment.md) for the batch contract and current verification results.
+
 The employer's latest submission card displays the green **Mark the job as done?** button. It opens this confirmation:
 
 > Mark the job as completed? This will release the funds to the worker.

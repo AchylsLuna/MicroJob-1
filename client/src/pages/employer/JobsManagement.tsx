@@ -224,7 +224,7 @@ export function JobsManagement() {
 
     setMarkingDoneJobId(confirmDoneJob.id);
     try {
-      await changeJobStatus(confirmDoneJob.id, "Completed");
+      await changeJobStatus(confirmDoneJob.id, "Completed", completionPayments.map((payment) => ({ applicationId: payment.application._id, submittedAt: payment.submittedAt })));
       toast.success(t("jobsManagement.toast.markedDoneSuccess"));
       setConfirmDoneJob(null);
       await loadJobs();

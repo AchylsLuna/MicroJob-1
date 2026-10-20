@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from 'react-i18next';
+import { EvidenceDownload } from '../../components/CompletionEvidence';
 import { AlertTriangle, FileUp, MessageSquareText, Scale } from "lucide-react";
 import { Badge, Button, Card, Input, Select, StatusState, Tabs, Textarea } from "../../components/ui";
 import { useAuth } from "../../hooks/useAuth";
-import { toAbsoluteAssetUrl } from "../../lib/assetUrl";
 import { formatCurrency, formatDateTime } from "../../lib/formatters";
 import { toast } from "../../lib/toast";
 import {
@@ -28,6 +29,7 @@ const personName = (person: any) => [person?.firstName, person?.lastName].filter
 type DetailTab = "Overview" | "Evidence" | "Conversation" | "Settlement";
 
 export function FinancialDisputes() {
+  const { t } = useTranslation('common');
   const { user } = useAuth();
   const isEmployer = user?.accountType === "employer";
   const [disputes, setDisputes] = useState<FinancialDispute[]>([]);
@@ -43,6 +45,7 @@ export function FinancialDisputes() {
   const [evidenceType, setEvidenceType] = useState("OTHER");
   const [evidenceDescription, setEvidenceDescription] = useState("");
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
+  const [noEvidence, setNoEvidence] = useState(false);
   const [appealReason, setAppealReason] = useState("");
   const [activeTab, setActiveTab] = useState<DetailTab>("Overview");
 
@@ -68,7 +71,7 @@ export function FinancialDisputes() {
   }, [isEmployer]);
 
   const selected = useMemo(() => disputes.find((item) => item.id === selectedId) || null, [disputes, selectedId]);
-  const canAppeal = selected?.investigationStatus === "RESOLVED" && !selected.appealSubmittedAt;
+  const canAppeal = selected?.investigationStatus === "RESOLVED" && !selected.appealSubmittedAt && !selected.closedAt;
   const hasSettlement = Boolean(selected?.financeSettlement || selected?.settlementHistory?.length || canAppeal);
   useEffect(() => { setActiveTab("Overview"); }, [selectedId]);
 
@@ -110,11 +113,12 @@ export function FinancialDisputes() {
   };
 
   const uploadEvidence = async () => {
-    if (!selected || (!evidenceFile && !evidenceDescription.trim())) return toast.error("Choose a file or describe the evidence reference.");
+    if (!selected || (!evidenceFile && !evidenceDescription.trim() && !noEvidence)) return toast.error("Choose a file or describe the evidence reference.");
+    if (evidenceFile && evidenceFile.size > 5 * 1024 * 1024) return toast.error(t('lifecycle.evidenceTooLarge'));
     setBusy(true);
     try {
-      const result = await uploadFinancialDisputeEvidence(selected.id, { file: evidenceFile, evidenceType, description: evidenceDescription.trim() });
-      replaceSelected(result.dispute); setEvidenceFile(null); setEvidenceDescription(""); toast.success(result.message);
+      const result = await uploadFinancialDisputeEvidence(selected.id, { file: evidenceFile, evidenceType, description: evidenceDescription.trim(), noEvidence });
+      replaceSelected(result.dispute); setEvidenceFile(null); setEvidenceDescription(""); setNoEvidence(false); toast.success(result.message);
     } catch (error: any) { toast.error(error?.message || "Failed to upload evidence."); }
     finally { setBusy(false); }
   };
@@ -166,7 +170,7 @@ export function FinancialDisputes() {
               <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} className={`w-full rounded-xl border p-3 text-left ${selectedId === item.id ? "border-brand-500 bg-brand-50" : "border-slate-200 bg-white"}`}>
                 <p className="text-sm font-bold text-slate-950">{item.ticketId}</p>
                 <p className="mt-1 truncate text-sm text-slate-600">{item.job?.title || item.subject}</p>
-                <div className="mt-2 flex flex-wrap gap-2"><Badge className={statusTone(item.investigationStatus)}>{item.displayStatus || label(item.investigationStatus)}</Badge><Badge className={statusTone(item.paymentStatus)}>{label(item.paymentStatus)}</Badge></div>
+                <div className="mt-2 flex flex-wrap gap-2"><Badge className={statusTone(item.investigationStatus)}>{item.caseStatus ? t(`financialWorkflow.states.${item.caseStatus}`) : item.displayStatus || label(item.investigationStatus)}</Badge><Badge className={statusTone(item.paymentStatus)}>{label(item.paymentStatus)}</Badge></div>
               </button>
             ))}
           </div>
@@ -178,7 +182,7 @@ export function FinancialDisputes() {
               <Card>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div><p className="text-sm font-semibold text-brand-700">{selected.ticketId}</p><h2 className="text-xl font-bold text-slate-950">{selected.job?.title || selected.subject}</h2></div>
-                  <div className="flex flex-wrap gap-2"><Badge className={statusTone(selected.investigationStatus)}>Investigation: {selected.displayStatus || label(selected.investigationStatus)}</Badge><Badge className={statusTone(selected.paymentStatus)}>Payment: {label(selected.paymentStatus)}</Badge></div>
+                  <div className="flex flex-wrap gap-2"><Badge className={statusTone(selected.investigationStatus)}>Investigation: {selected.caseStatus ? t(`financialWorkflow.states.${selected.caseStatus}`) : selected.displayStatus || label(selected.investigationStatus)}</Badge><Badge className={statusTone(selected.paymentStatus)}>Payment: {label(selected.paymentStatus)}</Badge></div>
                 </div>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
                   {[
@@ -196,9 +200,9 @@ export function FinancialDisputes() {
             { id: "Evidence", label: "Evidence", content: (<>
               <Card>
                 <div className="flex items-center gap-2"><FileUp className="h-5 w-5 text-brand-700"/><h3 className="font-bold text-slate-950">Evidence</h3></div>
-                <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2"><Select label="Evidence type" value={evidenceType} onChange={(event) => setEvidenceType(event.target.value)}>{["OTHER","PAYMENT_RECEIPT","SCREENSHOT","WORK_PHOTO","DOCUMENT","ATTENDANCE_RECORD","JOB_LOG","CHAT_REFERENCE"].map((type) => <option key={type} value={type}>{label(type)}</option>)}</Select><Input label="File (optional for chat reference)" type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.doc,.docx" onChange={(event) => setEvidenceFile(event.target.files?.[0] || null)} /></div>
-                <div className="mt-4"><Textarea label="Evidence description" value={evidenceDescription} onChange={(event) => setEvidenceDescription(event.target.value)} /></div><Button className="mt-4" disabled={busy || selected.investigationStatus === "RESOLVED"} onClick={uploadEvidence}>Add evidence</Button>
-                <div className="mt-5 space-y-3">{(selected.evidence || []).map((item: any) => <div key={item._id} className="rounded-xl border border-slate-200 p-3 text-sm"><p className="font-semibold text-slate-900">{label(item.evidenceType)} · {item.uploaderRole}</p><p className="mt-1 text-slate-600">{item.description || item.fileName || "Evidence"}</p>{item.fileUrl ? <a className="mt-2 inline-block font-semibold text-brand-700 underline" href={toAbsoluteAssetUrl(item.fileUrl) || "#"} target="_blank" rel="noreferrer">Open evidence file</a> : null}</div>)}</div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2"><Select label="Evidence type" value={evidenceType} onChange={(event) => setEvidenceType(event.target.value)}>{["OTHER","PAYMENT_RECEIPT","SCREENSHOT","WORK_PHOTO","DOCUMENT","ATTENDANCE_RECORD","JOB_LOG","CHAT_REFERENCE"].map((type) => <option key={type} value={type}>{label(type)}</option>)}</Select><Input label="File (optional for chat reference)" type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.doc,.docx" onChange={(event) => { setEvidenceFile(event.target.files?.[0] || null); setNoEvidence(false); }} /></div>
+                <label className="mt-4 flex items-center gap-3"><input type="checkbox" checked={noEvidence} onChange={(event) => { setNoEvidence(event.target.checked); setEvidenceFile(null); }} />{t("financialWorkflow.noEvidence")}</label><div className="mt-4"><Textarea label={t("financialWorkflow.evidenceStatement")} value={evidenceDescription} onChange={(event) => setEvidenceDescription(event.target.value)} /></div><Button className="mt-4" disabled={busy || selected.active === false} onClick={uploadEvidence}>Add evidence</Button>
+                <div className="mt-5 space-y-3">{(selected.evidence || []).map((item: any) => <div key={item._id} className="rounded-xl border border-slate-200 p-3 text-sm"><p className="font-semibold text-slate-900">{label(item.evidenceType)} · {item.uploaderRole}</p><p className="mt-1 text-slate-600">{item.description || item.fileName || "Evidence"}</p>{item.fileUrl ? <EvidenceDownload fileUrl={item.fileUrl} fileName={item.fileName} /> : null}</div>)}</div>
               </Card>
             </>) },
             { id: "Conversation", label: "Conversation", content: (<>

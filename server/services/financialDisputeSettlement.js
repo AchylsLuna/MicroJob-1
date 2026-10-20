@@ -17,7 +17,9 @@ const settlementId = () => `SET-${new Date().getFullYear()}-${crypto.randomBytes
 
 export function requireEvidenceOpportunity(dispute) {
   if (!dispute.evidenceDueAt || new Date(dispute.evidenceDueAt) <= new Date()) return;
-  const contributors = new Set((dispute.evidence || []).map((entry) => String(entry.actor || entry.uploadedBy)));
+  const contributors = new Set((dispute.evidence || [])
+    .filter((entry) => !dispute.appealSubmittedAt || new Date(entry.at || entry.uploadedAt) >= new Date(dispute.appealSubmittedAt))
+    .map((entry) => String(entry.actor || entry.uploadedBy)));
   if (![dispute.worker, dispute.employer].every((id) => contributors.has(String(id)))) {
     throw Object.assign(new Error('Allow both parties seven days to provide evidence or state that none is available.'), { status: 409 });
   }

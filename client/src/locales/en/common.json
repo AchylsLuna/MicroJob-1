@@ -1,4 +1,30 @@
 {
+  "financialWorkflow": {
+    "reviews": {
+      "worker": "Worker withdrawals require Finance approval before transfer.",
+      "threshold": "This withdrawal exceeds the {{threshold}} review threshold and requires Finance approval before transfer.",
+      "ownership": "Finance must verify ownership of this destination against account-holder evidence before approving an external transfer."
+    },
+    "states": {
+      "open": "Open",
+      "under_review": "Under Review",
+      "awaiting_evidence": "Awaiting Evidence",
+      "escalated": "Escalated",
+      "resolved": "Resolved",
+      "closed": "Closed"
+    },
+    "close": "Close resolved case",
+    "closeReason": "Reason for closing",
+    "closeNotice": "Close this resolved case? Evidence and decisions stay in history. Closing prevents further appeals and does not move funds.",
+    "closeSuccess": "Financial dispute closed.",
+    "evidenceStatement": "Evidence statement",
+    "chooseFile": "Choose evidence file (up to 5 MB)",
+    "sendEvidence": "Submit evidence",
+    "noEvidence": "I have no evidence available",
+    "evidenceDue": "Evidence deadline: {{date}}",
+    "feedback": "Employer feedback: {{reason}}",
+    "previewExpires": "Preview expires at {{date}}. Review again after expiry."
+  },
   "offerResponse": {
     "respondBy": "Respond by {{date}} (Asia/Manila). Unanswered offers expire and release the reserved position.",
     "expired": "This offer has expired. Contact the employer if you are still interested.",
@@ -215,6 +241,9 @@
     }
   },
   "wallet": {
+    "ownershipInstructions": "Check an account-holder document or provider confirmation against the requesting user and exact destination. Record the secure evidence or verification case reference; a matching name alone is insufficient.",
+    "ownershipReference": "Ownership evidence / verification reference",
+    "ownershipConfirmed": "I verified that this destination belongs to the requesting user.",
     "title": "E-wallet",
     "withdraw": "Withdraw",
     "available": "Available to withdraw: {{amount}}",

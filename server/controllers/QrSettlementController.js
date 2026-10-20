@@ -8,6 +8,7 @@ import QrSettlementRequest from '../models/QrSettlementRequest.js';
 import Transaction from '../models/Transaction.js';
 import User from '../models/User.js';
 import { settleApplicationPayment } from '../services/applicationSettlement.js';
+import { getDisputeMoneySnapshot } from '../services/financialDisputeMoney.js';
 import monitor from '../lib/monitor.js';
 import { createNotification } from '../lib/notificationService.js';
 import { deleteStoredUpload, getStoredUpload, saveStoredUpload } from '../lib/uploadStore.js';
@@ -46,10 +47,10 @@ const buildPreview = async (request) => {
     { path: 'job', select: 'title salary status positionsNeeded hiredCount jobPoster' },
     { path: 'requestingWorker', select: 'firstName lastName' },
     { path: 'employer', select: 'firstName lastName companyName' },
-    { path: 'application', select: 'applicant agreedAmount workStatus paymentStatus' },
+    { path: 'application', select: 'applicant agreedAmount workStatus paymentStatus workSubmittedAt completionEvidence' },
   ]);
   const application = request.application;
-  const amount = Number(application?.agreedAmount || request.salarySnapshot || request.job.salary || 0);
+  const amount = (await getDisputeMoneySnapshot({ application, job: request.job })).remainingAgreedAmount;
   const workers = [{ applicationId: String(application?._id), workerId: String(request.requestingWorker._id), name: [request.requestingWorker.firstName, request.requestingWorker.lastName].filter(Boolean).join(' ') || 'Worker', amount }];
   return {
     requestId: String(request._id), status: request.status, expiresAt: request.expiresAt,
@@ -57,7 +58,7 @@ const buildPreview = async (request) => {
     requestingWorker: { id: String(request.requestingWorker._id), name: [request.requestingWorker.firstName, request.requestingWorker.lastName].filter(Boolean).join(' ') || 'Worker' },
     employer: { id: String(request.employer._id), name: request.employer.companyName || [request.employer.firstName, request.employer.lastName].filter(Boolean).join(' ') || 'Employer' },
     workers,
-    application: { id: String(application?._id), workStatus: application?.workStatus, paymentStatus: application?.paymentStatus },
+    application: { id: String(application?._id), workStatus: application?.workStatus, paymentStatus: application?.paymentStatus, submittedAt: application?.workSubmittedAt || null, completionEvidence: application?.completionEvidence || [] },
     amountPerWorker: amount,
     totalAmount: amount,
   };
@@ -226,7 +227,7 @@ export async function settleQrSettlementRequest(req, res) {
       return res.status(invalidState.status).json({ message: invalidState.message });
     }
 
-    const payload = await settleApplicationPayment({ applicationId: request.application, employerId: userId });
+    const payload = await settleApplicationPayment({ applicationId: request.application, employerId: userId, expectedSubmittedAt: req.body?.submittedAt });
     settlementCommitted = true;
     const settlements = await Transaction.find({ relatedEntityType: 'job_application', relatedEntityId: String(request.application), type: 'PAYOUT', status: 'COMPLETED' }).distinct('_id');
     request.status = 'settled'; request.settledAt = new Date(); request.settlementTransactions = settlements;
@@ -241,7 +242,7 @@ export async function settleQrSettlementRequest(req, res) {
       ).catch(() => undefined);
     }
     console.error('Settle QR payment error:', error);
-    return res.status(500).json({ message: 'Failed to settle this QR payment.' });
+    return res.status(error.status || 500).json({ message: error.status ? error.message : 'Failed to settle this QR payment.' });
   }
 }
 

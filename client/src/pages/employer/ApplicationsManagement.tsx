@@ -1,4 +1,5 @@
 import { OfferCancellationDialog } from '../../components/OfferCancellationDialog';
+import { CompletionEvidence } from '../../components/CompletionEvidence';
 import { lifecycleRequest } from '../../services/api';
 import { AssignmentPanel } from '../../components/AssignmentPanel';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -471,6 +472,7 @@ export function ApplicationsManagement({ historyJobId, onHistoryChange }: { hist
     title: string;
     description: string;
     warning?: string;
+    evidence?: any[];
     confirmLabel?: string;
     destructive?: boolean;
     run: () => Promise<void>;
@@ -762,7 +764,7 @@ export function ApplicationsManagement({ historyJobId, onHistoryChange }: { hist
     try { const preview = await lifecycleRequest(`/applications/${application._id}/payment/preview`, {}); setConfirmAction({ title: t('applicationsManagement.confirmPay.title'), description: `${preview.jobTitle}. ${t('applicationsManagement.confirmPay.description', { name: getApplicantName(application, ''), amount: formatCurrency(preview.amount) })} ${tc('lifecycle.releaseAmount', { amount: formatCurrency(preview.amount) })}`, run: () => runOfferAction(application._id, () => authorizePayment(application._id)) }); } catch (error: any) { toast.error(error.message); }
   };
   const handleReleasePayment = async (application: EmployerApplication) => {
-    try { const preview = await lifecycleRequest(`/applications/${application._id}/payment/preview`, {}); setConfirmAction({ title: t('applicationsManagement.confirmPay.title'), description: `${preview.jobTitle}. ${t('applicationsManagement.confirmPay.description', { name: getApplicantName(application, ''), amount: formatCurrency(preview.amount) })} ${tc('lifecycle.releaseAmount', { amount: formatCurrency(preview.amount) })}`, run: () => runOfferAction(application._id, () => settlePayment(application._id), t('applicationsManagement.toast.workerPaid')) }); } catch (error: any) { toast.error(error.message); }
+    try { const preview = await lifecycleRequest(`/applications/${application._id}/payment/preview`, {}); setConfirmAction({ title: t('applicationsManagement.confirmPay.title'), description: `${preview.jobTitle}. ${t('applicationsManagement.confirmPay.description', { name: preview.recipient.name, amount: formatCurrency(preview.amount) })} ${tc('lifecycle.releaseAmount', { amount: formatCurrency(preview.amount) })}`, evidence: preview.application.completionEvidence, run: () => runOfferAction(application._id, () => settlePayment(application._id, preview.submittedAt), t('applicationsManagement.toast.workerPaid')) }); } catch (error: any) { toast.error(error.message); }
   };
 
   const handleRequestChanges = (application: EmployerApplication, reason: string) => {
@@ -1117,6 +1119,7 @@ export function ApplicationsManagement({ historyJobId, onHistoryChange }: { hist
         title={confirmAction?.title || ""}
         description={confirmAction?.description || ""}
         warning={confirmAction?.warning}
+        content={<CompletionEvidence items={confirmAction?.evidence} />}
         confirmLabel={confirmAction?.confirmLabel}
         destructive={confirmAction?.destructive}
         onConfirm={handleConfirmDialogConfirm}

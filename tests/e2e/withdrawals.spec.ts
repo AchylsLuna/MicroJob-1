@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
-async function mockWallet(page: Page, employer: boolean, requiresReview = false) {
+async function mockWallet(page: Page, employer: boolean, requiresReview = false, unverifiedDestination = false) {
   const user = { id: '507f1f77bcf86cd799439012', _id: '507f1f77bcf86cd799439012', email: 'wallet@example.com', firstName: 'Wallet', lastName: 'User', role: employer ? 'hire' : 'work', systemRole: employer ? 'hire' : 'work', accountType: employer ? 'employer' : 'worker', accountOptions: [employer ? 'employer' : 'worker'], status: 'active', isVerified: true, employerBalance: 500, workerBalance: 500 };
   await page.addInitScript((value) => { localStorage.setItem('auth_user', JSON.stringify(value)); localStorage.setItem('current_user', JSON.stringify(value)); }, user);
   let confirmed = 0; let previews = 0; let requests: Array<Record<string, unknown>> = []; let paid = false;
@@ -10,14 +10,14 @@ async function mockWallet(page: Page, employer: boolean, requiresReview = false)
     if (path.endsWith('/auth/me')) body = { data: { ...user, employerBalance: confirmed ? 400 : 500, workerBalance: confirmed ? 400 : 500 } };
     else if (path.endsWith('/payment/transactions')) body = { transactions: [] };
     else if (path.endsWith('/payment/payout-requests')) body = { payoutRequests: requests.map((item) => ({ ...item, status: paid ? 'paid' : item.status })) };
-    else if (path.endsWith('/withdrawals/policy')) body = { minimum: 1, maximum: employer ? 50000 : null, reviewThreshold: requiresReview ? 50 : 50000 };
+    else if (path.endsWith('/withdrawals/policy')) body = { minimum: 100, maximum: employer ? 50000 : null, reviewThreshold: requiresReview ? 50 : 50000 };
     else if (path.endsWith('/withdrawals/institutions')) body = { institutions: [{ bic: 'TESTPH', name: 'Test Bank' }] };
     else if (path.endsWith('/withdrawals/preview')) {
       previews += 1; const payload = req.postDataJSON();
-      body = { reviewReason: requiresReview ? 'This withdrawal exceeds the configured review threshold and requires Finance approval before transfer.' : undefined, requiresReview, previewToken: `preview-${previews}`, sourceWallet: employer ? 'EMPLOYER' : 'WORKER', amount: Number(payload.amount), fee: 0, totalDebit: Number(payload.amount), remainingBalance: 500 - Number(payload.amount), destination: { institutionName: 'Test Bank', accountName: payload.destinationSnapshot.accountName, accountNumberMasked: `•••• ${payload.destinationSnapshot.accountNumber.slice(-4)}` } };
+      body = { reviewReason: requiresReview ? 'This withdrawal exceeds the configured review threshold and requires Finance approval before transfer.' : undefined, reviewCodes: requiresReview ? ['threshold'] : unverifiedDestination ? ['ownership'] : employer ? [] : ['worker', 'ownership'], reviewThreshold: requiresReview ? 50 : 50000, requiresReview: requiresReview || unverifiedDestination || !employer, expiresAt: new Date(Date.now() + 300000).toISOString(), previewToken: `preview-${previews}`, sourceWallet: employer ? 'EMPLOYER' : 'WORKER', amount: Number(payload.amount), fee: 0, totalDebit: Number(payload.amount), remainingBalance: 500 - Number(payload.amount), destination: { institutionName: 'Test Bank', accountName: payload.destinationSnapshot.accountName, accountNumberMasked: `•••• ${payload.destinationSnapshot.accountNumber.slice(-4)}` } };
     } else if (path.endsWith('/withdrawals/confirm')) {
       confirmed += 1; expect(req.postDataJSON().detailsConfirmed).toBe(true);
-      const item = { _id: '507f1f77bcf86cd799439099', amount: 100, sourceWallet: employer ? 'EMPLOYER' : 'WORKER', processingMode: employer && !requiresReview ? 'automatic' : 'manual', status: employer && !requiresReview ? 'processing' : 'requested', providerTransferId: employer ? 'tr_test' : undefined, destinationSnapshot: { methodType: 'bank_transfer', institutionName: 'Test Bank', accountName: 'Wallet User', accountNumberMasked: '•••• 5678' } };
+      const item = { _id: '507f1f77bcf86cd799439099', amount: 100, sourceWallet: employer ? 'EMPLOYER' : 'WORKER', processingMode: employer && !requiresReview && !unverifiedDestination ? 'automatic' : 'manual', status: employer && !requiresReview && !unverifiedDestination ? 'processing' : 'requested', providerTransferId: employer && !unverifiedDestination ? 'tr_test' : undefined, destinationSnapshot: { methodType: 'bank_transfer', institutionName: 'Test Bank', accountName: 'Wallet User', accountNumberMasked: '•••• 5678' } };
       requests = [item]; body = { payoutRequest: item };
     }
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
@@ -51,7 +51,7 @@ test('worker withdrawal requires both confirmations and preserves funds when dis
   expect(wallet.confirmed()).toBe(0); expect(wallet.previews()).toBe(2);
 });
 
-test('employer confirms unused-fund withdrawal without a job or OTP and sees provider processing', async ({ page }) => {
+test('employer with a verified destination confirms unused-fund withdrawal and sees provider processing', async ({ page }) => {
   await page.clock.install();
   await page.setViewportSize({ width: 375, height: 900 });
   const wallet = await mockWallet(page, true);
@@ -81,4 +81,19 @@ test('large employer withdrawals explain Finance review before confirmation', as
   await expect(dialog).toBeHidden();
   expect(wallet.confirmed()).toBe(1);
   await expect(wallet.panel.getByRole('status')).toContainText('Withdrawal under review');
+});
+
+test('unverified employer destination shows ownership review and preview expiry before confirmation', async ({ page }) => {
+  const wallet = await mockWallet(page, true, false, true);
+  await expect(wallet.panel.getByLabel('Amount (PHP)')).toHaveAttribute('min', '100');
+  await wallet.panel.getByRole('button', { name: 'Withdraw', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
+  await expect(dialog.getByRole('status')).toContainText('verify ownership');
+  await expect(dialog.getByText('Preview expires at', { exact: false })).toBeVisible();
+  await dialog.getByRole('checkbox').check();
+  await dialog.getByRole('button', { name: 'Confirm withdrawal', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(wallet.panel.getByRole('status')).toContainText('Withdrawal under review');
+  expect(wallet.confirmed()).toBe(1);
 });

@@ -80,7 +80,7 @@ export default function AssignmentPanel({ applicationId, employer: _employer, on
           {command === 'cancel' && app.workStatus !== 'Not started' && <><Text style={styles.text}>{t('lifecycle.proposed')}</Text><TextInput accessibilityLabel={t('lifecycle.proposed')} keyboardType="decimal-pad" value={amount} onChangeText={setAmount} style={styles.input} /></>}
           {command === 'dispute' && <View style={styles.check}><Switch value={nonpayment} onValueChange={setNonpayment} disabled={!data.canFileNonpayment} accessibilityLabel={t('lifecycle.nonpayment')} /><Text style={styles.text}>{t('lifecycle.nonpayment')}</Text></View>}
           {(command === 'cancel' || command === 'pay' || (command === 'evidence' && !evidenceFile)) && <View style={styles.check}><Switch value={checked} disabled={busy} onValueChange={setChecked} accessibilityLabel={t(command === 'evidence' ? 'lifecycle.noEvidence' : command === 'pay' ? 'lifecycle.releaseNotice' : 'lifecycle.acknowledge')} /><Text style={styles.text}>{t(command === 'evidence' ? 'lifecycle.noEvidence' : command === 'pay' ? 'lifecycle.releaseNotice' : 'lifecycle.acknowledge')}</Text></View>}
-          {command === 'pay' && <><Text style={styles.text}>{t('lifecycle.recipient', { name: data.recipient?.name })}</Text><Text style={styles.text}>{t('lifecycle.releaseAmount', { amount: formatCurrency(paymentPreview?.amount || 0) })}</Text></>}
+          {command === 'pay' && <><CompletionEvidence items={paymentPreview?.application?.completionEvidence} /><Text style={styles.text}>{t('lifecycle.recipient', { name: paymentPreview?.recipient?.name })}</Text><Text style={styles.text}>{t('lifecycle.releaseAmount', { amount: formatCurrency(paymentPreview?.amount || 0) })}</Text></>}
           {['accept', 'reject'].includes(command) && <Text style={styles.text}>{t('lifecycle.respondNotice', { amount: formatCurrency(pending?.workerPayment || 0) })}</Text>}
           {button(t('lifecycle.confirm'), () => void run(act), ['cancel', 'pay'].includes(command) && !checked)}{button(t('wallet.back'), () => setCommand(''))}
         </> : <>
@@ -90,7 +90,7 @@ export default function AssignmentPanel({ applicationId, employer: _employer, on
           {canRespond && !dispute && <>{button(t('lifecycle.accept'), () => setCommand('accept'))}{button(t('lifecycle.reject'), () => setCommand('reject'))}</>}
           {dispute && button(t('lifecycle.evidence'), () => { setEvidenceFile(null); setChecked(false); setCommand('evidence'); })}
           {employer && data.job.paymentMode !== 'daily' && app.workStatus === 'Submitted' && !['Paid', 'Processing', 'Disputed'].includes(app.paymentStatus) && !pending && !dispute && button(t('lifecycle.pay'), () => {
-            void run(async () => { const preview = await walletRequest(`/applications/${applicationId}/payment/preview`, {}); setPaymentPreview({ ...preview, submittedAt: app.workSubmittedAt }); }, false).then((success) => { if (success) { setChecked(false); setCommand('pay'); } });
+            void run(async () => { const preview = await walletRequest(`/applications/${applicationId}/payment/preview`, {}); setPaymentPreview(preview); }, false).then((success) => { if (success) { setChecked(false); setCommand('pay'); } });
           })}
         </>}
         {pending && <Text style={styles.text}>{t('lifecycle.cancellation')}: {pending.reason} · {pending.status} · {formatCurrency(pending.workerPayment)}</Text>}

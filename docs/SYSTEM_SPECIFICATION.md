@@ -249,6 +249,8 @@ Top-ups use provider references and validated confirmation/webhook data before c
 
 Withdrawal requests record the selected balance target and a destination snapshot. Request creation deducts/reserves the amount and creates a linked transaction within a database transaction. Duplicate idempotency keys are constrained per user. Approval, rejection, payment, and cancellation are distinct operations with corresponding balance/transaction rules.
 
+Web and Android share the backend withdrawal policy (PHP 100 fallback minimum, configurable limits), five-minute preview, ownership-review rules and transfer-reference requirement. The six public dispute states summarize the existing Support/Finance stages without replacing independent settlement approval. See [Financial workflow alignment — 2026-10-21](financial-workflow-alignment.md) for the ownership evidence contract, state transitions, batch/QR revision checks and current verification evidence.
+
 All documented listing examples use Philippine pesos. External payout processing time is not specified by this repository.
 
 ### 6.5 Financial dispute investigation and settlement

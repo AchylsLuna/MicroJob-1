@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import FinancialDispute from '../models/FinancialDispute.js';
 import JobApplication from '../models/JobApplication.js';
 import SupportTicket from '../models/SupportTicket.js';
+import { CASE_LABELS, financialDisputeCaseState } from '../lib/financialDisputeWorkflow.js';
+import { EVIDENCE_WINDOW_MS } from '../lib/lifecyclePolicy.js';
 import { createNotification } from '../lib/notificationService.js';
 import { hasPermission, resolveStaffRole } from '../lib/adminPermissions.js';
 import { hasValidDisputeEvidenceFileSignature, removeUploadFile } from '../middleware/uploadConfig.js';
@@ -57,12 +59,8 @@ export function shapeFinancialDispute(dispute, { staff = false } = {}) {
       timestamp: entry.timestamp,
     }));
   }
-  const displayStatus = !doc.active || ['resolved', 'rejected'].includes(doc.status)
-    ? doc.status === 'rejected' ? 'Closed' : 'Resolved'
-    : doc.escalatedAt || doc.investigationStatus === 'ESCALATED' ? 'Escalated'
-      : String(doc.investigationStatus).startsWith('AWAITING_') ? 'Awaiting Evidence'
-        : doc.investigationStatus === 'OPEN' || doc.status === 'open' ? 'Open' : 'Under Review';
-  return { ...doc, displayStatus, id: String(doc._id) };
+  const caseStatus = financialDisputeCaseState(doc);
+  return { ...doc, caseStatus, displayStatus: CASE_LABELS[caseStatus], id: String(doc._id) };
 }
 
 export async function listMyFinancialDisputes(req, res) {
@@ -127,7 +125,7 @@ export async function addFinancialDisputeEvidence(req, res) {
     }
     const role = actorRole(req, dispute);
     const evidenceType = String(req.body?.evidenceType || 'OTHER').toUpperCase();
-    dispute.evidence.push({
+    const entry = {
       uploadedBy: userId(req),
       uploaderRole: role,
       evidenceType,
@@ -137,16 +135,19 @@ export async function addFinancialDisputeEvidence(req, res) {
       description,
       statement,
       noEvidence: noEvidence && !req.file,
-    });
+    };
     const previousStatus = dispute.investigationStatus;
-    if (['AWAITING_WORKER_EVIDENCE', 'AWAITING_EMPLOYER_EVIDENCE'].includes(previousStatus)) {
-      dispute.investigationStatus = 'EVIDENCE_UNDER_REVIEW';
-    }
-    dispute.auditLogs.push({ userId: userId(req), role, action: 'EVIDENCE_UPLOADED', previousStatus, newStatus: dispute.investigationStatus, details: { evidenceType, fileName: req.file?.originalname || null } });
-    await dispute.save();
+    const nextStatus = ['AWAITING_WORKER_EVIDENCE', 'AWAITING_EMPLOYER_EVIDENCE'].includes(previousStatus) ? 'EVIDENCE_UNDER_REVIEW' : previousStatus;
+    const updated = await FinancialDispute.findOneAndUpdate({ _id: dispute._id, active: true,
+      investigationStatus: previousStatus, assignedSupportUserId: dispute.assignedSupportUserId || null,
+      ...(isParticipant ? { $or: [{ evidenceDueAt: null }, { evidenceDueAt: { $gt: new Date() } }] } : {}),
+    }, { $set: { investigationStatus: nextStatus }, $push: { evidence: entry,
+      auditLogs: { userId: userId(req), role, action: 'EVIDENCE_UPLOADED', previousStatus, newStatus: nextStatus, details: { evidenceType, fileName: req.file?.originalname || null } },
+    } }, { returnDocument: 'after', runValidators: true });
+    if (!updated) return res.status(409).json({ message: 'The case or evidence deadline changed. Refresh before submitting again.' });
     storedFileName = null;
-    await notifyParticipants(dispute, 'Financial dispute evidence submitted', `New evidence was added to ${dispute.ticketId}.`, userId(req));
-    return res.status(201).json({ message: 'Evidence added. Submitted evidence is append-only.', evidence: dispute.evidence.at(-1), dispute: shapeFinancialDispute(dispute) });
+    await notifyParticipants(updated, 'Financial dispute evidence submitted', `New evidence was added to ${updated.ticketId}.`, userId(req));
+    return res.status(201).json({ message: 'Evidence added. Submitted evidence is append-only.', evidence: updated.evidence.at(-1), dispute: shapeFinancialDispute(updated) });
   } catch (error) {
     console.error('Add financial dispute evidence error:', error);
     return res.status(error?.name === 'ValidationError' ? 400 : 500).json({ message: error?.message || 'Failed to add evidence.' });
@@ -209,6 +210,7 @@ export async function submitFinancialDisputeAppeal(req, res) {
         throw Object.assign(new Error('Only a party to this dispute can appeal.'), { status: 403 });
       }
       if (dispute.appealSubmittedAt) throw Object.assign(new Error('An appeal has already been submitted.'), { status: 409 });
+      if (dispute.closedAt) throw Object.assign(new Error('This dispute has been closed.'), { status: 409 });
       if (!['RESOLUTION_ISSUED', 'RESOLVED'].includes(dispute.investigationStatus)) {
         throw Object.assign(new Error('An appeal can be submitted only after a decision is issued.'), { status: 409 });
       }
@@ -223,10 +225,14 @@ export async function submitFinancialDisputeAppeal(req, res) {
       dispute.investigationStatus = 'UNDER_APPEAL';
       dispute.settlementStatus = 'NONE';
       dispute.active = true;
+      dispute.status = 'investigating';
+      dispute.escalatedAt = null;
       dispute.appealReason = reason;
       dispute.appealSubmittedBy = userId(req);
       dispute.appealSubmittedAt = appealedAt;
-      dispute.auditLogs.push({ userId: userId(req), role: actorRole(req, dispute), action: 'APPEAL_OPENED', previousStatus, newStatus: 'UNDER_APPEAL', details: { reason } });
+      const previousEvidenceDueAt = dispute.evidenceDueAt;
+      dispute.evidenceDueAt = new Date(appealedAt.getTime() + EVIDENCE_WINDOW_MS);
+      dispute.auditLogs.push({ userId: userId(req), role: actorRole(req, dispute), action: 'APPEAL_OPENED', previousStatus, newStatus: 'UNDER_APPEAL', details: { reason, previousEvidenceDueAt, evidenceDueAt: dispute.evidenceDueAt } });
       await dispute.save({ session });
       await JobApplication.updateOne(
         { _id: dispute.application },

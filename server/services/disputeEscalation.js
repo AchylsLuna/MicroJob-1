@@ -13,10 +13,14 @@ export function disputeReviewPeriodMs() {
 // Escalation routes a case to senior reviewers; it never decides who receives funds.
 export async function escalateOverdueDisputes({ now = new Date(), deadline = Date.now() + 40000 } = {}) {
   const period = disputeReviewPeriodMs();
-  const due = await FinancialDispute.find({ active: true, status: { $in: ['open', 'investigating'] }, escalatedAt: null,
-    raisedAt: { $lte: new Date(now.getTime() - period) },
-    $or: [{ evidenceDueAt: null }, { evidenceDueAt: { $lte: now } }],
-  }).select('_id').sort({ raisedAt: 1 }).limit(50);
+  const cutoff = new Date(now.getTime() - period);
+  const eligible = { active: true, status: { $in: ['open', 'investigating'] }, escalatedAt: null,
+    $and: [
+      { $or: [{ appealSubmittedAt: null, raisedAt: { $lte: cutoff } }, { appealSubmittedAt: { $lte: cutoff } }] },
+      { $or: [{ evidenceDueAt: null }, { evidenceDueAt: { $lte: now } }] },
+    ],
+  };
+  const due = await FinancialDispute.find(eligible).select('_id').sort({ raisedAt: 1 }).limit(50);
   let escalated = 0;
   for (const item of due) {
     if (Date.now() > deadline) break;
@@ -25,9 +29,7 @@ export async function escalateOverdueDisputes({ now = new Date(), deadline = Dat
       let changed = false;
       await session.withTransaction(async () => {
         changed = false;
-        const dispute = await FinancialDispute.findOneAndUpdate({ _id: item._id, active: true, status: { $in: ['open', 'investigating'] }, escalatedAt: null,
-          raisedAt: { $lte: new Date(now.getTime() - period) }, $or: [{ evidenceDueAt: null }, { evidenceDueAt: { $lte: now } }],
-        }, { $set: { escalatedAt: now }, $push: {
+        const dispute = await FinancialDispute.findOneAndUpdate({ _id: item._id, ...eligible }, { $set: { escalatedAt: now }, $push: {
           events: { type: 'review_escalated', note: 'The configured review period elapsed. Senior review is required; held funds remain reserved.', at: now },
           auditLogs: { role: 'system', action: 'REVIEW_ESCALATED', timestamp: now, details: { reviewPeriodHours: period / HOUR } },
         } }, { session, returnDocument: 'after' });

@@ -13,7 +13,7 @@ The review extends existing payment services, routes, wallet records, Finance sc
 
 - Withdrawal limits are configurable and enforced at preview and confirmation. Existing confirmed requests remain idempotent if configuration changes. Larger withdrawals use the existing Finance manual review/transfer flow, with a recorded policy snapshot and explanation shown to users and Finance.
 - Web and Android show configured limits, review reasons, and clearer payment/withdrawal language. Stale automatic-payment descriptions were corrected. Technical ledger values remain unchanged.
-- Work submission accepts a statement and/or a photo/document, retains resubmission history, and notifies the employer. Evidence is available in assignment details and staff dispute review. Downloads require the assigned worker, employer, or authorized dispute staff. Android can save attachments to a selected folder.
+- Work submission requires 1–10 JPG, PNG, GIF, or WEBP images of at most 5 MiB each and accepts an optional description. It retains resubmission history and notifies the employer. Documents and statement/no-evidence submissions remain available for disputes. Evidence downloads require the assigned worker, employer, or authorized dispute staff. Android can save attachments to a selected folder. See [the current completion contract](COMPLETION_EVIDENCE.md).
 - Employer confirmations include the job title and amount; employers also receive a durable payment-success notification. Existing exactly-once settlement logic is reused.
 - Overdue active disputes escalate to senior staff and notify both participants. Escalation is deduplicated, respects open evidence windows, preserves pending settlement approval stages, and never releases funds or applies penalties.
 - Removed a legacy route that intercepted dispute evidence uploads before the multipart handler. The existing evidence API now accepts both multipart uploads and legacy statement/no-evidence requests, and removes uploaded files when requests are rejected.
@@ -24,7 +24,7 @@ See `server/.env.example`. These are project policy values, not financial regula
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `WITHDRAWAL_MIN_AMOUNT` | `1` | Minimum withdrawal in PHP |
+| `WITHDRAWAL_MIN_AMOUNT` | `100` | Minimum withdrawal in PHP, shared by web and Android |
 | `WITHDRAWAL_EMPLOYER_MAX_AMOUNT` | `50000` | Preserves the existing employer ceiling |
 | `WITHDRAWAL_WORKER_MAX_AMOUNT` | `0` | No policy maximum beyond available balance |
 | `WITHDRAWAL_REVIEW_THRESHOLD` | `50000` | Larger requests require Finance review; workers require review at every amount |
@@ -41,11 +41,13 @@ Only additive optional fields were introduced:
 - `PayoutRequest.reviewReason` and `policySnapshot` record the applicable review policy. Its amount validator now allows configurable sub-peso minima down to one centavo.
 - `JobApplication.completionEvidence` stores append-only submission statements, file references, submitting worker, and timestamps.
 - `FinancialDispute.escalatedAt` records deduplicated escalation. Existing investigation, audit, and event fields are reused.
-- Existing `StoredUpload` records store completion attachments with kind `completion-evidence`.
+- New completion images use private Azure storage; existing `StoredUpload` completion files remain readable.
 
 No collection replacement, balance rewrite, destructive migration, or required historical backfill is needed. Existing missing fields are tolerated. Existing open disputes are eligible for escalation based on their recorded opening date and evidence deadline. Nothing in this change runs a production migration or deploys the application.
 
 ## Verification
+
+The latest implementation and checks are recorded in [Financial workflow alignment — 2026-10-21](financial-workflow-alignment.md). The results below describe the earlier review run.
 
 Regression coverage includes configured limits, insufficient balances, cross-account withdrawal attempts, retries after policy changes, concurrent duplicate reservations, completion evidence and resubmissions, unauthorized/unconfirmed payment release, concurrent exactly-once credits, notifications to both parties, escalation without fund movement, dispute resolution, private evidence downloads, multipart endpoint routing, and rejected-upload cleanup. Device-level Android picker/download and external provider transfer acceptance still require manual validation.
 

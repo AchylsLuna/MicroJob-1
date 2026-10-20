@@ -28,6 +28,12 @@ import { requestCancellation, respondCancellation } from '../../services/jobLife
 import { remainingJobFunds } from '../../services/jobFunds.js';
 import { settleApplicationPayment } from '../../services/applicationSettlement.js';
 import { previewWithdrawal, confirmWithdrawal, reconcileWithdrawal } from '../../services/withdrawals.js';
+import { destinationFingerprint } from '../../lib/withdrawalDestination.js';
+import { updateAdminPayoutRequest } from '../../controllers/PaymentController.js';
+import { requestChanges } from '../../controllers/ApplicationPaymentController.js';
+import { shapeFinancialDispute } from '../../controllers/FinancialDisputeController.js';
+import { closeFinancialDispute } from '../../controllers/AdminFinanceDisputeController.js';
+import { createQrSettlementRequest, getQrSettlementRequest, settleQrSettlementRequest } from '../../controllers/QrSettlementController.js';
 import { runMaintenance } from '../../services/maintenance.js';
 import { previewPayment } from '../../controllers/ApplicationPaymentController.js';
 import { getAssignmentLifecycle, startWork, openDispute, addEvidence } from '../../controllers/LifecycleController.js';
@@ -117,11 +123,11 @@ test('configurable withdrawal bounds and large employer review reuse Finance wit
 
 test('withdrawal confirmation revalidates policy and rejects another account before reserving funds', async () => {
   const worker = await person('work', 500); const other = await person('work', 500);
-  const preview = await previewWithdrawal(worker._id, { amount: 100, destinationSnapshot: { methodType: 'bank_transfer', institutionName: 'Test bank', accountName: 'Worker', accountNumber: '12345678' } });
+  const preview = await previewWithdrawal(worker._id, { amount: 200, destinationSnapshot: { methodType: 'bank_transfer', institutionName: 'Test bank', accountName: 'Worker', accountNumber: '12345678' } });
   const request = { previewToken: preview.previewToken, detailsConfirmed: true };
   await assert.rejects(confirmWithdrawal(other._id, request), /Invalid withdrawal preview/);
   const previous = process.env.WITHDRAWAL_WORKER_MAX_AMOUNT;
-  try { process.env.WITHDRAWAL_WORKER_MAX_AMOUNT = '50'; await assert.rejects(confirmWithdrawal(worker._id, request), /maximum/); }
+  try { process.env.WITHDRAWAL_WORKER_MAX_AMOUNT = '100'; await assert.rejects(confirmWithdrawal(worker._id, request), /maximum/); }
   finally { if (previous === undefined) delete process.env.WITHDRAWAL_WORKER_MAX_AMOUNT; else process.env.WITHDRAWAL_WORKER_MAX_AMOUNT = previous; }
   assert.equal((await User.findById(worker._id)).workerBalance, 500); assert.equal(await PayoutRequest.countDocuments(), 0);
 });
@@ -210,9 +216,13 @@ test('completion requires images, rejects text-only/employers, sends chat, and p
   const retry = response(); await submitWork({ ...req, files: [photo()], body: { statement: 'Duplicate submission' } }, retry); assert.equal(retry.statusCode, 409);
   assert.equal(await Notification.countDocuments({ user: f.employer._id }), 1);
   assert.equal(blobs.size, 2, 'rejected submissions remove uploaded blobs');
-  await JobApplication.updateOne({ _id: f.application._id }, { $set: { workStatus: 'Changes Requested' } });
+  const changes = response(); await requestChanges({ params: req.params, user: { id: String(f.employer._id) }, body: { reason: 'Please also clean the entrance.' } }, changes);
+  assert.equal(changes.statusCode, 200);
   const revised = response(); await submitWork({ ...req, files: [photo()], body: { statement: 'Completed requested adjustments.' } }, revised);
   assert.equal(revised.body.application.completionEvidence.length, 3);
+  assert.equal(revised.body.application.completionEvidence[0].feedback.reason, 'Please also clean the entrance.');
+  assert.equal(String(revised.body.application.completionEvidence[0].feedback.actor), String(f.employer._id));
+  assert.ok(revised.body.application.completionEvidence[0].feedback.at);
   assert.equal(revised.body.application.firstSubmittedAt.getTime(), submitted.body.application.firstSubmittedAt.getTime());
   assert.equal((await User.findById(f.worker._id)).workerBalance, 0);
   const stale = response(); await settleDirect({ params: req.params, user: { id: String(f.employer._id) }, body: { confirmed: true, submittedAt: '2000-01-01T00:00:00Z' } }, stale); assert.equal(stale.statusCode, 409);
@@ -258,6 +268,13 @@ test('real evidence endpoints require completion images, preserve dispute docume
     assert.equal((await upload(path, strangerToken)).status, 403);
     assert.equal((await upload(path, workerToken, 'not a PDF')).status, 400);
     assert.equal(await StoredUpload.countDocuments(), count);
+    const large = new FormData(); large.append('evidence', new Blob([Buffer.alloc(5 * 1024 * 1024 + 1)], { type: 'application/pdf' }), 'large.pdf');
+    assert.equal((await fetch(`${origin}${path}`, { method: 'POST', headers: { Authorization: `Bearer ${workerToken}` }, body: large })).status, 413);
+    const noEvidence = await fetch(`${origin}${path}`, { method: 'POST', headers: { Authorization: `Bearer ${employerToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ noEvidence: true }) });
+    assert.equal(noEvidence.status, 201);
+    await FinancialDispute.updateOne({ _id: opened.body.dispute._id }, { $set: { evidenceDueAt: new Date(Date.now() - 1) } });
+    assert.equal((await upload(path, workerToken)).status, 409);
+    assert.equal(await StoredUpload.countDocuments(), count, 'expired and oversized uploads leave no stored files');
   } finally { await new Promise((resolve) => server.close(resolve)); }
 });
 
@@ -378,6 +395,11 @@ test('unauthorized and unconfirmed release fail; concurrent confirmed releases c
   const notice = await Notification.findOne({ deliveryKey: `job-paid:${f.application._id}` });
   assert.ok(notice, 'paid worker is notified immediately'); assert.equal(String(notice.user), String(f.worker._id)); assert.equal(notice.audience, 'worker');
   assert.ok(notice.message.includes(f.job.title)); assert.match(notice.message, /PHP 600\.00.*worker balance/);
+  const employerNotice = await Notification.findOne({ deliveryKey: `job-paid-employer:${f.application._id}` });
+  assert.ok(employerNotice, 'the employer is notified immediately after commit');
+  assert.equal(employerNotice.metadata.amount, 600);
+  assert.equal(employerNotice.metadata.transactionId, notice.metadata.transactionId);
+  assert.equal(employerNotice.metadata.reference, `application-payout:${f.application._id}`);
   assert.equal(await Notification.countDocuments({ deliveryKey: notice.deliveryKey }), 1);
 });
 
@@ -473,6 +495,105 @@ test('reminders deduplicate and nonpayment eligibility uses the first submission
   await runMaintenance(); await runMaintenance();
   assert.equal(await NotificationOutbox.countDocuments({ key: { $regex: '^payment-reminder:' } }), 2);
 });
+test('QR preview shows remaining pay and completion evidence and rejects unreviewed revisions', async () => {
+  const f = await fixture('Submitted'); const submittedAt = new Date();
+  await JobApplication.updateOne({ _id: f.application._id }, { $set: { workSubmittedAt: submittedAt, completionEvidence: [{ actor: f.worker._id, fileUrl: '/uploads/prior-proof.png', contentType: 'image/png', submittedAt }] } });
+  await Transaction.create({ receiver: f.worker._id, amount: 100, type: 'PAYOUT', status: 'COMPLETED', balanceTarget: 'WORKER', jobReference: f.job._id, reference: 'partial-payment', relatedEntityType: 'job_application', relatedEntityId: String(f.application._id) });
+  await User.updateOne({ _id: f.worker._id }, { $inc: { workerBalance: 100 } });
+  const invoice = response(); await createQrSettlementRequest({ user: { id: String(f.worker._id) }, body: { jobId: String(f.job._id) } }, invoice);
+  assert.equal(invoice.statusCode, 201); assert.equal(invoice.body.preview.totalAmount, 500);
+  assert.equal(invoice.body.preview.application.completionEvidence.length, 1);
+  const params = { requestId: invoice.body.requestId }; const user = { id: String(f.employer._id) };
+  const revisedAt = new Date(submittedAt.getTime() + 1000);
+  await JobApplication.updateOne({ _id: f.application._id }, { $set: { workSubmittedAt: revisedAt } });
+  const stale = response(); await settleQrSettlementRequest({ params, user, body: { confirmed: true, submittedAt } }, stale);
+  assert.equal(stale.statusCode, 409); assert.equal((await User.findById(f.worker._id)).workerBalance, 100);
+  const preview = response(); await getQrSettlementRequest({ params, user }, preview); assert.equal(preview.statusCode, 200);
+  const paid = response(); await settleQrSettlementRequest({ params, user, body: { confirmed: true, submittedAt: preview.body.preview.application.submittedAt } }, paid);
+  assert.equal(paid.statusCode, 200); assert.equal((await User.findById(f.worker._id)).workerBalance, 600);
+});
+
+test('expired withdrawal previews and changed balances cannot reserve funds', async () => {
+  const worker = await person('work', 500);
+  const preview = await previewWithdrawal(worker._id, { amount: 100, destinationSnapshot: { methodType: 'bank_transfer', institutionName: 'Test bank', accountName: 'Test Worker', accountNumber: '12345678' } });
+  const claims = jwt.decode(preview.previewToken);
+  assert.equal(claims.exp - claims.iat, 300);
+  assert.ok(Math.abs(new Date(preview.expiresAt).getTime() - Date.now() - 300000) < 5000);
+  assert.equal(preview.fee, 0); assert.equal(preview.remainingBalance, 400);
+  const expired = jwt.sign({ ...claims, exp: Math.floor(Date.now() / 1000) - 1 }, process.env.JWT_SECRET || 'development-withdrawal-preview-key');
+  await assert.rejects(confirmWithdrawal(worker._id, { previewToken: expired, detailsConfirmed: true }), /expired/);
+  await User.updateOne({ _id: worker._id }, { $set: { workerBalance: 50 } });
+  await assert.rejects(confirmWithdrawal(worker._id, { previewToken: preview.previewToken, detailsConfirmed: true }), /balance or account changed/);
+  assert.equal(await PayoutRequest.countDocuments(), 0);
+  assert.equal(await Transaction.countDocuments(), 0);
+});
+
+test('Finance must record destination ownership before approval and an external transfer reference before payment', async () => {
+  const worker = await person('work', 500); const finance = await person('admin');
+  const destination = { methodType: 'bank_transfer', institutionName: 'Test bank', accountName: 'Test Worker', accountNumber: '12345678' };
+  const preview = await previewWithdrawal(worker._id, { amount: 100, destinationSnapshot: destination });
+  const payout = await confirmWithdrawal(worker._id, { previewToken: preview.previewToken, detailsConfirmed: true });
+  const review = async (body) => { const res = response(); await updateAdminPayoutRequest({ params: { payoutRequestId: payout._id }, user: { id: String(finance._id) }, body }, res); return res; };
+  assert.equal((await review({ status: 'approved' })).statusCode, 400);
+  assert.equal((await review({ status: 'approved', ownershipVerificationReference: 'holder-doc-123' })).statusCode, 400);
+  assert.equal((await review({ status: 'approved', ownershipConfirmed: true, ownershipVerificationReference: 'holder-doc-123' })).statusCode, 200);
+  const approved = await PayoutRequest.findById(payout._id);
+  assert.equal(approved.ownershipVerification.fingerprint, destinationFingerprint(worker._id, destination));
+  assert.equal(String(approved.ownershipVerification.verifiedBy), String(finance._id));
+  assert.equal((await review({ status: 'paid' })).statusCode, 400);
+  assert.equal((await review({ status: 'paid', transferReference: 'external-transfer-123' })).statusCode, 200);
+  assert.equal((await Transaction.findById(payout.transaction)).providerReference, 'external-transfer-123');
+  assert.equal((await User.findById(worker._id)).workerBalance, 400);
+});
+
+test('ownership verification is bound to the user and destination and expires before automatic confirmation', async () => {
+  const employer = await person('hire', 500); const other = await person('hire', 500);
+  const destination = { methodType: 'bank_transfer', institutionName: 'Test Bank', bic: 'TESTPH', accountName: 'Employer', accountNumber: '12345678' };
+  const verified = await PayoutRequest.create({ user: employer._id, amount: 100, status: 'paid', sourceWallet: 'EMPLOYER', destinationSnapshot: destination, ownershipVerification: { fingerprint: destinationFingerprint(employer._id, destination), reference: 'holder-document', verifiedBy: new mongoose.Types.ObjectId(), verifiedAt: new Date() } });
+  const makePreview = (owner, details) => previewWithdrawal(owner._id, { sourceWallet: 'EMPLOYER', amount: 100, destinationSnapshot: details });
+  assert.equal((await makePreview(other, destination)).processingMode, 'manual');
+  assert.equal((await makePreview(employer, { ...destination, accountNumber: '99999999' })).processingMode, 'manual');
+  const keys = ['AUTOMATIC_WITHDRAWALS_ENABLED', 'PAYMONGO_SECRET_KEY', 'PAYMONGO_WALLET_ID', 'PAYMONGO_TRANSFER_CALLBACK_URL', 'PAYMONGO_TRANSFER_WEBHOOK_SECRET'];
+  const previous = keys.map((key) => process.env[key]); const get = axios.get;
+  try {
+    Object.assign(process.env, { AUTOMATIC_WITHDRAWALS_ENABLED: 'true', PAYMONGO_SECRET_KEY: 'test', PAYMONGO_WALLET_ID: 'test', PAYMONGO_TRANSFER_CALLBACK_URL: 'https://example.com/callback', PAYMONGO_TRANSFER_WEBHOOK_SECRET: 'test' });
+    axios.get = async () => ({ data: { data: [{ bic: 'TESTPH', name: 'Test Bank' }] } });
+    const preview = await makePreview(employer, destination); assert.equal(preview.processingMode, 'automatic');
+    await PayoutRequest.updateOne({ _id: verified._id }, { $set: { 'ownershipVerification.verifiedAt': new Date(Date.now() - 91 * 24 * HOUR) } });
+    await assert.rejects(confirmWithdrawal(employer._id, { previewToken: preview.previewToken, detailsConfirmed: true }), /policy changed/);
+    assert.equal((await makePreview(employer, destination)).processingMode, 'manual');
+    assert.equal((await User.findById(employer._id)).employerBalance, 500);
+  } finally { axios.get = get; keys.forEach((key, index) => { if (previous[index] === undefined) delete process.env[key]; else process.env[key] = previous[index]; }); }
+});
+
+test('batch confirmation rejects a stale revision atomically and pays reviewed revisions once', async () => {
+  const f = await fixture('Submitted', 2); const workerB = await person('work');
+  const submittedAt = new Date();
+  await JobApplication.updateOne({ _id: f.application._id }, { $set: { workSubmittedAt: submittedAt } });
+  const appB = await JobApplication.create({ job: f.job._id, applicant: workerB._id, status: 'Hired', agreedAmount: 500, workStatus: 'Submitted', workSubmittedAt: submittedAt });
+  const req = { params: { id: String(f.job._id) }, user: { id: String(f.employer._id) }, body: { status: 'Completed', confirmed: true, payments: [{ applicationId: String(f.application._id), submittedAt }, { applicationId: String(appB._id), submittedAt: '2000-01-01' }] } };
+  const stale = response(); await changeJobStatus(req, stale); assert.equal(stale.statusCode, 409);
+  assert.equal((await User.findById(f.worker._id)).workerBalance, 0); assert.equal(await Transaction.countDocuments({ type: 'PAYOUT' }), 0);
+  req.body.payments[1].submittedAt = submittedAt;
+  const valid = response(); await changeJobStatus(req, valid); assert.equal(valid.statusCode, 200);
+  assert.equal((await User.findById(f.worker._id)).workerBalance, 600); assert.equal((await User.findById(workerB._id)).workerBalance, 500);
+  assert.equal(await Transaction.countDocuments({ type: 'PAYOUT' }), 2);
+});
+
+test('resolved dispute closure is audited and cannot move funds or close an active investigation', async () => {
+  const f = await fixture('Submitted'); const staff = await person('admin');
+  const opened = response(); await openDispute({ params: { applicationId: f.application._id }, user: { id: String(f.worker._id) }, body: { reason: 'Payment review', kind: 'other' } }, opened);
+  const dispute = opened.body.dispute;
+  const req = { params: { disputeId: dispute._id }, user: { id: String(staff._id) }, body: { reason: 'Participants received the recorded decision.' } };
+  const active = response(); await closeFinancialDispute(req, active); assert.equal(active.statusCode, 409);
+  await FinancialDispute.updateOne({ _id: dispute._id }, { $set: { active: false, status: 'resolved', investigationStatus: 'RESOLVED', settlementStatus: 'VERIFIED' } });
+  assert.equal(shapeFinancialDispute(await FinancialDispute.findById(dispute._id)).caseStatus, 'resolved');
+  const count = await Transaction.countDocuments();
+  const closed = response(); await closeFinancialDispute(req, closed); assert.equal(closed.statusCode, 200); assert.equal(closed.body.dispute.caseStatus, 'closed');
+  assert.equal(closed.body.dispute.auditLogs.at(-1).action, 'CASE_CLOSED'); assert.equal(await Transaction.countDocuments(), count);
+  assert.equal((await User.findById(f.worker._id)).workerBalance, 0);
+});
+
 test('withdrawal preview does not reserve money; confirming the same preview reserves once', async () => {
   const worker = await person('work', 500);
   const preview = await previewWithdrawal(worker._id, { amount: 100, destinationSnapshot: { methodType: 'bank_transfer', institutionName: 'Test bank', accountName: 'Test Worker', accountNumber: '12345678' } });
@@ -484,13 +605,15 @@ test('withdrawal preview does not reserve money; confirming the same preview res
 });
 test('employer transfer timeout stays processing; verified failure returns funds exactly once', async () => {
   const employer = await person('hire', 500);
+  const destination = { methodType: 'bank_transfer', institutionName: 'Test Bank', bic: 'TESTPH', accountName: 'Employer', accountNumber: '12345678' };
+  await PayoutRequest.create({ user: employer._id, amount: 100, status: 'paid', sourceWallet: 'EMPLOYER', destinationSnapshot: destination, ownershipVerification: { fingerprint: destinationFingerprint(employer._id, destination), reference: 'verified-holder-document', verifiedBy: new mongoose.Types.ObjectId(), verifiedAt: new Date() } });
   Object.assign(process.env, { AUTOMATIC_WITHDRAWALS_ENABLED: 'true', PAYMONGO_SECRET_KEY: 'test-key', PAYMONGO_WALLET_ID: 'wallet_test', PAYMONGO_TRANSFER_CALLBACK_URL: 'https://example.com/api/payment/transfers/webhook', PAYMONGO_TRANSFER_WEBHOOK_SECRET: 'test-secret' });
   const get = axios.get; const post = axios.post; let submissions = 0;
   try {
     axios.get = async (url) => {
       if (url.includes('receiving_institutions')) return { data: { data: [{ bic: 'TESTPH', name: 'Test Bank' }] } };
       if (url.includes('/wallets/')) return { data: { data: { source_account: { number: 'source', bic: 'SOURCE', name: 'MicroJobs' } } } };
-      const payout = await PayoutRequest.findOne();
+      const payout = await PayoutRequest.findOne({ processingMode: 'automatic' });
       return { data: { data: { id: 'tr_test', status: 'failed', reference_number: `PAYOUT-${payout._id}`, amount: 10000, currency: 'PHP', destination_account: { number: '12345678', bic: 'TESTPH' } } } };
     };
     axios.post = async () => { submissions += 1; throw new Error('timeout'); };
@@ -680,7 +803,7 @@ test('only the employer can track checklist items and unchecked tasks never bloc
   let application = await JobApplication.findById(f.application._id); assert.equal(application.workStatus, 'Not started'); assert.equal(application.paymentStatus, 'Secured'); assert.equal((await Job.findById(f.job._id)).status, 'In Progress'); assert.equal(await Transaction.countDocuments({ type: 'PAYOUT' }), 0);
   const started = response(); await startWork({ params: { applicationId: params.applicationId }, user: { id: String(f.worker._id) } }, started); assert.equal(started.statusCode, 200);
   const submitted = response(); await submitWork({ params: { applicationId: params.applicationId }, user: { id: String(f.worker._id) }, body: {}, files: [photo()] }, submitted); assert.equal(submitted.statusCode, 200);
-  await settleApplicationPayment({ applicationId: f.application._id, employerId: f.employer._id });
+  await settleApplicationPayment({ applicationId: f.application._id, employerId: f.employer._id, expectedSubmittedAt: submitted.body.application.workSubmittedAt });
   application = await JobApplication.findById(f.application._id); assert.equal(application.workStatus, 'Completed'); assert.equal(application.paymentStatus, 'Paid'); assert.equal(application.hireChecklist[1].completed, false); assert.equal((await Job.findById(f.job._id)).status, 'Completed');
   const unmarked = response(); await updateHireChecklistItem({ params, user: { id: String(f.employer._id) }, body: { completed: false } }, unmarked); assert.equal(unmarked.statusCode, 200); assert.equal((await Job.findById(f.job._id)).status, 'Completed');
 });

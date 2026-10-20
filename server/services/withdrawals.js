@@ -8,6 +8,7 @@ import Transaction from '../models/Transaction.js';
 import { httpError, money } from '../lib/lifecyclePolicy.js';
 import { queueNotification } from './notificationOutbox.js';
 import { validateWithdrawalAmount } from '../lib/withdrawalPolicy.js';
+import { destinationReview, verifiedDestination } from '../lib/withdrawalDestination.js';
 
 const BASE = 'https://api.paymongo.com/v2';
 const options = () => ({ auth: { username: process.env.PAYMONGO_SECRET_KEY, password: '' }, timeout: 15000 });
@@ -29,12 +30,13 @@ export async function previewWithdrawal(userId, body) {
   const employer = sourceWallet === 'EMPLOYER';
   if (!(employer ? ['hire', 'both'] : ['work', 'both']).includes(user.role)) throw httpError(403, 'This wallet is unavailable for your account.');
   const amount = money(body.amount);
-  const policy = validateWithdrawalAmount(Number(body.amount), sourceWallet);
+  let policy = validateWithdrawalAmount(Number(body.amount), sourceWallet);
   const balance = Number(employer ? user.employerBalance : user.workerBalance);
   if (amount > balance) throw httpError(409, 'The amount exceeds your available wallet balance.');
   const input = body.destinationSnapshot || {};
   const destination = Object.fromEntries(['methodType', 'institutionName', 'accountName', 'accountNumber', 'bic'].map((key) => [key, String(input[key] || '').trim()]));
   if (!destination.methodType || !destination.institutionName || !destination.accountName || !destination.accountNumber || destination.accountName.length > 120 || destination.institutionName.length > 120 || destination.accountNumber.length > 64 || destination.methodType.length > 50) throw httpError(400, 'Complete valid destination details are required.');
+  policy = destinationReview(policy, await verifiedDestination(userId, destination));
   if (employer && policy.processingMode === 'automatic') {
     const supported = (await receivingInstitutions()).find((item) => item.bic === destination.bic);
     if (!supported) throw httpError(400, 'Choose a supported receiving institution.');
@@ -44,7 +46,7 @@ export async function previewWithdrawal(userId, body) {
   // Provider charges are absorbed by the platform. No unquoted fee is debited.
   const fee = 0;
   const payload = { purpose: 'withdrawal-preview', userId: String(userId), sourceWallet, amount, fee, destination, processingMode: policy.processingMode, jti: crypto.randomUUID() };
-  return { previewToken: jwt.sign(payload, signingKey(), { expiresIn: '5m' }), sourceWallet, amount, fee, totalDebit: amount, remainingBalance: money(balance - amount), destination: { ...destination, accountNumber: undefined }, ...policy };
+  return { previewToken: jwt.sign(payload, signingKey(), { expiresIn: '5m' }), expiresAt: new Date(Date.now() + 5 * 60000).toISOString(), sourceWallet, amount, fee, totalDebit: amount, remainingBalance: money(balance - amount), destination: { ...destination, accountNumber: undefined }, ...policy };
 }
 
 export async function confirmWithdrawal(userId, body) {
@@ -59,7 +61,8 @@ export async function confirmWithdrawal(userId, body) {
       created = false;
       payout = await PayoutRequest.findOne({ user: userId, idempotencyKey: preview.jti }).session(session);
       if (payout) return;
-      const policy = validateWithdrawalAmount(preview.amount, preview.sourceWallet);
+      const verification = await verifiedDestination(userId, preview.destination, session);
+      const policy = destinationReview(validateWithdrawalAmount(preview.amount, preview.sourceWallet), verification);
       if (preview.processingMode && preview.processingMode !== policy.processingMode) throw httpError(409, 'Withdrawal policy changed. Review the withdrawal again.');
       const automatic = policy.processingMode === 'automatic';
       if (automatic && !automaticWithdrawalsEnabled()) throw httpError(503, 'Automatic withdrawals are unavailable.');
@@ -68,6 +71,7 @@ export async function confirmWithdrawal(userId, body) {
       if (!debited.modifiedCount) throw httpError(409, 'Your balance or account changed. Review the withdrawal again.');
       [payout] = await PayoutRequest.create([{ user: userId, amount: preview.amount, fee: preview.fee, totalDebit: preview.amount, sourceWallet: preview.sourceWallet, balanceTarget: preview.sourceWallet, processingMode: policy.processingMode, reviewReason: policy.reviewReason, policySnapshot: policy, destinationSnapshot: preview.destination, status: automatic ? 'processing' : 'requested', idempotencyKey: preview.jti, events: [{ status: automatic ? 'processing' : 'requested', actor: userId, note: policy.reviewReason || 'User confirmed amount and destination.' }] }], { session });
       const [transaction] = await Transaction.create([{ sender: userId, amount: preview.amount, type: 'PAYOUT', status: 'PENDING', balanceTarget: preview.sourceWallet, payoutRequest: payout._id, reference: `PAYOUT-${payout._id}`, provider: automatic ? 'paymongo_transfer' : 'manual_admin_review', label: 'Withdrawal', relatedEntityType: 'payout_request', relatedEntityId: String(payout._id), actor: userId }], { session });
+      if (verification) payout.ownershipVerification = verification.ownershipVerification.toObject();
       payout.transaction = transaction._id; await payout.save({ session }); created = true;
       await queueNotification(`withdrawal-request:${payout._id}`, { userId: String(userId), audience: employer ? 'employer' : 'worker', type: 'payout', title: automatic ? 'Withdrawal processing' : 'Withdrawal under review', message: `PHP ${preview.amount.toFixed(2)} is reserved for your withdrawal. ${policy.reviewReason || ''}`, entityType: 'payout_request', entityId: String(payout._id) }, session);
       if (!automatic) {

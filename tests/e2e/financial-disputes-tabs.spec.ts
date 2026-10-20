@@ -66,7 +66,7 @@ for (const accountType of ["worker", "employer"] as const) {
     await expect(evidence).toHaveAttribute("tabindex", "0");
     await expect(overview).toHaveAttribute("tabindex", "-1");
     await expect(page.getByRole("tabpanel", { name: "Evidence" })).toContainText("Original payment discussion");
-    await page.getByLabel("Evidence description").fill("Draft evidence reference");
+    await page.getByLabel("Evidence statement").fill("Draft evidence reference");
     await page.getByLabel("File (optional for chat reference)").setInputFiles({ name: "receipt.pdf", mimeType: "application/pdf", buffer: Buffer.from("test receipt") });
     await evidence.press("ArrowRight");
     const conversation = tabs.getByRole("tab", { name: "Conversation" });
@@ -89,7 +89,7 @@ for (const accountType of ["worker", "employer"] as const) {
     await overview.press("End");
     await expect(conversation).toBeFocused();
     await evidence.click();
-    await expect(page.getByLabel("Evidence description")).toHaveValue("Draft evidence reference");
+    await expect(page.getByLabel("Evidence statement")).toHaveValue("Draft evidence reference");
     expect(await page.getByLabel("File (optional for chat reference)").evaluate((input: HTMLInputElement) => input.files?.[0]?.name)).toBe("receipt.pdf");
     await page.getByRole("button", { name: /FD-CLOSED/ }).click();
     await expect(overview).toHaveAttribute("aria-selected", "true");

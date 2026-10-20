@@ -35,7 +35,8 @@ export default function CompletionEvidence({ items }: { items?: any[] }) {
     finally { if (cached) await FileSystem.deleteAsync(cached, { idempotent: true }).catch(() => {}); setBusy(false); }
   };
   return <View><Text style={{ color: tokens.colors.text, fontWeight: '700' }}>{t('lifecycle.completionEvidence')}</Text>{items.map((item, index) => <View key={item._id || index}>
-    <Text style={{ color: tokens.colors.text }}>{item.statement}</Text>
+    <Text style={{ color: tokens.colors.text }}>{item.statement || item.description || (item.noEvidence ? t('financialWorkflow.noEvidence') : '')}</Text>
+    {item.feedback?.reason && <Text style={{ color: tokens.colors.text }}>{t('financialWorkflow.feedback', { reason: item.feedback.reason })} · {formatDateTime(item.feedback.at)}</Text>}
     {item.fileUrl && item.contentType?.startsWith('image/') && <PrivateEvidenceImage fileUrl={item.fileUrl} fileName={item.fileName || t('lifecycle.completionEvidence')} />}
     {item.fileUrl && <TouchableOpacity accessibilityRole="button" disabled={busy} style={{ padding: 12, minHeight: 44 }} onPress={() => void download(item)}><Text style={{ color: tokens.colors.text }}>{t('lifecycle.saveEvidence')}: {item.fileName}</Text></TouchableOpacity>}
     {(item.submittedAt || item.uploadedAt || item.at) && <Text style={{ color: tokens.colors.text }}>{formatDateTime(item.submittedAt || item.uploadedAt || item.at)}</Text>}

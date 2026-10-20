@@ -36,6 +36,7 @@ import {
   approveFinancialDisputeSettlement,
   assignFinancialDisputeSupport,
   completeFinancialDisputeInvestigation,
+  closeFinancialDispute,
   listAdminFinancialDisputes,
   proposeFinancialDisputeSettlement,
   requestFinancialDisputeEvidence,
@@ -93,6 +94,7 @@ router.get('/finance/disputes/:disputeId/context', requirePermission('finance.di
 router.get('/finance/disputes', requirePermission('finance.disputes.view'), listAdminFinancialDisputes);
 router.patch('/finance/disputes/:disputeId', requireAnyPermission('finance.disputes.investigate', 'finance.disputes.review'), updateAdminFinancialDispute);
 router.post('/finance/disputes/:disputeId/assign-support', requirePermission('finance.disputes.investigate'), assignFinancialDisputeSupport);
+router.post('/finance/disputes/:disputeId/close', requirePermission('finance.disputes.investigate'), closeFinancialDispute);
 router.post('/finance/disputes/:disputeId/evidence-request', requirePermission('finance.disputes.investigate'), requestFinancialDisputeEvidence);
 router.post('/finance/disputes/:disputeId/investigation-report', requirePermission('finance.disputes.investigate'), completeFinancialDisputeInvestigation);
 router.post('/finance/disputes/:disputeId/settlement', requirePermission('finance.disputes.review'), proposeFinancialDisputeSettlement);

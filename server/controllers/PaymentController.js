@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import PayoutRequest from '../models/PayoutRequest.js';
+import { destinationFingerprint } from '../lib/withdrawalDestination.js';
 import JobApplication from '../models/JobApplication.js';
 import monitor from '../lib/monitor.js';
 import { confirm as confirmWithdrawal } from './WithdrawalController.js';
@@ -986,7 +987,7 @@ export async function updateAdminPayoutRequest(req, res) {
   let session;
   try {
     const { payoutRequestId } = req.params;
-    const { status, reviewNotes, transferReference } = req.body || {};
+    const { status, reviewNotes, transferReference, ownershipVerificationReference, ownershipConfirmed } = req.body || {};
     const actorId = req.user?.id || req.user?.userId;
     const allowed = ['approved', 'rejected', 'paid'];
     if (!allowed.includes(status)) {
@@ -1001,17 +1002,23 @@ export async function updateAdminPayoutRequest(req, res) {
     }
 
     if (status === 'paid' && (!String(transferReference || '').trim() || String(transferReference).length > 200)) return res.status(400).json({ message: 'A transfer reference is required before recording payment.' });
-    const sourceStatuses = status === 'approved' ? ['requested'] : status === 'paid' ? ['approved'] : ['requested', 'approved'];
+    const ownershipReference = String(ownershipVerificationReference || '').trim();
+    if (status === 'approved' && (ownershipConfirmed !== true || !ownershipReference || ownershipReference.length > 200)) return res.status(400).json({ message: 'Verify destination ownership against account-holder evidence and record its reference before approval.' });
+    const sourceStatuses = status === 'approved' ? ['requested', 'approved'] : status === 'paid' ? ['approved'] : ['requested', 'approved'];
     session = await mongoose.startSession();
     let payoutRequest;
     let changed = false;
     await session.withTransaction(async () => {
       changed = false;
+      const currentPayout = await PayoutRequest.findById(payoutRequestId).session(session);
+      if (!currentPayout) throw payoutHttpError(404, 'Payout request not found');
+      if (status === 'paid' && currentPayout.status !== 'paid' && (!currentPayout.ownershipVerification?.verifiedBy || currentPayout.ownershipVerification.fingerprint !== destinationFingerprint(currentPayout.user, currentPayout.destinationSnapshot))) throw payoutHttpError(409, 'Destination ownership must be verified before recording payment.');
       const updates = {
         status,
         reviewer: actorId,
         reviewedAt: new Date(),
         ...(normalizedNotes ? { reviewNotes: normalizedNotes } : {}),
+        ...(status === 'approved' ? { ownershipVerification: { fingerprint: destinationFingerprint(currentPayout.user, currentPayout.destinationSnapshot), reference: ownershipReference, verifiedBy: actorId, verifiedAt: new Date() } } : {}),
         ...(status === 'paid' ? { paidAt: new Date(), transferReference: String(transferReference).trim() } : {}),
       };
       payoutRequest = await PayoutRequest.findOneAndUpdate(
@@ -1035,7 +1042,7 @@ export async function updateAdminPayoutRequest(req, res) {
       if (status === 'paid' && payoutRequest.transaction) {
         await Transaction.findByIdAndUpdate(
           payoutRequest.transaction,
-          { $set: { status: 'COMPLETED' } },
+          { $set: { status: 'COMPLETED', providerReference: String(transferReference).trim() } },
           { session },
         );
       }
