@@ -27,7 +27,7 @@ import FinancialDispute from '../../models/FinancialDispute.js';
 import { requestCancellation, respondCancellation } from '../../services/jobLifecycle.js';
 import { remainingJobFunds } from '../../services/jobFunds.js';
 import { settleApplicationPayment } from '../../services/applicationSettlement.js';
-import { previewWithdrawal, confirmWithdrawal, reconcileWithdrawal } from '../../services/withdrawals.js';
+import { previewWithdrawal, confirmWithdrawal, reconcileWithdrawal, dispatchWithdrawal } from '../../services/withdrawals.js';
 import { runMaintenance } from '../../services/maintenance.js';
 import { previewPayment } from '../../controllers/ApplicationPaymentController.js';
 import { getAssignmentLifecycle, startWork, openDispute, addEvidence } from '../../controllers/LifecycleController.js';
@@ -53,6 +53,8 @@ import { deliverQueuedNotification, queueNotification, deliverJobPaymentReceipts
 import { sendPaymentReceiptEmail } from '../../services/paymentReceiptService.js';
 import { csvCell, exportLifecycleReport } from '../../controllers/LifecycleReportController.js';
 import { isolateEmailEnvironment } from '../helpers/emailTestEnvironment.js';
+import { updateAdminPayoutRequest } from '../../controllers/PaymentController.js';
+import { markNotificationRead } from '../../controllers/NotificationController.js';
 
 isolateEmailEnvironment();
 
@@ -101,7 +103,7 @@ test('configurable withdrawal bounds and large employer review reuse Finance wit
     await assert.rejects(previewWithdrawal(employer._id, { ...body, amount: 90001 }), /maximum/);
     await assert.rejects(previewWithdrawal(employer._id, { ...body, amount: 85000 }), /available wallet balance/);
     const preview = await previewWithdrawal(employer._id, body);
-    assert.equal(preview.processingMode, 'manual'); assert.match(preview.reviewReason, /1000.00/);
+    assert.equal(preview.processingMode, 'manual'); assert.match(preview.reviewReason, /Finance approval/);
     const request = { previewToken: preview.previewToken, detailsConfirmed: true };
     const [first, retry] = await Promise.all([confirmWithdrawal(employer._id, request), confirmWithdrawal(employer._id, request)]);
     assert.equal(String(first._id), String(retry._id)); assert.equal(first.status, 'requested');
@@ -124,6 +126,35 @@ test('withdrawal confirmation revalidates policy and rejects another account bef
   try { process.env.WITHDRAWAL_WORKER_MAX_AMOUNT = '50'; await assert.rejects(confirmWithdrawal(worker._id, request), /maximum/); }
   finally { if (previous === undefined) delete process.env.WITHDRAWAL_WORKER_MAX_AMOUNT; else process.env.WITHDRAWAL_WORKER_MAX_AMOUNT = previous; }
   assert.equal((await User.findById(worker._id)).workerBalance, 500); assert.equal(await PayoutRequest.countDocuments(), 0);
+});
+
+test('both wallets require Finance approval and a transfer reference before payment without provider setup', async () => {
+  const finance = await person('superadmin');
+  for (const [role, sourceWallet] of [['hire', 'EMPLOYER'], ['work', 'WORKER']]) {
+    const user = await person(role, 500);
+    const preview = await previewWithdrawal(user._id, { sourceWallet, amount: 50, destinationSnapshot: { methodType: 'bank_transfer', institutionName: 'Test e-wallet', accountName: 'Recipient', accountNumber: '09171234567' } });
+    assert.equal(preview.requiresReview, true);
+    const request = { previewToken: preview.previewToken, detailsConfirmed: true };
+    const payout = await confirmWithdrawal(user._id, request);
+    assert.equal(payout.status, 'requested');
+    assert.equal(payout.processingMode, 'manual');
+    assert.equal(payout.dispatchStartedAt, undefined);
+    assert.equal(String((await confirmWithdrawal(user._id, request))._id), String(payout._id));
+    const field = sourceWallet === 'EMPLOYER' ? 'employerBalance' : 'workerBalance';
+    assert.equal((await User.findById(user._id))[field], 450);
+    const update = async (body) => {
+      const res = response();
+      await updateAdminPayoutRequest({ params: { payoutRequestId: String(payout._id) }, user: { id: String(finance._id) }, body }, res);
+      return res;
+    };
+    assert.equal((await update({ status: 'paid', transferReference: 'REF-TEST' })).statusCode, 409);
+    assert.equal((await update({ status: 'approved' })).statusCode, 200);
+    assert.equal((await Transaction.findById(payout.transaction)).status, 'PENDING');
+    assert.equal((await update({ status: 'paid' })).statusCode, 400);
+    assert.equal((await update({ status: 'paid', transferReference: 'REF-TEST' })).statusCode, 200);
+    assert.equal((await Transaction.findById(payout.transaction)).status, 'COMPLETED');
+    assert.equal((await User.findById(user._id))[field], 450);
+  }
 });
 
 const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1]);
@@ -482,7 +513,7 @@ test('withdrawal preview does not reserve money; confirming the same preview res
   assert.equal(String(a._id), String(b._id)); assert.equal((await User.findById(worker._id)).workerBalance, 400); assert.equal(await Transaction.countDocuments(), 1);
   await assert.rejects(confirmWithdrawal(worker._id, { previewToken: preview.previewToken, detailsConfirmed: false }));
 });
-test('employer transfer timeout stays processing; verified failure returns funds exactly once', async () => {
+test('legacy automatic employer transfer timeout stays processing; verified failure returns funds exactly once', async () => {
   const employer = await person('hire', 500);
   Object.assign(process.env, { AUTOMATIC_WITHDRAWALS_ENABLED: 'true', PAYMONGO_SECRET_KEY: 'test-key', PAYMONGO_WALLET_ID: 'wallet_test', PAYMONGO_TRANSFER_CALLBACK_URL: 'https://example.com/api/payment/transfers/webhook', PAYMONGO_TRANSFER_WEBHOOK_SECRET: 'test-secret' });
   const get = axios.get; const post = axios.post; let submissions = 0;
@@ -494,10 +525,12 @@ test('employer transfer timeout stays processing; verified failure returns funds
       return { data: { data: { id: 'tr_test', status: 'failed', reference_number: `PAYOUT-${payout._id}`, amount: 10000, currency: 'PHP', destination_account: { number: '12345678', bic: 'TESTPH' } } } };
     };
     axios.post = async () => { submissions += 1; throw new Error('timeout'); };
-    const preview = await previewWithdrawal(employer._id, { sourceWallet: 'EMPLOYER', amount: 100, destinationSnapshot: { methodType: 'bank_transfer', institutionName: 'Test Bank', bic: 'TESTPH', accountName: 'Employer', accountNumber: '12345678' } });
-    const result = await confirmWithdrawal(employer._id, { previewToken: preview.previewToken, detailsConfirmed: true });
+    // Already-reserved automatic transfers still need safe provider reconciliation.
+    await User.updateOne({ _id: employer._id }, { $inc: { employerBalance: -100 } });
+    const result = await PayoutRequest.create({ user: employer._id, sourceWallet: 'EMPLOYER', processingMode: 'automatic', amount: 100, totalDebit: 100, status: 'processing', destinationSnapshot: { methodType: 'bank_transfer', institutionName: 'Test Bank', bic: 'TESTPH', accountName: 'Employer', accountNumber: '12345678' } });
+    await dispatchWithdrawal(result._id);
     assert.equal(result.status, 'processing'); assert.equal((await User.findById(employer._id)).employerBalance, 400);
-    await confirmWithdrawal(employer._id, { previewToken: preview.previewToken, detailsConfirmed: true }); assert.equal(submissions, 1);
+    await dispatchWithdrawal(result._id); assert.equal(submissions, 1);
     await reconcileWithdrawal(result._id, 'tr_test'); await reconcileWithdrawal(result._id, 'tr_test');
     assert.equal((await User.findById(employer._id)).employerBalance, 500); assert.equal((await User.findById(employer._id)).workerBalance, 500);
     assert.equal(await Transaction.countDocuments({ type: 'REFUND' }), 1);
@@ -633,6 +666,71 @@ async function acceptedChecklistFixture(positionsNeeded = 1) {
   return { ...f, offer };
 }
 
+test('job offers notify the correct worker immediately and acceptance notifies the employer with the job conversation', async () => {
+  const f = await fixture();
+  const stranger = await person('work');
+  await JobOffer.deleteMany({ application: f.application._id });
+  await JobApplication.updateOne({ _id: f.application._id }, { $set: { status: 'Shortlisted' } });
+  await Job.updateOne({ _id: f.job._id }, { $set: { hiredCount: 0, reservedOfferCount: 0, status: 'Available' } });
+  const denied = response();
+  await createJobOffer({ params: { applicationId: String(f.application._id) }, user: { id: String(stranger._id) }, body: { amount: 500 } }, denied);
+  assert.equal(denied.statusCode, 403);
+  assert.equal(await Notification.countDocuments(), 0);
+  const offered = response();
+  await createJobOffer({ params: { applicationId: String(f.application._id) }, user: { id: String(f.employer._id) }, body: { amount: 500 } }, offered);
+  assert.equal(offered.statusCode, 201);
+  const received = await Notification.findOne({ deliveryKey: `offer-created:${offered.body.offer.id}` });
+  assert.equal(String(received.user), String(f.worker._id));
+  assert.equal(received.audience, 'worker');
+  assert.equal(received.metadata.jobId, String(f.job._id));
+  assert.equal(received.link, `/worker/messages?startUser=${f.employer._id}&jobId=${f.job._id}`);
+  assert.match(received.message, /Test work/);
+  const accepted = response();
+  await respondToJobOffer({ params: { offerId: offered.body.offer.id }, user: { id: String(f.worker._id) }, body: { action: 'accept', policyAcknowledged: true } }, accepted);
+  assert.equal(accepted.statusCode, 200);
+  const notice = await Notification.findOne({ deliveryKey: `offer-response:${offered.body.offer.id}:accepted` });
+  assert.equal(String(notice.user), String(f.employer._id));
+  assert.equal(notice.link, `/employer/messages?startUser=${f.worker._id}&jobId=${f.job._id}`);
+  await deliverQueuedNotification(`offer-response:${offered.body.offer.id}:accepted`);
+  assert.equal(await Notification.countDocuments({ deliveryKey: notice.deliveryKey }), 1);
+  const readByOther = response();
+  await markNotificationRead({ params: { notificationId: String(received._id) }, user: { id: String(stranger._id), role: 'work' }, query: { mode: 'worker' } }, readByOther);
+  assert.equal(readByOther.statusCode, 404);
+  const read = response();
+  await markNotificationRead({ params: { notificationId: String(received._id) }, user: { id: String(f.worker._id), role: 'work' }, query: { mode: 'worker' } }, read);
+  assert.equal(read.statusCode, 200);
+  assert.ok((await Notification.findById(received._id)).readAt);
+});
+
+test('worker cancellation requests immediately notify only the owning employer and identify the assignment', async () => {
+  for (const state of ['Not started', 'In Progress']) {
+    const f = await fixture(state);
+    const request = await cancel(f, { workerPayment: 0 });
+    const notice = await Notification.findOne({ deliveryKey: `cancellation-request:${request._id}` });
+    assert.equal(String(notice.user), String(f.employer._id));
+    assert.equal(notice.audience, 'employer');
+    assert.equal(notice.metadata.jobId, String(f.job._id));
+    assert.equal(notice.metadata.cancellationId, String(request._id));
+    assert.equal(notice.link, `/employer/applications?applicationId=${f.application._id}&jobId=${f.job._id}`);
+    if (state === 'Not started') assert.match(notice.message, /no response is needed/);
+  }
+});
+
+test('financial dispute notifications immediately open the exact case for both participants', async () => {
+  const f = await fixture('In Progress');
+  const res = response();
+  await openDispute({ params: { applicationId: String(f.application._id) }, user: { id: String(f.worker._id) }, body: { reason: 'Payment terms need investigation', kind: 'other' } }, res);
+  assert.equal(res.statusCode, 201);
+  const dispute = res.body.dispute;
+  for (const [user, audience] of [[f.employer, 'employer'], [f.worker, 'worker']]) {
+    const notice = await Notification.findOne({ deliveryKey: `dispute:${dispute._id}:${user._id}` });
+    assert.equal(notice.entityType, 'financial_dispute');
+    assert.equal(notice.entityId, String(dispute._id));
+    assert.equal(notice.metadata.jobId, String(f.job._id));
+    assert.equal(notice.link, `/${audience}/financial-disputes?disputeId=${dispute._id}`);
+  }
+});
+
 test('hire checklists remain specific to each worker and are sent once as read-only chat descriptions', async () => {
   const f = await acceptedChecklistFixture(2); const worker = await person('work');
   const secondApp = await JobApplication.create({ job: f.job._id, applicant: worker._id, status: 'Offer Sent' });
@@ -645,6 +743,13 @@ test('hire checklists remain specific to each worker and are sent once as read-o
   assert.deepEqual(second.body.application.hireChecklist.map((item) => item.description), ['Paint the fence']);
   assert.ok(first.body.application.hireChecklist.every((item) => item.completed === false));
   const messages = await Message.find({ 'attachment.type': 'hire_checklist' }); assert.equal(messages.length, 2);
+  for (const [offer, recipient] of [[f.offer, f.worker], [secondOffer, worker]]) {
+    const notice = await Notification.findOne({ deliveryKey: `checklist-created:${offer._id}` });
+    assert.equal(String(notice.user), String(recipient._id));
+    assert.equal(notice.entityType, 'hire_checklist');
+    assert.equal(notice.link, `/worker/messages?startUser=${f.employer._id}&jobId=${f.job._id}`);
+    assert.equal(notice.metadata.applicationId, String(offer.application));
+  }
   const sent = messages.find((message) => String(message.receiver) === String(f.worker._id));
   assert.deepEqual([...sent.attachment.checklist], ['Clean the floor', 'Bag the waste']); assert.equal(String(sent.job), String(f.job._id)); assert.equal(String(sent.attachment.application), String(f.application._id));
   const retry = response(); await confirmOfferHire(hire(f.offer, ['Different checklist']), retry); assert.equal(retry.statusCode, 404); assert.equal(await Message.countDocuments({ 'attachment.type': 'hire_checklist' }), 2);
@@ -657,6 +762,21 @@ test('omitted checklists preserve ordinary hiring and invalid checklists cannot 
   const invalid = response(); await confirmOfferHire({ ...req, body: { checklist: [''] } }, invalid); assert.equal(invalid.statusCode, 400);
   assert.equal((await JobApplication.findById(f.application._id)).status, 'Offer Sent'); assert.equal((await JobOffer.findById(f.offer._id)).status, 'accepted');
   const hired = response(); await confirmOfferHire(req, hired); assert.equal(hired.statusCode, 200); assert.equal(hired.body.application.hireChecklist.length, 0); assert.equal(await Message.countDocuments({ 'attachment.type': 'hire_checklist' }), 0);
+});
+
+test('a checklist notification delivery failure preserves the hire and retries once from the durable outbox', async (t) => {
+  const f = await acceptedChecklistFixture();
+  const failing = t.mock.method(Notification, 'findOneAndUpdate', async () => { throw new Error('Notification service interrupted'); });
+  const res = response();
+  await confirmOfferHire({ params: { offerId: String(f.offer._id) }, user: { id: String(f.employer._id) }, body: { checklist: ['Clean the floor'] } }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal((await JobApplication.findById(f.application._id)).status, 'Hired');
+  const key = `checklist-created:${f.offer._id}`;
+  assert.equal((await NotificationOutbox.findOne({ key })).status, 'pending');
+  failing.mock.restore();
+  await NotificationOutbox.updateOne({ key }, { $set: { availableAt: new Date(0) } });
+  await deliverQueuedNotification(key); await deliverQueuedNotification(key);
+  assert.equal(await Notification.countDocuments({ deliveryKey: key, user: f.worker._id }), 1);
 });
 
 test('a failed checklist message rolls back the hire, checklist, reservation, and notification', async (t) => {
@@ -753,6 +873,28 @@ test('cancellation exports retain reasons and linked ledger records; financial e
   assert.equal(exported.statusCode, 200); assert.equal(exported.body.rows[0].reason, 'Cannot attend'); assert.match(exported.body.rows[0].linkedTransactions, /assignment-cancellation-refund/);
   const denied = response(); denied.sendStatus = function (code) { this.statusCode = code; return this; }; await exportLifecycleReport({ params: { type: 'financial-history' }, query: {}, user: { role: 'admin', staffRole: 'support_team' } }, denied); assert.equal(denied.statusCode, 403);
 });
+test('financial history reports separate withdrawal approval, ledger status, reserved funds and account labels', async () => {
+  const f = await fixture();
+  const [payout] = await PayoutRequest.create([{ user: f.worker._id, amount: 50, sourceWallet: 'WORKER', status: 'approved', processingMode: 'manual', destinationSnapshot: { methodType: 'bank_transfer', institutionName: 'Test bank', accountName: 'Worker', accountNumber: '12345678' } }]);
+  const tx = await Transaction.create({ sender: f.worker._id, type: 'PAYOUT', amount: 50, status: 'PENDING', payoutRequest: payout._id, balanceTarget: 'WORKER' });
+  const res = response();
+  await exportLifecycleReport({ params: { type: 'financial-history' }, query: {}, user: { role: 'superadmin' } }, res);
+  assert.equal(res.statusCode, 200);
+  const withdrawal = res.body.rows.find((row) => row.id === String(tx._id));
+  assert.equal(withdrawal.status, 'PENDING');
+  assert.equal(withdrawal.ledgerStatusLabel, 'Pending');
+  assert.equal(withdrawal.statusLabel, 'Approved; awaiting transfer');
+  assert.equal(withdrawal.transactionTypeCode, 'PAYOUT');
+  assert.equal(withdrawal.transactionTypeLabel, 'Withdrawal');
+  assert.equal(withdrawal.sourceWalletLabel, 'Worker wallet');
+  assert.equal(withdrawal.currency, 'PHP');
+  const reservation = res.body.rows.find((row) => row.type === 'ESCROW');
+  assert.equal(reservation.statusLabel, 'Funds reserved');
+  assert.equal(reservation.balanceTargetLabel, 'Reserved job funds');
+  assert.equal(reservation.sourceWalletLabel, 'Not recorded');
+  assert.equal(reservation.sourceWallet, '');
+});
+
 test('unknown legacy dual-wallet contributions are flagged and never silently refunded to another wallet', async () => {
   const f = await fixture(); await User.updateOne({ _id: f.employer._id }, { $set: { role: 'both' } });
   const report = await migrateLifecycle(); assert.ok(report.ambiguousFunds.some((item) => item.job === String(f.job._id)));

@@ -1,3 +1,4 @@
+import { disputeLink } from '../lib/jobNotificationLinks.js';
 import FinancialDispute from '../models/FinancialDispute.js';
 import SupportTicket from '../models/SupportTicket.js';
 import User from '../models/User.js';
@@ -257,6 +258,9 @@ export async function openPaymentDispute(req, res) {
         createdAt: new Date(),
       });
       await application.save({ session });
+      for (const [recipient, audience] of [[application.applicant, 'worker'], [employerId, 'employer']]) {
+        await queueNotification(`dispute:${dispute._id}:${recipient}`, { userId: String(recipient), audience, type: 'support', title: 'Financial Dispute Under Investigation', message: `A financial dispute for ${application.job.title} (${dispute.ticketId}) is under investigation. No final decision has been made. Open the case to provide evidence or respond.`, link: disputeLink(audience, dispute._id), entityType: 'financial_dispute', entityId: String(dispute._id), actor: id(req), metadata: { jobId: String(application.job._id), applicationId: String(application._id) }, pushData: { jobId: String(application.job._id) } }, session);
+      }
     });
   } catch (error) {
     if (error?.code === 11000) {
@@ -277,14 +281,11 @@ export async function openPaymentDispute(req, res) {
     await session.endSession();
   }
 
-  const workerNotice = `Your financial dispute #${dispute.ticketId} has been received and is now under investigation. The MicroJobs Support Team will review the job records, payment information, and evidence submitted by both parties. You may be asked to provide additional information. No final decision has been made. You can track the case from your Financial Disputes page.`;
-  const employerNotice = `A financial dispute has been opened regarding Job #${application.job._id} under Ticket #${dispute.ticketId}. The MicroJobs Support Team is reviewing the worker's claim and may request payment records, work records, or additional information from you. This notice does not indicate that either party has been found at fault. You can respond through the Financial Dispute ticket.`;
+  await Promise.all([dispute.worker, dispute.employer].map((recipient) => deliverQueuedNotification(`dispute:${dispute._id}:${recipient}`)));
   try {
     const staff = await User.find({ role: { $in: ['admin', 'superadmin'] }, status: 'active' }).select('_id role staffRole').lean();
     const supportRecipients = staff.filter((user) => hasPermission(resolveStaffRole(user), 'finance.disputes.investigate'));
     await Promise.allSettled([
-      createNotification({ userId: application.applicant, audience: 'worker', type: 'support', title: 'Financial Dispute Under Investigation', message: workerNotice, link: '/worker/financial-disputes', entityType: 'financial_dispute', entityId: dispute._id, actor: id(req), push: true }),
-      createNotification({ userId: application.job.jobPoster, audience: 'employer', type: 'support', title: 'Financial Dispute Under Investigation', message: employerNotice, link: '/employer/financial-disputes', entityType: 'financial_dispute', entityId: dispute._id, actor: id(req), push: true }),
       ...supportRecipients.map((user) => createNotification({ userId: user._id, audience: 'shared', type: 'support', title: 'New financial dispute', message: `${dispute.ticketId} requires Support investigation.`, link: '/admin/disputes', entityType: 'financial_dispute', entityId: dispute._id, actor: id(req), push: true })),
     ]);
   } catch (error) {

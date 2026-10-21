@@ -1,3 +1,5 @@
+import { getTransactionDescription } from '../../lib/transactionDescription';
+import { getWalletTransactionStatus } from '../../lib/transactionStatus';
 import WithdrawalPanel from '../../components/wallet/WithdrawalPanel';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -43,7 +45,7 @@ type WalletTransaction = {
   title: string;
   date: string;
   amount: number;
-  status: 'Completed' | 'Pending' | 'Cancelled' | 'Failed';
+  status: string;
   direction: 'credit' | 'debit' | 'neutral';
   fee?: number;
   subtitle?: string;
@@ -109,16 +111,10 @@ export default function EmployerEWallet({
       PAYOUT: t(tx?.jobReference ? 'wallet.jobPayment' : 'wallet.withdraw', { ns: 'common' }),
       REFUND: t('employerEWallet.transactions.refund'),
     };
+    const description = getTransactionDescription(tx);
     const defaultTitle = typeLabels[type] || t('employerEWallet.transactions.defaultTitle');
-    const rawStatus = String(tx?.status || 'PENDING').toUpperCase();
-    const status: WalletTransaction['status'] = rawStatus === 'COMPLETED'
-      ? 'Completed'
-      : rawStatus === 'CANCELLED'
-      ? 'Cancelled'
-      : rawStatus === 'FAILED'
-      ? 'Failed'
-      : 'Pending';
-    const direction: WalletTransaction['direction'] = status !== 'Completed'
+    const status = getWalletTransactionStatus(tx);
+    const direction: WalletTransaction['direction'] = tx?.status !== 'COMPLETED'
       ? 'neutral'
       : ['credit', 'debit', 'neutral'].includes(String(tx?.walletDirection))
       ? tx.walletDirection
@@ -129,8 +125,8 @@ export default function EmployerEWallet({
       : 'neutral';
     return {
       id: String(tx?._id || tx?.id || `${Date.now()}-${Math.random()}`),
-      title: String(tx?.label || defaultTitle),
-      subtitle: Number(tx?.meta?.processingFee || 0) > 0 ? `Processing fee: ${php(Number(tx.meta.processingFee))}` : undefined,
+      title: [description.key ? t(`wallet.transactionLabel.${description.key}`, { ns: 'common' }) : description.label || defaultTitle, description.jobTitle].filter(Boolean).join(' \u2014 '),
+      subtitle: Number(tx?.meta?.processingFee || 0) > 0 ? t('wallet.transactionFee', { ns: 'common', amount: php(Number(tx.meta.processingFee)) }) : undefined,
       date: formatDate(tx?.createdAt),
       amount: Number(tx?.amount || 0),
       fee: Number(tx?.meta?.processingFee || 0),

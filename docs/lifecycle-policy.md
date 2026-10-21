@@ -68,15 +68,15 @@ unrelated assignments continue. Resolution records remain available for audit.
 
 ## Withdrawals
 
-Employer unused available funds may be withdrawn without first posting a job and
-without Finance approval. Job escrow, disputed allocations, and pending withdrawals
+Employer unused available funds may be withdrawn without first posting a job.
+All withdrawals require Finance approval before transfer. Job escrow, disputed allocations, and pending withdrawals
 are unavailable. Confirmation and details review are required; there is no additional
 password or OTP requirement. Review does not establish external account ownership.
 
-The initial automatic rail is InstaPay, up to PHP 50,000 per request, using supported
-institutions returned by the provider. Provider transfer fees are absorbed by the
+Both wallets accept PHP 50 to PHP 50,000 per request, subject to available balance.
+Finance approves each request, transfers the funds externally, and records a transfer reference before marking it paid. Provider transfer fees are absorbed by the
 platform; the user-facing withdrawal fee is zero. A withdrawal does not reverse fees
-already charged for top-ups. Worker withdrawals retain manual Finance review.
+already charged for top-ups. Both worker and employer withdrawals require manual Finance review.
 Failed or canceled withdrawals return reserved funds to their original wallet once.
 Automatic transfers are never marked paid merely because a request was accepted.
 

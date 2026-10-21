@@ -822,7 +822,7 @@
       },
       "transactions": {
         "title": "Ulat ng Transaksyon",
-        "description": "Mga transaksyon sa e-wallet, bayad, at buod ng pananalapi"
+        "description": "Mga tala ng transaksyon na may katayuan ng bayad at withdrawal, halaga sa PHP, at sanggunian sa audit"
       },
       "applications": {
         "title": "Ulat ng mga Aplikasyon",
@@ -843,7 +843,7 @@
       "subtitle": "Mga naunang nabuong ulat na available i-download",
       "empty": "Wala pang nabuong ulat.",
       "generatedOn": "Nabuo noong {{date}}",
-      "statusCompleted": "nakumpleto"
+      "statusCompleted": "Nabuo na"
     },
     "toast": {
       "invalidRange": "Hindi maaaring mauna ang Hanggang sa Petsa kaysa sa Mula sa Petsa.",

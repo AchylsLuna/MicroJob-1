@@ -1,3 +1,4 @@
+import { walletRequest } from './lib/lifecycleApi';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +18,7 @@ import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import './i18n';
 import { StatusBar } from 'expo-status-bar';
 import LaunchScreen from './components/LaunchScreen';
-import { resolveNotificationDestination } from './lib/notifications';
+import { resolveNotificationDestination, getNotificationConversationTarget, getNotificationDisputeId, getNotificationAssignmentId } from './lib/notifications';
 
 const navigationRef = createNavigationContainerRef();
 
@@ -228,22 +229,24 @@ function RootApp() {
     const entityId = String(data.entityId || '');
     const conversationId = String(data.conversationId || data.senderId || data.participantId || '');
     if (destination === 'messages') {
-      if (employer) session.setInitialEmployerChatTarget(conversationId ? { id: conversationId } : null);
-      else session.setInitialWorkerChatTarget(conversationId ? { id: conversationId } : null);
+      const target = getNotificationConversationTarget(data) || (conversationId ? { id: conversationId, jobId: data.jobId || undefined } : null);
+      if (employer) session.setInitialEmployerChatTarget(target);
+      else session.setInitialWorkerChatTarget(target);
       navigationRef.navigate(employer ? 'EmployerTabs' : 'WorkerTabs', { screen: 'Messages' });
     } else if (destination === 'applications') {
-      navigationRef.navigate(employer ? 'EmployerTabs' : 'WorkerAppliedJobs', employer ? { screen: 'Applications', params: { applicationId: entityId } } : { applicationId: entityId });
+      navigationRef.navigate(employer ? 'EmployerTabs' : 'WorkerAppliedJobs', employer ? { screen: 'Applications', params: { applicationId: getNotificationAssignmentId(data) || entityId } } : { applicationId: entityId });
     } else if (destination === 'wallet') {
       navigationRef.navigate(employer ? 'EmployerEWallet' : 'WorkerTabs', employer ? { invoiceRequestId: entityId } : { screen: 'EWallet' });
     } else if (destination === 'support') {
       navigationRef.navigate(employer ? 'EmployerSupport' : 'WorkerSupport', { ticketId: entityId });
     } else if (destination === 'disputes') {
-      navigationRef.navigate(employer ? 'EmployerFinancialDisputes' : 'WorkerFinancialDisputes');
+      navigationRef.navigate(employer ? 'EmployerFinancialDisputes' : 'WorkerFinancialDisputes', { disputeId: getNotificationDisputeId(data) });
     } else if (destination === 'settings') {
       navigationRef.navigate(employer ? 'EmployerSettings' : 'WorkerSettings');
     } else {
       navigationRef.navigate(employer ? 'EmployerNotifications' : 'WorkerNotifications');
     }
+    if (/^[a-f0-9]{24}$/i.test(String(data.notificationId || ''))) void walletRequest(`/notifications/${data.notificationId}/read?mode=${employer ? 'employer' : 'worker'}`, {}, 'PATCH').then(() => session.refreshNotifications()).catch(() => undefined);
     session.consumePendingNotification();
   }, [navigationReady, session.pendingNotificationData, session.isReady, session.isAuthenticated, session.viewMode, session.canSwitchAccountMode]);
   return (

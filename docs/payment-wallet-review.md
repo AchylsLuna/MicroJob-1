@@ -11,7 +11,7 @@ The review extends existing payment services, routes, wallet records, Finance sc
 
 ## Changes
 
-- Withdrawal limits are configurable and enforced at preview and confirmation. Existing confirmed requests remain idempotent if configuration changes. Larger withdrawals use the existing Finance manual review/transfer flow, with a recorded policy snapshot and explanation shown to users and Finance.
+- Withdrawal limits are configurable and enforced at preview and confirmation. Existing confirmed requests remain idempotent if configuration changes. All withdrawals use the existing Finance manual review/transfer flow, with a recorded policy snapshot and explanation shown to users and Finance.
 - Web and Android show configured limits, review reasons, and clearer payment/withdrawal language. Stale automatic-payment descriptions were corrected. Technical ledger values remain unchanged.
 - Work submission accepts a statement and/or a photo/document, retains resubmission history, and notifies the employer. Evidence is available in assignment details and staff dispute review. Downloads require the assigned worker, employer, or authorized dispute staff. Android can save attachments to a selected folder.
 - Employer confirmations include the job title and amount; employers also receive a durable payment-success notification. Existing exactly-once settlement logic is reused.
@@ -24,13 +24,13 @@ See `server/.env.example`. These are project policy values, not financial regula
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| `WITHDRAWAL_MIN_AMOUNT` | `1` | Minimum withdrawal in PHP |
+| `WITHDRAWAL_MIN_AMOUNT` | `50` | Minimum withdrawal in PHP for both wallets |
 | `WITHDRAWAL_EMPLOYER_MAX_AMOUNT` | `50000` | Preserves the existing employer ceiling |
-| `WITHDRAWAL_WORKER_MAX_AMOUNT` | `0` | No policy maximum beyond available balance |
-| `WITHDRAWAL_REVIEW_THRESHOLD` | `50000` | Larger requests require Finance review; workers require review at every amount |
+| `WITHDRAWAL_WORKER_MAX_AMOUNT` | `50000` | Worker ceiling in PHP, subject to available balance |
+| `WITHDRAWAL_REVIEW_THRESHOLD` | `50000` | Legacy compatibility setting; all withdrawals require Finance approval |
 | `FINANCIAL_DISPUTE_REVIEW_HOURS` | `168` | Senior escalation after this period and after any evidence deadline |
 
-An explicit maximum of `0` means available balance. Invalid monetary configuration fails closed. The review-period default follows the existing seven-day evidence window and should be approved by the project team. Confirm provider transfer limits before increasing automatic-transfer thresholds or maximums. Large requests routed to manual review are transferred externally by Finance and marked paid using the existing transfer-reference workflow.
+An explicit maximum of `0` means available balance. Invalid monetary configuration fails closed. The review-period default follows the existing seven-day evidence window and should be approved by the project team. All new requests are transferred externally by Finance and marked paid using the existing transfer-reference workflow.
 
 The authenticated `GET /api/payment/withdrawals/policy?sourceWallet=WORKER|EMPLOYER` endpoint supplies both clients with the same policy. Scheduled processing still requires the existing `MICROJOBS_API_ORIGIN` and `MAINTENANCE_SECRET` GitHub Actions secrets; email reminders require the existing email configuration. Deploy backend and clients together because new work submissions require evidence. Existing already-submitted assignments remain payable without fabricated evidence.
 

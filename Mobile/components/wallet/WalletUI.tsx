@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -55,22 +56,23 @@ export function WalletEmpty({ icon = 'receipt-outline', title, body }: { icon?: 
   return <View style={styles.empty}><View style={styles.emptyIcon}><Ionicons name={icon} size={26} color={tokens.colors.textMuted} /></View><Text style={styles.emptyTitle}>{title}</Text><Text style={styles.emptyBody}>{body}</Text></View>;
 }
 
-export function WalletTransactionRow({ title, subtitle, amount, date, status, direction = 'neutral' }: {
-  title: string; subtitle?: string; amount: string; date: string; status: string; direction?: 'credit' | 'debit' | 'neutral';
+export function WalletTransactionRow({ title, subtitle, amount, date, status, direction = 'neutral', onTitlePress }: {
+  title: string; subtitle?: string; amount: string; date: string; status: string; direction?: 'credit' | 'debit' | 'neutral'; onTitlePress?: () => void;
 }) {
+  const { t } = useTranslation('common');
   const icon = direction === 'credit' ? 'arrow-down-outline' : direction === 'debit' ? 'arrow-up-outline' : 'swap-horizontal-outline';
   const normalizedStatus = status.toLowerCase();
   const statusTone = normalizedStatus === 'completed' || normalizedStatus === 'paid'
     ? styles.statusSuccess
     : normalizedStatus === 'failed' || normalizedStatus === 'rejected'
       ? styles.statusDanger
-      : normalizedStatus === 'pending' || normalizedStatus === 'requested' || normalizedStatus === 'approved'
+      : normalizedStatus === 'pending' || normalizedStatus === 'requested' || normalizedStatus === 'approved' || normalizedStatus === 'processing' || normalizedStatus === 'funds_reserved'
         ? styles.statusPending
         : undefined;
   return <View style={styles.transaction}>
     <View style={[styles.transactionIcon, direction === 'credit' && styles.creditIcon, direction === 'debit' && styles.debitIcon]}><Ionicons name={icon} size={18} color={direction === 'credit' ? '#15803D' : direction === 'debit' ? '#B91C1C' : tokens.colors.brand} /></View>
-    <View style={styles.transactionCopy}><Text style={styles.transactionTitle} numberOfLines={1}>{title}</Text>{subtitle ? <Text style={styles.transactionSubtitle} numberOfLines={1}>{subtitle}</Text> : null}<Text style={styles.transactionDate}>{date}</Text></View>
-    <View style={styles.transactionAmountWrap}><Text style={[styles.transactionAmount, direction === 'credit' && styles.creditText, direction === 'debit' && styles.debitText]} numberOfLines={1}>{amount}</Text><View style={[styles.status, statusTone]}><Text style={styles.statusText}>{status}</Text></View></View>
+    <View style={styles.transactionCopy}>{onTitlePress ? <TouchableOpacity accessibilityRole="link" onPress={onTitlePress}><Text style={[styles.transactionTitle, { color: tokens.colors.brand, textDecorationLine: 'underline' }]} numberOfLines={3}>{title}</Text></TouchableOpacity> : <Text style={styles.transactionTitle} numberOfLines={3}>{title}</Text>}{subtitle ? <Text style={styles.transactionSubtitle} numberOfLines={1}>{subtitle}</Text> : null}<Text style={styles.transactionDate}>{date}</Text></View>
+    <View style={styles.transactionAmountWrap}><Text style={[styles.transactionAmount, direction === 'credit' && styles.creditText, direction === 'debit' && styles.debitText]} numberOfLines={1}>{amount}</Text><View style={[styles.status, statusTone]}><Text style={styles.statusText}>{t(`wallet.transactionStatus.${status}`)}</Text></View></View>
   </View>;
 }
 

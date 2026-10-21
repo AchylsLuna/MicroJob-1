@@ -3,7 +3,7 @@ import { CompletionEvidence } from '../../components/CompletionEvidence';
 import { PostingActions } from '../../components/PostingActions';
 import { HiredWorkerChecklists } from '../../components/HireChecklist';
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
@@ -96,6 +96,7 @@ const formatJobDate = (value?: string): string => {
 export function JobsManagement() {
   const { t } = useTranslation("employer");
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { t: tc } = useTranslation("common");
   const [historyView, setHistoryView] = useState(false);
   const [jobs, setJobs] = useState<JobPosting[]>([]);
@@ -108,6 +109,16 @@ export function JobsManagement() {
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
   const [viewingJob, setViewingJob] = useState<JobPosting | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const jobId = searchParams.get('jobId');
+    const job = jobs.find((item) => item.id === jobId);
+    if (!job) return;
+    setViewingJob(job);
+    const next = new URLSearchParams(searchParams);
+    next.delete('jobId');
+    setSearchParams(next, { replace: true });
+  }, [jobs, searchParams, setSearchParams]);
 
   const mapStatus = (status?: string): JobPosting["status"] => {
     switch (status) {

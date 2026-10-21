@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import ScrollView from '../../components/ui/SmoothScrollView';
@@ -7,7 +7,7 @@ import { apiRequest, asList, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
 
-type Props = { onBack?: () => void; isEmployer?: boolean };
+type Props = { initialDisputeId?: string; onBack?: () => void; isEmployer?: boolean };
 type Dispute = {
   id?: string;
   _id?: string;
@@ -26,8 +26,9 @@ type Dispute = {
 
 const idOf = (item: Dispute) => String(item.id || item._id || '');
 
-export default function FinancialDisputes({ onBack, isEmployer = false }: Props) {
+export default function FinancialDisputes({ onBack, isEmployer = false, initialDisputeId }: Props) {
   const toast = useToast();
+  const openedDispute = useRef<string | undefined>(undefined);
   const [items, setItems] = useState<Dispute[]>([]);
   const [selected, setSelected] = useState<Dispute | null>(null);
   const [message, setMessage] = useState('');
@@ -47,6 +48,13 @@ export default function FinancialDisputes({ onBack, isEmployer = false }: Props)
   }, [toast]);
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
+  useEffect(() => {
+    if (!initialDisputeId || openedDispute.current === initialDisputeId) return;
+    const item = items.find((entry) => idOf(entry) === initialDisputeId);
+    if (!item) return;
+    openedDispute.current = initialDisputeId;
+    setSelected(item);
+  }, [items, initialDisputeId]);
 
   const update = async (path: string, body: Record<string, unknown>, success: string) => {
     if (!selected || busy) return;

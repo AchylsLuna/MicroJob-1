@@ -202,6 +202,7 @@ export function Messages() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const startChatHandledRef = useRef(false);
+  const startChatTargetRef = useRef('');
   const prefilledDraftHandledRef = useRef(false);
   const selectedContactRef = useRef<Contact | null>(null);
   const selectionRequestRef = useRef(0);
@@ -476,6 +477,12 @@ export function Messages() {
     const contactId = searchParams.get("contact");
     const startUserId = searchParams.get("startUser");
     const startJobId = searchParams.get("jobId");
+    const startTarget = startUserId ? `${startUserId}::${startJobId || 'general'}` : '';
+    if (startTarget !== startChatTargetRef.current) {
+      startChatTargetRef.current = startTarget;
+      startChatHandledRef.current = false;
+      prefilledDraftHandledRef.current = false;
+    }
     const startName = searchParams.get("startName") || t("messages.employerFallback");
     const source = searchParams.get("source") || "";
     const draft = searchParams.get("draft") || "";

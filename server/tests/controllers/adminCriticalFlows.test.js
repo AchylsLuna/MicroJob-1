@@ -134,13 +134,15 @@ test('payout submission is atomic and idempotent', async () => {
   assert.equal((await User.findById(worker._id)).workerBalance, 400);
 });
 
-test('employer withdrawals cannot fall back to manual Finance payment while automatic transfers are unavailable', async () => {
+test('employer withdrawals can be reviewed by Finance without automatic transfer configuration', async () => {
   const employer = await createEmployer();
   const enabled = process.env.AUTOMATIC_WITHDRAWALS_ENABLED;
   delete process.env.AUTOMATIC_WITHDRAWALS_ENABLED;
   try {
-    await assert.rejects(previewWithdrawal(employer._id, { sourceWallet: 'EMPLOYER', amount: 125,
-      destinationSnapshot: { methodType: 'bank_transfer', institutionName: 'Test Bank', accountName: 'Employer', accountNumber: '1234567890' } }), (error) => error.status === 503);
+    const preview = await previewWithdrawal(employer._id, { sourceWallet: 'EMPLOYER', amount: 125,
+      destinationSnapshot: { methodType: 'bank_transfer', institutionName: 'Test Bank', accountName: 'Employer', accountNumber: '1234567890' } });
+    assert.equal(preview.processingMode, 'manual');
+    assert.equal(preview.requiresReview, true);
     assert.equal((await User.findById(employer._id)).employerBalance, 500);
     assert.equal(await PayoutRequest.countDocuments(), 0);
     assert.equal(await Transaction.countDocuments(), 0);

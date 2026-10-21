@@ -4,7 +4,7 @@ import OfferDecisionModal from '../../components/OfferDecisionModal';
 import { walletRequest } from '../../lib/lifecycleApi';
 import AssignmentPanel from '../../components/AssignmentPanel';
 import { HireChecklistDialog } from '../../components/HireChecklist';
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -172,11 +172,13 @@ export default function EmployerApplications({
   onMessageWorker,
   onOpenNotifications,
   notificationBadgeCount = 0,
+  initialApplicationId,
   historyJobId,
   historyDetails,
   onBack,
   onHistoryChange,
 }: {
+  initialApplicationId?: string;
   historyJobId?: string;
   historyDetails?: React.ReactNode;
   onBack?: () => void;
@@ -192,13 +194,14 @@ export default function EmployerApplications({
   notificationBadgeCount?: number;
 }) {
   const toast = useToast();
+  const openedAssignment = useRef<string | undefined>(undefined);
   const { t } = useTranslation('employer');
   const { t: tc } = useTranslation('common');
   const [jobs, setJobs] = useState<JobItem[]>([]);
   const [cancelOfferId, setCancelOfferId] = useState<string | null>(null);
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(historyJobId || null);
-  const [includeHidden, setIncludeHidden] = useState(Boolean(historyJobId));
+  const [includeHidden, setIncludeHidden] = useState(Boolean(historyJobId || initialApplicationId));
   const [ratingTarget, setRatingTarget] = useState<MobileRatingTarget | null>(null);
   const [reviewEligibility, setReviewEligibility] = useState<Record<string, any>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -224,6 +227,18 @@ export default function EmployerApplications({
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(
     null,
   );
+  useEffect(() => {
+    if (initialApplicationId) setIncludeHidden(true);
+    if (!initialApplicationId || openedAssignment.current === initialApplicationId) return;
+    const application = applications.find((item) => item._id === initialApplicationId);
+    if (!application) return;
+    openedAssignment.current = initialApplicationId;
+    setSelectedJobId(String(application.job._id));
+    setMinMatch(0);
+    setExpandedId(application._id);
+    setStage(stageFor(application.status));
+    setSearch('');
+  }, [applications, initialApplicationId]);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [scheduleTarget, setScheduleTarget] = useState<ApplicationItem | null>(
     null,

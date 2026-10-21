@@ -73,7 +73,7 @@
     "topupFee": "Processing fee: {{fee}}. Total charged: {{total}}.",
     "error": "Unable to complete this action.",
     "status": {
-      "requested": "Withdrawal under review",
+      "requested": "Withdrawal submitted. Waiting for Finance approval.",
       "approved": "Approved; awaiting transfer",
       "processing": "Processing transfer",
       "paid": "Paid",
@@ -81,7 +81,27 @@
       "rejected": "Rejected; funds returned",
       "cancelled": "Cancelled; funds returned"
     },
-    "limits": "Minimum: {{minimum}}. Maximum: {{maximum}}. Amounts above {{threshold}} require Finance review.",
+    "transactionFee": "Service charge: {{amount}}",
+    "transactionLabel": {
+      "fundsReserved": "Funds reserved",
+      "reservationAdjustment": "Reserved funds adjustment",
+      "postingFee": "Non-refundable posting fee",
+      "highlightFee": "Non-refundable highlight fee"
+    },
+    "transactionStatus": {
+      "COMPLETED": "Completed",
+      "PENDING": "Pending",
+      "FAILED": "Failed",
+      "CANCELLED": "Cancelled",
+      "REQUESTED": "Awaiting Finance approval",
+      "APPROVED": "Approved; awaiting transfer",
+      "PROCESSING": "Transfer processing",
+      "PAID": "Transferred",
+      "REJECTED": "Rejected",
+      "FUNDS_RESERVED": "Funds reserved",
+      "UNKNOWN": "Unknown"
+    },
+    "limits": "Minimum: {{minimum}}. Maximum: {{maximum}}. All withdrawals require Finance approval before transfer.",
     "noMaximum": "Available balance"
   },
   "hireChecklist": {

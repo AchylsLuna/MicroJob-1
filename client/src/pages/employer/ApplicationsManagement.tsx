@@ -16,7 +16,7 @@ import {
   Star,
   User as UserIcon,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
@@ -438,9 +438,10 @@ export function ApplicationsManagement({ historyJobId, onHistoryChange }: { hist
   const { t } = useTranslation("employer");
   const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const prefersReducedMotion = useReducedMotion();
   const [statusFilter, setStatusFilter] = useState<"all" | ApplicationStatus>("all");
-  const [jobFilter, setJobFilter] = useState(historyJobId || "");
+  const [jobFilter, setJobFilter] = useState(historyJobId || searchParams.get('jobId') || "");
   const [jobOptions, setJobOptions] = useState<Array<{ id: string; title: string }>>([]);
   const [jobsError, setJobsError] = useState<string | null>(null);
   const [jobsLoading, setJobsLoading] = useState(!historyJobId);
@@ -545,6 +546,18 @@ export function ApplicationsManagement({ historyJobId, onHistoryChange }: { hist
     }),
     [applications, jobFilter, searchTerm, statusFilter],
   );
+
+  useEffect(() => {
+    const id = searchParams.get('applicationId');
+    const jobId = searchParams.get('jobId');
+    if (id && jobId) setJobFilter(jobId);
+    if (id) setIncludeHidden(true);
+    const application = applications.find((item) => item._id === id);
+    if (!application) return;
+    setActionsTarget(application);
+    const next = new URLSearchParams(searchParams); next.delete('applicationId'); next.delete('jobId');
+    setSearchParams(next, { replace: true });
+  }, [applications, searchParams, setSearchParams]);
 
   const activeApplication = actionsTarget ? applications.find((item) => item._id === actionsTarget._id) || actionsTarget : null;
   const actionStep = activeApplication?.status === "Hired" ? 4 : activeApplication?.offer?.status === "accepted" ? 3 : activeApplication?.offer?.status === "pending" ? 2 : 1;

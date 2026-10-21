@@ -1,3 +1,6 @@
+import { useNavigation } from '@react-navigation/native';
+import { getTransactionDescription } from '../../lib/transactionDescription';
+import { getWalletTransactionStatus } from '../../lib/transactionStatus';
 import WithdrawalPanel from '../../components/wallet/WithdrawalPanel';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -32,8 +35,9 @@ type WalletTransaction = {
   _id: string;
   amount: number;
   type: string;
-  jobReference?: { _id?: string } | string | null;
+  jobReference?: { _id?: string; title?: string } | string | null;
   status?: 'COMPLETED' | 'PENDING' | 'FAILED' | 'CANCELLED';
+  payoutRequest?: { status?: string } | string | null;
   label?: string;
   reference?: string;
   providerReference?: string;
@@ -77,7 +81,11 @@ const normalizeAccountOptions = (value: unknown): Array<'worker' | 'employer'> =
 };
 
 const getTransactionLabel = (transaction: WalletTransaction, t: TFunction) => {
-  if (transaction.label) return transaction.label;
+  const description = getTransactionDescription(transaction);
+  if (description.key || description.label) {
+    const label = description.key ? t(`wallet.transactionLabel.${description.key}`, { ns: 'common' }) : description.label;
+    return label;
+  }
   switch (transaction.type) {
     case 'TOP_UP':
       return t('eWallet.transactions.type.topUp');
@@ -118,6 +126,7 @@ export default function EWallet({
   const [profileRole, setProfileRole] = useState('worker');
   const toast = useToast();
   const { t } = useTranslation('worker');
+  const navigation = useNavigation<any>();
 
   const hasWorkerWallet = accountOptions.includes('worker') || profileRole === 'worker' || profileRole === 'both';
   const isBothRole = profileRole === 'both' || (accountOptions.includes('worker') && accountOptions.includes('employer'));
@@ -255,7 +264,7 @@ export default function EWallet({
           {transactions.length === 0 ? (
             <WalletEmpty title={t('eWallet.transactions.empty.title')} body={t('eWallet.transactions.empty.body')} />
           ) : (
-            transactions.slice(0, 15).map((transaction) => <WalletTransactionRow key={transaction._id} title={getTransactionLabel(transaction, t)} subtitle={transaction.reference || transaction.providerReference || transaction.type} amount={`${transaction.walletDirection === 'credit' ? '+' : transaction.walletDirection === 'debit' ? '-' : ''}${formatCurrency(transaction.amount)}`} date={formatDate(transaction.createdAt, t)} status={transaction.status || t('eWallet.common.statusUnknown')} direction={transaction.walletDirection || 'neutral'} />)
+            transactions.slice(0, 15).map((transaction) => <WalletTransactionRow key={transaction._id} title={[getTransactionLabel(transaction, t), getTransactionDescription(transaction).jobTitle].filter(Boolean).join(' \u2014 ')} onTitlePress={getTransactionDescription(transaction).jobId && getTransactionDescription(transaction).jobTitle ? () => navigation.navigate('WorkerJobDetails', { job: transaction.jobReference }) : undefined} subtitle={transaction.reference || transaction.providerReference || transaction.type} amount={`${transaction.walletDirection === 'credit' ? '+' : transaction.walletDirection === 'debit' ? '-' : ''}${formatCurrency(transaction.amount)}`} date={formatDate(transaction.createdAt, t)} status={getWalletTransactionStatus(transaction)} direction={transaction.walletDirection || 'neutral'} />)
           )}
         </WalletSection>
 

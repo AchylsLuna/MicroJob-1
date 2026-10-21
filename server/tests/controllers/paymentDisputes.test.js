@@ -1,3 +1,4 @@
+import NotificationOutbox from '../../models/NotificationOutbox.js';
 import test, { after, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
@@ -31,13 +32,13 @@ const makeUser = async (role, email, staffRole = null) => {
 before(async () => {
   mongo = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   await mongoose.connect(mongo.getUri(), { dbName: 'financial-disputes' });
-  await Promise.all([Transaction.init(), FinancialDispute.init()]);
+  await Promise.all([Transaction.init(), FinancialDispute.init(), NotificationOutbox.init(), Notification.init()]);
 });
 beforeEach(async () => {
   await Promise.all([
     User.deleteMany({}), Job.deleteMany({}), JobApplication.deleteMany({}),
     FinancialDispute.deleteMany({}), SupportTicket.deleteMany({}),
-    Notification.deleteMany({}), Transaction.deleteMany({}),
+    Notification.deleteMany({}), NotificationOutbox.deleteMany({}), Transaction.deleteMany({}),
   ]);
 });
 after(async () => { await mongoose.disconnect(); await mongo.stop(); });
@@ -262,4 +263,17 @@ test('a single appeal preserves the original decision and can return through inv
     body: { reason: 'Second appeal.' },
   }, duplicateAppeal);
   assert.equal(duplicateAppeal.statusCode, 409);
+});
+
+
+test('worker payment dispute notifies the employer immediately with the specific job and case', async () => {
+  const data = await fixture();
+  const dispute = await open({ ...data, disputedAmount: 2500 });
+  const notice = await Notification.findOne({ deliveryKey: `dispute:${dispute._id}:${data.employer._id}` });
+  assert.ok(notice);
+  assert.equal(notice.audience, 'employer');
+  assert.equal(notice.metadata.jobId, String(data.job._id));
+  assert.equal(notice.entityType, 'financial_dispute');
+  assert.equal(notice.link, `/employer/financial-disputes?disputeId=${dispute._id}`);
+  assert.equal(await NotificationOutbox.countDocuments({ key: notice.deliveryKey, status: 'delivered' }), 1);
 });

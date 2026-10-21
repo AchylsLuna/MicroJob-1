@@ -1,3 +1,4 @@
+import { WalletTransactions } from '../../components/wallet/WalletTransactions';
 import { WithdrawalPanel } from "../../components/wallet/WithdrawalPanel";
 import { WithdrawalHistory } from "../../components/wallet/WithdrawalHistory";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -20,13 +21,8 @@ import {
   type PayoutRequest,
 } from "../../services/api";
 import {
-  formatDate,
   getTransactionDirection,
-  getTransactionStatusClasses,
-  linkedEntityLabel,
   toAmount,
-  txLabel,
-  txTypeLabel,
 } from "../../components/wallet/walletFormat";
 
 export function EWallet() {
@@ -166,76 +162,7 @@ export function EWallet() {
     {
       id: "transactions",
       label: t("eWallet.transactions.titleRecent"),
-      content: (
-              <div className="ui-card p-6">
-                <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
-                  <h3 className="text-section font-semibold text-[#111827]">
-                    {t("eWallet.transactions.titleRecent")}
-                  </h3>
-                  <div className="text-caption text-[#6B7280]">{t("eWallet.transactions.helper")}</div>
-                </div>
-
-                {isLoading ? (
-                  <div className="text-body text-[#6B7280] py-6">{t("eWallet.transactions.loading")}</div>
-                ) : transactions.length === 0 ? (
-                  <div className="text-body text-[#6B7280] py-6">{t("eWallet.transactions.empty")}</div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[860px] text-left text-body-sm">
-                      <thead>
-                        <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
-                          <th className="py-3 pr-4 font-medium">{t("eWallet.transactions.columns.type")}</th>
-                          <th className="py-3 pr-4 font-medium">{t("eWallet.transactions.columns.status")}</th>
-                          <th className="py-3 pr-4 font-medium">{t("eWallet.transactions.columns.label")}</th>
-                          <th className="py-3 pr-4 font-medium">{t("eWallet.transactions.columns.amount")}</th>
-                          <th className="py-3 pr-4 font-medium">{t("eWallet.transactions.columns.reference")}</th>
-                          <th className="py-3 pr-4 font-medium">{t("eWallet.transactions.columns.linkedEntity")}</th>
-                          <th className="py-3 font-medium">{t("eWallet.transactions.columns.date")}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {transactions.slice(0, 20).map((tx) => {
-                          const direction = getTransactionDirection(tx, walletOwnerId);
-                          const amountPrefix = direction === "credit" ? "+" : direction === "debit" ? "-" : "";
-                          const amountClass = direction === "credit"
-                            ? "text-[#15803D]"
-                            : direction === "debit"
-                            ? "text-[#B91C1C]"
-                            : "text-[#6B7280]";
-                          return (
-                          <tr key={tx._id} className="border-b border-[#F3F4F6] align-top">
-                            <td className="py-3 pr-4">
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-brand/[0.06] text-brand">
-                                {txTypeLabel(t, tx.type)}
-                              </span>
-                            </td>
-                            <td className="py-3 pr-4">
-                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold ${getTransactionStatusClasses(tx.status)}`}>
-                                {tx.status ? t(`eWallet.transactionStatus.${tx.status}`) : "-"}
-                              </span>
-                            </td>
-                            <td className="py-3 pr-4 text-[#111827]">{txLabel(t, tx)}</td>
-                            <td className={`py-3 pr-4 font-semibold ${amountClass}`}>
-                              {amountPrefix}{formatCurrency(toAmount(tx.amount))}
-                              {tx.meta?.processingFee ? <div className="text-[11px] font-normal text-[#6B7280]">Fee: {formatCurrency(toAmount(tx.meta.processingFee))}</div> : null}
-                            </td>
-                            <td className="py-3 pr-4 text-[#6B7280]">
-                              <div>{tx.reference || "-"}</div>
-                              {tx.providerReference ? <div className="text-[11px] text-[#9CA3AF]">{tx.providerReference}</div> : null}
-                            </td>
-                            <td className="py-3 pr-4 text-[#6B7280]">
-                              {linkedEntityLabel(t, tx.relatedEntityType || tx.balanceTarget)}
-                            </td>
-                            <td className="py-3 text-[#6B7280]">{formatDate(tx.createdAt)}</td>
-                          </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-      ),
+      content: <WalletTransactions transactions={transactions} ownerId={walletOwnerId} loading={isLoading} title={t('eWallet.transactions.titleRecent')} t={t} jobHref={(jobId) => `/worker/job-details/${encodeURIComponent(jobId)}`} />,
     },
     ...(isWorkerWalletView ? [{
       id: "withdrawal-history",

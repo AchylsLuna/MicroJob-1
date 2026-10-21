@@ -1,4 +1,28 @@
 {
+  "financialReports": {
+    "notRecorded": "Hindi naitala",
+    "title": "Mga ulat ng pananalapi at pagkansela",
+    "financialHistory": "Kasaysayan ng mga transaksyong pinansyal",
+    "cancellationHistory": "Kasaysayan ng pagkansela",
+    "types": {
+      "topUp": "Pagdagdag ng pondo",
+      "reservation": "Paglalaan ng pondo sa trabaho",
+      "withdrawal": "Pag-withdraw",
+      "jobPayment": "Bayad sa trabaho",
+      "refund": "Pagsasauli ng pondo",
+      "postingFee": "Bayad sa pag-post ng trabaho",
+      "highlightFee": "Bayad sa pag-highlight ng trabaho",
+      "unknown": "Hindi alam"
+    },
+    "accounts": {
+      "EMPLOYER": "Wallet ng employer",
+      "WORKER": "Wallet ng worker",
+      "ESCROW": "Nakalaang pondo sa trabaho",
+      "SYSTEM": "Account ng platform",
+      "UNKNOWN": "Hindi naitala"
+    }
+  },
+  "jobNotifications": { "openDispute": "Buksan ang pagtatalo" },
   "offerResponse": {
     "respondBy": "Tumugon bago ang {{date}} (Asia/Manila). Kapag walang tugon, mapapaso ang alok at mababakante ang nakareserbang posisyon.",
     "expired": "Napaso na ang alok na ito. Makipag-ugnayan sa employer kung interesado ka pa rin.",
@@ -255,7 +279,7 @@
     "topupFee": "Bayad sa pagproseso: {{fee}}. Kabuuang sisingilin: {{total}}.",
     "error": "Hindi makumpleto ang aksyon.",
     "status": {
-      "requested": "Sinusuri ang withdrawal",
+      "requested": "Naisumite ang withdrawal. Naghihintay ng pag-apruba ng Finance.",
       "approved": "Aprubado; hinihintay ang transfer",
       "processing": "Pinoproseso ang transfer",
       "paid": "Nabayaran",
@@ -263,7 +287,27 @@
       "rejected": "Tinanggihan; naibalik ang pondo",
       "cancelled": "Kinansela; naibalik ang pondo"
     },
-    "limits": "Minimum: {{minimum}}. Maximum: {{maximum}}. Ang halagang higit sa {{threshold}} ay kailangang suriin ng Finance.",
+    "transactionFee": "Singil sa serbisyo: {{amount}}",
+    "transactionLabel": {
+      "fundsReserved": "Nakalaan ang pondo",
+      "reservationAdjustment": "Pagsasaayos ng nakalaang pondo",
+      "postingFee": "Hindi maibabalik na bayad sa pag-post",
+      "highlightFee": "Hindi maibabalik na bayad sa pag-highlight"
+    },
+    "transactionStatus": {
+      "COMPLETED": "Nakumpleto",
+      "PENDING": "Nakabinbin",
+      "FAILED": "Nabigo",
+      "CANCELLED": "Kinansela",
+      "REQUESTED": "Naghihintay ng pag-apruba ng Finance",
+      "APPROVED": "Naaprubahan; hinihintay ang paglipat",
+      "PROCESSING": "Pinoproseso ang paglipat",
+      "PAID": "Nailipat na",
+      "REJECTED": "Tinanggihan",
+      "FUNDS_RESERVED": "Nakalaan ang pondo",
+      "UNKNOWN": "Hindi alam"
+    },
+    "limits": "Minimum: {{minimum}}. Maximum: {{maximum}}. Lahat ng withdrawal ay kailangang aprubahan ng Finance bago ilipat ang pera.",
     "noMaximum": "Magagamit na balanse"
   },
   "hireChecklist": {

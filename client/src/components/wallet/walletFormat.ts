@@ -1,3 +1,4 @@
+import { getTransactionDescription } from '../../lib/transactionDescription';
 import type { TFunction } from "i18next";
 import { formatDateTime } from "../../lib/formatters";
 import type { PaymentTransaction, PayoutRequest } from "../../services/api";
@@ -56,8 +57,10 @@ export const txTypeLabel = (t: TFunction, type: PaymentTransaction["type"]) => {
   }
 };
 
-export const txLabel = (t: TFunction, tx: PaymentTransaction) =>
-  tx.label || txTypeLabel(t, tx.type);
+export const txLabel = (t: TFunction, tx: PaymentTransaction) => {
+  const description = getTransactionDescription(tx);
+  return description.key ? t(`wallet.transactionLabel.${description.key}`, { ns: 'common' }) : description.label || txTypeLabel(t, tx.type);
+};
 
 export const linkedEntityLabel = (t: TFunction, value?: string | null) => {
   switch (String(value || "").toLowerCase()) {
@@ -87,12 +90,18 @@ export const getPayoutStatusClasses = (status: PayoutRequest["status"]) => {
   }
 };
 
-export const getTransactionStatusClasses = (status?: PaymentTransaction["status"]) => {
+export const getTransactionStatusClasses = (status?: string) => {
   switch (status) {
+    case "PAID":
     case "COMPLETED":
       return "bg-[#DCFCE7] text-[#15803D]";
+    case "FUNDS_RESERVED":
+    case "REQUESTED":
+    case "APPROVED":
+    case "PROCESSING":
     case "PENDING":
       return "bg-brand/10 text-brand";
+    case "REJECTED":
     case "FAILED":
       return "bg-[#FEE2E2] text-[#B91C1C]";
     case "CANCELLED":

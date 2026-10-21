@@ -2,13 +2,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { withdrawalPolicy, validateWithdrawalAmount } from '../../lib/withdrawalPolicy.js';
 
-test('withdrawal policy preserves existing limits and routes above-threshold withdrawals to review', () => {
-  assert.deepEqual(withdrawalPolicy('EMPLOYER'), { minimum: 1, maximum: 50000, reviewThreshold: 50000 });
-  assert.equal(withdrawalPolicy('WORKER').maximum, null);
+test('both wallets accept PHP 50 through PHP 50000 and reject amounts outside those limits', () => {
+  for (const wallet of ['EMPLOYER', 'WORKER']) {
+    assert.deepEqual(withdrawalPolicy(wallet), { minimum: 50, maximum: 50000, reviewThreshold: 50000 });
+    for (const amount of [50, 50000]) assert.doesNotThrow(() => validateWithdrawalAmount(amount, wallet));
+    assert.throws(() => validateWithdrawalAmount(49.99, wallet), /at least PHP 50.00/);
+    assert.throws(() => validateWithdrawalAmount(50000.01, wallet), /maximum is PHP 50000.00/);
+  }
   assert.equal(validateWithdrawalAmount(100, 'WORKER').processingMode, 'manual');
-  assert.equal(validateWithdrawalAmount(50000, 'EMPLOYER').processingMode, 'automatic');
-  assert.equal(validateWithdrawalAmount(50000.01, 'WORKER').requiresReview, true);
-  assert.match(validateWithdrawalAmount(50000.01, 'WORKER').reviewReason, /threshold/);
+  for (const wallet of ['EMPLOYER', 'WORKER']) {
+    for (const amount of [50, 100, 50000]) {
+      const preview = validateWithdrawalAmount(amount, wallet);
+      assert.equal(preview.processingMode, 'manual');
+      assert.equal(preview.requiresReview, true);
+      assert.match(preview.reviewReason, /Finance approval/);
+    }
+  }
   for (const value of [NaN, Infinity, -1, 0, 1.001]) assert.throws(() => validateWithdrawalAmount(value, 'WORKER'));
 });
 

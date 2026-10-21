@@ -198,10 +198,10 @@ export default function NotificationsPage() {
                 </button>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => navigate(n.link)}
+                    onClick={() => { if (!n.read) void markRead(n.id); navigate(n.link); }}
                     className="text-sm text-brand-600 font-semibold hover:underline"
                   >
-                    {n.entityType === 'application' && n.link.includes('?applicationId=')
+                    {n.entityType === 'financial_dispute' ? tc('jobNotifications.openDispute') : ['job_offer', 'hire_checklist'].includes(n.entityType || '') ? t('notifications.viewAction.messages') : n.entityType === 'application' && n.link.includes('?applicationId=')
                       ? tc('lifecycle.openAssignment')
                       : n.type === 'application'
                       ? isEmployerView

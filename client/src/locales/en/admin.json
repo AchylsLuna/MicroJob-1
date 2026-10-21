@@ -822,7 +822,7 @@
       },
       "transactions": {
         "title": "Transaction Report",
-        "description": "E-wallet transactions, payments, and financial summary"
+        "description": "Transaction records with payment and withdrawal status, amounts in PHP, and audit references"
       },
       "applications": {
         "title": "Applications Report",
@@ -843,7 +843,7 @@
       "subtitle": "Previously generated reports available for download",
       "empty": "No reports generated yet.",
       "generatedOn": "Generated on {{date}}",
-      "statusCompleted": "completed"
+      "statusCompleted": "Generated"
     },
     "toast": {
       "invalidRange": "From Date cannot be after To Date.",

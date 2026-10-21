@@ -1,3 +1,4 @@
+import { useSearchParams } from 'react-router-dom';
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, FileUp, MessageSquareText, Scale } from "lucide-react";
 import { Badge, Button, Card, Input, Select, StatusState, Tabs, Textarea } from "../../components/ui";
@@ -29,6 +30,7 @@ type DetailTab = "Overview" | "Evidence" | "Conversation" | "Settlement";
 
 export function FinancialDisputes() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isEmployer = user?.accountType === "employer";
   const [disputes, setDisputes] = useState<FinancialDispute[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -45,6 +47,14 @@ export function FinancialDisputes() {
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [appealReason, setAppealReason] = useState("");
   const [activeTab, setActiveTab] = useState<DetailTab>("Overview");
+
+  useEffect(() => {
+    const id = searchParams.get('disputeId');
+    if (!id || !disputes.some((item) => item.id === id)) return;
+    setSelectedId(id); setActiveTab('Overview');
+    const next = new URLSearchParams(searchParams); next.delete('disputeId');
+    setSearchParams(next, { replace: true });
+  }, [disputes, searchParams, setSearchParams]);
 
   const load = async () => {
     const payload = await getFinancialDisputes();

@@ -1,3 +1,4 @@
+import { assignmentLink } from '../lib/jobNotificationLinks.js';
 import mongoose from 'mongoose';
 import Job from '../models/Job.js';
 import JobApplication from '../models/JobApplication.js';
@@ -8,12 +9,12 @@ import Cancellation from '../models/Cancellation.js';
 import FinancialDispute from '../models/FinancialDispute.js';
 import { CANCELLATION_RESPONSE_MS, EVIDENCE_WINDOW_MS, POLICY_VERSION, httpError, money, requireReason } from '../lib/lifecyclePolicy.js';
 import { remainingJobFunds, refundJobFunds, jobSpendingSources } from './jobFunds.js';
-import { queueNotification } from './notificationOutbox.js';
+import { queueNotification, deliverQueuedNotification } from './notificationOutbox.js';
 import { resolveJobAvailability } from '../lib/hiringState.js';
 import { baseWorkerPay } from '../lib/dailyWorkPolicy.js';
 
 export const activeDispute = (application, session) => FinancialDispute.exists({ application, status: { $in: ['open', 'investigating'] } }).session(session || null);
-const notice = (key, userId, audience, title, message, entityId, session) => queueNotification(key, { userId: String(userId), audience, type: 'application', title, message, entityType: 'application', entityId: String(entityId) }, session);
+const notice = (key, userId, audience, title, message, entityId, session, jobId) => queueNotification(key, { userId: String(userId), audience, type: 'application', title, message, entityType: 'application', entityId: String(entityId), link: assignmentLink(audience, entityId, jobId) }, session);
 
 export async function syncCapacity(job, session) {
   job.hiredCount = await JobApplication.countDocuments({ job: job._id, status: { $in: ['Hired', 'Accepted'] } }).session(session);
@@ -32,7 +33,7 @@ export async function escalateCancellation(cancellation, application, job, sessi
     await FinancialDispute.create([{ job: job._id, application: application._id, employer: job.jobPoster, worker: application.applicant, raisedBy: cancellation.actor, kind: 'cancellation', subject: `Cancellation: ${job.title}`, reason: cancellation.reason, amount: unpaid, agreedJobAmount: Number(application.agreedAmount || job.salary), alreadyPaidAmount: Number(application.paidAmount || 0), disputedAmount: unpaid, fundsHeldAmount: Math.min(unpaid, Math.max(0, (await remainingJobFunds(job._id, session)).remaining)), workerClaim: cancellation.reason, evidenceDueAt: new Date(Date.now() + EVIDENCE_WINDOW_MS), events: [{ type: 'opened', note: 'Cancellation requires Finance review.' }] }], { session });
   }
   for (const [user, audience] of [[job.jobPoster, 'employer'], [application.applicant, 'worker']]) {
-    await notice(`cancellation-review:${cancellation._id}:${user}`, user, audience, 'Cancellation under review', 'Finance Staff will review the cancellation. Submit evidence within seven days; affected funds remain held.', application._id, session);
+    await notice(`cancellation-review:${cancellation._id}:${user}`, user, audience, 'Cancellation under review', 'Finance Staff will review the cancellation. Submit evidence within seven days; affected funds remain held.', application._id, session, job._id);
   }
 }
 
@@ -80,7 +81,7 @@ export async function resolveCancelledAssignment({ application, job, cancellatio
   await syncCapacity(job, session);
   await finishPostingCancellation(job, session);
   for (const [user, audience] of [[job.jobPoster, 'employer'], [application.applicant, 'worker']]) {
-    await notice(`assignment-cancelled:${cancellation._id}:${user}`, user, audience, 'Assignment cancelled', `${job.title}: ${cancellation.reason}. Worker payment: PHP ${amount.toFixed(2)}.`, application._id, session);
+    await notice(`assignment-cancelled:${cancellation._id}:${user}`, user, audience, 'Assignment cancelled', `${job.title}: ${cancellation.reason}. Worker payment: PHP ${amount.toFixed(2)}.`, application._id, session, job._id);
   }
 }
 
@@ -94,9 +95,9 @@ async function requestAssignment(application, job, actor, reason, workerPayment,
   application.cancellation = cancellation._id; application.cancellationPending = true;
   await application.save({ session });
   if (beforeStart) await resolveCancelledAssignment({ application, job, cancellation, workerPayment: 0, actor, session });
-  else {
+  {
     const recipient = String(actor) === String(job.jobPoster) ? application.applicant : job.jobPoster;
-    await notice(`cancellation-request:${cancellation._id}`, recipient, String(recipient) === String(job.jobPoster) ? 'employer' : 'worker', 'Cancellation requested', `${job.title}: ${reason}. Proposed worker payment: PHP ${amount.toFixed(2)}. Respond within 72 hours.`, application._id, session);
+    await queueNotification(`cancellation-request:${cancellation._id}`, { userId: String(recipient), audience: String(recipient) === String(job.jobPoster) ? 'employer' : 'worker', type: 'application', title: 'Job cancellation request', message: beforeStart ? `${job.title}: ${reason}. The assignment was cancelled before work started; no response is needed.` : `${job.title}: ${reason}. Proposed worker payment: PHP ${amount.toFixed(2)}. Respond within 72 hours.`, entityType: 'application', entityId: String(application._id), link: assignmentLink(String(recipient) === String(job.jobPoster) ? 'employer' : 'worker', application._id, job._id), actor, metadata: { jobId: String(job._id), cancellationId: String(cancellation._id) }, pushData: { jobId: String(job._id), applicationId: String(application._id) } }, session);
   }
   return cancellation;
 }
@@ -130,10 +131,11 @@ export async function requestCancellation({ jobId, applicationId, actor, reason:
       const affected = await JobApplication.find({ job: job._id, status: { $nin: ['Hired', 'Accepted', 'Cancelled', 'Withdrawn', 'Rejected'] } }).session(session);
       for (const item of affected) {
         item.status = 'Cancelled'; item.timeline.push({ type: 'job_cancelled', actor, note: reason }); await item.save({ session });
-        await notice(`job-cancelled:${result._id}:${item.applicant}`, item.applicant, 'worker', 'Job posting cancelled', `${job.title}: ${reason}`, item._id, session);
+        await notice(`job-cancelled:${result._id}:${item.applicant}`, item.applicant, 'worker', 'Job posting cancelled', `${job.title}: ${reason}`, item._id, session, job._id);
       }
       await syncCapacity(job, session); await finishPostingCancellation(job, session);
     });
+    await deliverQueuedNotification(`cancellation-request:${result._id}`);
     return result;
   } finally { await session.endSession(); }
 }

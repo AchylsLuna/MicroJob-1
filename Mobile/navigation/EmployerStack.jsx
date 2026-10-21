@@ -20,7 +20,7 @@ import ContactSupport from '../pages/worker/ContactSupport';
 import EmployerJobHistory from '../pages/employer/EmployerJobHistory';
 import FinancialDisputes from '../pages/shared/FinancialDisputes';
 import { useAppSession } from '../contexts/AppSessionContext';
-import { resolveNotificationDestination } from '../lib/notifications';
+import { resolveNotificationDestination, getNotificationAssignmentId, getNotificationConversationTarget, getNotificationDisputeId } from '../lib/notifications';
 import { useEmployerTabNavigation } from './useTabNavigation';
 import { hiddenTabs, stackMotion } from './options';
 
@@ -51,11 +51,13 @@ function EmployerHomeScreen() {
 }
 
 function EmployerApplicationsScreen() {
+  const route = useRoute();
   const navigation = useNavigation();
   const employerTabPress = useEmployerTabNavigation();
   const session = useAppSession();
   return (
     <EmployerApplications
+      initialApplicationId={route.params?.applicationId}
       activeTab="Applications"
       onTabPress={employerTabPress}
       onOpenNotifications={() => navigation.navigate('EmployerNotifications')}
@@ -112,15 +114,15 @@ function EmployerNotificationsScreen() {
   const session = useAppSession();
   const openNotification = (item) => {
     const destination = resolveNotificationDestination(item);
-    if (destination === 'applications') employerTabPress('Applications');
+    if (destination === 'applications') navigation.navigate('EmployerTabs', { screen: 'Applications', params: { applicationId: getNotificationAssignmentId(item) } });
     else if (destination === 'messages') {
-      session.setInitialEmployerChatTarget(item.actorId ? { id: item.actorId, name: item.actorName || undefined } : null);
+      session.setInitialEmployerChatTarget(getNotificationConversationTarget(item));
       employerTabPress('Messages');
     }
     else if (destination === 'wallet') navigation.navigate('EmployerEWallet', item?.entityType === 'payment_request' ? { invoiceRequestId: item.entityId } : undefined);
     else if (destination === 'support') navigation.navigate('EmployerSupport');
     else if (destination === 'settings') navigation.navigate('EmployerSettings');
-    else if (destination === 'disputes') navigation.navigate('EmployerFinancialDisputes');
+    else if (destination === 'disputes') navigation.navigate('EmployerFinancialDisputes', { disputeId: getNotificationDisputeId(item) });
   };
   return <EmployerNotifications onBack={() => navigation.goBack()} liveNotifications={session.employerNotifications} onOpenNotification={openNotification} />;
 }
@@ -277,8 +279,9 @@ function EmployerJobHistoryScreen() {
 }
 
 function EmployerFinancialDisputesScreen() {
+  const route = useRoute();
   const navigation = useNavigation();
-  return <FinancialDisputes onBack={() => navigation.goBack()} isEmployer />;
+  return <FinancialDisputes initialDisputeId={route.params?.disputeId} onBack={() => navigation.goBack()} isEmployer />;
 }
 
 export default EmployerStackNavigator;

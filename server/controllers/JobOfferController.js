@@ -1,7 +1,8 @@
+import { conversationLink } from '../lib/jobNotificationLinks.js';
 import Cancellation from '../models/Cancellation.js';
 import { remainingJobFunds, requiredJobFunds } from '../services/jobFunds.js';
 import { syncCapacity } from '../services/jobLifecycle.js';
-import { queueNotification } from '../services/notificationOutbox.js';
+import { queueNotification, deliverQueuedNotification } from '../services/notificationOutbox.js';
 import { POLICY_VERSION, requireReason, httpError } from '../lib/lifecyclePolicy.js';
 import mongoose from 'mongoose';
 import Job from '../models/Job.js';
@@ -56,8 +57,9 @@ export async function createJobOffer(req, res) {
         const others = await JobApplication.find({ job: job._id, _id: { $ne: application._id }, status: { $in: ['Applied', 'Shortlisted', 'Interview Scheduled', 'Interviewed'] } }).session(session);
         for (const other of others) await queueNotification(`recruitment-paused:${created._id}:${other._id}`, { userId: String(other.applicant), audience: 'worker', type: 'application', title: 'Recruitment paused', message: 'Available positions are reserved by pending offers. Your application is retained.', entityType: 'application', entityId: String(other._id) }, session);
       }
-      await queueNotification(`offer-created:${created._id}`, { userId: created.worker, audience: 'worker', type: 'application', title: 'Formal job offer', message: `You received a PHP ${Number(created.amount).toFixed(2)} job offer.`, entityType: 'job_offer', entityId: created._id, actor: created.employer, push: true, pushData: { participantId: String(created.employer), jobId: String(created.job) } }, session);
+      await queueNotification(`offer-created:${created._id}`, { userId: created.worker, audience: 'worker', type: 'application', title: 'Job offer received', message: `You received a PHP ${Number(created.amount).toFixed(2)} job offer for ${job.title}.`, link: conversationLink('worker', created.employer, created.job), metadata: { jobId: String(created.job), applicationId: String(created.application) }, entityType: 'job_offer', entityId: created._id, actor: created.employer, push: true, pushData: { participantId: String(created.employer), jobId: String(created.job) } }, session);
     });
+    await deliverQueuedNotification(`offer-created:${created._id}`);
     const chatMessage = await Message.findById(created.chatMessage).populate('sender', 'firstName lastName').populate('receiver', 'firstName lastName').populate('job', 'title').populate('attachment.jobOffer', 'status amount acceptedAt resolvedAt expiresAt').populate('attachment.application', 'workStatus paymentStatus workSubmittedAt dailyPayments');
     if (chatMessage) { emitToUser(String(created.worker), 'new_message', chatMessage); emitToUser(String(created.employer), 'new_message_echo', chatMessage); }
     emitToUser(String(created.worker), 'job_offer_updated', serialize(created));
@@ -88,8 +90,9 @@ export async function respondToJobOffer(req, res) {
       if (action === 'reject') { await refundExtra(offer, session); await Job.updateOne({ _id: offer.job, reservedOfferCount: { $gt: 0 } }, { $inc: { reservedOfferCount: -1 } }, { session }); await JobApplication.updateOne({ _id: offer.application, status: 'Offer Sent' }, { $set: { status: 'Shortlisted' } }, { session }); }
       await offer.save({ session });
       await syncCapacity(job, session);
-      await queueNotification(`offer-response:${offer._id}:${offer.status}`, { userId: offer.employer, audience: 'employer', type: 'application', title: `Offer ${offer.status}`, message: `The worker ${offer.status} your formal offer.`, entityType: 'job_offer', entityId: offer._id, actor: offer.worker, push: true, pushData: { participantId: String(offer.worker), jobId: String(offer.job) } }, session);
+      await queueNotification(`offer-response:${offer._id}:${offer.status}`, { userId: offer.employer, audience: 'employer', type: 'application', title: `Job offer ${offer.status}`, message: `The worker ${offer.status} your offer for ${job.title}.`, link: conversationLink('employer', offer.worker, offer.job), metadata: { jobId: String(offer.job), applicationId: String(offer.application) }, entityType: 'job_offer', entityId: offer._id, actor: offer.worker, push: true, pushData: { participantId: String(offer.worker), jobId: String(offer.job) } }, session);
     });
+    await deliverQueuedNotification(`offer-response:${offer._id}:${offer.status}`);
     emitToUser(String(offer.employer), 'job_offer_updated', serialize(offer));
     return res.json({ offer: serialize(offer) });
   } catch (error) { return res.status(error.status || 500).json({ message: error.message || 'Unable to update offer.' }); }
@@ -136,6 +139,7 @@ export async function confirmOfferHire(req, res) {
         [checklistMessage] = await Message.create([{ sender: offer.employer, receiver: offer.worker, job: job._id, content: `Work checklist for ${job.title}`, clientMessageId: `hire-checklist:${offer._id}`, attachment: { type: 'hire_checklist', application: application._id, jobTitle: job.title, checklist: checklist.map((item) => item.description) } }], { session });
         await User.updateOne({ _id: offer.worker }, { $pull: { archivedConversations: buildConversationKey(String(offer.employer), String(job._id)) } }, { session });
         await User.updateOne({ _id: offer.employer }, { $pull: { archivedConversations: buildConversationKey(String(offer.worker), String(job._id)) } }, { session });
+        await queueNotification(`checklist-created:${offer._id}`, { userId: String(offer.worker), audience: 'worker', type: 'message', title: 'Checklist created', message: `Your employer created a work checklist for ${job.title}. Open Messages to view it.`, link: conversationLink('worker', offer.employer, job._id), entityType: 'hire_checklist', entityId: String(application._id), actor: offer.employer, metadata: { jobId: String(job._id), applicationId: String(application._id), messageId: String(checklistMessage._id) }, pushData: { participantId: String(offer.employer), jobId: String(job._id) } }, session);
         application.timeline.push({ type: 'hire_checklist_sent', actor: userId(req), note: 'Hire checklist sent to the worker.', meta: { itemCount: checklist.length, messageId: checklistMessage._id } });
         await application.save({ session });
       }
@@ -146,7 +150,9 @@ export async function confirmOfferHire(req, res) {
       }
     });
 
+    await deliverQueuedNotification(`hired:${offer._id}`);
     if (checklistMessage) {
+      await deliverQueuedNotification(`checklist-created:${offer._id}`);
       try {
         const message = await Message.findById(checklistMessage._id).populate('sender', 'firstName lastName').populate('receiver', 'firstName lastName').populate('job', 'title');
         if (message) { emitToUser(String(offer.worker), 'new_message', message); emitToUser(String(offer.employer), 'new_message_echo', message); }

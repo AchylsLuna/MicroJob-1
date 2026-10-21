@@ -1,3 +1,5 @@
+import { getWalletTransactionStatus as financialReportStatusKey } from '../../lib/transactionStatus';
+import { financialReportTypeKey } from '../../lib/financialReport';
 import { LifecycleReports } from '../../components/LifecycleReports';
 import { useEffect, useState } from "react";
 import {
@@ -34,6 +36,7 @@ type StoredReport = {
 
 function AdminReportsContent() {
   const { t } = useTranslation("admin");
+  const { t: common } = useTranslation("common");
   const { isLoading, loadError, users, jobs, transactions } = useAdminData();
   const [reportType, setReportType] = useState<ReportType>("users");
   const [fromDate, setFromDate] = useState("");
@@ -104,8 +107,8 @@ function AdminReportsContent() {
   const withinRange = (date?: Date | null, rangeFrom?: string, rangeTo?: string) => {
     if (!date) return false;
     if (!rangeFrom && !rangeTo) return true;
-    const start = rangeFrom ? new Date(`${rangeFrom}T00:00:00`) : null;
-    const end = rangeTo ? new Date(`${rangeTo}T23:59:59`) : null;
+    const start = rangeFrom ? new Date(`${rangeFrom}T00:00:00+08:00`) : null;
+    const end = rangeTo ? new Date(`${rangeTo}T23:59:59.999+08:00`) : null;
     if (start && date < start) return false;
     if (end && date > end) return false;
     return true;
@@ -153,18 +156,24 @@ function AdminReportsContent() {
           const sender = transaction.sender && typeof transaction.sender === "object" ? transaction.sender : null;
           const receiver = transaction.receiver && typeof transaction.receiver === "object" ? transaction.receiver : null;
           const userLabel = (value: typeof sender) => value
-            ? `${value.firstName || ""} ${value.lastName || ""}`.trim() || value.email || value._id || "System"
-            : "System";
+            ? `${value.firstName || ""} ${value.lastName || ""}`.trim() || value.email || value._id || common("financialReports.notRecorded")
+            : common("financialReports.notRecorded");
           return {
             id: transaction._id,
-            type: transaction.type,
-            status: transaction.status || "COMPLETED",
+            type: common(`financialReports.types.${financialReportTypeKey(transaction)}`),
+            transactionTypeCode: transaction.type,
+            status: common(`wallet.transactionStatus.${financialReportStatusKey(transaction)}`),
+            ledgerStatusCode: transaction.status || '',
+            withdrawalStatusCode: transaction.type === 'PAYOUT' ? transaction.payoutRequest?.status || '' : '',
             amount: Number(transaction.amount || 0),
-            balanceTarget: transaction.balanceTarget || "SYSTEM",
+            currency: 'PHP',
+            balanceTarget: common(`financialReports.accounts.${transaction.balanceTarget || 'UNKNOWN'}`),
+            balanceTargetCode: transaction.balanceTarget || '',
             sender: userLabel(sender),
             receiver: userLabel(receiver),
             reference: transaction.reference || "",
-            created: date ? date.toLocaleString() : "—",
+            created: date ? new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'medium' }).format(date) : "—",
+            timezone: 'Asia/Manila',
             date,
           };
         })

@@ -1,3 +1,4 @@
+import { disputeLink } from '../lib/jobNotificationLinks.js';
 import mongoose from 'mongoose';
 import { resolvePublicId } from '../lib/publicId.js';
 import { shapeFinancialDispute } from './FinancialDisputeController.js';
@@ -72,8 +73,9 @@ export const openDispute = handle(async (req, res) => {
       // Writing the assignment prevents a concurrent settlement from bypassing this hold.
       application.disputePending = contestedAmount > 0;
       application.timeline.push({ type: 'dispute_opened', actor: actor(req), note: reason }); await application.save({ session });
-      for (const [user, audience] of [[job.jobPoster, 'employer'], [application.applicant, 'worker']]) await queueNotification(`dispute:${dispute._id}:${user}`, { userId: String(user), audience, type: 'payment', title: 'Financial dispute opened', message: `${contestedAmount > 0 ? 'Affected unpaid funds are held. ' : 'Completed payments remain recorded. '}You have seven days to provide evidence or state that none is available.`, entityType: 'application', entityId: String(application._id) }, session);
+      for (const [user, audience] of [[job.jobPoster, 'employer'], [application.applicant, 'worker']]) await queueNotification(`dispute:${dispute._id}:${user}`, { userId: String(user), audience, type: 'payment', title: 'Financial dispute opened', message: `${job.title}: ${contestedAmount > 0 ? 'Affected unpaid funds are held. ' : 'Completed payments remain recorded. '}You have seven days to provide evidence or state that none is available.`, entityType: 'financial_dispute', entityId: String(dispute._id), link: disputeLink(audience, dispute._id), actor: actor(req), metadata: { jobId: String(job._id), applicationId: String(application._id) }, pushData: { jobId: String(job._id) } }, session);
     });
+    await Promise.all([dispute.employer, dispute.worker].map((user) => deliverQueuedNotification(`dispute:${dispute._id}:${user}`)));
     return res.status(201).json({ dispute });
   } finally { await session.endSession(); }
 });
