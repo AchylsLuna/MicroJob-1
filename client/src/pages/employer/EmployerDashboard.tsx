@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
@@ -12,10 +12,11 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
-import { getEmployerApplications, getMyJobs } from "../../services/api";
+import { getEmployerApplications, getMyJobs, getVerificationStatus } from "../../services/api";
 import { toast } from "../../lib/toast";
 import { ROUTES } from "../../utils/routes";
 import { useAuth } from "../../contexts/AuthContext";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { formatDate } from "../../lib/formatters";
 
 interface StatCardProps {
@@ -28,7 +29,7 @@ interface StatCardProps {
 
 function StatCard({ icon, title, value, helper, iconClass }: StatCardProps) {
   return (
-    <div className="ui-card flex min-h-[138px] flex-col justify-between rounded-2xl border-slate-200 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <div className="ui-card flex min-h-[138px] flex-col justify-between rounded-card border-slate-200 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-slate-500">{title}</p>
@@ -78,6 +79,13 @@ type Application = {
   updatedAt?: string;
   applicant?: { firstName?: string; lastName?: string };
   job?: { title?: string };
+};
+
+type VerificationStep = {
+  id: string;
+  title: string;
+  description: string;
+  status: "complete" | "pending" | "in-review" | "rejected";
 };
 
 const formatRelativeTime = (t: TFunction, value?: string) => {
@@ -151,8 +159,8 @@ const getActivityConfig = (t: TFunction, status: string) => {
       };
     case "Interviewed":
       return {
-        icon: <MessageSquare className="h-4 w-4 text-[#1C4D8D]" />,
-        bg: "bg-[#1C4D8D]/10",
+        icon: <MessageSquare className="h-4 w-4 text-brand" />,
+        bg: "bg-brand/10",
         label: (name: string, title: string) => (
           <p className="text-sm text-[#111827]">
             <Trans
@@ -167,7 +175,7 @@ const getActivityConfig = (t: TFunction, status: string) => {
     default:
       return {
         icon: <Users className="h-4 w-4 text-[#6366F1]" />,
-        bg: "bg-[#1C4D8D]/[0.06]",
+        bg: "bg-brand/[0.06]",
         label: (name: string, title: string) => (
           <p className="text-sm text-[#111827]">
             <Trans
@@ -196,6 +204,9 @@ export function EmployerDashboard() {
   const [jobSummary, setJobSummary] = useState({ active: 0, total: 0 });
   const [recentActivity, setRecentActivity] = useState<Application[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [verificationSteps, setVerificationSteps] = useState<VerificationStep[]>([]);
+  const [verificationCompletionPercent, setVerificationCompletionPercent] = useState(0);
+  const [isVerificationLoading, setIsVerificationLoading] = useState(true);
 
   useEffect(() => {
     if (user?.accountType === "worker") navigate(ROUTES.worker.findJobs, { replace: true });
@@ -246,11 +257,56 @@ export function EmployerDashboard() {
     };
   }, [t]);
 
+  useEffect(() => {
+    let isMounted = true;
+    const loadVerificationStatus = async () => {
+      setIsVerificationLoading(true);
+      try {
+        const response = await getVerificationStatus();
+        if (!isMounted) return;
+        setVerificationSteps(response?.steps || []);
+        setVerificationCompletionPercent(response?.completionPercent || 0);
+      } catch {
+        if (isMounted) setVerificationSteps([]);
+      } finally {
+        if (isMounted) setIsVerificationLoading(false);
+      }
+    };
+    void loadVerificationStatus();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const completedVerificationSteps = verificationSteps.filter((step) => step.status === "complete").length;
+  const remainingVerificationSteps = verificationSteps.filter((step) => step.status !== "complete");
+  const hasFullyVerifiedProfile = !isVerificationLoading
+    && verificationSteps.length === 4
+    && verificationSteps.every((step) => step.status === "complete");
+  const verificationSettingsUrl = `${ROUTES.employer.settings}?tab=verification`;
+  const verificationLinkFor = (step: VerificationStep) => {
+    if (step.id === "email") return ROUTES.emailVerification;
+    if (step.id === "phone" && !user?.phoneNumber) return `${ROUTES.employer.settings}?tab=personal`;
+    return verificationSettingsUrl;
+  };
+  const verificationActionFor = (step: VerificationStep) => {
+    if (step.status === "in-review") return t("employerDashboard.profileCompleteness.actions.view");
+    if (step.status === "rejected") return t("employerDashboard.profileCompleteness.actions.retry");
+    if (step.id === "email") return t("employerDashboard.profileCompleteness.actions.verifyEmail");
+    if (step.id === "phone") {
+      return user?.phoneNumber
+        ? t("employerDashboard.profileCompleteness.actions.verifyPhone")
+        : t("employerDashboard.profileCompleteness.actions.addPhone");
+    }
+    if (step.id === "identity") return t("employerDashboard.profileCompleteness.actions.verifyId");
+    return t("employerDashboard.profileCompleteness.actions.uploadDocument");
+  };
+
   return (
-    <div className="ui-page px-4 md:px-0 pb-16">
+    <div className="ui-page pb-16">
       <div className="ui-page-header">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1C4D8D]">{t("employerDashboard.header.workspace")}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">{t("employerDashboard.header.workspace")}</p>
           <h1 className="ui-page-title mt-1">{t("employerDashboard.header.title")}</h1>
           <p className="ui-page-subtitle">{t("employerDashboard.header.subtitle")}</p>
         </div>
@@ -266,13 +322,68 @@ export function EmployerDashboard() {
           <button
             type="button"
             onClick={() => navigate(ROUTES.employer.postJob)}
-            className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#1C4D8D] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163F75]"
+            className="inline-flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
           >
             <Plus className="h-4 w-4" />
             {t("employerDashboard.header.postJob")}
           </button>
         </div>
       </div>
+
+      <section className="rounded-card border border-[#BFDBFE] bg-[#EFF6FF] p-5" aria-labelledby="employer-profile-completeness-title">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 id="employer-profile-completeness-title" className="text-section font-semibold text-[#1E3A8A]">
+              {t("employerDashboard.profileCompleteness.title")}
+            </h2>
+            <p className="mt-1 text-body-sm text-[#475569]">
+              {hasFullyVerifiedProfile
+                ? t("employerDashboard.profileCompleteness.verifiedDescription")
+                : t("employerDashboard.profileCompleteness.description")}
+            </p>
+          </div>
+          <span className="text-[22px] font-bold text-brand">
+            {isVerificationLoading ? "—" : `${verificationCompletionPercent}%`}
+          </span>
+        </div>
+        <div
+          className="mt-4 h-2 overflow-hidden rounded-full bg-white"
+          role="progressbar"
+          aria-label={t("employerDashboard.profileCompleteness.progressAria")}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={verificationCompletionPercent}
+          aria-valuetext={t("employerDashboard.profileCompleteness.progressText", {
+            completed: completedVerificationSteps,
+            total: verificationSteps.length,
+          })}
+        >
+          <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${verificationCompletionPercent}%` }} />
+        </div>
+        {!isVerificationLoading && remainingVerificationSteps.length > 0 ? (
+          <div className="mt-4 border-t border-[#BFDBFE] pt-4">
+            <p className="text-body-sm font-semibold text-[#1E3A8A]">
+              {t("employerDashboard.profileCompleteness.requirementsTitle")}
+            </p>
+            <ul className="mt-2 space-y-2">
+              {remainingVerificationSteps.map((step) => (
+                <li key={step.id} className="flex flex-wrap items-center justify-between gap-2 text-body-sm">
+                  <div>
+                    <p className="font-medium text-slate-800">{step.title}</p>
+                    <p className="text-slate-600">{step.description}</p>
+                  </div>
+                  <Link
+                    to={verificationLinkFor(step)}
+                    className="shrink-0 font-semibold text-brand underline underline-offset-2 hover:text-[#163F73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                  >
+                    {verificationActionFor(step)}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </section>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
@@ -284,7 +395,7 @@ export function EmployerDashboard() {
               ? t("employerDashboard.stats.loadingJobPosts")
               : t("employerDashboard.stats.totalJobPosts", { count: jobSummary.total })
           }
-          iconClass="bg-[#EAF2FC] text-[#1C4D8D]"
+          iconClass="bg-[#EAF2FC] text-brand"
         />
         <StatCard
           icon={<Users className="h-5 w-5" />}
@@ -295,7 +406,7 @@ export function EmployerDashboard() {
               ? t("employerDashboard.stats.loadingCandidates")
               : t("employerDashboard.stats.awaitingReview", { count: stats.newApplications })
           }
-          iconClass="bg-blue-50 text-blue-600"
+          iconClass="bg-brand-50 text-brand-600"
         />
         <StatCard
           icon={<Clock className="h-5 w-5" />}
@@ -314,13 +425,13 @@ export function EmployerDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)]">
-        <section className="ui-card rounded-2xl border-slate-200 p-6 shadow-sm">
+        <section className="ui-card rounded-card border-slate-200 p-6 shadow-sm">
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-900">{t("employerDashboard.pipeline.title")}</h2>
+              <h2 className="text-section font-bold text-slate-900">{t("employerDashboard.pipeline.title")}</h2>
               <p className="mt-1 text-sm text-slate-500">{t("employerDashboard.pipeline.subtitle")}</p>
             </div>
-            <span className="rounded-full bg-[#EAF2FC] px-3 py-1 text-xs font-semibold text-[#1C4D8D]">
+            <span className="rounded-full bg-[#EAF2FC] px-3 py-1 text-xs font-semibold text-brand">
               {t("employerDashboard.pipeline.totalBadge", { count: isLoading ? 0 : stats.total })}
             </span>
           </div>
@@ -329,7 +440,7 @@ export function EmployerDashboard() {
               label={t("employerDashboard.pipeline.newApplications")}
               count={isLoading ? 0 : stats.newApplications}
               total={stats.total}
-              colorClass="bg-blue-500"
+              colorClass="bg-brand-500"
             />
             <PipelineRow
               label={t("employerDashboard.pipeline.shortlisted")}
@@ -341,7 +452,7 @@ export function EmployerDashboard() {
               label={t("employerDashboard.pipeline.interviewing")}
               count={isLoading ? 0 : stats.interviewed}
               total={stats.total}
-              colorClass="bg-[#1C4D8D]"
+              colorClass="bg-brand"
             />
             <PipelineRow
               label={t("employerDashboard.pipeline.hired")}
@@ -354,23 +465,23 @@ export function EmployerDashboard() {
           <button
             type="button"
             onClick={() => navigate(ROUTES.employer.applications)}
-            className="mt-7 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1C4D8D] px-4 text-sm font-semibold text-white transition hover:bg-[#163F75]"
+            className="mt-7 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90"
           >
             {t("employerDashboard.pipeline.manageApplications")}
             <ArrowRight className="h-4 w-4" />
           </button>
         </section>
 
-        <section className="ui-card rounded-2xl border-slate-200 p-6 shadow-sm">
+        <section className="ui-card rounded-card border-slate-200 p-6 shadow-sm">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-900">{t("employerDashboard.recentActivity.title")}</h2>
+              <h2 className="text-section font-bold text-slate-900">{t("employerDashboard.recentActivity.title")}</h2>
               <p className="mt-1 text-sm text-slate-500">{t("employerDashboard.recentActivity.subtitle")}</p>
             </div>
             <button
               type="button"
               onClick={() => navigate(ROUTES.employer.applications)}
-              className="shrink-0 text-sm font-semibold text-[#1C4D8D] transition hover:text-[#163F75]"
+              className="shrink-0 text-sm font-semibold text-brand transition hover:opacity-90"
             >
               {t("employerDashboard.recentActivity.viewAll")}
             </button>
@@ -379,17 +490,17 @@ export function EmployerDashboard() {
           {isLoading ? (
             <div className="space-y-4" aria-label={t("employerDashboard.recentActivity.loadingAria")}>
               {[0, 1, 2].map((item) => (
-                <div key={item} className="flex animate-pulse items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-slate-100" />
+                <div key={item} className="flex items-center gap-3">
+                  <Skeleton className="h-9 w-9 rounded-full" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-3 w-3/4 rounded bg-slate-100" />
-                    <div className="h-2.5 w-24 rounded bg-slate-100" />
+                    <Skeleton className="h-3 w-3/4" />
+                    <Skeleton className="h-2.5 w-24" />
                   </div>
                 </div>
               ))}
             </div>
           ) : recentActivity.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center">
+            <div className="rounded-card border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center">
               <Users className="mx-auto h-8 w-8 text-slate-300" />
               <p className="mt-3 text-sm font-semibold text-slate-700">{t("employerDashboard.recentActivity.emptyTitle")}</p>
               <p className="mt-1 text-xs text-slate-500">{t("employerDashboard.recentActivity.emptySubtitle")}</p>

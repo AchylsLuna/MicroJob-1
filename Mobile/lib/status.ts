@@ -6,13 +6,14 @@ export type ApplicationStatus =
   | 'Offer Sent'
   | 'Hired'
   | 'Rejected'
-  | 'Withdrawn';
+  | 'Withdrawn'
+  | 'Cancelled'
+  | 'Position filled';
 
 const LEGACY_STATUS_MAP: Record<string, ApplicationStatus> = {
   Pending: 'Applied',
   Reviewed: 'Shortlisted',
   Terms: 'Offer Sent',
-  Interviewed: 'Interview Scheduled',
   Accepted: 'Hired',
   'To Be Interview': 'Interview Scheduled',
 };
@@ -26,6 +27,8 @@ export const APPLICATION_STATUSES: ApplicationStatus[] = [
   'Hired',
   'Rejected',
   'Withdrawn',
+  'Cancelled',
+  'Position filled',
 ];
 
 export function normalizeApplicationStatus(value: unknown): ApplicationStatus {

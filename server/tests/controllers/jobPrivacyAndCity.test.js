@@ -1,11 +1,11 @@
 import test, { after, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 
 import Job from '../../models/Job.js';
 import User from '../../models/User.js';
-import { getApplicantsList, getJobList } from '../../controllers/JobController.js';
+import { getApplicantsList, getJobDetails, getJobList } from '../../controllers/JobController.js';
 
 let mongoServer;
 
@@ -35,7 +35,7 @@ const createUser = async (overrides) => {
   return user.save();
 };
 
-const createJob = (jobPoster, location, applicants = []) => Job.create({
+const createJob = (jobPoster, location, applicants = [], overrides = {}) => Job.create({
   title: `Local job in ${location}`,
   description: 'A local community job.',
   location,
@@ -44,10 +44,16 @@ const createJob = (jobPoster, location, applicants = []) => Job.create({
   deadline: new Date('2027-01-01T00:00:00.000Z'),
   jobPoster,
   applicants,
+  ...overrides,
 });
 
 before(async () => {
-  mongoServer = await MongoMemoryServer.create();
+  // createJob now funds escrow inside `session.withTransaction`, which a
+  // standalone in-memory server cannot run ("This MongoDB deployment does not
+  // support retryable writes"). A single-node replica set supports transactions
+  // and is the same arrangement server/lib/db.js uses for dev/e2e and
+  // applicationSettlement.test.js uses here.
+  mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   await mongoose.connect(mongoServer.getUri(), { dbName: 'job-privacy-city-tests' });
 });
 
@@ -91,7 +97,7 @@ test('a requested city ranks first without hiding the rest of the country', asyn
   assert.ok(response.payload.slice(1).every((job) => job.proximity !== 'city'));
 });
 
-test("a worker's saved city ranks first and overrides a different query city", async () => {
+test("a worker can select a different discovery city", async () => {
   const [worker, employer] = await Promise.all([
     createUser({ role: 'work', city: 'Pasig City' }),
     createUser({ role: 'hire' }),
@@ -110,8 +116,56 @@ test("a worker's saved city ranks first and overrides a different query city", a
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.payload.length, 2, 'other cities remain reachable');
-  assert.match(response.payload[0].location, /Pasig City/, 'the saved city wins over the query city');
+  assert.match(response.payload[0].location, /Makati City/, 'an explicit search city wins over the saved city');
   assert.equal(response.payload[0].proximity, 'city');
+});
+
+test('worker discovery prioritizes highlighted jobs, then verified employers, without exposing verification details', async () => {
+  const [worker, unverifiedEmployer, verifiedEmployer] = await Promise.all([
+    createUser({ role: 'work', city: 'Pasig City' }),
+    createUser({ role: 'hire', companyName: 'Unverified Employer' }),
+    createUser({
+      role: 'hire',
+      companyName: 'Verified Employer',
+      verification: {
+        emailVerified: true,
+        phoneVerified: true,
+        identityDocument: { status: 'complete' },
+        addressDocument: { status: 'complete' },
+      },
+    }),
+  ]);
+  await Promise.all([
+    createJob(unverifiedEmployer._id, 'Pasig City, Metro Manila', [], {
+      title: 'Highlighted job',
+      highlighted: true,
+    }),
+    createJob(verifiedEmployer._id, 'Cebu City, Cebu'),
+    createJob(unverifiedEmployer._id, 'Pasig City, Metro Manila', [], { title: 'Normal job' }),
+  ]);
+
+  const response = createResponse();
+  await getJobList({ query: {}, headers: {}, user: { id: worker._id, role: 'work' } }, response);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.payload[0].title, 'Highlighted job');
+  assert.equal(response.payload[0].discoveryPriority, 0);
+  assert.equal(response.payload[1].jobPoster.companyName, 'Verified Employer');
+  assert.equal(response.payload[1].discoveryPriority, 1);
+  assert.equal(response.payload[1].employerVerified, true);
+  assert.equal(response.payload[2].title, 'Normal job');
+  assert.equal(response.payload[2].discoveryPriority, 2);
+  assert.equal(response.payload[2].employerVerified, false);
+  assert.equal(response.payload[1].jobPoster.verification, undefined, 'verification details must remain private');
+
+  const detailResponse = createResponse();
+  await getJobDetails(
+    { params: { id: response.payload[1]._id }, user: { id: worker._id, role: 'work' }, get: () => '' },
+    detailResponse,
+  );
+  assert.equal(detailResponse.statusCode, 200);
+  assert.equal(detailResponse.payload.employerVerified, true);
+  assert.equal(detailResponse.payload.jobPoster.verification, undefined, 'job details must also keep verification details private');
 });
 
 test('a worker with no city set still sees the national list', async () => {

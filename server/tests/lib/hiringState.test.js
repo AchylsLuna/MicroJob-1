@@ -47,10 +47,10 @@ test('a job with all positions reserved by offers is at capacity', () => {
   assert.equal(isAtCapacity({ hiredCount: 1, reservedOfferCount: 1, positionsNeeded: 3 }), false);
 });
 
-test('resolveJobAvailability closes a job once every position is committed', () => {
+test('confirmed hires keep a job in progress while offer-only capacity pauses recruitment', () => {
   assert.equal(
     resolveJobAvailability({ status: 'Available', hiredCount: 1, reservedOfferCount: 0, positionsNeeded: 1 }),
-    'Closed',
+    'In Progress',
   );
   assert.equal(
     resolveJobAvailability({ status: 'Available', hiredCount: 0, reservedOfferCount: 2, positionsNeeded: 2 }),
@@ -87,7 +87,7 @@ test('resolveJobAvailability never reopens a job the employer closed by hand', (
 });
 
 test('resolveJobAvailability leaves terminal job states untouched', () => {
-  for (const status of ['Completed', 'Cancelled', 'In Progress']) {
+  for (const status of ['Completed', 'Cancelled', 'Full refund', 'Resolved']) {
     assert.equal(
       resolveJobAvailability({ status, hiredCount: 0, reservedOfferCount: 0, positionsNeeded: 4 }),
       status,
@@ -99,6 +99,12 @@ test('resolveJobAvailability leaves terminal job states untouched', () => {
       status,
     );
   }
+});
+
+test('job phase follows remaining hires without reopening manually closed recruitment', () => {
+  assert.equal(resolveJobAvailability({ status: 'Closed', hiredCount: 1, positionsNeeded: 3, closedManually: true }), 'In Progress');
+  assert.equal(resolveJobAvailability({ status: 'In Progress', hiredCount: 0, positionsNeeded: 3 }), 'Available');
+  assert.equal(resolveJobAvailability({ status: 'In Progress', hiredCount: 0, positionsNeeded: 3, closedManually: true }), 'Closed');
 });
 
 test('nextHiredCount increments on hire and decrements on un-hire', () => {

@@ -2,8 +2,14 @@ name: CI
 
 on:
   push:
+    # `test_production` is where work actually lands, and it ran no CI at all --
+    # which is how `npm run check:security` sat red on it unnoticed (a critical
+    # proxy-addr IP-spoofing advisory that defeated the IP-keyed rate limiters,
+    # plus three high findings in production dependencies). Add any other
+    # long-lived working branch here, or drop the filter entirely to cover all.
     branches:
       - main
+      - test_production
   pull_request:
 
 permissions:
@@ -43,3 +49,12 @@ jobs:
 
       - name: Verify application
         run: npm run verify
+
+      # The e2e suite starts its own API and client (see playwright.config.ts
+      # and scripts/start-e2e-*.cjs), so it needs no service wiring here -- only
+      # the browsers, which are not part of npm ci.
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run end-to-end tests
+        run: npm run test:e2e

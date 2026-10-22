@@ -1,23 +1,30 @@
 import Message from '../models/Message.js';
 import User from '../models/User.js';
 import Job from '../models/Job.js';
+import JobApplication from '../models/JobApplication.js';
 import { emitToUser } from '../lib/socket.js';
 import { createNotification } from '../lib/notificationService.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { isValidObjectId, validateMessageContent } from '../lib/messageSecurity.js';
 import { isStaffRole } from '../lib/staffProfileVisibility.js';
+import { resolvePublicId } from '../lib/publicId.js';
 import {
   buildConversationKey,
   buildInquiryMessage,
   describeInquiryConversation,
   evaluateJobInquiry,
   isJobConversationParticipant,
-  normalizeOptionalJobId,
+  normalizeOptionalJobId as normalizeJobId,
   parseConversationKey,
   toIdString,
 } from '../lib/jobInquiry.js';
 
 const getAuthUserId = (req) => req.user?.id || req.user?._id || req.user?.userId || null;
+// Keep stored conversation keys unchanged while accepting public job links.
+const normalizeOptionalJobId = (value) => {
+  const id = normalizeJobId(value);
+  return resolvePublicId(id) || id;
+};
 
 
 const getDisplayName = (user) => {
@@ -37,7 +44,8 @@ const withMessagePopulate = (query) =>
     .populate('receiver', 'firstName lastName role')
     .populate('job', 'title')
     .populate('attachment.settlementRequest', 'status expiresAt settledAt')
-    .populate('attachment.jobOffer', 'status amount acceptedAt resolvedAt');
+    .populate('attachment.jobOffer', 'status amount acceptedAt resolvedAt expiresAt')
+    .populate({ path: 'attachment.application', select: 'workStatus paymentStatus workSubmittedAt dailyPayments', model: JobApplication });
 
 /**
  * Loads the job for a job-scoped message and confirms the thread belongs to the
@@ -139,7 +147,7 @@ const getConversationWithUser = async (req, res) => {
 
   try {
     const userId = getAuthUserId(req);
-    const { otherUserId } = req.params;
+    const otherUserId = resolvePublicId(req.params.otherUserId);
     const jobId = normalizeOptionalJobId(req.query?.jobId);
     if (!userId) return sendError(res, 401, 'Authentication required.');
     if (!otherUserId) return sendError(res, 400, 'otherUserId required');
@@ -149,6 +157,9 @@ const getConversationWithUser = async (req, res) => {
         { sender: userId, receiver: otherUserId },
         { sender: otherUserId, receiver: userId },
       ],
+      // Messages this viewer has deleted stay hidden from them, while the
+      // counterparty keeps their own copy.
+      deletedFor: { $ne: userId },
     };
     if (jobId) filter.job = jobId;
 
@@ -163,7 +174,8 @@ const MessageController = {
   // Send a message from employer to worker or vice versa
   sendMessage: async (req, res) => {
     try {
-      const { receiverId, content, jobId, clientMessageId } = req.body;
+      const { content, jobId, clientMessageId } = req.body;
+      const receiverId = resolvePublicId(req.body.receiverId);
       const senderId = getAuthUserId(req);
       const { content: trimmedContent, error: contentError } = validateMessageContent(content);
       const normalizedJobId = normalizeOptionalJobId(jobId);
@@ -243,7 +255,7 @@ const MessageController = {
   startJobInquiry: async (req, res) => {
     try {
       const senderId = getAuthUserId(req);
-      const jobId = normalizeOptionalJobId(req.params?.jobId || req.body?.jobId);
+      const jobId = resolvePublicId(req.params?.jobId || req.body?.jobId);
       if (!senderId) return sendError(res, 401, 'Authentication required.');
       if (!jobId || !isValidObjectId(jobId)) return sendError(res, 400, 'A valid jobId is required.');
 
@@ -322,8 +334,8 @@ const MessageController = {
       if (String(message.sender) !== String(userId)) {
         return sendError(res, 403, 'You can only edit your own messages.');
       }
-      if (message.attachment?.type === 'settlement_request') {
-        return sendError(res, 400, 'Payment invoice messages cannot be edited.');
+      if (['settlement_request', 'completion_evidence', 'hire_checklist'].includes(message.attachment?.type)) {
+        return sendError(res, 400, 'Attached job and payment messages cannot be edited.');
       }
 
       const createdAtMs = new Date(message.createdAt).getTime();
@@ -369,7 +381,7 @@ const MessageController = {
 
       // Most recent first so the first hit per conversation key is the preview we need.
       const messages = await withMessagePopulate(
-        Message.find({ $or: [{ sender: userId }, { receiver: userId }] })
+        Message.find({ $or: [{ sender: userId }, { receiver: userId }], deletedFor: { $ne: userId } })
       ).sort({ createdAt: -1 });
 
       const conversationMap = new Map();
@@ -417,7 +429,8 @@ const MessageController = {
   getMessages: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
-      const { otherUserId, jobId } = req.query;
+      const { jobId } = req.query;
+      const otherUserId = resolvePublicId(req.query.otherUserId);
       const normalizedJobId = normalizeOptionalJobId(jobId);
       if (!userId) return sendError(res, 401, 'Authentication required.');
       if (!otherUserId) return sendError(res, 400, 'otherUserId required');
@@ -426,6 +439,7 @@ const MessageController = {
           { sender: userId, receiver: otherUserId },
           { sender: otherUserId, receiver: userId },
         ],
+        deletedFor: { $ne: userId },
       };
       if (normalizedJobId) filter.job = normalizedJobId;
       const messages = await withMessagePopulate(Message.find(filter)).sort({ createdAt: 1 });
@@ -439,7 +453,8 @@ const MessageController = {
   markAsRead: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
-      const { otherUserId, jobId, read } = req.body;
+      const { jobId, read } = req.body;
+      const otherUserId = resolvePublicId(req.body.otherUserId);
       const normalizedJobId = normalizeOptionalJobId(jobId);
       if (!userId) return sendError(res, 401, 'Authentication required.');
       if (!otherUserId) return sendError(res, 400, 'otherUserId required');
@@ -473,7 +488,8 @@ const MessageController = {
   blockUser: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
-      const { otherUserId, jobId } = req.body;
+      const { jobId } = req.body;
+      const otherUserId = resolvePublicId(req.body.otherUserId);
       if (!userId) return sendError(res, 401, 'Authentication required.');
       if (!otherUserId || !isValidObjectId(otherUserId)) return sendError(res, 400, 'A valid otherUserId is required.');
       const normalizedJobId = normalizeOptionalJobId(jobId);
@@ -500,7 +516,7 @@ const MessageController = {
   unblockUser: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
-      const { otherUserId } = req.body;
+      const otherUserId = resolvePublicId(req.body.otherUserId);
       if (!userId) return sendError(res, 401, 'Authentication required.');
       if (!otherUserId || !isValidObjectId(otherUserId)) return sendError(res, 400, 'A valid otherUserId is required.');
       await User.updateOne({ _id: userId }, { $pull: { blockedUsers: otherUserId } });
@@ -517,7 +533,8 @@ const MessageController = {
   archiveConversation: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
-      const { otherUserId, jobId, archive } = req.body;
+      const { jobId, archive } = req.body;
+      const otherUserId = resolvePublicId(req.body.otherUserId);
       if (!userId) return sendError(res, 401, 'Authentication required.');
       if (!otherUserId) return sendError(res, 400, 'otherUserId required');
       const normalizedJobId = normalizeOptionalJobId(jobId);
@@ -592,16 +609,31 @@ const MessageController = {
   // Permanently erase one exact conversation (general or job-scoped) for both
   // participants. This is intentionally separate from archiving, which is
   // reversible and only affects the current user's inbox.
-  deleteConversationForBoth: async (req, res) => {
+  /**
+   * Deletes a conversation **for the calling user only**.
+   *
+   * This used to run `Message.deleteMany` across both directions of the thread,
+   * so either party could irreversibly erase the conversation from the other's
+   * inbox -- settlement-request invoices and formal job offers included, which
+   * is exactly the evidence a scammer would want gone after a dispute. The
+   * route comment in routes/MessageRoute.js already promised per-user
+   * semantics; only the implementation disagreed.
+   *
+   * Each side's deletion is now recorded in `Message.deletedFor`, and a
+   * document is only physically removed once *both* participants have deleted
+   * it, so storage is still reclaimed without one side destroying the other's
+   * copy.
+   */
+  deleteConversationForMe: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
-      const { otherUserId, jobId } = req.body;
+      const { jobId } = req.body;
+      const otherUserId = resolvePublicId(req.body.otherUserId);
       if (!userId) return sendError(res, 401, 'Authentication required.');
       if (!otherUserId || !isValidObjectId(otherUserId)) return sendError(res, 400, 'A valid otherUserId is required');
       const normalizedJobId = normalizeOptionalJobId(jobId);
       if (normalizedJobId && !isValidObjectId(normalizedJobId)) return sendError(res, 400, 'A valid jobId is required');
       const conversationId = buildConversationKey(otherUserId, normalizedJobId);
-      const otherConversationId = buildConversationKey(userId, normalizedJobId);
       const filter = {
         $or: [
           { sender: userId, receiver: otherUserId },
@@ -610,28 +642,25 @@ const MessageController = {
       };
       if (normalizedJobId) filter.job = normalizedJobId;
 
-      const deletion = await Message.deleteMany(filter);
-      await Promise.all([
-        User.updateOne({ _id: userId }, { $pull: { archivedConversations: conversationId } }),
-        User.updateOne({ _id: otherUserId }, { $pull: { archivedConversations: otherConversationId } }),
-      ]);
+      const hidden = await Message.updateMany(filter, { $addToSet: { deletedFor: userId } });
 
-      try {
-        emitToUser(otherUserId, 'conversation_deleted', {
-          otherUserId: String(userId),
-          jobId: normalizedJobId || null,
-        });
-      } catch (e) {
-        // Deletion is already committed; the recipient's normal refresh will
-        // still remove the empty conversation if their socket is unavailable.
-      }
+      // Reclaim only what both sides have deleted.
+      const purge = await Message.deleteMany({
+        ...filter,
+        deletedFor: { $all: [userId, otherUserId] },
+      });
 
+      // Only the caller's own archive entry is touched; the counterparty's view
+      // of this conversation is deliberately left exactly as it was.
+      await User.updateOne({ _id: userId }, { $pull: { archivedConversations: conversationId } });
+
+      const deletedCount = hidden.modifiedCount || 0;
       return sendSuccess(
         res,
         200,
-        'Conversation permanently deleted',
-        { conversationId, deletedCount: deletion.deletedCount || 0 },
-        { conversationId, deletedCount: deletion.deletedCount || 0, permanent: true }
+        'Conversation deleted',
+        { conversationId, deletedCount, purgedCount: purge.deletedCount || 0 },
+        { conversationId, deletedCount, purgedCount: purge.deletedCount || 0, permanent: false }
       );
     } catch (error) {
       return sendError(res, 500, 'Server error', { error: error.message });

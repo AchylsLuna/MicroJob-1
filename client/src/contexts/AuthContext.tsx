@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useRef, useState, useEffect, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "../lib/toast";
+import { queryClient } from "../lib/queryClient";
 import {
   loginUser,
   selectLoginMethod as selectLoginMethodRequest,
@@ -19,6 +20,7 @@ import {
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
 import { normalizeStaffRole, type AdminStaffRole } from "../lib/adminPermissions";
 import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
+import { clearBearerTokens, storeBearerTokens, usesBearerAuthTransport } from "../utils/authTransport";
 import {
   getEmailValidationMessage,
   getFullNameValidationMessage,
@@ -30,6 +32,7 @@ import {
   normalizeFullName,
   normalizePhone,
 } from "../lib/authValidation";
+import type { ProfileVerification } from "../lib/profileVerification";
 
 export interface User {
   id: string;
@@ -74,6 +77,7 @@ export interface User {
   projectsCompleted?: number;
   jobsApplied?: number;
   successRate?: string;
+  verification?: ProfileVerification;
   /** Employer-side stats, computed fresh on every profile load (never cached) --
    * see server/controllers/ProfileController.js#getProfile. Kept on separate
    * fields from the worker stats above so a 'both'-role user's two roles never
@@ -82,6 +86,7 @@ export interface User {
   totalApplicants?: number;
   employerSuccessRate?: string;
   passwordChangeRequired?: boolean;
+  otpEnabled?: boolean;
   skills?: Array<{
     _id?: string;
     id?: string;
@@ -141,6 +146,8 @@ type MfaChallenge = {
 type LoginOtpChallenge = {
   otpToken: string;
   email: string;
+  deliveryEmail?: string;
+  staffLogin?: boolean;
 };
 
 type LoginMethodSelection = {
@@ -152,7 +159,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string, options?: { suppressToast?: boolean; requireOtp?: boolean }) => Promise<LoginResult>;
+  login: (email: string, password: string, options?: { suppressToast?: boolean; requireOtp?: boolean; staffOnly?: boolean }) => Promise<LoginResult>;
   googleSignIn: (credential: string, role?: "hire" | "work" | "both") => Promise<User>;
   mfaChallenge: MfaChallenge | null;
   loginMethodSelection: LoginMethodSelection | null;
@@ -178,6 +185,18 @@ interface AuthContextType {
   verifyPasswordResetCode: (code: string) => Promise<void>;
   resetPassword: (code: string, newPassword: string) => Promise<void>;
   pendingVerification: { email: string; name: string; flow?: "signup" | "signin" } | null;
+  /**
+   * The verification code, when the API hands it back instead of only
+   * emailing it. `UserController.sendOtp` returns `code` on every
+   * non-production response (`:1003` with no SMTP configured, `:1031`
+   * even when the mail is sent), so a developer can finish sign-up
+   * without a working inbox. It was being discarded, which left the
+   * OTP step impossible to pass locally whenever mail did not arrive.
+   *
+   * Kept in memory only, never persisted, and absent in production
+   * because the server does not send it there.
+   */
+  devVerificationCode: string | null;
   updateProfile: (updates: Partial<User>) => void;
 }
 
@@ -340,6 +359,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const userRef = useRef<User | null>(user);
   userRef.current = user;
   const [isLoading, setIsLoading] = useState(true);
+  const [devVerificationCode, setDevVerificationCode] = useState<string | null>(null);
   const [pendingVerification, setPendingVerification] = useState<{
     email: string;
     name: string;
@@ -353,6 +373,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loginMethodSelection, setLoginMethodSelection] = useState<LoginMethodSelection | null>(null);
 
   const completeLogin = (response: any, fallbackEmail: string) => {
+    storeBearerTokens(getResponseContainer(response));
     const { user: apiUser } = getAuthPayload(response);
     if (!apiUser) {
       throw new Error("Invalid login response from server.");
@@ -391,9 +412,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       avatarUrl: apiUser.avatarUrl,
       authProvider: apiUser.authProvider === "google" ? "google" : "password",
       passwordChangeRequired: Boolean(apiUser.passwordChangeRequired),
+      ...(role === "admin" ? { otpEnabled: Boolean(apiUser.otpEnabled) } : {}),
       createdAt: new Date().toISOString(),
     };
 
+    if (role === "admin" && apiUser.otpEnabled === false) {
+      sessionStorage.setItem("staff_otp_setup_warning", loggedInUser.id);
+    } else {
+      sessionStorage.removeItem("staff_otp_setup_warning");
+    }
     setUser(loggedInUser);
     setMfaChallenge(null);
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(loggedInUser));
@@ -404,12 +431,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const syncSessionFromStorage = () => {
-      // Token storage is deprecated; auth now uses httpOnly cookies.
+      // Legacy localStorage credentials are never used. Azure's optional
+      // bearer transport instead uses sessionStorage, which is tab-scoped.
       localStorage.removeItem(AUTH_TOKEN_KEY);
       localStorage.removeItem(LEGACY_TOKEN_KEY);
 
       const currentUser = localStorage.getItem(AUTH_USER_KEY) || localStorage.getItem(CURRENT_USER_KEY);
-      if (!currentUser) {
+      if (!currentUser || (usesBearerAuthTransport() && !sessionStorage.getItem("microjobs_bearer_access_token"))) {
+        if (usesBearerAuthTransport()) {
+          localStorage.removeItem(AUTH_USER_KEY);
+          localStorage.removeItem(CURRENT_USER_KEY);
+        }
         setUser(null);
       } else {
         try {
@@ -504,33 +536,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ? "both"
           : "work";
 
-    // Store pending verification
-    setPendingVerification({ email: normalizedEmail, name: normalizedName, flow: "signup" });
-    localStorage.setItem(PENDING_VERIFICATION_EMAIL_KEY, normalizedEmail);
-    localStorage.setItem(PENDING_VERIFICATION_NAME_KEY, normalizedName);
-    localStorage.setItem(PENDING_VERIFICATION_FLOW_KEY, "signup");
-    localStorage.setItem("pending_account_preference", accountPreference);
-
     try {
-      try {
-        await registerUser({
-          username: normalizedName,
-          firstName,
-          lastName,
-          email: normalizedEmail,
-          password,
-          phoneNumber: normalizedPhone,
-          role,
-        });
-      } catch (error: any) {
-        const message = String(error?.message || "");
-        const isAlreadyRegistered = /already registered|already exists/i.test(message);
-        if (!isAlreadyRegistered) {
-          throw error;
-        }
-      }
+      // Registration is also the authoritative duplicate-email check. Do not
+      // mark the browser as pending or send an OTP unless it created this
+      // account successfully; otherwise an existing account would receive a
+      // fresh verification code after the user clicked Create Account.
+      await registerUser({
+        username: normalizedName,
+        firstName,
+        lastName,
+        email: normalizedEmail,
+        password,
+        phoneNumber: normalizedPhone,
+        role,
+      });
 
-      await sendOtp({ email: normalizedEmail });
+      setPendingVerification({ email: normalizedEmail, name: normalizedName, flow: "signup" });
+      localStorage.setItem(PENDING_VERIFICATION_EMAIL_KEY, normalizedEmail);
+      localStorage.setItem(PENDING_VERIFICATION_NAME_KEY, normalizedName);
+      localStorage.setItem(PENDING_VERIFICATION_FLOW_KEY, "signup");
+      localStorage.setItem("pending_account_preference", accountPreference);
+
+      const challenge = await sendOtp({ email: normalizedEmail });
+      setDevVerificationCode(typeof challenge?.code === "string" ? challenge.code : null);
       toast.success("Verification code sent to your email.");
     } catch (error: any) {
       setPendingVerification(null);
@@ -538,7 +566,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
       localStorage.removeItem(PENDING_VERIFICATION_NAME_KEY);
       localStorage.removeItem(PENDING_VERIFICATION_FLOW_KEY);
-      throw new Error(error?.message || "Registration failed");
+      const registrationError = new Error(error?.message || "Registration failed") as Error & { code?: string };
+      if (typeof error?.code === "string") registrationError.code = error.code;
+      throw registrationError;
     } finally {
       setIsLoading(false);
     }
@@ -570,6 +600,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await verifyOtp({ email: verificationEmail, code: otp });
+      storeBearerTokens(getResponseContainer(response));
       const { user: apiUser } = getAuthPayload(response);
       if (!apiUser) {
         throw new Error("Invalid verification response from server.");
@@ -650,7 +681,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      await sendOtp({ email: verificationEmail });
+      const challenge = await sendOtp({ email: verificationEmail });
+      setDevVerificationCode(typeof challenge?.code === "string" ? challenge.code : null);
       toast.success("New OTP sent!");
     } catch (error: any) {
       toast.error(error?.message || "Failed to resend OTP");
@@ -660,7 +692,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (
     email: string,
     password: string,
-    options?: { suppressToast?: boolean; requireOtp?: boolean }
+    options?: { suppressToast?: boolean; requireOtp?: boolean; staffOnly?: boolean }
   ): Promise<LoginResult> => {
     setIsLoading(true);
     const normalizedEmail = email.trim().toLowerCase();
@@ -670,6 +702,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         emailOrUsername: normalizedEmail,
         password,
         requireOtp: options?.requireOtp,
+        staffOnly: options?.staffOnly,
       });
       const container = getResponseContainer(response);
       if (container?.mfaRequired) {
@@ -693,7 +726,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (container?.otpRequired) {
         const otpToken = String(container.otpToken || "");
         if (!otpToken) throw new Error("Invalid OTP challenge from server.");
-        setLoginOtpChallenge({ otpToken, email: normalizedEmail });
+        setLoginOtpChallenge({ otpToken, email: normalizedEmail, deliveryEmail: container.deliveryEmail, staffLogin: Boolean(container.staffLogin) });
         setIsLoading(false);
         if (!options?.suppressToast) {
           toast.success("OTP sent to your email!");
@@ -835,6 +868,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const cancelLoginOtp = () => setLoginOtpChallenge(null);
 
   const logout = (options?: { silent?: boolean }) => {
+    sessionStorage.removeItem("staff_otp_setup_warning");
     try {
       logoutUser().catch(() => undefined);
     } catch {
@@ -849,10 +883,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(AUTH_USER_KEY);
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(LEGACY_TOKEN_KEY);
+    clearBearerTokens();
     localStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
     localStorage.removeItem(PENDING_VERIFICATION_NAME_KEY);
     localStorage.removeItem(PENDING_VERIFICATION_FLOW_KEY);
     sessionStorage.removeItem(POST_VERIFY_REDIRECT_KEY);
+    // Evict every cached query. Without this, the next account to sign in
+    // on this browser sees the previous user's cached profile/jobs/etc.
+    // until each query's staleTime lapses and refetches -- a real data leak
+    // between accounts on a shared device, not just a stale-content nit.
+    queryClient.clear();
     if (!options?.silent) {
       toast.success("Logged out successfully");
     }
@@ -971,6 +1011,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         verifyPasswordResetCode,
         resetPassword,
         pendingVerification,
+        devVerificationCode,
         updateProfile,
       }}
     >

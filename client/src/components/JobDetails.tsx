@@ -19,7 +19,7 @@ export function JobDetails() {
     <div className="max-w-[1341px] mx-auto space-y-6 font-sans">
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-[14px] text-[#6B7280] hover:text-[#111827] transition-colors"
+        className="flex items-center gap-2 text-body text-[#6B7280] hover:text-[#111827] transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
         {t("jobDetails.backToJobs")}

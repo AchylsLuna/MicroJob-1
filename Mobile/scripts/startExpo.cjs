@@ -160,15 +160,11 @@ function getPortOwnerCommand(port) {
 }
 
 async function printReusableMetroQr(port) {
-  const [apiHealth, socketHandshake] = await Promise.all([
-    requestText(port, '/microjobs-api/api/health'),
-    requestText(port, '/microjobs-socket/?EIO=4&transport=polling'),
-  ]);
-  if (apiHealth.status !== 200 || !apiHealth.body.includes('microjobs-api')) {
-    throw new Error(`Metro is running on port ${port}, but its MicroJobs API proxy is unavailable. Stop the existing Metro process and run \`npm run dev\` from the repository root.`);
-  }
-  if (socketHandshake.status !== 200 || !socketHandshake.body.includes('sid')) {
-    throw new Error(`Metro is running on port ${port}, but its MicroJobs realtime proxy is unavailable. Stop the existing Metro process and run \`npm run dev\` from the repository root.`);
+  const health = await requestText(port, '/microjobs-dev/health');
+  let identity;
+  try { identity = JSON.parse(health.body); } catch {}
+  if (health.status !== 200 || identity?.service !== 'microjobs-metro') {
+    throw new Error(`Metro is running on port ${port}, but its MicroJobs configuration is stale or belongs to another project. Stop the existing Metro process and run \`npm run dev\` from the repository root.`);
   }
 
   const ownerCommand = getPortOwnerCommand(port);
@@ -185,18 +181,30 @@ async function printReusableMetroQr(port) {
   }
 
   const expoUrl = `exp://${host}:${port}`;
-  const mobileApiUrl = `http://${host}:${port}/microjobs-api/api`;
-  const qrcode = require('qrcode-terminal');
+  const qrcode = require('qrcode');
   console.log('\nMicroJobs Expo Go is ready');
   console.log(`  Expo:       ${expoUrl}`);
-  console.log(`  Mobile API: ${mobileApiUrl}`);
-  console.log('  Realtime:   verified through /microjobs-socket');
-  qrcode.generate(expoUrl, { small: true });
+  console.log(await qrcode.toString(expoUrl, { type: 'terminal', small: true }));
   console.log('Scan this QR with Expo Go. The existing Metro process will continue serving the app.');
 }
 
 async function main() {
   assertExpoGoCompatibility();
+
+  const childEnv = {
+    ...process.env,
+    EXPO_NO_METRO_WORKSPACE_ROOT: process.env.EXPO_NO_METRO_WORKSPACE_ROOT || '1',
+  };
+
+  const configuredApiUrl = String(childEnv.EXPO_PUBLIC_API_URL || '');
+  const localApiHost = /^(?:localhost|127(?:\.\d{1,3}){3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}|0\.0\.0\.0|::1)(?::\d+)?(?:\/|$)/i;
+  childEnv.EXPO_PUBLIC_API_URL = !configuredApiUrl || localApiHost.test(configuredApiUrl.replace(/^[a-z][a-z0-9+.-]*:\/\//i, ''))
+    ? 'https://microjobs-api-test.azurewebsites.net/api'
+    : configuredApiUrl;
+  childEnv.EXPO_PUBLIC_SOCKET_URL = childEnv.EXPO_PUBLIC_SOCKET_URL || 'https://microjobs-api-test.azurewebsites.net';
+  childEnv.EXPO_PUBLIC_SOCKET_PATH = childEnv.EXPO_PUBLIC_SOCKET_PATH || '/socket.io';
+  childEnv.EXPO_PUBLIC_API_SOURCE = childEnv.EXPO_PUBLIC_API_SOURCE || 'production-default';
+  console.log(`Mobile API: ${childEnv.EXPO_PUBLIC_API_URL}`);
 
   const requestedPort = parseRequestedPort(extraArgs);
   const forwardedArgs = stripPortArgs(extraArgs);
@@ -227,27 +235,6 @@ async function main() {
 
   const wantsIOS = forwardedArgs.some((arg) => iosFlags.has(arg));
   const simctlAvailable = canUseSimctl();
-  const childEnv = {
-    ...process.env,
-    EXPO_NO_METRO_WORKSPACE_ROOT: process.env.EXPO_NO_METRO_WORKSPACE_ROOT || '1',
-  };
-
-  const usesLocalhost = forwardedArgs.includes('--localhost') || modeArgs.includes('--localhost');
-  if (!childEnv.EXPO_PUBLIC_API_URL && !usesLocalhost) {
-    // Generic PORT is frequently set by hosting tools and belongs to the
-    // process being launched, not necessarily the MicroJobs API.
-    const apiPort = String(childEnv.EXPO_PUBLIC_API_PORT || childEnv.DEV_API_PORT || '5050');
-    const lanAddress = getLanAddress();
-    if (!lanAddress && !forwardedArgs.includes('--tunnel') && !modeArgs.includes('--tunnel')) {
-      console.warn('No private LAN address was detected. Set EXPO_PUBLIC_API_URL to the API address reachable by your phone.');
-    }
-    childEnv.MICROJOBS_METRO_API_TARGET = `http://127.0.0.1:${apiPort}`;
-    childEnv.EXPO_PUBLIC_SOCKET_PATH = '/microjobs-socket';
-    childEnv.EXPO_PUBLIC_API_SOURCE = 'development-metro-proxy';
-    console.log('Mobile API: derived from the Expo QR host through Metro proxy');
-  } else if (childEnv.EXPO_PUBLIC_API_URL) {
-    console.log(`Mobile API: ${childEnv.EXPO_PUBLIC_API_URL}`);
-  }
 
   if (process.platform === 'darwin' && !simctlAvailable) {
     if (wantsIOS) {

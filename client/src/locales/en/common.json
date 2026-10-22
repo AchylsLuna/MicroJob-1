@@ -1,4 +1,45 @@
 {
+  "financialReports": {
+    "notRecorded": "Not recorded",
+    "title": "Financial and cancellation reports",
+    "financialHistory": "Financial transaction history",
+    "cancellationHistory": "Cancellation history",
+    "types": {
+      "topUp": "Wallet top-up",
+      "reservation": "Job funds reservation",
+      "withdrawal": "Withdrawal",
+      "jobPayment": "Job payment",
+      "refund": "Refund",
+      "postingFee": "Job posting fee",
+      "highlightFee": "Job highlight fee",
+      "unknown": "Unknown"
+    },
+    "accounts": {
+      "EMPLOYER": "Employer wallet",
+      "WORKER": "Worker wallet",
+      "ESCROW": "Reserved job funds",
+      "SYSTEM": "Platform account",
+      "UNKNOWN": "Not recorded"
+    }
+  },
+  "jobNotifications": { "openDispute": "Open dispute" },
+  "offerResponse": {
+    "respondBy": "Respond by {{date}} (Asia/Manila). Unanswered offers expire and release the reserved position.",
+    "expired": "This offer has expired. Contact the employer if you are still interested.",
+    "expiredStatus": "Expired"
+  },
+  "workTime": {
+    "title": "Work time per day",
+    "start": "Start work time",
+    "end": "End work time",
+    "select": "Select time",
+    "done": "Done",
+    "hint": "Same shift on each selected day, in Asia/Manila. An end time before the start means the next day.",
+    "duration": "{{hours}}h {{minutes}}m per day",
+    "hourly": "{{amount}}/hour",
+    "nextDay": "(next day)",
+    "invalid": "Select different start and end work times."
+  },
   "language": {
     "label": "Language",
     "english": "English",
@@ -11,6 +52,9 @@
   },
   "dialog": {
     "closeLabel": "Close dialog"
+  },
+  "alert": {
+    "dismiss": "Got it"
   },
   "loading": "Loading...",
   "settings": {
@@ -31,11 +75,6 @@
     "openNavigationMenu": "Open navigation menu",
     "workerHomeAria": "MicroJobs home",
     "workerPrimaryNavigationAria": "Worker primary navigation",
-    "quickLinks": "Quick links",
-    "quickLinksHint": "Open another part of your workspace.",
-    "openMoreNavigation": "Open more navigation",
-    "moreNavigationMenuAria": "More navigation",
-    "more": "More",
     "notifications": "Notifications",
     "notificationsAriaLabel": "Notifications",
     "notificationsAriaLabelUnread_one": "Notifications, {{count}} unread",
@@ -63,44 +102,351 @@
       "markAllReadSuccess": "All notifications marked as read",
       "markAllReadFailed": "Failed to mark all as read."
     },
-    "moreNav": {
-      "jobsManagement": "Jobs management",
-      "applications": "Applications",
-      "eWallet": "E-Wallet",
-      "support": "Support",
-      "settings": "Settings"
-    },
     "pages": {
-      "findJobs": { "title": "Find Jobs", "searchPlaceholder": "Search jobs..." },
-      "appliedJobs": { "title": "Applied Jobs" },
-      "messages": { "title": "Messages" },
-      "support": { "title": "Support", "searchPlaceholder": "Search help..." },
-      "savedJobs": { "title": "Saved Jobs", "searchPlaceholder": "Search saved jobs..." },
-      "payoutRequests": { "title": "Payout Requests" },
-      "supportTickets": { "title": "Support Tickets" },
-      "eWallet": { "title": "E-Wallet" },
-      "notifications": { "title": "Notifications", "subtitle": "Application updates, messages, and payments" },
-      "settings": { "title": "Settings" },
-      "profile": { "title": "Profile" },
-      "employerHome": { "title": "Home", "action": "Post a job" },
-      "applications": { "title": "Applications", "subtitle": "Review applicants and update hiring status.", "action": "Manage jobs" },
-      "postJob": { "title": "My Job Postings", "subtitle": "Create and manage your open positions", "action": "Manage jobs" },
-      "jobsManagement": { "title": "Jobs Management", "searchPlaceholder": "Search jobs..." },
-      "adminAnalytics": { "title": "Analytics", "subtitle": "Understand category performance and recent platform activity" },
-      "adminEWallet": { "title": "E-Wallet Monitoring", "subtitle": "Track payout volume, pending balances, and recent completions" },
-      "adminJobs": { "title": "Job Posting Monitoring", "subtitle": "Monitor job listings, statuses, and applicant activity" },
-      "adminUsers": { "title": "Users", "subtitle": "Manage platform users and their profiles" },
-      "adminReports": { "title": "Reports", "subtitle": "Generate and download platform reports" },
-      "adminSecurity": { "title": "Security & Access", "subtitle": "Manage user access, roles, and security status" },
-      "adminDashboard": { "title": "Admin Dashboard", "subtitle": "Overview of your job posting platform" },
-      "adminStaffManagement": { "title": "Staff Management", "subtitle": "Create staff accounts and manage their roles" },
-      "adminAuditLogs": { "title": "Audit Logs", "subtitle": "System activity and error logs" },
-      "adminModerationQueue": { "title": "Moderation Queue", "subtitle": "Review reported users and jobs" },
-      "adminVerificationReview": { "title": "ID Verification", "subtitle": "Review submitted identity and address documents" },
-      "adminDisputes": { "title": "Financial Disputes", "subtitle": "Investigate and resolve payment disputes" },
-      "jobDetails": { "title": "Job Details" },
-      "employerFallback": { "title": "Employer" },
-      "adminFallback": { "title": "Admin" }
+      "findJobs": {
+        "title": "Find Jobs",
+        "searchPlaceholder": "Search jobs..."
+      },
+      "appliedJobs": {
+        "title": "Applied Jobs"
+      },
+      "messages": {
+        "title": "Messages"
+      },
+      "support": {
+        "title": "Support",
+        "searchPlaceholder": "Search help..."
+      },
+      "savedJobs": {
+        "title": "Saved Jobs",
+        "searchPlaceholder": "Search saved jobs..."
+      },
+      "payoutRequests": {
+        "title": "withdrawal requests"
+      },
+      "supportTickets": {
+        "title": "Support Tickets"
+      },
+      "eWallet": {
+        "title": "E-Wallet"
+      },
+      "notifications": {
+        "title": "Notifications",
+        "subtitle": "Application updates, messages, and payments"
+      },
+      "settings": {
+        "title": "Settings"
+      },
+      "profile": {
+        "title": "Profile"
+      },
+      "employerHome": {
+        "title": "Home",
+        "action": "Post a job"
+      },
+      "applications": {
+        "title": "Applications",
+        "subtitle": "Review applicants and update hiring status.",
+        "action": "Manage jobs"
+      },
+      "postJob": {
+        "title": "My Job Postings",
+        "subtitle": "Create and manage your open positions",
+        "action": "Manage jobs"
+      },
+      "jobsManagement": {
+        "title": "Jobs Management",
+        "searchPlaceholder": "Search jobs..."
+      },
+      "adminAnalytics": {
+        "title": "Analytics",
+        "subtitle": "Understand category performance and recent platform activity"
+      },
+      "adminEWallet": {
+        "title": "E-Wallet Monitoring",
+        "subtitle": "Track payment volume, pending balances, and recent completions"
+      },
+      "adminJobs": {
+        "title": "Job Posting Monitoring",
+        "subtitle": "Monitor job listings, statuses, and applicant activity"
+      },
+      "adminUsers": {
+        "title": "Users",
+        "subtitle": "Manage platform users and their profiles"
+      },
+      "adminReports": {
+        "title": "Reports",
+        "subtitle": "Generate and download platform reports"
+      },
+      "adminSecurity": {
+        "title": "Security & Access",
+        "subtitle": "Manage user access, roles, and security status"
+      },
+      "adminDashboard": {
+        "title": "Admin Dashboard",
+        "subtitle": "Overview of your job posting platform"
+      },
+      "adminStaffManagement": {
+        "title": "Staff Management",
+        "subtitle": "Create staff accounts and manage their roles"
+      },
+      "adminAuditLogs": {
+        "title": "Audit Logs",
+        "subtitle": "System activity and error logs"
+      },
+      "adminModerationQueue": {
+        "title": "Moderation Queue",
+        "subtitle": "Review reported users and jobs"
+      },
+      "adminVerificationReview": {
+        "title": "ID Verification",
+        "subtitle": "Manage Government ID verifications and review Proof of Address"
+      },
+      "adminDisputes": {
+        "title": "Financial Disputes",
+        "subtitle": "Investigate and resolve payment disputes"
+      },
+      "jobDetails": {
+        "title": "Job Details"
+      },
+      "employerFallback": {
+        "title": "Employer"
+      },
+      "adminFallback": {
+        "title": "Admin"
+      }
     }
+  },
+  "landing": {
+    "opportunities": {
+      "title": "Work that fits your plans",
+      "subtitle": "From a one-day task to a longer-term role, choose the opportunity that suits you."
+    },
+    "benefits": {
+      "ariaLabel": "Make the most of MicroJobs",
+      "profile": {
+        "title": "Build your profile",
+        "description": "Show your skills and work experience so employers can learn what you offer."
+      },
+      "matches": {
+        "title": "Get personal job matches",
+        "description": "Your skills, experience, and matching preferences help us recommend opportunities for you."
+      },
+      "verification": {
+        "title": "Build trust with verification",
+        "description": "Verify your identity and contact details to build a trusted MicroJobs profile."
+      }
+    }
+  },
+  "wallet": {
+    "title": "E-wallet",
+    "withdraw": "Withdraw",
+    "available": "Available to withdraw: {{amount}}",
+    "employer": "Employer wallet",
+    "worker": "Worker wallet",
+    "unused": "Withdraw unused funds even before posting a job. Funds committed to jobs, disputes, or withdrawals are unavailable.",
+    "amount": "Amount (PHP)",
+    "institution": "Bank or e-wallet",
+    "chooseInstitution": "Select a bank or e-wallet",
+    "select": "Select a destination",
+    "accountName": "Account name",
+    "accountNumber": "Account number",
+    "areYouSure": "Are you sure you want to withdraw?",
+    "confirmDescription": "Continue to review your {{amount}} withdrawal. No funds move until you confirm the details.",
+    "back": "Go back",
+    "continue": "Continue",
+    "verify": "Verify withdrawal details",
+    "fee": "Withdrawal fee",
+    "remaining": "Remaining available balance",
+    "detailsNotice": "Review the recipient carefully. Reviewing these details does not verify ownership of the external account.",
+    "correct": "I confirm that the amount and destination are correct.",
+    "confirm": "Confirm withdrawal",
+    "processing": "Processing…",
+    "history": "Withdrawal history",
+    "pagination": {
+      "showing": "Showing {{from}}–{{to}} of {{total}} withdrawals",
+      "label": "Withdrawal history pages",
+      "previous": "Previous",
+      "next": "Next",
+      "page": "Page {{page}} of {{total}}"
+    },
+    "cancelWithdrawal": "Cancel withdrawal",
+    "cancelDescription": "Cancel this {{amount}} request and return the reserved funds to the original wallet?",
+    "loading": "Loading…",
+    "topup": "Top up",
+    "source": "Source wallet",
+    "transactions": "Transaction history",
+    "jobPayment": "Job payment",
+    "topupFee": "Processing fee: {{fee}}. Total charged: {{total}}.",
+    "error": "Unable to complete this action.",
+    "status": {
+      "requested": "Withdrawal submitted. Waiting for Finance approval.",
+      "approved": "Approved; awaiting transfer",
+      "processing": "Processing transfer",
+      "paid": "Paid",
+      "failed": "Failed; funds returned",
+      "rejected": "Rejected; funds returned",
+      "cancelled": "Cancelled; funds returned"
+    },
+    "transactionFee": "Service charge: {{amount}}",
+    "transactionLabel": {
+      "fundsReserved": "Funds reserved",
+      "reservationAdjustment": "Reserved funds adjustment",
+      "postingFee": "Non-refundable posting fee",
+      "highlightFee": "Non-refundable highlight fee"
+    },
+    "transactionStatus": {
+      "COMPLETED": "Completed",
+      "PENDING": "Pending",
+      "FAILED": "Failed",
+      "CANCELLED": "Cancelled",
+      "REQUESTED": "Awaiting Finance approval",
+      "APPROVED": "Approved; awaiting transfer",
+      "PROCESSING": "Transfer processing",
+      "PAID": "Transferred",
+      "REJECTED": "Rejected",
+      "FUNDS_RESERVED": "Funds reserved",
+      "UNKNOWN": "Unknown"
+    },
+    "limits": "Minimum: {{minimum}}. Maximum: {{maximum}}. All withdrawals require Finance approval before transfer.",
+    "noMaximum": "Available balance"
+  },
+  "hireChecklist": {
+    "title": "Work checklist",
+    "include": "Add a work checklist (optional)",
+    "done": "Done",
+    "description": "Description",
+    "doneRow": "Task {{number}} completed",
+    "descriptionRow": "Task {{number}} description",
+    "addRow": "Add row",
+    "removeRow": "Remove row",
+    "hint": "Add up to 20 tasks, 500 characters each. Track completion after hiring in Job Management → View details.",
+    "empty": "Add at least one description or turn off the optional checklist.",
+    "confirmHire": "Confirm Hire",
+    "none": "No checklist provided.",
+    "hiredWorkers": "Hired workers and checklists",
+    "loading": "Loading hired workers…",
+    "noWorkers": "No hired workers yet.",
+    "worker": "Worker",
+    "trackingOnly": "Checklist marks are for employer tracking only. They do not affect job status, evidence submission, work completion, or payment.",
+    "hireWarning": "Cannot delete the job after confirming the hire."
+  },
+  "lifecycle": {
+    "openAssignment": "Open assignment",
+    "workSchedule": "Daily work and payments",
+    "dailyRate": "PHP {{amount}} per day per worker",
+    "workDate": "Work date: {{date}}",
+    "submittedOn": "Submitted: {{date}} (Asia/Manila)",
+    "selectWorkDate": "Select work date",
+    "dailyProofHint": "Submit pictures for each work date. Proof is sent to the same job chat. Future work dates cannot be submitted.",
+    "noWorkDates": "No unpaid work dates are available yet.",
+    "confirmAndPay": "Confirm and Pay",
+    "dailyPayConfirmation": "Release PHP {{amount}} to the worker for {{date}} now? This pays only this day and keeps the job status unchanged.",
+    "dailyPaid": "Daily payment released",
+    "dailyScheduled": "Scheduled",
+    "dailyAwaiting": "Proof submitted — awaiting payment",
+    "dailyDates": "Selected work dates (Asia/Manila)",
+    "jobDescription": "Job description",
+    "descriptionUnavailable": "No job description available.",
+    "paymentStatus": {
+      "Funds secured": "Funds secured",
+      "On hold": "Funds on hold",
+      "Processing": "Processing payment",
+      "Awaiting approval": "Awaiting work approval",
+      "Paid": "Paid",
+      "Partially paid": "Partially paid",
+      "Refunded": "Refunded"
+    },
+    "platformRecords": "Review platform records",
+    "secured": "Funds secured",
+    "details": "Assignment details",
+    "agreed": "Agreed payment",
+    "paid": "Paid",
+    "terms": "Before work starts, either party may cancel with a reason. After work starts, cancellation requires agreement on payment or Finance review. Unpaid submitted work receives reminders after 24 and 48 hours; nonpayment disputes are available after 72 hours.",
+    "held": "Funds on hold",
+    "start": "Start work",
+    "cancel": "Request cancellation",
+    "dispute": "Open financial dispute",
+    "evidence": "Submit evidence",
+    "accept": "Accept cancellation",
+    "reject": "Request Finance review",
+    "pay": "Release job payment",
+    "reason": "Reason or evidence statement",
+    "proposed": "Proposed worker payment (PHP)",
+    "disputeType": "Dispute type",
+    "other": "Other financial dispute",
+    "nonpayment": "Nonpayment (after 72 hours)",
+    "noEvidence": "I cannot provide evidence.",
+    "releaseNotice": "I confirm the recipient and amount and authorize release of secured funds.",
+    "acknowledge": "I have reviewed and accept the cancellation terms.",
+    "releaseAmount": "Release {{amount}} from secured job funds. No additional wallet debit is required.",
+    "respondNotice": "The proposed worker payment is {{amount}}. Accept to settle the assignment, or request Finance review.",
+    "confirm": "Confirm action",
+    "cancellation": "Cancellation",
+    "evidenceDue": "Evidence deadline",
+    "evidenceNotice": "Both parties have seven days to provide evidence. Missing evidence does not automatically decide the case.",
+    "history": "Cancellation history",
+    "interviewRequired": "Interview required before sending an offer",
+    "cancelPosting": "Cancel posting",
+    "cancelPostingNotice": "Recruitment will stop. Started assignments need agreement or Finance review; funds remain held until resolved.",
+    "postAgain": "Post again",
+    "active": "Active postings",
+    "jobHistory": "Posting history",
+    "completeInterview": "Record interview as completed",
+    "offerReason": "Reason for canceling this offer",
+    "offerCancelNotice": "Cancel this offer and release its reserved position where recruitment is open. Additional negotiated funds return to the employer wallet; base job funding remains secured for a replacement.",
+    "recipient": "Recipient: {{name}}",
+    "transferReference": "Transfer reference",
+    "reconcile": "Reconcile provider transfer",
+    "work": {
+      "Not started": "Not started",
+      "In Progress": "In progress",
+      "Submitted": "Submitted",
+      "Changes Requested": "Changes requested",
+      "Completed": "Completed",
+      "Cancelled": "Cancelled"
+    },
+    "repostNotice": "Create a new posting and secure the displayed funds from my wallet. Existing history will be preserved.",
+    "recruitmentOpen": "Recruitment open",
+    "recruitmentClosed": "Recruitment closed",
+    "recruitmentSlots": "Unreserved slots: {{count}}",
+    "closeRecruitment": "Close recruitment",
+    "reopenRecruitment": "Reopen recruitment",
+    "closeRecruitmentNotice": "Stop new applications and offers? Existing hired assignments will continue. If all hired workers are already paid and no offers remain, the job will be completed and unused secured funds returned.",
+    "reopenRecruitmentNotice": "Reopen recruitment for remaining funded slots? Existing hired assignments will continue.",
+    "submitWork": "Submit proof",
+    "resubmitWork": "Resubmit proof",
+    "completionImages": "Completion images (required)",
+    "completionImagesHint": "Choose 1–5 JPG or PNG images, up to 5 MB each.",
+    "proofDisclaimerTitle": "Before uploading proof",
+    "proofAllowedTypes": "Allowed: JPG/JPEG and PNG images only",
+    "proofBlockedTypes": "Not allowed: other file types",
+    "proofBlockedTypesHint": "HEIC/HEIF, BMP, SVG, and TIFF images cannot be uploaded because they are not supported image types. PDFs, Word documents, spreadsheets, videos, audio, ZIP files, and all other formats are also not accepted. A text-only submission is not accepted.",
+    "proofDisclaimerContinue": "I understand, continue",
+    "proofInvalidImageType": "\"{{name}}\" cannot be uploaded because it is not a supported image type. Only JPG/JPEG and PNG images are allowed. HEIC/HEIF, BMP, SVG, TIFF, and other file types are not accepted.",
+    "loadingImages": "Loading image…",
+    "markJobDone": "Mark the job as done?",
+    "completeJobConfirmation": "Mark the job as completed? This will release the funds to the worker.",
+    "cancelCompletion": "Cancel",
+    "jobCompleted": "Job completed. Funds released to the worker.",
+    "evidenceSent": "Proof sent for employer review.",
+    "completionStatement": "Describe the completed work and supporting proof",
+    "completionFile": "Attach a photo or document (optional, up to 5 MB)",
+    "evidenceTooLarge": "The evidence file must be 5 MB or smaller.",
+    "signInRequired": "Sign in to submit completion evidence.",
+    "submissionFailed": "Unable to submit completed work.",
+    "removeFile": "Remove attached file",
+    "completionEvidence": "Completion evidence",
+    "downloadOnAndroid": "Use the Android app or web application to download evidence.",
+    "downloadFailed": "Unable to download the evidence file.",
+    "evidenceSaved": "Evidence saved to your selected folder.",
+    "saveEvidence": "Save evidence file"
+  },
+  "reports": {
+    "type": "Report type",
+    "from": "From date",
+    "to": "To date",
+    "format": "Format",
+    "download": "Download report"
   }
 }

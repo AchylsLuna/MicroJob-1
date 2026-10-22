@@ -20,7 +20,7 @@ export const workerBottomNavigation: RoleNavigationItem[] = [
     exactPaths: [ROUTES.worker.appliedJobs, ROUTES.worker.savedJobs, ROUTES.worker.notifications],
     nestedPaths: [ROUTES.worker.jobDetailsPattern.replace("/:jobId", "")],
   },
-  { id: "wallet", label: "E-Wallet", path: ROUTES.worker.eWallet },
+  { id: "wallet", label: "E-Wallet", path: ROUTES.worker.eWallet, exactPaths: [ROUTES.worker.financialDisputes] },
   { id: "messages", label: "Messages", path: ROUTES.worker.messages },
   { id: "profile", label: "Profile", path: ROUTES.worker.profile, exactPaths: [ROUTES.worker.settings, ROUTES.worker.support] },
 ];
@@ -28,14 +28,14 @@ export const workerBottomNavigation: RoleNavigationItem[] = [
 export const employerBottomNavigation: RoleNavigationItem[] = [
   { id: "home", label: "Home", path: ROUTES.employer.dashboard },
   { id: "applications", label: "Applications", path: ROUTES.employer.applications },
-  { id: "post-job", label: "Post Job", path: ROUTES.employer.postJob, exactPaths: [ROUTES.employer.jobs] },
+  { id: "post-job", label: "Post Job", path: ROUTES.employer.postJob, exactPaths: [ROUTES.employer.jobs, ROUTES.employer.jobHistory] },
   { id: "messages", label: "Messages", path: ROUTES.employer.messages },
   { id: "alerts", label: "Alerts", path: ROUTES.employer.notifications },
   {
     id: "profile",
     label: "Profile",
     path: ROUTES.employer.profile,
-    exactPaths: [ROUTES.employer.settings, ROUTES.employer.support, ROUTES.employer.eWallet],
+    exactPaths: [ROUTES.employer.settings, ROUTES.employer.support, ROUTES.employer.eWallet, ROUTES.employer.financialDisputes],
   },
 ];
 

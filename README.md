@@ -6,6 +6,12 @@ MicroJobs contains three application areas:
 - `server/`: Express, MongoDB, and Socket.IO API workspace.
 - `Mobile/`: Expo application.
 
+Completion evidence requires private Azure blob settings on the API server. See [Completion images and employer approval](docs/COMPLETION_EVIDENCE.md) for configuration, upload limits, chat confirmation, and verification.
+
+Employers may attach a per-worker checklist at hire confirmation and track its completion in Job Management details. See [Optional hire checklists](docs/HIRE_CHECKLISTS.md); marks never block evidence submission or payment.
+
+New ongoing/long-term roles (`Recruiting`) require selected calendar dates, start/end work times, and guaranteed daily pay of at least PHP 480 per worker. Listings show the shift, daily hours, daily pay, and hourly equivalent truncated to two decimal places. All selected dates are secured upfront; workers submit date-specific proofs in the same chat and employers use **Confirm and Pay** for each day without changing the job status. A backend checker sends pending-payment reminders every 12 hours. See [Long-term daily work](docs/LONG_TERM_DAILY_WORK.md) for the API, funding rules, compatibility, and scheduler. `Short-term` and `Side hustle` retain their single-assignment flow and PHP 50 minimum; legacy opportunity types retain their positive-pay rule.
+
 Use Node.js 22.13 LTS or Node.js 24.3 or newer. Install the web and API dependencies from the repository root:
 
 ```powershell
@@ -13,7 +19,7 @@ cd C:\Users\Admin\Desktop\MicroJobs
 npm ci
 ```
 
-Run the complete local environment from the repository root:
+Run the development environment from the repository root:
 
 ```bash
 npm run dev
@@ -31,19 +37,23 @@ on one service in isolation. The `client/` directory intentionally has no
 
 Local ports are fixed by service: API `5050`, web `8082`, and Expo Metro `8081`.
 Override them only with `DEV_API_PORT`, `DEV_CLIENT_PORT`, and `METRO_PORT`
-respectively. `EXPO_PUBLIC_API_PORT` may override the API port visible to Expo.
+respectively.
 Avoid a generic `PORT` when starting Expo because it is intentionally ignored.
 
-Android builds require JDK 17. Expo Go compatibility is intentionally pinned to
-Expo SDK 54 and React Native 0.81; do not run a forced audit upgrade that changes
-that compatibility set.
+Android builds require JDK 17. The mobile SDK and React Native versions are
+pinned together in `Mobile/package.json` and `Mobile/package-lock.json`. Keep that
+compatibility set intact when applying dependency security updates.
 For normal Expo Go development, use the unified `npm run dev` command rather
-than starting another Metro process. Mobile API requests derive their origin
-from the current Expo QR host and use Metro's `/microjobs-api/api/*` proxy to API
-port `5050`; Socket.IO uses `/microjobs-socket/*`. This prevents stale LAN
-addresses and works the same way in explicit tunnel mode. Restart the unified
+than starting another Metro process. Mobile API and Socket.IO requests use the
+deployed endpoints configured in `Mobile/.env.example`, in both LAN and tunnel
+mode. The local API on port `5050` serves the web app. The launcher leaves
+`MICROJOBS_METRO_API_TARGET` unset so Metro uses its deployed API default;
+explicit Metro proxy overrides must also point to a deployed API. Restart the unified
 launcher after changing networks, or bring the app to the foreground and use
 Retry while the new QR is loading.
+Metro readiness uses its local `/status` and `/microjobs-dev/health` endpoints.
+A deployed API outage does not stop the local development servers; mobile API
+features still require the configured deployed service to be available.
 If Expo Go reports a version mismatch after installing the SDK 54-compatible
 client, restart Metro with `npm run mobile:start:clear`. Compatible historical
 Expo Go clients can be installed on Android devices/emulators and iOS simulators
@@ -72,8 +82,12 @@ For separate hosts, set `VITE_API_BASE=https://api.example.com/api`,
 `VITE_SOCKET_URL=https://api.example.com`, and configure `WEB_ORIGIN` plus any
 additional exact origins on the API. Production origins must use HTTPS/WSS.
 Configure `TRUST_PROXY` only when the API is behind a trusted reverse proxy.
-Use same-origin hosting or subdomains of the same site. Unrelated top-level domains
-are not supported by the secure `SameSite=Lax` session-cookie configuration.
+Use same-origin hosting or subdomains of the same site whenever possible. For
+unrelated HTTPS hosts, such as Azure's `azurestaticapps.net` frontend and
+`azurewebsites.net` API defaults, build the client with `VITE_AUTH_TRANSPORT=bearer`.
+This opt-in mode sends access tokens in `Authorization` and holds the rotating
+refresh token in `sessionStorage` (one browser tab only), avoiding third-party
+cookies. Leave it unset for local development and same-site deployments.
 For split subdomains, set `COOKIE_DOMAIN` to the controlled shared parent domain
 (for example, `.example.com`) so the web client can read the non-HTTP-only CSRF
 cookie. Do not use a parent domain that hosts untrusted tenants.
@@ -84,6 +98,16 @@ The complete environment contract is documented in `client/.env.example` and
 `server/.env.example`.
 
 ## Verification
+
+Government ID verification records and the admin Government ID / Proof of Address
+tabs are documented in [Government ID verification](docs/government-id-verification.md).
+
+Staff primary-email sign-in, secondary-email OTP, setup warnings, Admins OTP tags,
+and password-change OTP routing are
+documented in [Staff secondary email](docs/staff-secondary-email.md).
+
+The User Management three-dot actions, role permissions, and suspension/ban
+behavior are documented in [User Management actions](docs/admin-user-actions.md).
 
 Run `npm run verify` for static checks, server tests, and the production web
 build. Run `npm run verify:full` to include Playwright. From `Mobile/`, run
@@ -96,3 +120,9 @@ upstream build-tool advisories whose npm-suggested fix upgrades Expo and React N
 beyond the supported Expo Go version. These advisories are accepted only while SDK 54
 is required; reassess them during each Expo compatibility upgrade. Never use
 `npm audit fix --force` for this repository.
+
+## Job lifecycle and withdrawal rollout
+
+See [the operational policy and rollout guide](docs/lifecycle-policy.md) for cancellation,
+financial disputes, automatic employer withdrawals, migration dry runs, and maintenance
+configuration. Automatic transfers are disabled until explicitly configured and verified.

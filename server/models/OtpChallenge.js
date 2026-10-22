@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 const OtpChallengeSchema = new mongoose.Schema({
-  purpose: { type: String, required: true, enum: ['email-verification', 'password-reset', 'password-change', 'login'], index: true },
+  purpose: { type: String, required: true, enum: ['email-verification', 'secondary-email-verification', 'password-reset', 'password-change', 'login'], index: true },
   subject: { type: String, required: true, index: true },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null, index: true },
   challengeId: { type: String, required: true, unique: true },

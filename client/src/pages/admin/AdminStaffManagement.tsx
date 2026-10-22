@@ -162,11 +162,11 @@ function AdminStaffManagementContent() {
     <div className="mx-auto max-w-[1341px] space-y-6">
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {[
-          { label: t("staffManagement.cards.total"), value: counts.total, icon: ShieldCheck, tone: "bg-blue-50 text-blue-800" },
+          { label: t("staffManagement.cards.total"), value: counts.total, icon: ShieldCheck, tone: "bg-brand-50 text-brand-800" },
           { label: t("staffManagement.cards.active"), value: counts.active, icon: UserCog, tone: "bg-emerald-50 text-emerald-800" },
           { label: t("staffManagement.cards.disabled"), value: counts.disabled, icon: UserX, tone: "bg-slate-100 text-slate-700" },
         ].map(({ label, value, icon: Icon, tone }) => (
-          <article key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <article key={label} className="rounded-card border border-slate-200 bg-white p-5 shadow-sm">
             <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${tone}`}>
               <Icon className="h-5 w-5" aria-hidden="true" />
             </div>
@@ -176,7 +176,7 @@ function AdminStaffManagementContent() {
         ))}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <section className="rounded-card border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="text-xl font-bold text-slate-950">{t("staffManagement.title")}</h1>
@@ -188,7 +188,7 @@ function AdminStaffManagementContent() {
               <select
                 value={roleFilter}
                 onChange={(event) => setRoleFilter(event.target.value as typeof roleFilter)}
-                className="mt-1 block min-h-11 rounded-xl border border-slate-300 bg-white px-3 font-normal outline-none focus:ring-2 focus:ring-blue-600"
+                className="mt-1 block min-h-11 rounded-xl border border-slate-300 bg-white px-3 font-normal outline-none focus:ring-2 focus:ring-brand-600"
               >
                 <option value="all">{t("staffManagement.filters.allRoles")}</option>
                 {ADMIN_STAFF_ROLES.map((role) => (
@@ -204,7 +204,7 @@ function AdminStaffManagementContent() {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder={t("staffManagement.filters.searchPlaceholder")}
-                  className="min-h-11 w-full rounded-xl border border-slate-300 pl-9 pr-3 font-normal outline-none focus:ring-2 focus:ring-blue-600 sm:w-64"
+                  className="min-h-11 w-full rounded-xl border border-slate-300 pl-9 pr-3 font-normal outline-none focus:ring-2 focus:ring-brand-600 sm:w-64"
                 />
               </span>
             </label>
@@ -323,7 +323,7 @@ function AdminStaffManagementContent() {
                   value={createForm.password}
                   onChange={(event) => setCreateForm((current) => ({ ...current, password: event.target.value }))}
                   aria-invalid={Boolean(createErrors.password)}
-                  className={`min-h-11 w-full rounded-xl border bg-white px-3 py-2.5 pr-11 text-sm font-normal text-slate-900 outline-none transition focus:ring-2 ${createErrors.password ? "border-red-400 focus:border-red-500 focus:ring-red-200" : "border-slate-300 focus:border-blue-600 focus:ring-blue-100"}`}
+                  className={`min-h-11 w-full rounded-xl border bg-white px-3 py-2.5 pr-11 text-sm font-normal text-slate-900 outline-none transition focus:ring-2 ${createErrors.password ? "border-red-400 focus:border-red-500 focus:ring-red-200" : "border-slate-300 focus:border-brand-600 focus:ring-brand-100"}`}
                 />
                 <button
                   type="button"
@@ -347,7 +347,7 @@ function AdminStaffManagementContent() {
                   value={createForm.confirmPassword}
                   onChange={(event) => setCreateForm((current) => ({ ...current, confirmPassword: event.target.value }))}
                   aria-invalid={Boolean(createErrors.confirmPassword)}
-                  className={`min-h-11 w-full rounded-xl border bg-white px-3 py-2.5 pr-11 text-sm font-normal text-slate-900 outline-none transition focus:ring-2 ${createErrors.confirmPassword ? "border-red-400 focus:border-red-500 focus:ring-red-200" : "border-slate-300 focus:border-blue-600 focus:ring-blue-100"}`}
+                  className={`min-h-11 w-full rounded-xl border bg-white px-3 py-2.5 pr-11 text-sm font-normal text-slate-900 outline-none transition focus:ring-2 ${createErrors.confirmPassword ? "border-red-400 focus:border-red-500 focus:ring-red-200" : "border-slate-300 focus:border-brand-600 focus:ring-brand-100"}`}
                 />
                 <button
                   type="button"

@@ -1,25 +1,28 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { OfferCancellationDialog } from '../../components/OfferCancellationDialog';
+import { lifecycleRequest } from '../../services/api';
+import { AssignmentPanel } from '../../components/AssignmentPanel';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { motionTokens, seconds } from "@/constants/motion";
 import {
   Calendar,
   CheckSquare,
+  ClipboardList,
   Eye,
   Filter,
-  Grid2X2,
-  LayoutList,
   Mail,
   MessageSquare,
   Square,
   Star,
   User as UserIcon,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
 import {
   getEmployerApplications,
+  getEmployerJobHistory,
   hideEmployerApplication,
   restoreEmployerApplication,
   scheduleInterview,
@@ -27,7 +30,6 @@ import {
   updateInterview,
   getEligibleReviews,
   createJobOffer,
-  cancelJobOffer,
   confirmOfferHire,
   authorizePayment,
   requestChanges as requestWorkChanges,
@@ -41,8 +43,9 @@ import { safeExternalUrl } from "../../utils/safeExternalUrl";
 import { RatingDialog, type RatingTarget } from "../../components/reviews/RatingDialog";
 import { DateField } from "../../components/ui/DateField";
 import { formatCurrency, formatDateTime } from "../../lib/formatters";
-import { ConfirmDialog } from "../../components/ui/index";
+import { ConfirmDialog, Dialog } from "../../components/ui/index";
 import { OfferActions } from "../../components/job/OfferActions";
+import { HireChecklistDialog } from '../../components/HireChecklist';
 
 // Converts between the "YYYY-MM-DD" date portion of scheduleForm.scheduledAt
 // (a "YYYY-MM-DDTHH:mm" string, same shape <input type="datetime-local"> used)
@@ -69,6 +72,9 @@ const PIPELINE_STATUSES: ApplicationStatus[] = [
   "Offer Sent",
   "Hired",
   "Rejected",
+  "Withdrawn",
+  "Cancelled",
+  "Position filled",
 ];
 
 // Stages an employer may set directly. "Hired" is deliberately excluded: hiring
@@ -76,8 +82,9 @@ const PIPELINE_STATUSES: ApplicationStatus[] = [
 // happens through the formal offer flow. The status API rejects "Hired" too, so
 // offering it here would just fail.
 const EDITABLE_STATUSES: ApplicationStatus[] = PIPELINE_STATUSES.filter(
-  (status) => status !== "Hired",
+  (status) => !["Hired", "Offer Sent", "Withdrawn", "Cancelled", "Position filled"].includes(status),
 );
+const ACTION_STEP_KEYS = ["statusStep", "reviewStep", "hireStep", "paymentStep"] as const;
 
 type EmployerApplication = {
   _id: string;
@@ -91,9 +98,12 @@ type EmployerApplication = {
     company?: string;
     location?: string;
     salary?: number;
+    paymentMode?: string;
+    workDates?: string[];
   };
   offer?: JobOffer | null;
   agreedAmount?: number;
+  interviews?: Array<{ _id: string; status?: string; scheduledAt: string }>;
   workStatus?: string;
   paymentStatus?: string;
   employerHidden?: boolean;
@@ -150,13 +160,15 @@ const formatAppliedDate = (value?: string): string => {
 
 const statusClasses: Record<ApplicationStatus, string> = {
   Applied: "bg-[#E2E8F0] text-[#334155]",
-  Shortlisted: "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]",
-  "Interview Scheduled": "bg-[#1C4D8D]/10 text-[#1C4D8D]",
+  Shortlisted: "bg-brand/[0.08] text-brand",
+  "Interview Scheduled": "bg-brand/10 text-brand",
   Interviewed: "bg-[#FEF3C7] text-[#B45309]",
   "Offer Sent": "bg-[#FCE7F3] text-[#BE185D]",
   Hired: "bg-[#DCFCE7] text-[#15803D]",
   Rejected: "bg-[#FEE2E2] text-[#B91C1C]",
   Withdrawn: "bg-[#F3F4F6] text-[#6B7280]",
+  Cancelled: "bg-red-50 text-red-700",
+  "Position filled": "bg-slate-100 text-slate-700",
 };
 
 const STATUS_LABEL_KEYS: Record<ApplicationStatus, string> = {
@@ -168,6 +180,8 @@ const STATUS_LABEL_KEYS: Record<ApplicationStatus, string> = {
   Hired: "hired",
   Rejected: "rejected",
   Withdrawn: "withdrawn",
+  Cancelled: "cancelled",
+  "Position filled": "positionFilled",
 };
 
 const getStatusLabel = (t: TFunction, status: ApplicationStatus) =>
@@ -199,6 +213,7 @@ function ApplicationCard({
   onMessage,
   reviewEligibility,
   onRate,
+  history = false,
   offerBusy,
   onSendOffer,
   onCancelOffer,
@@ -225,22 +240,24 @@ function ApplicationCard({
   onReleasePayment: (application: EmployerApplication) => void;
   onRequestChanges: (application: EmployerApplication, reason: string) => void;
   onRate: (application: EmployerApplication) => void;
+  history?: boolean;
 }) {
   const { t } = useTranslation("employer");
+  const { t: tc } = useTranslation('common');
   const applicantFallback = t("applicationsManagement.card.applicantFallback");
   const resumeUrl = toAbsoluteAssetUrl(application.applicant?.resumeUrl || application.applicant?.resume);
 
   return (
     <div
-      className={`rounded-[16px] border p-4 shadow-sm space-y-4 ${
+      className={`rounded-card border p-4 shadow-sm space-y-4 ${
         application.employerHidden ? "border-[#E5E7EB] bg-[#F8FAFC] opacity-75 ring-1 ring-[#E5E7EB]" : "border-[#E5E7EB] bg-white"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
-        <button
+        {!history ? <button
           type="button"
           onClick={() => onToggleSelected(application._id)}
-          className="mt-1 text-[#64748B] hover:opacity-80"
+          className="mt-1 text-slate-500 hover:opacity-80"
           aria-label={
             selected
               ? t("applicationsManagement.card.deselectAria")
@@ -248,15 +265,15 @@ function ApplicationCard({
           }
         >
           {selected ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
-        </button>
+        </button> : null}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-full bg-[#1C4D8D]/[0.06] text-[#1C4D8D] flex items-center justify-center font-semibold">
+            <div className="w-11 h-11 rounded-full bg-brand/[0.06] text-brand flex items-center justify-center font-semibold">
               {getApplicantInitials(application, applicantFallback)}
             </div>
             <div className="min-w-0">
               <p className="text-[15px] font-semibold text-[#111827] line-clamp-1">{getApplicantName(application, applicantFallback)}</p>
-              <p className="text-[12px] text-[#6B7280] line-clamp-1">{application.applicant?.email || t("applicationsManagement.card.noEmail")}</p>
+              <p className="text-caption text-[#6B7280] line-clamp-1">{application.applicant?.email || t("applicationsManagement.card.noEmail")}</p>
             </div>
           </div>
         </div>
@@ -283,58 +300,57 @@ function ApplicationCard({
       </div>
 
       <div>
-        <p className="text-[14px] font-medium text-[#111827]">{application.job?.title || t("applicationsManagement.card.untitledRole")}</p>
-        <p className="text-[12px] text-[#6B7280] mt-1">
+        <p className="text-body font-medium text-[#111827]">{application.job?.title || t("applicationsManagement.card.untitledRole")}</p>
+        <p className="text-caption text-[#6B7280] mt-1">
           {t("applicationsManagement.card.appliedOn", { date: formatAppliedDate(application.createdAt) })}
         </p>
       </div>
 
       {application.nextInterview ? (
-        <div className="rounded-[12px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-3 py-2 text-[12px] text-[#1C4D8D]">
+        <div className="rounded-xl border border-brand/20 bg-brand/[0.06] px-3 py-2 text-caption text-brand">
           {t("applicationsManagement.card.nextInterview", { date: formatAppliedDate(application.nextInterview.scheduledAt) })}
           {application.nextInterview.location ? ` · ${application.nextInterview.location}` : ""}
         </div>
       ) : null}
 
       {application.coverLetter ? (
-        <p className="text-[13px] text-[#475569] line-clamp-3">{application.coverLetter}</p>
+        <p className="text-body-sm text-[#475569] line-clamp-3">{application.coverLetter}</p>
       ) : null}
 
-      <div className="grid grid-cols-3 gap-2 text-center text-[12px]">
-        <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E5E7EB] px-2 py-2">
+      <div className="grid grid-cols-3 gap-2 text-center text-caption">
+        <div className="rounded-xl bg-[#F8FAFC] border border-[#E5E7EB] px-2 py-2">
           <div className="text-[#111827] font-semibold">{application.applicant?.jobsApplied || 0}</div>
           <div className="text-[#6B7280] mt-1">{t("applicationsManagement.card.stats.applied")}</div>
         </div>
-        <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E5E7EB] px-2 py-2">
+        <div className="rounded-xl bg-[#F8FAFC] border border-[#E5E7EB] px-2 py-2">
           <div className="text-[#111827] font-semibold">{application.applicant?.projectsCompleted || 0}</div>
           <div className="text-[#6B7280] mt-1">{t("applicationsManagement.card.stats.completed")}</div>
         </div>
-        <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E5E7EB] px-2 py-2">
+        <div className="rounded-xl bg-[#F8FAFC] border border-[#E5E7EB] px-2 py-2">
           <div className="text-[#111827] font-semibold">{application.applicant?.successRate || "0%"}</div>
           <div className="text-[#6B7280] mt-1">{t("applicationsManagement.card.stats.success")}</div>
         </div>
       </div>
 
       <div className="space-y-2">
-        <select
+        {!history ? <select
           value={application.status}
+          disabled={!EDITABLE_STATUSES.includes(application.status)}
           onChange={(event) => onStatusChange(application._id, event.target.value as ApplicationStatus)}
-          className="w-full h-10 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+          className="w-full h-10 rounded-xl border border-[#E5E7EB] px-3 text-body-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-brand"
         >
           {/* A hired application keeps showing "Hired" as its current value, but
               it cannot be re-selected; hiring is driven by the offer flow. */}
-          {application.status === "Hired" ? (
-            <option value="Hired" disabled>
-              {t("applicationsManagement.card.hiredViaOffer")}
-            </option>
-          ) : null}
+          {!EDITABLE_STATUSES.includes(application.status) && <option value={application.status}>{getStatusLabel(t, application.status)}</option>}
           {EDITABLE_STATUSES.map((status) => (
             <option key={status} value={status}>
               {getStatusLabel(t, status)}
             </option>
           ))}
-        </select>
+        </select> : null}
 
+        {['Hired', 'Cancelled'].includes(application.status) && <AssignmentPanel applicationId={application._id} />}
+        {application.interviews?.filter((item) => item.status !== 'completed' && new Date(item.scheduledAt).getTime() <= Date.now()).map((interview) => <button key={interview._id} type="button" className="rounded-xl border p-3" onClick={async () => { try { await lifecycleRequest(`/applications/${application._id}/interviews/${interview._id}`, { status: 'completed' }, 'PATCH'); window.dispatchEvent(new Event('microjobs:lifecycle')); } catch (e: any) { toast.error(e.message); } }}>✓ {tc('lifecycle.completeInterview')}</button>)}
         <OfferActions
           application={application}
           busy={offerBusy}
@@ -346,11 +362,11 @@ function ApplicationCard({
           onRequestChanges={(reason) => onRequestChanges(application, reason)}
         />
 
-        <div className="grid grid-cols-2 gap-2">
+        {!history ? <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => onScheduleInterview(application)}
-            className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-3 py-2 text-[12px] font-semibold text-[#1C4D8D]"
+            className="inline-flex items-center justify-center gap-2 rounded-control border border-brand/20 bg-brand/[0.06] px-3 py-2 text-caption font-semibold text-brand"
           >
             <Calendar className="w-4 h-4" />
             {application.nextInterview ? t("applicationsManagement.card.reschedule") : t("applicationsManagement.card.schedule")}
@@ -359,7 +375,7 @@ function ApplicationCard({
             <button
               type="button"
               onClick={() => onRestore(application._id)}
-              className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-3 py-2 text-[12px] font-semibold text-[#1C4D8D]"
+              className="inline-flex items-center justify-center gap-2 rounded-control border border-brand/20 bg-brand/[0.06] px-3 py-2 text-caption font-semibold text-brand"
             >
               <Eye className="w-4 h-4" />
               {t("applicationsManagement.card.restore")}
@@ -368,19 +384,19 @@ function ApplicationCard({
             <button
               type="button"
               onClick={() => onHide(application._id)}
-              className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-[12px] font-semibold text-[#B91C1C]"
+              className="inline-flex items-center justify-center gap-2 rounded-control border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-caption font-semibold text-[#B91C1C]"
             >
               <Eye className="w-4 h-4" />
               {t("applicationsManagement.card.hide")}
             </button>
           )}
-        </div>
+        </div> : null}
 
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => onOpenProfile(application)}
-            className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#E5E7EB] px-3 py-2 text-[12px] font-semibold text-[#111827]"
+            className="inline-flex items-center justify-center gap-2 rounded-control border border-[#E5E7EB] px-3 py-2 text-caption font-semibold text-[#111827]"
           >
             <UserIcon className="w-4 h-4" />
             {t("applicationsManagement.card.profile")}
@@ -388,7 +404,7 @@ function ApplicationCard({
           <button
             type="button"
             onClick={() => onMessage(application)}
-            className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#E5E7EB] px-3 py-2 text-[12px] font-semibold text-[#111827]"
+            className="inline-flex items-center justify-center gap-2 rounded-control border border-[#E5E7EB] px-3 py-2 text-caption font-semibold text-[#111827]"
           >
             <MessageSquare className="w-4 h-4" />
             {t("applicationsManagement.card.message")}
@@ -400,33 +416,40 @@ function ApplicationCard({
             href={resumeUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#1C4D8D]"
+            className="inline-flex items-center gap-2 text-caption font-semibold text-brand"
           >
             <Mail className="w-4 h-4" />
             {t("applicationsManagement.card.viewResume")}
           </a>
         ) : null}
         {reviewEligibility?.canReview ? (
-          <button type="button" onClick={() => onRate(application)} className="inline-flex w-full items-center justify-center gap-2 rounded-[10px] bg-amber-500 px-3 py-2 text-[12px] font-semibold text-white">
+          <button type="button" onClick={() => onRate(application)} className="inline-flex w-full items-center justify-center gap-2 rounded-control bg-amber-500 px-3 py-2 text-caption font-semibold text-white">
             <Star className="h-4 w-4" /> {t("applicationsManagement.card.rateWorker")}
           </button>
         ) : reviewEligibility?.existingReview ? (
-          <p className="text-center text-[12px] font-semibold text-emerald-700">{t("applicationsManagement.card.reviewSubmitted")}</p>
-        ) : null}
+          <p className="text-center text-caption font-semibold text-emerald-700">{t("applicationsManagement.card.reviewSubmitted")}</p>
+        ) : history ? <p className="text-caption text-slate-500">{t("jobHistory.ratingAfterCompletion")}</p> : null}
       </div>
     </div>
   );
 }
 
-export function ApplicationsManagement() {
+export function ApplicationsManagement({ historyJobId, onHistoryChange }: { historyJobId?: string; onHistoryChange?: () => void } = {}) {
   const { t } = useTranslation("employer");
+  const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const prefersReducedMotion = useReducedMotion();
-  const [viewMode, setViewMode] = useState<"board" | "table">("board");
   const [statusFilter, setStatusFilter] = useState<"all" | ApplicationStatus>("all");
-  const [jobFilter, setJobFilter] = useState("all");
+  const [jobFilter, setJobFilter] = useState(historyJobId || searchParams.get('jobId') || "");
+  const [jobOptions, setJobOptions] = useState<Array<{ id: string; title: string }>>([]);
+  const [jobsError, setJobsError] = useState<string | null>(null);
+  const [jobsLoading, setJobsLoading] = useState(!historyJobId);
+  const [actionsTarget, setActionsTarget] = useState<EmployerApplication | null>(null);
+  const [statusBusy, setStatusBusy] = useState(false);
+  const loadSequence = useRef(0);
   const [searchTerm, setSearchTerm] = useState("");
-  const [includeHidden, setIncludeHidden] = useState(false);
+  const [includeHidden, setIncludeHidden] = useState(Boolean(historyJobId));
   const [applications, setApplications] = useState<EmployerApplication[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -443,43 +466,66 @@ export function ApplicationsManagement() {
   const [isScheduling, setIsScheduling] = useState(false);
   const [reviewEligibility, setReviewEligibility] = useState<Record<string, ReviewEligibilityItem>>({});
   const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
+  const [hireTarget, setHireTarget] = useState<EmployerApplication | null>(null);
   const [offerBusyId, setOfferBusyId] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     title: string;
     description: string;
+    warning?: string;
     confirmLabel?: string;
     destructive?: boolean;
     run: () => Promise<void>;
   } | null>(null);
 
-  const loadApplications = useCallback(async () => {
-    setIsLoading(true);
+  const [cancelOfferId, setCancelOfferId] = useState<string | null>(null);
+  const [rejectAfterCancelApp, setRejectAfterCancelApp] = useState<string | null>(null);
+  useEffect(() => {
+    if (historyJobId) return;
+    let cancelled = false;
+    // The management listing excludes fully refunded jobs; history lists all
+    // owned postings so the selector remains complete regardless of status.
+    void getEmployerJobHistory().then((jobs) => {
+      if (cancelled) return;
+      const options = jobs.map((job) => ({ id: String(job._id), title: job.title }));
+      setJobOptions(options);
+      setJobFilter((current) => current || options[0]?.id || "");
+    }).catch((error: any) => {
+      if (!cancelled) setJobsError(error?.message || t("applicationsManagement.errors.jobsLoadFailed"));
+    }).finally(() => { if (!cancelled) setJobsLoading(false); });
+    return () => { cancelled = true; };
+  }, [historyJobId, t]);
+
+  const loadApplications = useCallback(async (silent = false) => {
+    if (!jobFilter) return;
+    const sequence = ++loadSequence.current;
+    if (!silent) setIsLoading(true);
     setLoadError(null);
     try {
       const [response, reviewResponse] = await Promise.all([
         getEmployerApplications({
-          ...(statusFilter !== "all" ? { status: statusFilter } : {}),
-          ...(jobFilter !== "all" ? { jobId: jobFilter } : {}),
-          ...(searchTerm.trim() ? { search: searchTerm.trim() } : {}),
+          jobId: jobFilter,
           ...(includeHidden ? { includeHidden: "true" } : {}),
         }),
         getEligibleReviews().catch(() => null),
       ]);
+      if (sequence !== loadSequence.current) return;
       const nextApplications = Array.isArray(response) ? (response as EmployerApplication[]) : [];
       setApplications(nextApplications.filter((item) => item.status !== "Withdrawn"));
       setReviewEligibility(Object.fromEntries((reviewResponse?.asEmployer || []).map((item) => [item.applicationId, item])));
       setSelectedIds((current) => current.filter((id) => nextApplications.some((item) => item._id === id)));
     } catch (error: any) {
+      if (sequence !== loadSequence.current) return;
       setLoadError(error?.message || t("applicationsManagement.errors.loadFailed"));
-      setApplications([]);
+      if (!silent) setApplications([]);
     } finally {
-      setIsLoading(false);
+      if (sequence === loadSequence.current) setIsLoading(false);
     }
-  }, [includeHidden, jobFilter, searchTerm, statusFilter, t]);
+  }, [includeHidden, jobFilter, t]);
 
   useEffect(() => {
-    const timer = window.setTimeout(loadApplications, 250);
-    return () => window.clearTimeout(timer);
+    setApplications([]);
+    void loadApplications();
+    return () => { loadSequence.current += 1; };
   }, [loadApplications]);
 
   const groupedApplications = useMemo(
@@ -491,34 +537,63 @@ export function ApplicationsManagement() {
     [applications],
   );
 
-  const jobOptions = useMemo(() => {
-    const unique = new Map<string, string>();
-    applications.forEach((application) => {
-      if (application.job?._id) {
-        unique.set(application.job._id, application.job.title);
-      }
-    });
-    return Array.from(unique.entries()).map(([id, title]) => ({ id, title }));
-  }, [applications]);
-
   const visibleApplications = useMemo(
-    () => (statusFilter === "all" ? applications : applications.filter((application) => application.status === statusFilter)),
-    [applications, statusFilter],
+    () => applications.filter((application) => {
+      const search = searchTerm.trim().toLowerCase();
+      const name = `${application.applicant?.firstName || ""} ${application.applicant?.lastName || ""}`.toLowerCase();
+      return application.job?._id === jobFilter && (statusFilter === "all" || application.status === statusFilter) &&
+        (!search || [name, application.applicant?.email, application.job?.title].some((value) => value?.toLowerCase().includes(search)));
+    }),
+    [applications, jobFilter, searchTerm, statusFilter],
   );
+
+  useEffect(() => {
+    const id = searchParams.get('applicationId');
+    const jobId = searchParams.get('jobId');
+    if (id && jobId) setJobFilter(jobId);
+    if (id) setIncludeHidden(true);
+    const application = applications.find((item) => item._id === id);
+    if (!application) return;
+    setActionsTarget(application);
+    const next = new URLSearchParams(searchParams); next.delete('applicationId'); next.delete('jobId');
+    setSearchParams(next, { replace: true });
+  }, [applications, searchParams, setSearchParams]);
+
+  const activeApplication = actionsTarget ? applications.find((item) => item._id === actionsTarget._id) || actionsTarget : null;
+  const actionStep = activeApplication?.status === "Hired" ? 4 : activeApplication?.offer?.status === "accepted" ? 3 : activeApplication?.offer?.status === "pending" ? 2 : 1;
+
+  // Refresh only while an offer is being reviewed; keep the dialog and table
+  // mounted and stop polling when it closes or the applicant responds.
+  useEffect(() => {
+    if (!activeApplication || actionStep !== 2 || offerBusyId || confirmAction) return;
+    let refreshing = false;
+    const refresh = async () => {
+      if (refreshing || document.visibilityState === "hidden") return;
+      refreshing = true;
+      try { await loadApplications(true); } finally { refreshing = false; }
+    };
+    const timer = window.setInterval(() => void refresh(), 10000);
+    window.addEventListener("focus", refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
+  }, [activeApplication, actionStep, confirmAction, loadApplications, offerBusyId]);
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
   const updateLocalApplication = (applicationId: string, updater: (item: EmployerApplication) => EmployerApplication) => {
     setApplications((current) => current.map((item) => (item._id === applicationId ? updater(item) : item)));
+    setActionsTarget((current) => current?._id === applicationId ? updater(current) : current);
   };
 
   const handleStatusChange = async (applicationId: string, nextStatus: ApplicationStatus) => {
+    setStatusBusy(true);
     try {
       await updateApplicationStatus(applicationId, nextStatus);
       updateLocalApplication(applicationId, (item) => ({ ...item, status: nextStatus }));
       toast.success(t("applicationsManagement.toast.statusMoved", { status: getStatusLabel(t, nextStatus) }));
     } catch (error: any) {
       toast.error(error?.message || t("applicationsManagement.toast.statusUpdateFailed"));
+    } finally {
+      setStatusBusy(false);
     }
   };
 
@@ -661,11 +736,12 @@ export function ApplicationsManagement() {
     setOfferBusyId(applicationId);
     try {
       await action();
-      await loadApplications();
+      onHistoryChange?.();
       if (successMessage) toast.success(successMessage);
     } catch (error: any) {
       toast.error(error?.message || t("applicationsManagement.toast.offerActionFailed"));
     } finally {
+      await loadApplications(true);
       setOfferBusyId(null);
     }
   };
@@ -679,58 +755,33 @@ export function ApplicationsManagement() {
         name,
         amount: formatCurrency(amount),
         minimum: formatCurrency(minimum),
-        escrow: formatCurrency(Math.max(0, amount - minimum)),
+        escrow: formatCurrency(Math.max(0, amount - minimum) * (application.job.paymentMode === 'daily' ? application.job.workDates?.length || 1 : 1)),
       }),
       confirmLabel: t("applicationsManagement.confirmOffer.confirm"),
       run: () => runOfferAction(application._id, () => createJobOffer(application._id, amount), t("applicationsManagement.toast.offerSent")),
     });
   };
 
-  const handleCancelOffer = (application: EmployerApplication) => {
-    if (!application.offer) return;
-    const offer = application.offer;
-    setConfirmAction({
-      title: t("applicationsManagement.confirmCancelOffer.title"),
-      description: t("applicationsManagement.confirmCancelOffer.description", { amount: formatCurrency(offer.amount) }),
-      confirmLabel: t("applicationsManagement.confirmCancelOffer.confirm"),
-      destructive: true,
-      run: () => runOfferAction(application._id, () => cancelJobOffer(offer.id)),
-    });
-  };
+  useEffect(() => { const reload = () => void loadApplications(); window.addEventListener('microjobs:lifecycle', reload); return () => window.removeEventListener('microjobs:lifecycle', reload); }, [loadApplications]);
+
+  const handleCancelOffer = (application: EmployerApplication) => { setRejectAfterCancelApp(null); if (application.offer) setCancelOfferId(application.offer.id); };
 
   const handleConfirmHire = (application: EmployerApplication) => {
-    if (!application.offer) return;
-    const offer = application.offer;
-    const name = getApplicantName(application, t("applicationsManagement.card.applicantFallback"));
-    setConfirmAction({
-      title: t("applicationsManagement.confirmHire.title"),
-      description: t("applicationsManagement.confirmHire.description", { name, amount: formatCurrency(offer.amount) }),
-      confirmLabel: t("applicationsManagement.confirmHire.confirm"),
-      run: () => runOfferAction(application._id, () => confirmOfferHire(offer.id), t("applicationsManagement.toast.workerHired")),
-    });
+    if (application.offer) setHireTarget(application);
   };
 
-  // Authorizing payment and requesting changes don't move money or lock in a
-  // hire, so -- matching the mobile reference implementation -- they fire
-  // directly instead of going through the confirm dialog.
-  const handleAuthorizePayment = (application: EmployerApplication) => {
-    void runOfferAction(application._id, () => authorizePayment(application._id));
+  const handleRejectApplicant = (application: EmployerApplication) => { if (application.offer) { setRejectAfterCancelApp(application._id); setCancelOfferId(application.offer.id); } };
+  const handleAuthorizePayment = async (application: EmployerApplication) => {
+    try { const preview = await lifecycleRequest(`/applications/${application._id}/payment/preview`, {}); setConfirmAction({ title: t('applicationsManagement.confirmPay.title'), description: `${preview.jobTitle}. ${t('applicationsManagement.confirmPay.description', { name: getApplicantName(application, ''), amount: formatCurrency(preview.amount) })} ${tc('lifecycle.releaseAmount', { amount: formatCurrency(preview.amount) })}`, run: () => runOfferAction(application._id, () => authorizePayment(application._id)) }); } catch (error: any) { toast.error(error.message); }
   };
-
-  const handleReleasePayment = (application: EmployerApplication) => {
-    const name = getApplicantName(application, t("applicationsManagement.card.applicantFallback"));
-    const amount = application.agreedAmount || application.job.salary;
-    setConfirmAction({
-      title: t("applicationsManagement.confirmPay.title"),
-      description: t("applicationsManagement.confirmPay.description", { name, amount: formatCurrency(amount) }),
-      confirmLabel: t("applicationsManagement.confirmPay.confirm"),
-      run: () => runOfferAction(application._id, () => settlePayment(application._id), t("applicationsManagement.toast.workerPaid")),
-    });
+  const handleReleasePayment = async (application: EmployerApplication) => {
+    try { const preview = await lifecycleRequest(`/applications/${application._id}/payment/preview`, {}); setConfirmAction({ title: t('applicationsManagement.confirmPay.title'), description: `${preview.jobTitle}. ${t('applicationsManagement.confirmPay.description', { name: getApplicantName(application, ''), amount: formatCurrency(preview.amount) })} ${tc('lifecycle.releaseAmount', { amount: formatCurrency(preview.amount) })}`, run: () => runOfferAction(application._id, () => settlePayment(application._id), t('applicationsManagement.toast.workerPaid')) }); } catch (error: any) { toast.error(error.message); }
   };
 
   const handleRequestChanges = (application: EmployerApplication, reason: string) => {
     void runOfferAction(application._id, () => requestWorkChanges(application._id, reason));
   };
+
 
   const handleConfirmDialogConfirm = () => {
     if (!confirmAction) return;
@@ -740,36 +791,31 @@ export function ApplicationsManagement() {
   };
 
   return (
-    <div className="ui-page">
-      <div className="ui-card p-6 space-y-5">
+    <div className={historyJobId ? "space-y-4" : "ui-page"}>
+      {!historyJobId ? <div className="ui-card p-6 space-y-5">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div>
             <h1 className="ui-page-title">{t("applicationsManagement.title")}</h1>
             <p className="ui-page-subtitle">{t("applicationsManagement.subtitle")}</p>
           </div>
-          <div className="inline-flex items-center rounded-[12px] border border-[#E5E7EB] overflow-hidden self-start">
-            <button
-              type="button"
-              onClick={() => setViewMode("board")}
-              aria-pressed={viewMode === "board"}
-              className={`inline-flex items-center gap-2 px-4 py-2 text-[13px] font-semibold ${viewMode === "board" ? "bg-[#1C4D8D]/[0.06] text-[#1C4D8D]" : "bg-white text-[#475569]"}`}
-            >
-              <Grid2X2 className="w-4 h-4" />
-              {t("applicationsManagement.viewToggle.board")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("table")}
-              aria-pressed={viewMode === "table"}
-              className={`inline-flex items-center gap-2 px-4 py-2 text-[13px] font-semibold border-l border-[#E5E7EB] ${viewMode === "table" ? "bg-[#1C4D8D]/[0.06] text-[#1C4D8D]" : "bg-white text-[#475569]"}`}
-            >
-              <LayoutList className="w-4 h-4" />
-              {t("applicationsManagement.viewToggle.table")}
-            </button>
-          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_180px_180px] gap-3">
+        <div>
+          <label htmlFor="applications-job" className="mb-2 block text-body-sm font-semibold text-slate-700">{t("applicationsManagement.filters.jobLabel")}</label>
+          <select
+            id="applications-job"
+            value={jobFilter}
+            disabled={jobsLoading || Boolean(jobsError) || jobOptions.length === 0}
+            onChange={(event) => { setIsLoading(true); setJobFilter(event.target.value); setSelectedIds([]); setActionsTarget(null); }}
+            className="h-11 w-full rounded-control border border-[#E5E7EB] bg-white px-3 text-body-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-60"
+          >
+            {!jobFilter ? <option value="">{t(jobsLoading ? "applicationsManagement.filters.loadingJobs" : "applicationsManagement.filters.noJobs")}</option> : null}
+            {jobOptions.map((job) => <option key={job.id} value={job.id}>{job.title}</option>)}
+          </select>
+          {jobsError ? <p role="alert" className="mt-2 text-body-sm text-red-700">{jobsError}</p> : null}
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
             <input
@@ -778,14 +824,14 @@ export function ApplicationsManagement() {
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder={t("applicationsManagement.filters.searchPlaceholder")}
               aria-label={t("applicationsManagement.filters.searchAriaLabel")}
-              className="w-full h-11 rounded-[12px] border border-[#E5E7EB] pl-9 pr-3 text-[13px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+              className="w-full h-11 rounded-xl border border-[#E5E7EB] pl-9 pr-3 text-body-sm text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-brand"
             />
           </div>
           <select
             aria-label={t("applicationsManagement.filters.stageAriaLabel")}
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
-            className="h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+            className="h-11 rounded-xl border border-[#E5E7EB] px-3 text-body-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-brand"
           >
             <option value="all">{t("applicationsManagement.filters.allStages")}</option>
             {PIPELINE_STATUSES.map((status) => (
@@ -794,34 +840,21 @@ export function ApplicationsManagement() {
               </option>
             ))}
           </select>
-          <select
-            aria-label={t("applicationsManagement.filters.jobAriaLabel")}
-            value={jobFilter}
-            onChange={(event) => setJobFilter(event.target.value)}
-            className="h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
-          >
-            <option value="all">{t("applicationsManagement.filters.allJobs")}</option>
-            {jobOptions.map((job) => (
-              <option key={job.id} value={job.id}>
-                {job.title}
-              </option>
-            ))}
-          </select>
         </div>
 
-        <label className="flex w-fit cursor-pointer items-center gap-2 text-[13px] font-medium text-[#475569]">
+        <label className="flex w-fit cursor-pointer items-center gap-2 text-body-sm font-medium text-[#475569]">
           <input
             type="checkbox"
             checked={includeHidden}
             onChange={(event) => setIncludeHidden(event.target.checked)}
-            className="h-4 w-4 rounded border-[#CBD5E1] text-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]"
+            className="h-4 w-4 rounded border-[#CBD5E1] text-brand focus:ring-2 focus:ring-brand"
           />
           {t("applicationsManagement.filters.showHidden")}
         </label>
 
         {selectedIds.length > 0 ? (
-          <div className="rounded-[14px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div className="text-[13px] text-[#1C4D8D] font-medium">
+          <div className="rounded-card border border-brand/20 bg-brand/[0.06] px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="text-body-sm text-brand font-medium">
               {t("applicationsManagement.bulk.selectedCount", { count: selectedIds.length })}
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
@@ -829,7 +862,7 @@ export function ApplicationsManagement() {
                 aria-label={t("applicationsManagement.bulk.stageAriaLabel")}
                 value={bulkStatus}
                 onChange={(event) => setBulkStatus(event.target.value as ApplicationStatus)}
-                className="h-10 rounded-[10px] border border-[#1C4D8D]/20 px-3 text-[13px] text-[#111827]"
+                className="h-10 rounded-control border border-brand/20 px-3 text-body-sm text-[#111827]"
               >
                 {EDITABLE_STATUSES.map((status) => (
                   <option key={status} value={status}>
@@ -841,48 +874,48 @@ export function ApplicationsManagement() {
                 type="button"
                 onClick={handleBulkStatusChange}
                 disabled={isBulkUpdating}
-                className="h-10 rounded-[10px] bg-[#1C4D8D] px-4 text-[13px] font-semibold text-white disabled:opacity-60"
+                className="h-10 rounded-control bg-brand px-4 text-body-sm font-semibold text-white disabled:opacity-60"
               >
                 {isBulkUpdating ? t("applicationsManagement.bulk.updating") : t("applicationsManagement.bulk.applyBulkStatus")}
               </button>
               <button
                 type="button"
                 onClick={() => handleHideApplications(selectedIds)}
-                className="h-10 rounded-[10px] border border-[#FCA5A5] bg-white px-4 text-[13px] font-semibold text-[#B91C1C]"
+                className="h-10 rounded-control border border-[#FCA5A5] bg-white px-4 text-body-sm font-semibold text-[#B91C1C]"
               >
                 {t("applicationsManagement.bulk.hideSelected")}
               </button>
             </div>
           </div>
         ) : null}
-      </div>
+      </div> : null}
 
       {loadError ? (
-        <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-[12px] text-[13px]">
+        <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-xl text-body-sm">
           {loadError}
         </div>
       ) : null}
 
       {isLoading ? (
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-10 text-center text-[#6B7280]">
+        <div className="bg-white rounded-card border border-[#E5E7EB] p-10 text-center text-[#6B7280]">
           {t("applicationsManagement.states.loading")}
         </div>
       ) : null}
 
-      {!isLoading && applications.length === 0 ? (
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-10 text-center text-[#6B7280]">
+      {!isLoading && !jobsLoading && visibleApplications.length === 0 ? (
+        <div className="bg-white rounded-card border border-[#E5E7EB] p-10 text-center text-[#6B7280]">
           {t("applicationsManagement.states.empty")}
         </div>
       ) : null}
 
-      {!isLoading && applications.length > 0 && viewMode === "board" ? (
+      {!isLoading && applications.length > 0 && historyJobId ? (
         <div className="flex flex-col gap-4 pb-2 md:flex-row md:overflow-x-auto">
           {PIPELINE_STATUSES.map((status) => (
-            <div key={status} className="w-full rounded-[18px] bg-[#F8FAFC] border border-[#E5E7EB] p-4 space-y-4 md:min-w-[320px] md:max-w-[320px]">
+            <div key={status} className={`w-full rounded-[18px] bg-[#F8FAFC] border border-[#E5E7EB] p-4 space-y-4 ${historyJobId ? "" : "md:min-w-[320px] md:max-w-[320px]"}`}>
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-[16px] font-semibold text-[#111827]">{getStatusLabel(t, status)}</h3>
-                  <p className="text-[12px] text-[#6B7280] mt-1">
+                  <h3 className="text-section font-semibold text-[#111827]">{getStatusLabel(t, status)}</h3>
+                  <p className="text-caption text-[#6B7280] mt-1">
                     {t("applicationsManagement.board.applicantCount", { count: groupedApplications[status].length })}
                   </p>
                 </div>
@@ -893,7 +926,7 @@ export function ApplicationsManagement() {
 
               <div className="space-y-3">
                 {groupedApplications[status].length === 0 ? (
-                  <div className="rounded-[14px] border border-dashed border-[#CBD5E1] bg-white px-4 py-8 text-center text-[13px] text-[#94A3B8]">
+                  <div className="rounded-card border border-dashed border-[#CBD5E1] bg-white px-4 py-8 text-center text-body-sm text-[#94A3B8]">
                     {t("applicationsManagement.board.emptyColumn")}
                   </div>
                 ) : (
@@ -905,6 +938,7 @@ export function ApplicationsManagement() {
                       transition={{ delay: Math.min(index, 8) * 0.04, duration: seconds(motionTokens.duration.standard) }}
                     >
                       <ApplicationCard
+                        history={Boolean(historyJobId)}
                         application={application}
                         selected={selectedSet.has(application._id)}
                         onToggleSelected={handleToggleSelected}
@@ -933,113 +967,79 @@ export function ApplicationsManagement() {
         </div>
       ) : null}
 
-      {!isLoading && applications.length > 0 && viewMode === "table" ? (
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 overflow-x-auto">
-          <table className="w-full text-left text-[13px]">
+      {!historyJobId && jobFilter ? <h2 className="text-section font-bold text-slate-900">{jobOptions.find((job) => job.id === jobFilter)?.title}</h2> : null}
+
+      {!isLoading && visibleApplications.length > 0 && !historyJobId ? (
+        <div className="overflow-x-auto rounded-card border border-[#E5E7EB] bg-white p-4">
+          <table className="w-full min-w-[1040px] text-left text-body-sm">
+            <caption className="sr-only">{jobOptions.find((job) => job.id === jobFilter)?.title}</caption>
             <thead>
-              <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
-                <th className="py-3 pr-4 font-medium">
-                  <button type="button" onClick={handleToggleSelectAll} className="text-[#64748B] hover:opacity-80">
-                    {visibleApplications.length > 0 && visibleApplications.every((application) => selectedSet.has(application._id)) ? (
-                      <CheckSquare className="w-5 h-5" />
-                    ) : (
-                      <Square className="w-5 h-5" />
-                    )}
-                  </button>
+              <tr className="border-b border-[#E5E7EB] text-[#6B7280]">
+                <th scope="col" className="py-3 pr-4 font-medium">
+                  <div className="flex items-center gap-3">
+                    <input type="checkbox" checked={visibleApplications.length > 0 && visibleApplications.every((application) => selectedSet.has(application._id))}
+                      onChange={handleToggleSelectAll} aria-label={t("applicationsManagement.table.selectAll")} className="h-4 w-4 accent-brand" />
+                    {t("applicationsManagement.table.headers.applicant")}
+                  </div>
                 </th>
-                <th className="py-3 pr-4 font-medium">{t("applicationsManagement.table.headers.applicant")}</th>
-                <th className="py-3 pr-4 font-medium">{t("applicationsManagement.table.headers.role")}</th>
-                <th className="py-3 pr-4 font-medium">{t("applicationsManagement.table.headers.stage")}</th>
-                <th className="py-3 pr-4 font-medium">{t("applicationsManagement.table.headers.interview")}</th>
-                <th className="py-3 pr-4 font-medium">{t("applicationsManagement.table.headers.applied")}</th>
-                <th className="py-3 pr-4 font-medium">{t("applicationsManagement.table.headers.resume")}</th>
-                <th className="py-3 font-medium">{t("applicationsManagement.table.headers.actions")}</th>
+                {["stage", "interview", "applied", "resume", "profile", "actions", "hide"].map((header) => (
+                  <th scope="col" key={header} className="py-3 pr-4 font-medium">{t(`applicationsManagement.table.headers.${header}`)}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {visibleApplications.map((application, index) => {
                 const resumeUrl = toAbsoluteAssetUrl(application.applicant?.resumeUrl || application.applicant?.resume);
-                const applicantFallback = t("applicationsManagement.card.applicantFallback");
+                const name = getApplicantName(application, t("applicationsManagement.card.applicantFallback"));
                 return (
-                  <motion.tr
-                    key={application._id}
-                    className="border-b border-[#F3F4F6] align-top transition-colors hover:bg-slate-50"
-                    initial={prefersReducedMotion ? false : { opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: Math.min(index, 8) * 0.03, duration: seconds(motionTokens.duration.enter) }}
-                  >
-                    <td className="py-3 pr-4">
-                      <button type="button" onClick={() => handleToggleSelected(application._id)} className="text-[#64748B] hover:opacity-80">
-                        {selectedSet.has(application._id) ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
+                  <motion.tr key={application._id}
+                    className={`border-b border-[#F3F4F6] align-middle transition-colors hover:bg-slate-50 ${application.employerHidden ? "bg-slate-50" : ""}`}
+                    initial={prefersReducedMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }}
+                    transition={{ delay: Math.min(index, 8) * 0.03, duration: seconds(motionTokens.duration.enter) }}>
+                    <td className="py-4 pr-4 text-[#111827]">
+                      <div className="flex items-center gap-3">
+                        <input type="checkbox" checked={selectedSet.has(application._id)} onChange={() => handleToggleSelected(application._id)}
+                          aria-label={t("applicationsManagement.table.selectApplicant", { name })} className="h-4 w-4 shrink-0 accent-brand" />
+                        <div>
+                          <div className="font-semibold">{name}</div>
+                          {application.employerHidden ? <span className="text-caption text-slate-500">{t("applicationsManagement.card.hiddenBadge")}</span> : null}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-4 pr-4">
+                      <span className={`inline-flex whitespace-nowrap rounded-full px-3 py-1 text-caption font-semibold ${statusClasses[application.status]}`}>
+                        {getStatusLabel(t, application.status)}
+                      </span>
+                    </td>
+                    <td className="py-4 pr-4">
+                      <button type="button" onClick={() => handleOpenSchedule(application)} disabled={application.status === "Hired"}
+                        className="rounded-control border border-brand/20 bg-brand/[0.06] px-3 py-2 font-semibold text-brand disabled:cursor-not-allowed disabled:opacity-50">
+                        {t(application.nextInterview ? "applicationsManagement.card.reschedule" : "applicationsManagement.table.actions.interview")}
+                      </button>
+                      <p className="mt-1 text-caption text-slate-500">
+                        {application.nextInterview ? formatAppliedDate(application.nextInterview.scheduledAt) : t("applicationsManagement.table.notScheduled")}
+                      </p>
+                    </td>
+                    <td className="whitespace-nowrap py-4 pr-4 text-slate-600">{formatAppliedDate(application.createdAt)}</td>
+                    <td className="py-4 pr-4">
+                      {resumeUrl ? <a href={resumeUrl} target="_blank" rel="noreferrer" className="font-semibold text-brand underline-offset-4 hover:underline">{t("applicationsManagement.card.viewResume")}</a>
+                        : <span className="text-slate-400">{t("applicationsManagement.table.noResume")}</span>}
+                    </td>
+                    <td className="py-4 pr-4">
+                      <button type="button" onClick={() => handleOpenProfile(application)} className="whitespace-nowrap rounded-control border border-[#E5E7EB] px-3 py-2 font-semibold text-slate-700">
+                        {t("applicationsManagement.table.headers.profile")}
                       </button>
                     </td>
-                    <td className="py-3 pr-4 text-[#111827]">
-                      <div className="font-medium">{getApplicantName(application, applicantFallback)}</div>
-                      <div className="text-[12px] text-[#6B7280] mt-1">{application.applicant?.email || "—"}</div>
+                    <td className="py-4 pr-4">
+                      <button type="button" onClick={() => { setActionsTarget(application); void loadApplications(true); }} className="rounded-control bg-brand px-3 py-2 font-semibold text-white hover:opacity-90">
+                        {t("applicationsManagement.table.headers.actions")}
+                      </button>
                     </td>
-                    <td className="py-3 pr-4 text-[#6B7280]">{application.job?.title || "—"}</td>
-                    <td className="py-3 pr-4">
-                      <select
-                        value={application.status}
-                        onChange={(event) => handleStatusChange(application._id, event.target.value as ApplicationStatus)}
-                        className="h-10 rounded-[10px] border border-[#E5E7EB] px-3 text-[12px] text-[#111827]"
-                      >
-                        {application.status === "Hired" ? (
-                          <option value="Hired" disabled>
-                            {t("applicationsManagement.card.hiredViaOffer")}
-                          </option>
-                        ) : null}
-                        {EDITABLE_STATUSES.map((status) => (
-                          <option key={status} value={status}>
-                            {getStatusLabel(t, status)}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="py-3 pr-4 text-[#6B7280]">
-                      {application.nextInterview
-                        ? formatAppliedDate(application.nextInterview.scheduledAt)
-                        : t("applicationsManagement.table.notScheduled")}
-                    </td>
-                    <td className="py-3 pr-4 text-[#6B7280]">{formatAppliedDate(application.createdAt)}</td>
-                    <td className="py-3 pr-4">
-                      {resumeUrl ? (
-                        <a href={resumeUrl} target="_blank" rel="noreferrer" className="text-[#1C4D8D] font-semibold">
-                          {t("applicationsManagement.card.viewResume")}
-                        </a>
-                      ) : (
-                        <span className="text-[#9CA3AF]">{t("applicationsManagement.table.noResume")}</span>
-                      )}
-                    </td>
-                    <td className="py-3">
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenSchedule(application)}
-                          className="px-3 py-2 rounded-[10px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] text-[#1C4D8D] font-semibold"
-                        >
-                          {t("applicationsManagement.table.actions.interview")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenProfile(application)}
-                          className="px-3 py-2 rounded-[10px] border border-[#E5E7EB] text-[#111827] font-semibold"
-                        >
-                          {t("applicationsManagement.card.profile")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleHideApplications([application._id])}
-                          className="px-3 py-2 rounded-[10px] border border-[#FECACA] text-[#B91C1C] font-semibold"
-                        >
-                          {t("applicationsManagement.card.hide")}
-                        </button>
-                        {reviewEligibility[application._id]?.canReview ? (
-                          <button type="button" onClick={() => handleRateWorker(application)} className="inline-flex items-center gap-1 rounded-[10px] bg-amber-500 px-3 py-2 font-semibold text-white">
-                            <Star className="h-4 w-4" /> {t("applicationsManagement.table.actions.rate")}
-                          </button>
-                        ) : null}
-                      </div>
+                    <td className="py-4 pr-4">
+                      <button type="button" onClick={() => application.employerHidden ? handleRestoreApplications([application._id]) : handleHideApplications([application._id])}
+                        className="rounded-control border border-[#E5E7EB] px-3 py-2 font-semibold text-slate-600 hover:bg-slate-50">
+                        {t(application.employerHidden ? "applicationsManagement.card.restore" : "applicationsManagement.card.hide")}
+                      </button>
                     </td>
                   </motion.tr>
                 );
@@ -1048,13 +1048,88 @@ export function ApplicationsManagement() {
           </table>
         </div>
       ) : null}
-      {ratingTarget ? (
-        <RatingDialog target={ratingTarget} onClose={() => setRatingTarget(null)} onSubmitted={loadApplications} />
+      {activeApplication ? (
+        <Dialog open={!confirmAction && !ratingTarget && !hireTarget} title={t("applicationsManagement.workflow.title")}
+          description={`${getApplicantName(activeApplication, t("applicationsManagement.card.applicantFallback"))} · ${activeApplication.job.title}`}
+          onClose={() => setActionsTarget(null)} closeDisabled={Boolean(offerBusyId) || statusBusy} size="xl">
+          <div className="space-y-5" aria-busy={Boolean(offerBusyId) || statusBusy}>{["Hired", "Cancelled"].includes(activeApplication.status) && <AssignmentPanel applicationId={activeApplication._id} onChanged={() => void loadApplications(true)} />}
+            <ol className="flex items-center justify-center" aria-label={t("applicationsManagement.workflow.stepsLabel")}>
+              {ACTION_STEP_KEYS.map((label, index) => (
+                <li key={label} aria-current={actionStep === index + 1 ? "step" : undefined}
+                  className="flex items-center">
+                  <span className="-mx-3 flex h-11 w-11 shrink-0 items-center justify-center">
+                    <span aria-hidden="true" className={`h-2.5 w-2.5 rounded-full ${index + 1 <= actionStep ? "bg-brand" : "bg-slate-200"}`} />
+                    <span className="sr-only">{index + 1}. {t(`applicationsManagement.workflow.${label}`)}</span>
+                  </span>
+                  {index < ACTION_STEP_KEYS.length - 1 ? <span aria-hidden="true" className="h-px w-8 shrink-0 bg-slate-200" /> : null}
+                </li>
+              ))}
+            </ol>
+            <p className="text-center text-xs font-semibold uppercase tracking-[0.14em] text-brand">
+              {t("applicationsManagement.workflow.stepCaption", { step: actionStep, total: ACTION_STEP_KEYS.length, title: t(`applicationsManagement.workflow.${ACTION_STEP_KEYS[actionStep - 1]}`) })}
+            </p>
+            {loadError ? <p role="alert" className="text-body-sm text-red-700">{loadError}</p> : null}
+            <AnimatePresence mode="wait">
+              <motion.div key={`${activeApplication._id}:${actionStep}`} className="space-y-5"
+                initial={prefersReducedMotion ? false : { opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={prefersReducedMotion ? undefined : { opacity: 0, x: -16 }}
+                transition={{ duration: prefersReducedMotion ? 0 : seconds(motionTokens.duration.fast) }}>
+                {actionStep === 1 ? (
+                  <section className="space-y-5 rounded-card border border-slate-200 bg-slate-50/60 p-4 md:p-6">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-brand-600 shadow-sm ring-1 ring-slate-200"><ClipboardList size={20} aria-hidden="true" /></div>
+                      <div><h3 className="font-bold text-slate-900">{t("applicationsManagement.workflow.changeStatus")}</h3><p className="mt-0.5 text-sm text-slate-500">{t("applicationsManagement.workflow.statusSubtitle")}</p></div>
+                    </div>
+                    <div>
+                      <label htmlFor="application-status" className="mb-2 block text-sm font-semibold text-slate-700">{t("applicationsManagement.workflow.changeStatus")}</label>
+                      <select id="application-status" value={activeApplication.status} disabled={statusBusy || Boolean(offerBusyId)}
+                        onChange={(event) => void handleStatusChange(activeApplication._id, event.target.value as ApplicationStatus)}
+                        className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                        {EDITABLE_STATUSES.map((status) => <option key={status} value={status}>{getStatusLabel(t, status)}</option>)}
+                      </select>
+                    </div>
+                    {activeApplication.offer?.status === "rejected" ? <p role="status" className="mt-3 text-body-sm text-slate-600">{t("applicationsManagement.workflow.offerDeclined")}</p> : null}
+                    {activeApplication.status === "Rejected" ? <p className="mt-3 text-body-sm text-slate-600">{t("applicationsManagement.workflow.rejectedHelp")}</p> : null}
+                  </section>
+                ) : null}
+                <OfferActions key={activeApplication._id} stepped application={activeApplication} busy={Boolean(offerBusyId) || statusBusy}
+                  onSendOffer={(amount) => handleSendOffer(activeApplication, amount)}
+                  onCancelOffer={() => handleCancelOffer(activeApplication)}
+                  onConfirmHire={() => handleConfirmHire(activeApplication)}
+                  onReject={() => handleRejectApplicant(activeApplication)}
+                  onAuthorizePayment={() => handleAuthorizePayment(activeApplication)}
+                  onReleasePayment={() => handleReleasePayment(activeApplication)}
+                  onRequestChanges={(reason) => handleRequestChanges(activeApplication, reason)} />
+              </motion.div>
+            </AnimatePresence>
+            <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 pt-5">
+              <button type="button" onClick={() => handleMessage(activeApplication)} className="inline-flex min-h-11 items-center gap-2 text-body-sm font-semibold text-brand">
+                <MessageSquare className="h-4 w-4" />{t("applicationsManagement.card.message")}
+              </button>
+              {reviewEligibility[activeApplication._id]?.canReview ? (
+                <button type="button" onClick={() => handleRateWorker(activeApplication)} className="inline-flex min-h-11 items-center gap-2 text-body-sm font-semibold text-amber-700">
+                  <Star className="h-4 w-4" />{t("applicationsManagement.card.rateWorker")}
+                </button>
+              ) : reviewEligibility[activeApplication._id]?.existingReview ? <span className="text-caption text-emerald-700">{t("applicationsManagement.card.reviewSubmitted")}</span> : null}
+            </div>
+          </div>
+        </Dialog>
       ) : null}
+      {ratingTarget ? (
+        <RatingDialog target={ratingTarget} onClose={() => setRatingTarget(null)} onSubmitted={async () => { await loadApplications(); onHistoryChange?.(); }} />
+      ) : null}
+      <OfferCancellationDialog rejectApplicationId={rejectAfterCancelApp} offerId={cancelOfferId} onClose={() => setCancelOfferId(null)} onDone={() => void loadApplications()} />
+      {hireTarget?.offer && <HireChecklistDialog key={hireTarget.offer.id} title={t('applicationsManagement.confirmHire.title')} description={t('applicationsManagement.confirmHire.description', { name: getApplicantName(hireTarget, t('applicationsManagement.card.applicantFallback')), amount: formatCurrency(hireTarget.offer.amount) })} warning={t('applicationsManagement.confirmHire.warning')} onClose={() => setHireTarget(null)} onConfirm={async (checklist) => {
+        await confirmOfferHire(hireTarget.offer!.id, checklist);
+        toast.success(t('applicationsManagement.toast.workerHired'));
+        await loadApplications(true); onHistoryChange?.();
+      }} />}
       <ConfirmDialog
         open={Boolean(confirmAction)}
         title={confirmAction?.title || ""}
         description={confirmAction?.description || ""}
+        warning={confirmAction?.warning}
         confirmLabel={confirmAction?.confirmLabel}
         destructive={confirmAction?.destructive}
         onConfirm={handleConfirmDialogConfirm}
@@ -1062,22 +1137,26 @@ export function ApplicationsManagement() {
       />
 
       {scheduleTarget ? (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-xl bg-white rounded-[18px] p-6 shadow-xl space-y-5">
-            <div>
-              <h3 className="text-[20px] font-semibold text-[#111827]">
-                {scheduleTarget.nextInterview
-                  ? t("applicationsManagement.scheduleModal.updateTitle")
-                  : t("applicationsManagement.scheduleModal.scheduleTitle")}
-              </h3>
-              <p className="text-[13px] text-[#6B7280] mt-1">
-                {t("applicationsManagement.scheduleModal.subtitle", {
-                  name: getApplicantName(scheduleTarget, t("applicationsManagement.card.applicantFallback")),
-                  job: scheduleTarget.job?.title || t("applicationsManagement.scheduleModal.roleFallback"),
-                })}
-              </p>
-            </div>
-
+        // On `ui`'s Dialog. This was the tallest hand-rolled modal in the app
+        // -- date, time, mode, location and a four-row notes field -- with no
+        // height cap and no scroll, so on a short or landscape phone the
+        // Schedule button sat below the fold with no way to reach it.
+        <Dialog
+          open
+          size="lg"
+          title={
+            scheduleTarget.nextInterview
+              ? t("applicationsManagement.scheduleModal.updateTitle")
+              : t("applicationsManagement.scheduleModal.scheduleTitle")
+          }
+          description={t("applicationsManagement.scheduleModal.subtitle", {
+            name: getApplicantName(scheduleTarget, t("applicationsManagement.card.applicantFallback")),
+            job: scheduleTarget.job?.title || t("applicationsManagement.scheduleModal.roleFallback"),
+          })}
+          onClose={() => setScheduleTarget(null)}
+          closeDisabled={isScheduling}
+        >
+          <div className="space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1095,7 +1174,7 @@ export function ApplicationsManagement() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="interview-time" className="block text-[13px] text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.timeLabel")}</label>
+                  <label htmlFor="interview-time" className="block text-body-sm text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.timeLabel")}</label>
                   <input
                     id="interview-time"
                     type="time"
@@ -1106,17 +1185,17 @@ export function ApplicationsManagement() {
                         scheduledAt: `${current.scheduledAt.slice(0, 10) || formatDateOnly(new Date())}T${event.target.value}`,
                       }))
                     }
-                    className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827]"
+                    className="w-full h-11 rounded-xl border border-[#E5E7EB] px-3 text-body-sm text-[#111827]"
                   />
                 </div>
               </div>
               <div>
-                <label htmlFor="interview-mode" className="block text-[13px] text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.modeLabel")}</label>
+                <label htmlFor="interview-mode" className="block text-body-sm text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.modeLabel")}</label>
                 <select
                   id="interview-mode"
                   value={scheduleForm.mode}
                   onChange={(event) => setScheduleForm((current) => ({ ...current, mode: event.target.value }))}
-                  className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827]"
+                  className="w-full h-11 rounded-xl border border-[#E5E7EB] px-3 text-body-sm text-[#111827]"
                 >
                   <option value="virtual">{t("applicationsManagement.scheduleModal.mode.virtual")}</option>
                   <option value="onsite">{t("applicationsManagement.scheduleModal.mode.onsite")}</option>
@@ -1127,34 +1206,34 @@ export function ApplicationsManagement() {
             </div>
 
             <div>
-              <label htmlFor="interview-location" className="block text-[13px] text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.locationLabel")}</label>
+              <label htmlFor="interview-location" className="block text-body-sm text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.locationLabel")}</label>
               <input
                 id="interview-location"
                 type="text"
                 value={scheduleForm.location}
                 onChange={(event) => setScheduleForm((current) => ({ ...current, location: event.target.value }))}
-                className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827]"
+                className="w-full h-11 rounded-xl border border-[#E5E7EB] px-3 text-body-sm text-[#111827]"
                 placeholder={t("applicationsManagement.scheduleModal.locationPlaceholder")}
               />
             </div>
 
             <div>
-              <label htmlFor="interview-notes" className="block text-[13px] text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.notesLabel")}</label>
+              <label htmlFor="interview-notes" className="block text-body-sm text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.notesLabel")}</label>
               <textarea
                 id="interview-notes"
                 rows={4}
                 value={scheduleForm.notes}
                 onChange={(event) => setScheduleForm((current) => ({ ...current, notes: event.target.value }))}
-                className="w-full rounded-[12px] border border-[#E5E7EB] px-3 py-2 text-[13px] text-[#111827]"
+                className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-body-sm text-[#111827]"
                 placeholder={t("applicationsManagement.scheduleModal.notesPlaceholder")}
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex flex-col-reverse items-stretch gap-2 sm:flex-row sm:items-center sm:justify-end">
               <button
                 type="button"
                 onClick={() => setScheduleTarget(null)}
-                className="px-4 py-2 rounded-[10px] border border-[#D1D5DB] text-[14px]"
+                className="min-h-11 px-4 rounded-control border border-[#D1D5DB] text-body"
                 disabled={isScheduling}
               >
                 {t("applicationsManagement.scheduleModal.cancel")}
@@ -1162,7 +1241,7 @@ export function ApplicationsManagement() {
               <button
                 type="button"
                 onClick={handleScheduleSubmit}
-                className="px-4 py-2 rounded-[10px] bg-[#1C4D8D] text-white text-[14px] font-medium disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center px-4 rounded-control bg-brand text-white text-body font-medium transition hover:opacity-90 disabled:opacity-60"
                 disabled={isScheduling}
               >
                 {isScheduling
@@ -1173,7 +1252,7 @@ export function ApplicationsManagement() {
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       ) : null}
     </div>
   );

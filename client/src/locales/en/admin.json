@@ -1,4 +1,78 @@
 {
+  "staffOtp": {
+    "label": "OTP",
+    "on": "On",
+    "off": "Off",
+    "description": "Enter the sign-in code sent to your verified secondary email:",
+    "failed": "OTP verification failed. Please try again.",
+    "cancel": "Cancel verification",
+    "warningTitle": "Set up secondary email and OTP verification",
+    "warningDescription": "OTP verification is off for your staff account. You can continue using the system, but you need to set up and verify a secondary email in Settings to turn on OTP verification for future sign-ins.",
+    "setup": "Set up secondary email",
+    "later": "Remind me next sign-in"
+  },
+  "secondaryEmail": {
+    "label": "Secondary Email",
+    "description": "Verify a different email address to turn on OTP verification for staff sign-in and password changes. Codes expire in 5 minutes.",
+    "active": "Verified address for password changes: {{email}}",
+    "password": "Current password to verify secondary email",
+    "code": "Secondary email OTP",
+    "send": "Send verification OTP",
+    "resend": "Resend verification OTP",
+    "verify": "Verify secondary email",
+    "verified": "Secondary email verified",
+    "unverified": "Email not yet verified",
+    "loading": "Loading secondary email...",
+    "retry": "Retry",
+    "working": "Please wait...",
+    "sent": "OTP sent to your secondary email",
+    "sendFailed": "Failed to send secondary email OTP",
+    "verifyFailed": "Failed to verify secondary email",
+    "required": "Verify your secondary email in Account settings before changing your password.",
+    "setup": "Set up secondary email",
+    "passwordSent": "Password change OTP sent to your verified secondary email",
+    "passwordDestination": "Your password change OTP will be sent to {{email}}."
+  },
+  "messageDirectory": {
+    "newMessage": "New message",
+    "title": "Choose a recipient",
+    "description": "Search active admins and users, then choose a person to start a direct conversation.",
+    "searchLabel": "Search people",
+    "searchPlaceholder": "Name, email, or username",
+    "groupLabel": "Recipient group",
+    "groups": {
+      "all": "All people",
+      "admins": "Admins",
+      "users": "Users"
+    },
+    "loading": "Loading recipients…",
+    "loadFailed": "Unable to load recipients. Please try again.",
+    "retry": "Try again",
+    "empty": "No people match your search.",
+    "tableCaption": "Available message recipients",
+    "person": "Person",
+    "role": "Role",
+    "action": "Action",
+    "message": "Message",
+    "messagePerson": "Message {{name}}",
+    "showing": "Showing {{from}}–{{to}} of {{total}}",
+    "paginationLabel": "Recipient pages",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {{page}} of {{total}}",
+    "roles": {
+      "work": "Worker",
+      "hire": "Employer",
+      "both": "Worker & employer",
+      "admin": "Admin",
+      "superadmin": "Superadmin",
+      "admin_team": "Admin team",
+      "moderator": "Moderator",
+      "finance_team": "Finance team",
+      "analytics_team": "Analytics team",
+      "support_staff": "Support staff"
+    }
+  },
   "gate": {
     "toast": {
       "accessDenied": "You don't have access to this admin section."
@@ -33,6 +107,11 @@
     }
   },
   "moderationQueue": {
+    "evidence": {
+      "view": "View conversation evidence",
+      "title": "Conversation evidence",
+        "description": "Saved messages from the report on {{name}}. Up to 20 messages are preserved as they appeared when reported."
+      },
     "title": "Moderation Queue",
     "subtitle": "Review reported users and job postings.",
     "cards": {
@@ -56,6 +135,7 @@
     "actions": {
       "suspended": "Suspend",
       "banned": "Ban",
+      "closed_job": "Close listing",
       "dismiss": "Dismiss"
     },
     "states": {
@@ -65,6 +145,7 @@
     "enforceDialog": {
       "titleSuspend": "Suspend account",
       "titleBan": "Ban account",
+      "titleCloseJob": "Close job listing",
       "description": "This enforcement action applies to {{name}} and is logged with your reason.",
       "reasonLabel": "Reason",
       "reasonRequired": "A reason is required for this action.",
@@ -77,20 +158,36 @@
     "toast": {
       "suspended": "{{name}} was suspended.",
       "banned": "{{name}} was banned.",
+      "closedJob": "{{name}} was closed.",
       "dismissed": "The report on {{name}} was dismissed."
     }
   },
   "verificationReview": {
     "title": "ID Verification Review",
-    "subtitle": "Review identity and address documents submitted for verification.",
+    "subtitle": "Review proof-of-address documents submitted for verification.",
+    "tabs": { "label": "Verification type" },
+    "governmentId": {
+      "caption": "Recorded government ID verifications",
+      "userName": "User Name",
+      "govIdName": "Full Name in Government ID",
+      "documentType": "Government ID type",
+      "date": "Date verified",
+      "viewProfile": "View profile",
+      "revoke": "Revoke verification",
+      "revoked": "Verification revoked",
+      "revokeDescription": "Set {{name}}'s Government ID verification to false? They will need to verify their ID again. The verification record will be retained.",
+      "revokedToast": "Government ID verification revoked.",
+      "emptyTitle": "No Government ID verification records",
+      "emptyDescription": "Successfully completed Government ID verifications will appear here."
+    },
     "cards": {
       "pending": "Awaiting review"
     },
-    "identityLabel": "Identity document",
-    "addressLabel": "Address document",
+    "identityLabel": "Government ID",
+    "addressLabel": "Proof of Address",
     "viewDocument": "View document",
     "table": {
-      "caption": "Identity and address documents awaiting a decision",
+      "caption": "Proof-of-address documents awaiting a decision",
       "applicant": "Applicant",
       "document": "Document",
       "actions": "Actions"
@@ -104,7 +201,7 @@
       "errorTitle": "Couldn't load submissions",
       "retry": "Retry",
       "emptyTitle": "Nothing awaiting review",
-      "emptyDescription": "New identity and address submissions will appear here."
+      "emptyDescription": "New proof-of-address submissions will appear here."
     },
     "rejectDialog": {
       "title": "Reject submission",
@@ -122,6 +219,14 @@
   "disputes": {
     "title": "Financial Disputes",
     "subtitle": "Investigate and resolve payment disputes.",
+    "demo": {
+      "title": "Try the payment dispute flow",
+      "description": "A development-only demo assignment simulates a PHP 500 payment dispute for a five-day job where three days were completed. It uses synthetic reserved funds and dedicated test accounts.",
+      "stepWorker": "Sign in with the demo worker account and open a payment dispute from Applied Jobs.",
+      "stepEmployer": "Sign in with the demo employer account to verify the dispute notice and payment hold.",
+      "stepAdmin": "Return here as finance admin to investigate and resolve the case with a worker payment from PHP 0 to PHP 500.",
+      "seedHint": "Prepare or restart locally: set ENABLE_PAYMENT_DISPUTE_DEMO_SEED=true and PAYMENT_DISPUTE_DEMO_PASSWORD in server/.env, then run npm --prefix server run seed:payment-dispute-demo. The command prints the test account emails."
+    },
     "cards": {
       "open": "Open",
       "investigating": "Investigating"
@@ -137,6 +242,9 @@
       "case": "Case",
       "amount": "Amount",
       "raisedBy": "Raised by",
+      "job": "Job",
+      "worker": "Worker",
+      "finalSplit": "Final split: {{worker}} to worker, {{employer}} refunded",
       "date": "Date",
       "status": "Status",
       "actions": "Actions"
@@ -162,6 +270,10 @@
       "description": "Record the outcome for \"{{subject}}\".",
       "notesLabel": "Resolution notes",
       "notesRequired": "Resolution notes are required.",
+      "workerPayoutLabel": "Amount awarded to worker",
+      "employerRefundHint": "{{amount}} will be refunded to the employer.",
+      "settlementHint": "Submitting this decision will settle the reserved funds and close the assignment.",
+      "payoutInvalid": "Enter an amount from PHP 0 to {{amount}}, with no more than two decimal places.",
       "cancel": "Cancel"
     },
     "toast": {
@@ -254,7 +366,7 @@
     "badge": "Platform operations",
     "header": {
       "title": "Everything requiring attention, in one place",
-      "description": "Review account approvals, platform activity, jobs, and completed payouts without duplicating the detailed admin tools.",
+      "description": "Review account approvals, platform activity, jobs, and completed payments without duplicating the detailed admin tools.",
       "reportsLink": "View platform reports"
     },
     "error": {
@@ -264,10 +376,10 @@
     "pendingBanner": {
       "title": "Items need your review",
       "reviewAccounts": "Review accounts",
-      "reviewPayouts": "Review payouts",
+      "reviewPayouts": "Review payments",
       "reviewSupport": "Review support"
     },
-    "pendingSummary": "{{pendingUsers}} pending users, {{pendingPayouts}} payout requests, and {{openSupportTickets}} open support tickets.",
+    "pendingSummary": "{{pendingUsers}} pending users, {{pendingPayouts}} withdrawal requests, and {{openSupportTickets}} open support tickets.",
     "summary": {
       "title": "Platform summary",
       "subtitle": "Current totals from the administration services."
@@ -288,8 +400,8 @@
       },
       "completedValue": {
         "label": "Completed value",
-        "detail_one": "{{count}} completed payout",
-        "detail_other": "{{count}} completed payouts"
+        "detail_one": "{{count}} completed payment",
+        "detail_other": "{{count}} completed payments"
       },
       "loading": "Loading current data…"
     },
@@ -309,8 +421,8 @@
         "description": "Inspect platform and operational reports"
       },
       "reviewPayouts": {
-        "label": "Review payouts",
-        "description": "Approve, reject, and complete payout requests"
+        "label": "Review payments",
+        "description": "Approve, reject, and complete withdrawal requests"
       }
     },
     "recentJobs": {
@@ -324,15 +436,22 @@
       "statusUnknown": "Unknown"
     },
     "recentPayouts": {
-      "title": "Recent completed payouts",
+      "title": "Recent completed payments",
       "subtitle": "Latest completed wallet activity.",
       "viewWallet": "View wallet",
-      "loading": "Loading payout activity…",
-      "empty": "No completed payouts are available yet.",
+      "loading": "Loading payment activity…",
+      "empty": "No completed payments are available yet.",
       "platformUser": "Platform user"
     }
   },
   "userManagement": {
+    "tabs": {
+      "label": "User management sections",
+      "users": "Users",
+      "admins": "Admins",
+      "flagged": "Flagged"
+    },
+    "flaggedBadge": "Flagged as suspicious",
     "stats": {
       "totalAccounts": {
         "label": "Total accounts",
@@ -340,7 +459,7 @@
       },
       "administrators": {
         "label": "Administrators",
-        "detail": "Admins and superadmins"
+        "detail": "Staff accounts in this view"
       },
       "activeAccounts": {
         "label": "Active accounts",
@@ -369,6 +488,11 @@
     "roles": {
       "superadmin": "Superadmin",
       "admin": "Admin",
+      "adminTeam": "Admin",
+      "moderator": "Moderator",
+      "finance": "Finance",
+      "analytics": "Analytics",
+      "support": "Support",
       "employer": "Employer",
       "both": "Both",
       "worker": "Worker"
@@ -376,7 +500,8 @@
     "statuses": {
       "active": "Active",
       "pending": "Pending",
-      "disabled": "Disabled"
+      "disabled": "Disabled",
+      "banned": "Banned"
     },
     "mobileList": {
       "loading": "Loading users…",
@@ -401,11 +526,16 @@
       "openActionsAriaLabel": "Open user actions",
       "menu": {
         "viewProfile": "View Profile",
+        "viewFullProfile": "View Full Profile",
         "editUser": "Edit User",
         "messageUser": "Message User",
+        "flagSuspicious": "Flag as Suspicious",
+        "clearFlag": "Clear Suspicious Flag",
         "approveUser": "Approve User",
         "activateUser": "Activate User",
         "suspendUser": "Suspend User",
+        "resetPassword": "Send Password Reset",
+        "unlockAccount": "Unlock Account",
         "deleteUser": "Delete User"
       },
       "pagination": {
@@ -422,6 +552,8 @@
       "roleLabel": "Role",
       "phoneLabel": "Phone",
       "joinedLabel": "Joined",
+      "suspiciousTitle": "Flagged as suspicious",
+      "suspiciousNoReason": "No reason was recorded.",
       "close": "Close",
       "activate": "Activate",
       "suspend": "Suspend",
@@ -439,12 +571,31 @@
         "reject": "Reject"
       }
     },
+    "flagDialog": {
+      "flagTitle": "Flag user as suspicious?",
+      "flagDescription": "Add {{name}} to the suspicious-user review queue.",
+      "clearTitle": "Clear suspicious flag?",
+      "clearDescription": "Remove {{name}} from the suspicious-user review queue.",
+      "reasonLabel": "Reason",
+      "reasonPlaceholder": "Describe the activity that requires review.",
+      "reasonRequired": "Enter a reason before flagging this user.",
+      "cancel": "Cancel",
+      "flagConfirm": "Flag user",
+      "clearConfirm": "Clear flag",
+      "saving": "Saving…"
+    },
     "deleteDialog": {
       "title": "Delete user",
-      "description": "Delete {{name}}? Their account will be anonymized and they will lose access. Accounts with active balances, payouts, jobs, or applications cannot be deleted.",
+      "description": "Delete {{name}}? Their account will be anonymized and they will lose access. Accounts with active balances, payments, jobs, or applications cannot be deleted.",
       "fallbackName": "this user",
       "confirmLabel": "Delete user",
       "blockedPrefix": "This account can't be deleted yet:"
+    },
+    "supportActionDialog": {
+      "resetTitle": "Send password reset?",
+      "resetDescription": "Send {{name}} a secure password-reset code at their registered email address.",
+      "unlockTitle": "Unlock account?",
+      "unlockDescription": "Clear {{name}}'s failed-sign-in lock so they can try signing in again."
     },
     "rejectDialog": {
       "title": "Reject verification document",
@@ -492,7 +643,13 @@
       "accountCreated": "Account created. The temporary password must be changed at first sign-in.",
       "saveFailed": "Unable to save the user.",
       "userDeleted": "{{name}} deleted successfully.",
-      "deleteFailed": "Unable to delete this user."
+      "deleteFailed": "Unable to delete this user.",
+      "passwordResetSent": "Password-reset instructions were sent to {{name}}.",
+      "accountUnlocked": "{{name}} can sign in again.",
+      "supportActionFailed": "Unable to complete this account-support action."
+      ,"userFlagged": "{{name}} was flagged as suspicious."
+      ,"flagCleared": "The suspicious flag for {{name}} was cleared."
+      ,"flagFailed": "Unable to update the suspicious-user flag."
     },
     "formErrors": {
       "firstNameRequired": "First name is required.",
@@ -557,8 +714,8 @@
     "eyebrow": "MicroJobs control center",
     "title": "Admin Sign In",
     "subtitle": "Restricted access for platform administrators",
-    "emailLabel": "Email",
-    "emailPlaceholder": "Enter your email",
+    "emailLabel": "Primary Email",
+    "emailPlaceholder": "Enter your primary email",
     "passwordLabel": "Password",
     "passwordPlaceholder": "Enter your password",
     "hidePassword": "Hide password",
@@ -578,13 +735,13 @@
   },
   "eWallet": {
     "cards": {
-      "completedPayouts": "Completed Payouts",
+      "completedPayouts": "Completed Payments",
       "completedTotal": "Completed Total"
     },
     "viewAction": "View",
-    "viaEscrow": "via escrow",
-    "escrowSystem": "Escrow (System)",
-    "autoPayEscrow": "Auto-Pay (Escrow)",
+    "viaEscrow": "via reserved funds",
+    "escrowSystem": "Payment on Hold (System)",
+    "autoPayEscrow": "Auto-Pay (Payment on Hold)",
     "receipt": {
       "title": "Transaction Receipt",
       "amount": "Amount",
@@ -606,23 +763,23 @@
         "reference": "Reference"
       },
       "paidBySender": "Paid By (Sender)",
-      "employerViaEscrow": "Employer · via escrow",
-      "escrowOrSystem": "Escrow / System",
+      "employerViaEscrow": "Employer · via reserved funds",
+      "escrowOrSystem": "Payment on Hold / System",
       "systemOrExternal": "System / External",
       "paymentDestination": "Payment Destination",
       "jobReference": "Job Reference",
       "linkedTransaction": "Linked Transaction"
     },
     "payouts": {
-      "subtitle": "All payout transactions — includes auto-pay from job completion and manual withdrawal requests.",
-      "loading": "Loading payouts…",
-      "empty": "No payout transactions yet.",
-      "count_one": "{{count}} payout transaction",
-      "count_other": "{{count}} payout transactions"
+      "subtitle": "All payment transactions — includes auto-pay from job completion and manual withdrawal requests.",
+      "loading": "Loading payments…",
+      "empty": "No payment transactions yet.",
+      "count_one": "{{count}} payment transaction",
+      "count_other": "{{count}} payment transactions"
     },
     "logs": {
       "title": "Transaction Logs",
-      "subtitle": "All platform transactions — top-ups, escrow, payouts, refunds. Click <strong>View</strong> for the full receipt.",
+      "subtitle": "All platform transactions — top-ups, reserved funds, payments, refunds. Click <strong>View</strong> for the full receipt.",
       "loading": "Loading transactions…",
       "empty": "No transactions match your filters.",
       "searchPlaceholder": "Search name, email, ref…",
@@ -630,8 +787,8 @@
       "typeOptions": {
         "all": "All Types",
         "topUp": "Top-Up",
-        "escrow": "Escrow",
-        "payout": "Payout",
+        "escrow": "Payment on Hold",
+        "payout": "Payment",
         "refund": "Refund"
       },
       "statusOptions": {
@@ -665,7 +822,7 @@
       },
       "transactions": {
         "title": "Transaction Report",
-        "description": "E-wallet transactions, payments, and financial summary"
+        "description": "Transaction records with payment and withdrawal status, amounts in PHP, and audit references"
       },
       "applications": {
         "title": "Applications Report",
@@ -686,7 +843,7 @@
       "subtitle": "Previously generated reports available for download",
       "empty": "No reports generated yet.",
       "generatedOn": "Generated on {{date}}",
-      "statusCompleted": "completed"
+      "statusCompleted": "Generated"
     },
     "toast": {
       "invalidRange": "From Date cannot be after To Date.",
@@ -701,7 +858,7 @@
       "approvedForPayment": "Approved for payment",
       "paidInView": "Paid in this view"
     },
-    "title": "Payout requests",
+    "title": "withdrawal requests",
     "subtitle": "Approve requests, record completed transfers, or reject and return funds.",
     "filters": {
       "statusLabel": "Status",
@@ -718,14 +875,14 @@
       "refresh": "Refresh"
     },
     "states": {
-      "loading": "Loading payout requests…",
-      "errorTitle": "Payout requests could not be loaded",
+      "loading": "Loading withdrawal requests…",
+      "errorTitle": "withdrawal requests could not be loaded",
       "retry": "Try again",
-      "emptyTitle": "No payout requests found",
+      "emptyTitle": "No withdrawal requests found",
       "emptyDescription": "Try changing the status or search filters."
     },
     "table": {
-      "caption": "Payout requests and available review actions",
+      "caption": "withdrawal requests and available review actions",
       "requester": "Requester",
       "destination": "Destination",
       "amount": "Amount",
@@ -740,9 +897,9 @@
       "reject": "Reject"
     },
     "reviewDialog": {
-      "titlePaid": "Confirm completed payout",
-      "titleApproved": "Approve payout",
-      "titleRejected": "Reject payout",
+      "titlePaid": "Confirm completed payment",
+      "titleApproved": "Approve payment",
+      "titleRejected": "Reject payment",
       "descriptionPaid": "Only mark this request paid after confirming the external transfer was completed.",
       "descriptionRejected": "The reserved amount will be returned to the worker balance.",
       "descriptionApproved": "Approval moves this request into the payment-ready queue.",
@@ -756,12 +913,12 @@
       "rejectAndRefund": "Reject and refund"
     },
     "toast": {
-      "loadFailed": "Failed to load payout requests.",
-      "rejectReasonRequired": "Explain why this payout is being rejected.",
-      "markedPaid": "Payout marked as paid.",
-      "approved": "Payout approved.",
-      "rejectedRefunded": "Payout rejected and refunded.",
-      "updateFailed": "Failed to update payout request."
+      "loadFailed": "Failed to load withdrawal requests.",
+      "rejectReasonRequired": "Explain why this payment is being rejected.",
+      "markedPaid": "Payment marked as paid.",
+      "approved": "Payment approved.",
+      "rejectedRefunded": "Payment rejected and refunded.",
+      "updateFailed": "Failed to update withdrawal request."
     }
   },
   "jobMonitoring": {
@@ -780,6 +937,12 @@
     "loading": "Loading job postings...",
     "empty": "No job postings available.",
     "viewAction": "View",
+    "details": {
+      "description": "Description",
+      "noDescription": "No description provided.",
+      "requirements": "Requirements",
+      "skills": "Skills"
+    },
     "deleteAction": "Delete",
     "deletingAction": "Deleting...",
     "pagination": {
@@ -814,14 +977,14 @@
   "analytics": {
     "overview": {
       "cards": {
-        "payoutVolume": "Completed Payout Volume",
+        "payoutVolume": "Completed Payment Volume",
         "activeJobs": "Active Jobs",
         "totalUsers": "Total Users",
         "conversionRate": "Conversion Rate"
       },
       "changeFromLastMonth": "{{sign}}{{value}}% from last month",
       "monthlyActivity": "Monthly Activity",
-      "payoutTrend": "Completed Payout Trend",
+      "payoutTrend": "Completed Payment Trend",
       "jobsByCategory": "Jobs by Category",
       "userGrowth": "User Growth",
       "othersCategory": "Others",

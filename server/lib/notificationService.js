@@ -10,6 +10,8 @@ const normalizeEntityId = (value) => {
 };
 
 export async function createNotification({
+  deliveryKey,
+  retryPush = false,
   userId,
   type = 'system',
   audience = 'shared',
@@ -31,7 +33,8 @@ export async function createNotification({
     throw new Error('userId, title, and message are required to create a notification');
   }
 
-  const notification = await Notification.create({
+  const values = {
+    ...(deliveryKey ? { deliveryKey } : {}),
     user: userId,
     type,
     audience,
@@ -42,7 +45,10 @@ export async function createNotification({
     entityId: normalizeEntityId(entityId),
     actor: actor || null,
     metadata: metadata || {},
-  });
+  };
+  const notification = deliveryKey
+    ? await Notification.findOneAndUpdate({ deliveryKey }, { $setOnInsert: values }, { upsert: true, returnDocument: 'after' })
+    : await Notification.create(values);
 
   const leanNotification = notification.toObject();
   // Always emit the full notification object and include any socketPayload
@@ -52,7 +58,7 @@ export async function createNotification({
     emitToUser(String(userId), socketEvent, socketPayload || emitPayload);
   }
 
-  if (push) {
+  if (push && !notification.pushDeliveredAt) {
     try {
       const canonicalPushData = {
         notificationId: String(notification._id),
@@ -63,12 +69,15 @@ export async function createNotification({
         link,
         ...(pushData || {}),
       };
-      await sendExpoPushToUser(userId, {
+      const result = await sendExpoPushToUser(userId, {
         title: pushTitle || title,
         body: pushBody || message,
         data: canonicalPushData,
       });
+      if (result?.error) throw new Error(result.error);
+      await Notification.updateOne({ _id: notification._id }, { $set: { pushDeliveredAt: new Date() } });
     } catch (error) {
+      if (retryPush) throw error;
       console.warn('Notification push failed:', error?.message || error);
     }
   }

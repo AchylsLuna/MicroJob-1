@@ -20,6 +20,8 @@ test('application status helpers map legacy values into canonical statuses', () 
     'Hired',
     'Rejected',
     'Withdrawn',
+    'Cancelled',
+    'Position filled',
   ]);
 
   assert.equal(toCanonicalApplicationStatus('Pending'), 'Applied');

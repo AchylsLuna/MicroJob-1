@@ -1,4 +1,6 @@
 import User from "../models/User.js";
+import GovernmentIdVerification from "../models/GovernmentIdVerification.js";
+import PendingIdScan from "../models/PendingIdScan.js";
 import JobApplication from "../models/JobApplication.js";
 import Job from "../models/Job.js";
 import Session from "../models/Session.js";
@@ -7,6 +9,7 @@ import PushDevice from "../models/PushDevice.js";
 import SavedJob from "../models/SavedJob.js";
 import Notification from "../models/Notification.js";
 import { getPublicProfileAccessError } from "../lib/staffProfileVisibility.js";
+import { resolvePublicId } from "../lib/publicId.js";
 import { getEmailTransporter, getMailFrom } from "../lib/emailTransporter.js";
 import { disconnectSession } from "../lib/socket.js";
 import { deleteStoredUpload } from "../lib/uploadStore.js";
@@ -25,12 +28,14 @@ import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy
 import { clearPhoneVerificationCode } from "./PhoneVerificationController.js";
 import { getAdminUserCreationError, getAdminUserMutationError } from "../lib/adminUserPolicy.js";
 import { getReviewSummary } from "../lib/reviewSummary.js";
-import { buildAuthTokensPayload, createSessionWithTokens, setSessionCookies, isNativeAuthRequest } from "../lib/authSession.js";
+import { buildAuthTokensPayload, createSessionWithTokens, setSessionCookies, isNativeAuthRequest, isBearerAuthRequest } from "../lib/authSession.js";
 import { issueTrustedDevice, setTrustedDeviceCookie, clearTrustedDevicesForUser } from "../lib/trustedDevice.js";
 import crypto from "node:crypto";
-import { clearOtpChallenges, issueOtpChallenge, verifyOtpChallenge } from "../lib/otpChallenges.js";
+import { clearOtpChallenges, clearUserOtpChallenges, issueOtpChallenge, rememberTestOtpCode, verifyOtpChallenge } from "../lib/otpChallenges.js";
 import monitor from "../lib/monitor.js";
+import { isStaffAccount, hasVerifiedSecondaryEmail, staffPasswordChangeSubject } from "../lib/staffSecurity.js";
 import { getWebOrigin } from "../lib/runtimeConfig.js";
+import { deleteAvatarFromAzure } from "../lib/azureAvatarStorage.js";
 
 const OTP_GENERIC_MESSAGE = "If the account exists, an OTP has been sent.";
 // One message for every outcome of a password-reset request. Distinct replies
@@ -171,7 +176,7 @@ const buildPasswordResetEmail = ({ username, expiryMinutes, resetUrl }) => {
     };
 };
 
-const TERMINAL_APPLICATION_STATUSES = ["Rejected", "Withdrawn", "Hired"];
+const TERMINAL_APPLICATION_STATUSES = ["Rejected", "Withdrawn", "Hired", "Cancelled", "Position filled"];
 async function removeStoredUploads(values) {
     const names = [...new Set(
         values
@@ -189,6 +194,15 @@ async function removeStoredUploads(values) {
             }
         }
     }));
+}
+
+async function removeAzureAvatar(value) {
+    if (!value) return;
+    try {
+        await deleteAvatarFromAzure(value);
+    } catch (error) {
+        console.warn(`Failed to remove Azure avatar ${String(value)}:`, error?.message || error);
+    }
 }
 
 async function revokeSessions(userId, exceptSessionId) {
@@ -215,7 +229,7 @@ async function getDeletionBlockers(userId) {
     }
 
     const [pendingPayouts, openJobs, applicantApplications, employerApplications] = await Promise.all([
-        PayoutRequest.countDocuments({ user: userId, status: { $in: ["requested", "approved"] } }),
+        PayoutRequest.countDocuments({ user: userId, status: { $in: ["requested", "approved", "processing"] } }),
         Job.countDocuments({ jobPoster: userId, status: { $nin: ["Completed", "Cancelled"] } }),
         JobApplication.countDocuments({ applicant: userId, status: { $nin: TERMINAL_APPLICATION_STATUSES } }),
         JobApplication.countDocuments({
@@ -295,6 +309,8 @@ export async function anonymizeAndDeleteUser(userId) {
     user.firstName = "Deleted";
     user.lastName = "User";
     user.email = `deleted+${suffix}@microjobs.invalid`;
+    user.secondaryEmail = null;
+    user.secondaryEmailVerifiedAt = null;
     user.phoneNumber = undefined;
     user.username = `deleted_${String(user._id).slice(-12)}`;
     user.city = undefined;
@@ -340,11 +356,17 @@ export async function anonymizeAndDeleteUser(userId) {
         PushDevice.deleteMany({ user: userId }),
         SavedJob.deleteMany({ user: userId }),
         Notification.deleteMany({ user: userId }),
+        GovernmentIdVerification.deleteMany({ user: userId }),
+        PendingIdScan.deleteMany({ user: userId }),
     ]);
-    await removeStoredUploads(storedUploads);
+    await Promise.all([
+        removeStoredUploads(storedUploads),
+        removeAzureAvatar(storedUploads[0]),
+    ]);
 
     await clearPhoneVerificationCode(String(userId));
     await clearOtpChallenges(originalEmailKey);
+    await clearUserOtpChallenges(userId);
 
     return user;
 }
@@ -446,7 +468,10 @@ export async function updateUserByAdmin(req, res) {
         if (!STANDARD_ROLES.has(nextRole) && !PRIVILEGED_ROLES.has(nextRole)) {
             return res.status(400).json({ message: "Invalid role value." });
         }
-        if (!EDITABLE_STATUSES.has(nextStatus)) return res.status(400).json({ message: "Invalid status value." });
+        const preservesExistingBan = target.status === "banned" && nextStatus === "banned";
+        if (!EDITABLE_STATUSES.has(nextStatus) && !preservesExistingBan) {
+            return res.status(400).json({ message: "Invalid status value." });
+        }
         const activeSuperadminCount = target.role === "superadmin" ? await User.countDocuments({ role: "superadmin", status: "active" }) : 0;
         const forbidden = getAdminUserMutationError({ actorRole: req.user?.role, actorId: getActorId(req), targetId: String(target._id), targetRole: target.role, nextRole, nextStatus, activeSuperadminCount });
         if (forbidden) return res.status(forbidden.status).json({ message: forbidden.message });
@@ -462,6 +487,11 @@ export async function updateUserByAdmin(req, res) {
         }
         target.role = nextRole;
         target.status = nextStatus;
+        if (nextStatus === 'active') {
+            target.bannedAt = null;
+            target.bannedBy = null;
+            target.banReason = null;
+        }
         await target.save();
         return res.status(200).json({ message: "User updated.", user: await User.findById(target._id).select(PUBLIC_USER_SELECT) });
     } catch (error) {
@@ -541,6 +571,11 @@ export async function updateUserStatus(req, res) {
             return res.status(409).json({ message: "The last active superadmin cannot be disabled." });
         }
         target.status = status;
+        if (status === 'active') {
+            target.bannedAt = null;
+            target.bannedBy = null;
+            target.banReason = null;
+        }
         await target.save();
         const updated = await User.findById(target._id).select(PUBLIC_USER_SELECT);
         return res.status(200).json({ message: "User status updated.", user: updated });
@@ -837,10 +872,17 @@ const toRatingSummary = (completedCount, totalCount) => {
     };
 };
 
+const isProfileFullyVerified = (verification) => (
+    verification?.emailVerified === true
+    && verification?.phoneVerified === true
+    && verification?.identityDocument?.status === "complete"
+    && verification?.addressDocument?.status === "complete"
+);
+
 export async function getPublicProfile(req, res) {
     try {
         const requesterId = req.user?.id || req.user?.userId;
-        const { userId } = req.params || {};
+        const userId = resolvePublicId(req.params?.userId);
         const viewer = normalizeViewerRole(String(req.query?.viewAs || "").toLowerCase());
 
         if (!requesterId) {
@@ -851,7 +893,7 @@ export async function getPublicProfile(req, res) {
         }
 
         const user = await User.findById(userId).select(
-            "firstName lastName role city province about jobPosition linkedin website totalExperience companyName avatarUrl skills workExperience internships certificates jobsApplied projectsCompleted successRate hideHiredCandidates"
+            "firstName lastName role city province about jobPosition linkedin website totalExperience companyName avatarUrl skills workExperience internships certificates jobsApplied projectsCompleted successRate hideHiredCandidates verification"
         );
 
         if (!user) {
@@ -905,6 +947,9 @@ export async function getPublicProfile(req, res) {
                 totalExperience: user.totalExperience,
                 companyName: user.companyName,
                 avatarUrl: user.avatarUrl,
+                // A public profile exposes only the completed state, never the
+                // sensitive documents or individual verification details.
+                isFullyVerified: isProfileFullyVerified(user.verification),
                 skills: Array.isArray(user.skills) ? user.skills : [],
                 workExperience: Array.isArray(user.workExperience) ? user.workExperience : [],
                 // Credentials are deliberately public: they exist to be shown to
@@ -976,11 +1021,14 @@ export async function sendOtp(req, res) {
             if (process.env.NODE_ENV === "production") {
                 return res.status(500).json({ message: "Email service is not configured." });
             }
-            console.warn(`SMTP is not configured. Development OTP generated for …${normalizedEmail.slice(-6)}.`);
-            return res.status(200).json({
-                message: OTP_GENERIC_MESSAGE,
-                code,
-            });
+            // The code goes to the server log, never into the response body.
+            // Returning it to the caller made this endpoint a complete account
+            // takeover on any non-production deploy: request a code for any
+            // address, read it out of the JSON, and verify it. The test harness
+            // reads it through /auth/debug/signup-otp instead.
+            console.warn(`SMTP is not configured. Development OTP for …${normalizedEmail.slice(-6)}: ${code}`);
+            rememberTestOtpCode("email-verification", normalizedEmail, code);
+            return res.status(200).json({ message: OTP_GENERIC_MESSAGE });
         }
 
         const fromAddress = getMailFrom();
@@ -1002,10 +1050,8 @@ export async function sendOtp(req, res) {
             html,
         });
 
-        if (process.env.NODE_ENV === "production") {
-            return res.status(200).json({ message: OTP_GENERIC_MESSAGE });
-        }
-        return res.status(200).json({ message: OTP_GENERIC_MESSAGE, code });
+        rememberTestOtpCode("email-verification", normalizedEmail, code);
+        return res.status(200).json({ message: OTP_GENERIC_MESSAGE });
     } catch (error) {
         console.error("Send OTP error:", error);
         const detail = error?.message ? ` ${error.message}` : "";
@@ -1030,10 +1076,43 @@ export async function verifyOtp(req, res) {
             return res.status(404).json({ message: "User not found." });
         }
 
-        user.status = "active";
+        // This endpoint exists to complete *signup* email verification, so it
+        // may only ever promote `pending` -> `active`. It used to assign
+        // `status = "active"` unconditionally, which made every admin ban,
+        // disable and soft-delete reversible by the account's own owner: send
+        // yourself a code, verify it, and the account is live again with a
+        // fresh session. These statuses and messages mirror
+        // AuthController.loginUser so both entry points agree.
+        if (user.status === "disabled") {
+            return res.status(401).json({ message: "Account is disabled. Contact an admin." });
+        }
+        if (user.status === "banned") {
+            return res.status(401).json({ message: "Account is banned. Contact support." });
+        }
+        if (user.status === "deleted") {
+            return res.status(401).json({ message: "Account has been deleted." });
+        }
+
+        const wasPending = user.status === "pending";
         user.verification = user.verification || {};
         user.verification.emailVerified = true;
+        if (wasPending) {
+            user.status = "active";
+        }
         await user.save();
+
+        // Only a genuine signup completion gets a session. For an account that
+        // is already active, confirming the mailbox is not an authentication
+        // factor on its own -- it proves control of the email, not of the
+        // password or of an enrolled authenticator. This path used to mint a
+        // full session *and* a 30-day OTP-skipping trusted device for any
+        // account, which bypassed MFA outright (MFA can only be enrolled by an
+        // already-active account, so it could never be `pending` here) and
+        // handed a live session to anyone able to read one email. Such callers
+        // must go through /auth/login.
+        if (!wasPending) {
+            return res.status(200).json({ message: "Email verified.", emailVerified: true });
+        }
 
         const authSession = await createSessionWithTokens(req, user);
         setSessionCookies(res, {
@@ -1056,7 +1135,7 @@ export async function verifyOtp(req, res) {
         return res.status(200).json({
             message: "Email verified and login successful.",
             ...buildAuthTokensPayload(req, authSession),
-            ...(isNativeAuthRequest(req)
+            ...(isNativeAuthRequest(req) || isBearerAuthRequest(req)
                 ? { trustedDeviceToken: trustedDevice.token, trustedDeviceExpiresAt: trustedDevice.expiresAt }
                 : {}),
             user: {
@@ -1211,7 +1290,7 @@ export async function requestPasswordChangeOtp(req, res) {
             return res.status(400).json({ message: "Current password is required." });
         }
 
-        const user = await User.findById(userId).select("+passwordHashed");
+        const user = await User.findById(userId).select("+passwordHashed +secondaryEmail +secondaryEmailVerifiedAt");
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
@@ -1220,16 +1299,26 @@ export async function requestPasswordChangeOtp(req, res) {
         if (!matches) {
             return res.status(401).json({ message: "Current password is incorrect." });
         }
-        const emailKey = String(user.email || "").toLowerCase().trim();
-        const { code } = await issueOtpChallenge({ purpose: "password-change", subject: emailKey, user: user._id, metadata: { userId: String(user._id) } });
-
+        const staff = isStaffAccount(user);
+        if (staff && !hasVerifiedSecondaryEmail(user)) {
+            return res.status(409).json({ message: "Verify your secondary email in Account settings before changing your password." });
+        }
+        const emailKey = String(staff ? user.secondaryEmail : user.email).toLowerCase().trim();
+        const subjectKey = staff ? staffPasswordChangeSubject(user) : emailKey;
         const transporter = getEmailTransporter();
+        if (staff && !transporter && process.env.NODE_ENV !== "test") {
+            return res.status(503).json({ message: "Email service is not configured." });
+        }
+        const { code } = await issueOtpChallenge({ purpose: "password-change", subject: subjectKey, user: user._id,
+            metadata: { userId: String(user._id), ...(staff ? { secondaryEmail: emailKey, secondaryEmailVerifiedAt: user.secondaryEmailVerifiedAt.toISOString() } : {}) } });
+
         if (!transporter) {
             if (process.env.NODE_ENV === "production") {
                 return res.status(500).json({ message: "Email service is not configured." });
             }
-            console.warn(`SMTP is not configured. Development change-password OTP generated for user …${String(user._id).slice(-6)}.`);
-            return res.status(200).json({ message: "OTP generated for development.", code });
+            if (!staff) console.warn("SMTP is not configured. Password-change code retained for the isolated test harness only.");
+            rememberTestOtpCode("password-change", subjectKey, code);
+            return res.status(200).json({ message: "OTP generated for development." });
         }
 
         const fromAddress = getMailFrom();
@@ -1274,7 +1363,7 @@ export async function changePasswordWithOtp(req, res) {
             return res.status(400).json({ message: PASSWORD_POLICY_MESSAGE });
         }
 
-        const user = await User.findById(userId).select("+passwordHashed");
+        const user = await User.findById(userId).select("+passwordHashed +secondaryEmail +secondaryEmailVerifiedAt");
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
@@ -1287,7 +1376,11 @@ export async function changePasswordWithOtp(req, res) {
             return res.status(400).json({ message: "New password must be different from the current password." });
         }
 
-        const emailKey = String(user.email || "").toLowerCase().trim();
+        const staff = isStaffAccount(user);
+        if (staff && !hasVerifiedSecondaryEmail(user)) {
+            return res.status(409).json({ message: "Verify your secondary email in Account settings before changing your password." });
+        }
+        const emailKey = staff ? staffPasswordChangeSubject(user) : String(user.email || "").toLowerCase().trim();
         const verification = await verifyOtpChallenge({
             purpose: "password-change",
             subject: emailKey,
@@ -1304,9 +1397,20 @@ export async function changePasswordWithOtp(req, res) {
         if (String(verification.challenge.user || "") !== String(user._id)) {
             return res.status(400).json({ message: "Invalid password change code." });
         }
+        if (staff && (verification.challenge.metadata.secondaryEmail !== user.secondaryEmail
+            || verification.challenge.metadata.secondaryEmailVerifiedAt !== user.secondaryEmailVerifiedAt.toISOString())) {
+            return res.status(400).json({ message: "Secondary email changed. Request a new password change code." });
+        }
 
+        const previousPasswordHash = user.passwordHashed;
         await user.setPassword(newPassword);
-        await user.save();
+        if (staff) {
+            const updated = await User.updateOne({ _id: user._id, role: user.role, status: 'active',
+                passwordHashed: previousPasswordHash,
+                secondaryEmail: user.secondaryEmail, secondaryEmailVerifiedAt: user.secondaryEmailVerifiedAt },
+                { $set: { passwordHashed: user.passwordHashed } });
+            if (!updated.modifiedCount) return res.status(409).json({ message: "Account security details changed. Request a new code." });
+        } else await user.save();
         await revokeSessions(user._id, req.user?.sessionId);
         await monitor.audit({ actor: user._id, action: "password_changed", ip: req.ip || null, userAgent: req.get?.("user-agent") || null, status: "success" });
         return res.status(200).json({ message: "Password changed successfully." });

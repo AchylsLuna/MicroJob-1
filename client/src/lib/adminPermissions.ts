@@ -34,23 +34,34 @@ export type AdminPermission =
   | "staff.toggleStatus"
   // System activity
   | "audit.view"
+  | "backups.manage"
   // Marketplace users
   | "users.view"
+  | "users.staff.view"
+  | "users.flags.view"
+  | "users.flag"
   | "users.suspend"
   | "users.ban"
   | "users.resetPassword"
   | "users.unlock"
+  // Direct messaging recipient directory
+  | "messages.recipients.view"
   // Moderation
   | "verification.review"
   | "moderation.review"
   | "moderation.enforce"
   | "jobs.view"
+  | "jobs.manage"
   // Finance
   | "finance.transactions.view"
   | "finance.reconciliation.view"
   | "finance.flag"
   | "finance.payouts.review"
+  | "finance.disputes.view"
   | "finance.disputes.handle"
+  | "finance.disputes.investigate"
+  | "finance.disputes.review"
+  | "finance.disputes.approve"
   | "finance.logs.view"
   // Analytics
   | "analytics.view"
@@ -70,55 +81,78 @@ export const ROLE_PERMISSIONS: Record<AdminStaffRole, readonly AdminPermission[]
   superadmin: [],
 
   admin_team: [
+    "messages.recipients.view",
     "staff.view",
     "staff.create",
     "staff.assignRole",
     "staff.toggleStatus",
     "audit.view",
     "users.view",
+    "users.staff.view",
+    "users.flags.view",
+    "users.flag",
     "users.suspend",
+    "users.ban",
     "jobs.view",
+    "jobs.manage",
     "analytics.view",
     "analytics.export",
     "support.tickets.handle",
+    "finance.disputes.view",
+    "finance.disputes.investigate",
   ],
 
   moderator: [
+    "messages.recipients.view",
     "users.view",
+    "users.staff.view",
+    "users.flags.view",
+    "users.flag",
     "users.suspend",
     "users.ban",
     "verification.review",
     "moderation.review",
     "moderation.enforce",
     "jobs.view",
+    "jobs.manage",
   ],
 
   finance_team: [
+    "messages.recipients.view",
+    "users.view",
+    "users.flags.view",
+    "users.flag",
     "finance.transactions.view",
     "finance.reconciliation.view",
     "finance.flag",
     "finance.payouts.review",
+    "finance.disputes.view",
     "finance.disputes.handle",
+    "finance.disputes.review",
+    "finance.disputes.approve",
     "finance.logs.view",
     "analytics.view",
     "analytics.export",
   ],
 
-  // Deliberately analytics-only: the spec is "no write access to user data,
-  // jobs, or transactions." No `users.view`, so User Management never appears
-  // in this role's navigation at all.
-  analytics_team: ["analytics.view", "analytics.export"],
+  // Messaging is available to every staff role. User Management still
+  // requires users.view, which analytics staff do not hold.
+  analytics_team: ["messages.recipients.view", "analytics.view", "analytics.export"],
 
   // Deliberately read-only on people and jobs: `users.view` and `jobs.view`
   // without `users.suspend`. This role's write surface is tickets, password
   // resets, and unlocks — anything heavier gets escalated.
   support_staff: [
+    "messages.recipients.view",
     "users.view",
+    "users.flag",
     "users.resetPassword",
     "users.unlock",
     "jobs.view",
     "support.tickets.handle",
     "support.escalate",
+    "finance.disputes.view",
+    "finance.disputes.investigate",
   ],
 };
 
@@ -137,7 +171,7 @@ export const ADMIN_STAFF_ROLES: readonly AdminStaffRole[] = [
  */
 export const ROLE_BADGE_STYLE: Record<AdminStaffRole, string> = {
   superadmin: "bg-violet-100 text-violet-800",
-  admin_team: "bg-blue-100 text-blue-800",
+  admin_team: "bg-brand-100 text-brand-800",
   moderator: "bg-amber-100 text-amber-800",
   finance_team: "bg-emerald-100 text-emerald-800",
   analytics_team: "bg-sky-100 text-sky-800",

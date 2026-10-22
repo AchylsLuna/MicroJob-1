@@ -3,6 +3,17 @@ import { ALL_JOB_TYPES } from '../lib/jobPosting.js';
 
 const JobSchema = new mongoose.Schema(
     {
+        fundsVersion: { type: Number, default: 0 },
+        paymentMode: { type: String, enum: ['assignment', 'daily'], default: 'assignment' },
+        workDates: { type: [String], default: [] },
+        workStartTime: { type: String, default: null },
+        workEndTime: { type: String, default: null },
+        interviewRequired: { type: Boolean, default: false },
+        archivedAt: { type: Date, default: null },
+        repostOf: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', default: null },
+        cancellationPending: { type: Boolean, default: false },
+        cancellationReason: { type: String, default: null },
+        cancelledAt: { type: Date, default: null },
         title: {
             type: String,
             maxlength: 100,
@@ -46,12 +57,28 @@ const JobSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ['Available', 'In Progress', 'Completed', 'Cancelled', 'Closed'],
+            enum: ['Available', 'In Progress', 'Completed', 'Cancelled', 'Closed', 'Full refund', 'Resolved'],
             default: 'Available',
         },
         urgent: {
             type: Boolean,
             default: false,
+        },
+        // A paid promotion that only affects discovery order. The fees are
+        // persisted for the listing audit trail and are never refundable.
+        highlighted: {
+            type: Boolean,
+            default: false,
+        },
+        postingFee: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+        highlightFee: {
+            type: Number,
+            default: 0,
+            min: 0,
         },
         // Number of workers needed for this job post
         positionsNeeded: {
@@ -73,6 +100,8 @@ const JobSchema = new mongoose.Schema(
             default: 0,
             min: 0,
         },
+        // Permanent employer deletion lock, including after an assignment ends.
+        hireConfirmedAt: { type: Date, default: null },
         reservedOfferCount: {
             type: Number,
             default: 0,

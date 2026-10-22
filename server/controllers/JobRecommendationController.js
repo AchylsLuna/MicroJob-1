@@ -3,6 +3,7 @@ import JobApplication from '../models/JobApplication.js';
 import User from '../models/User.js';
 import { proximityOf, serializePublicJob } from '../lib/jobDiscovery.js';
 import { scoreJobForWorker } from '../lib/jobMatching.js';
+import { availableJobFilter } from '../lib/lifecyclePolicy.js';
 
 const getUserId = (req) => req.user?.id || req.user?.userId || null;
 
@@ -22,8 +23,7 @@ export async function getRecommendedJobs(req, res) {
     // National pool: recommendations rank on match quality, with the worker's
     // own locality used as a tiebreaker below rather than as a hard filter.
     const filter = {
-      status: 'Available',
-      deadline: { $gte: new Date() },
+      ...availableJobFilter(),
       jobPoster: { $ne: userId },
       ...(excludedJobIds.length ? { _id: { $nin: excludedJobIds } } : {}),
     };
@@ -32,9 +32,14 @@ export async function getRecommendedJobs(req, res) {
       province: String(worker.province || '').trim(),
     };
 
+    // Scoring happens in memory below, so only a recency window is considered:
+    // the 100 newest candidates, not the whole corpus. A strong match older
+    // than that window cannot surface. That is a deliberate trade against
+    // scoring every open job on every request -- raising it is a performance
+    // decision that wants a benchmark, not an incidental change.
     const jobs = await Job.find(filter)
       .populate('category', 'name')
-      .populate('jobPoster', 'firstName lastName companyName avatarUrl')
+      .populate('jobPoster', 'firstName lastName companyName avatarUrl verification')
       .sort({ urgent: -1, createdAt: -1 })
       .limit(100);
 

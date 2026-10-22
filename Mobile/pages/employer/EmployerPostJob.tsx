@@ -1,3 +1,6 @@
+import WorkTimePicker from '../../components/WorkTimePicker';
+import { getWorkMinutes } from '../../lib/workTime';
+import DailyWorkSchedule from '../../components/DailyWorkSchedule';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,6 +26,7 @@ import { tokens } from '../../theme/tokens';
 import TabTopNav from '../../components/TabTopNav';
 import { useToast } from '../../contexts/ToastContext';
 import { EmployerAccordion, EmployerModeBanner } from '../../components/employer/EmployerUI';
+import { getManilaDate, getMinimumJobPay } from '../../lib/jobCompensation';
 
 type Category = { _id: string; name: string };
 
@@ -52,6 +56,9 @@ type FormData = {
   addressType: 'home' | 'office' | 'place';
   address: string;
   jobType: string;
+  workDates: string[];
+  workStartTime: string;
+  workEndTime: string;
 };
 
 type ProvinceOption = { code: string; name: string };
@@ -59,6 +66,8 @@ type CityOption = { code: string; name: string; provinceCode?: string };
 type BarangayOption = { code: string; name: string };
 
 type TFn = (key: string, options?: Record<string, unknown>) => string;
+const POSTING_FEE = 20;
+const HIGHLIGHT_FEE = 50;
 
 const getJobTypeOptions = (t: TFn) =>
   [
@@ -141,12 +150,20 @@ export default function EmployerPostJob({
     addressType: 'place',
     address: '',
     jobType: 'Short-term',
+    workDates: [],
+    workStartTime: '',
+    workEndTime: '',
   });
   const [deadlineDate, setDeadlineDate] = useState<Date | null>(null);
   const [deadlineTime, setDeadlineTime] = useState<Date | null>(null);
+  const [showWorkCalendar, setShowWorkCalendar] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [isUrgent, setIsUrgent] = useState(false);
+  const [isHighlighted, setIsHighlighted] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const { t: tc } = useTranslation('common');
+  const [interviewRequired, setInterviewRequired] = useState(false);
   const [positionsNeeded, setPositionsNeeded] = useState('1');
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryQuery, setCategoryQuery] = useState('');
@@ -185,7 +202,8 @@ export default function EmployerPostJob({
     if (!jobToEdit) return;
     const categoryName = typeof jobToEdit.category === 'object' ? jobToEdit.category?.name : '';
     const categoryId = typeof jobToEdit.category === 'object' ? jobToEdit.category?._id : jobToEdit.category;
-    const deadline = jobToEdit.deadline ? new Date(jobToEdit.deadline) : null;
+    const lastWorkDate = jobToEdit.jobType === 'Recruiting' && jobToEdit.workDates?.length ? [...jobToEdit.workDates].sort().slice(-1)[0] : null;
+    const deadline = lastWorkDate ? new Date(`${lastWorkDate}T00:00:00`) : jobToEdit.deadline ? new Date(jobToEdit.deadline) : null;
     const locationParts = parseLocationToParts(jobToEdit.location);
     const salaryValue = String(jobToEdit.salary ?? '').replace(/[^0-9]/g, '');
     setFormData({
@@ -202,15 +220,20 @@ export default function EmployerPostJob({
       addressType: 'place',
       address: locationParts.address,
       jobType: jobToEdit.jobType || 'Short-term',
+      workDates: jobToEdit.workDates || [],
+      workStartTime: jobToEdit.workStartTime || '',
+      workEndTime: jobToEdit.workEndTime || '',
     });
     setProvinceQuery(locationParts.province);
     setCityQuery(locationParts.city);
     setBarangayQuery(locationParts.barangay);
     setCategoryQuery(categoryName || '');
     setDeadlineDate(deadline);
-    setDeadlineTime(deadline);
+    setDeadlineTime(jobToEdit.deadline ? new Date(jobToEdit.deadline) : null);
     setIsUrgent(Boolean(jobToEdit.urgent));
+    setIsHighlighted(Boolean(jobToEdit.highlighted));
     setPositionsNeeded(String(jobToEdit.positionsNeeded || 1));
+    setInterviewRequired(Boolean((jobToEdit as any).interviewRequired));
   }, [jobToEdit]);
 
   useEffect(() => {
@@ -372,7 +395,7 @@ export default function EmployerPostJob({
     return categories.filter((category) => category.name.toLowerCase().includes(query));
   }, [categories, categoryQuery]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (confirmed = false) => {
     if (!isEditing && !hasCompleteProfile) {
       setShowProfileIncompleteModal(true);
       return;
@@ -402,13 +425,20 @@ export default function EmployerPostJob({
         return;
       }
 
-      if (!Number.isFinite(normalizedSalary) || normalizedSalary <= 0) {
+      if (!Number.isFinite(normalizedSalary) || normalizedSalary <= 0 || normalizedSalary < getMinimumJobPay(formData.jobType)) {
         setExpandedSection('basics');
-        setErrorMessage('Minimum guaranteed pay must be greater than zero.');
+        setErrorMessage(`Minimum guaranteed pay must be at least PHP ${getMinimumJobPay(formData.jobType)} for this opportunity type.`);
         setSubmitting(false);
         return;
       }
 
+      if (formData.jobType === 'Recruiting' && (formData.workDates.length < 2 || formData.workDates.length > 366)) {
+        setExpandedSection('hiring'); setErrorMessage(t('employerPostJob.daily.requiredDates')); setSubmitting(false); return;
+      }
+
+      if (formData.jobType === 'Recruiting' && !getWorkMinutes(formData.workStartTime, formData.workEndTime)) {
+        setExpandedSection('hiring'); setErrorMessage(t('workTime.invalid', { ns: 'common' })); setSubmitting(false); return;
+      }
       const normalizedPositions = Number(positionsNeeded);
       if (!Number.isInteger(normalizedPositions) || normalizedPositions < 1) {
         setExpandedSection('hiring');
@@ -439,6 +469,12 @@ export default function EmployerPostJob({
         return;
       }
 
+      if (!isEditing && !confirmed) {
+        setShowCheckout(true);
+        setSubmitting(false);
+        return;
+      }
+
       const payload = {
         title: trimmedTitle,
         category: formData.category || undefined,
@@ -455,9 +491,12 @@ export default function EmployerPostJob({
         salary: normalizedSalary,
         location: composedLocation,
         jobType: formData.jobType,
+        ...(formData.jobType === 'Recruiting' ? { workDates: formData.workDates, workStartTime: formData.workStartTime, workEndTime: formData.workEndTime } : {}),
         deadline: parsedDeadline.toISOString(),
         urgent: isUrgent,
         positionsNeeded: normalizedPositions,
+        highlighted: isHighlighted,
+        interviewRequired,
       };
 
       const result = await apiRequest(`${API_URL}/jobs/${isEditing ? jobToEdit._id : ''}`.replace(/\/$/, ''), {
@@ -485,10 +524,14 @@ export default function EmployerPostJob({
         addressType: 'place',
         address: '',
         jobType: 'Short-term',
+        workDates: [],
+        workStartTime: '',
+        workEndTime: '',
       });
       setDeadlineDate(null);
       setDeadlineTime(null);
       setIsUrgent(false);
+      setIsHighlighted(false);
       setPositionsNeeded('1');
       setCategoryQuery('');
       setProvinceQuery('');
@@ -500,6 +543,10 @@ export default function EmployerPostJob({
       setSubmitting(false);
     }
   };
+
+  const workerPay = Number(formData.salary.replace(/[^0-9]/g, '') || 0) * Number(positionsNeeded || 0) * (formData.jobType === 'Recruiting' ? formData.workDates.length : 1);
+  const checkoutHighlightFee = isHighlighted ? HIGHLIGHT_FEE : 0;
+  const checkoutTotal = workerPay + POSTING_FEE + checkoutHighlightFee;
 
   return (
     <View style={styles.container}>
@@ -630,7 +677,7 @@ export default function EmployerPostJob({
             placeholderTextColor={tokens.colors.textSubtle}
           />
 
-          <Text style={styles.label}>Minimum Guaranteed Pay per Worker (PHP)</Text>
+          <Text style={styles.label}>{formData.jobType === 'Recruiting' ? t('employerPostJob.daily.payLabel') : 'Minimum Guaranteed Pay per Worker (PHP)'}</Text>
           <TextInput
             style={styles.input}
             value={formData.salary}
@@ -640,7 +687,7 @@ export default function EmployerPostJob({
             keyboardType="numeric"
           />
           <Text style={styles.helperText}>
-            This is the minimum amount guaranteed to each hired worker and secured in escrow.
+            Minimum PHP {getMinimumJobPay(formData.jobType)} per worker. This amount is guaranteed to each hired worker and secured in escrow.
           </Text>
           </EmployerAccordion>
 
@@ -818,6 +865,7 @@ export default function EmployerPostJob({
 
           <EmployerAccordion title="When & how" subtitle="Workers needed, opportunity type, deadline, and urgency." expanded={expandedSection === 'hiring'} onToggle={() => setExpandedSection((section) => section === 'hiring' ? null : 'hiring')}>
 
+          <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{ checked: interviewRequired }} onPress={() => setInterviewRequired(!interviewRequired)}><Text style={styles.label}>{interviewRequired ? '✓ ' : ''}{tc('lifecycle.interviewRequired')}</Text></TouchableOpacity>
           <Text style={styles.label}>Workers Needed</Text>
           <TextInput
             style={styles.input}
@@ -837,7 +885,10 @@ export default function EmployerPostJob({
               <TouchableOpacity
                 key={option.value}
                 style={[styles.opportunityCard, selected && styles.opportunityCardActive]}
-                onPress={() => setFormData((prev) => ({ ...prev, jobType: option.value }))}
+                onPress={() => {
+                  setFormData((prev) => ({ ...prev, jobType: option.value }));
+                  if (option.value === 'Recruiting' && formData.workDates.length) setDeadlineDate(new Date(`${[...formData.workDates].sort().slice(-1)[0]}T00:00:00`));
+                }}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: selected }}
               >
@@ -883,6 +934,18 @@ export default function EmployerPostJob({
             </TouchableOpacity>
           </View>
 
+          {formData.jobType === 'Recruiting' && <>
+            <WorkTimePicker start={formData.workStartTime} end={formData.workEndTime} rate={formData.salary} disabled={Boolean(jobToEdit?.hiredCount || jobToEdit?.reservedOfferCount)} onChange={(field, time) => setFormData((prev) => ({ ...prev, [field]: time }))} />
+            <Text style={styles.label}>{t('employerPostJob.daily.workDates')}</Text>
+            <TouchableOpacity accessibilityRole="button" disabled={Boolean(jobToEdit?.hiredCount || jobToEdit?.reservedOfferCount)} style={styles.deadlineButton} onPress={() => setShowWorkCalendar(true)}><Text style={styles.helperText}>{t('employerPostJob.daily.selectDates', { count: formData.workDates.length })}</Text></TouchableOpacity>
+            <Text style={styles.helperText}>{t('employerPostJob.daily.scheduleHint')}</Text>
+            <CalendarSheet open={showWorkCalendar} onClose={() => setShowWorkCalendar(false)} mode="multiple" dates={formData.workDates.map((date) => new Date(`${date}T12:00:00`))} minDate={new Date(`${getManilaDate()}T00:00:00`)} title={t('employerPostJob.daily.workDates')} onChange={(dates) => {
+              const workDates = dates.map((date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`).sort();
+              setFormData((prev) => ({ ...prev, workDates }));
+              setDeadlineDate(workDates.length ? new Date(`${workDates[workDates.length - 1]}T00:00:00`) : null);
+            }} footer={{ primaryLabel: t('employerPostJob.daily.useDates'), onPrimary: () => setShowWorkCalendar(false), primaryDisabled: formData.workDates.length < 2 || formData.workDates.length > 366 }} />
+          </>}
+
           <CalendarSheet
             open={showDatePicker}
             onClose={() => setShowDatePicker(false)}
@@ -902,7 +965,7 @@ export default function EmployerPostJob({
           <View style={styles.urgentRow}>
             <View style={styles.urgentCopy}>
               <Text style={styles.urgentLabel}>Mark as urgent</Text>
-              <Text style={styles.urgentHint}>Highlights this post so workers see it first.</Text>
+              <Text style={styles.urgentHint}>{t('employerPostJob.hiring.urgentHint')}</Text>
             </View>
             <Switch
               value={isUrgent}
@@ -915,17 +978,33 @@ export default function EmployerPostJob({
               accessibilityState={{ checked: isUrgent }}
             />
           </View>
+          {!isEditing ? <View style={styles.urgentRow}>
+            <View style={styles.urgentCopy}>
+              <Text style={styles.urgentLabel}>{t('employerPostJob.highlight.title')}</Text>
+              <Text style={styles.urgentHint}>{t('employerPostJob.highlight.description')}</Text>
+            </View>
+            <Switch
+              value={isHighlighted}
+              onValueChange={setIsHighlighted}
+              trackColor={{ false: tokens.colors.border, true: tokens.colors.brand }}
+              thumbColor={tokens.colors.white}
+              ios_backgroundColor={tokens.colors.border}
+              accessibilityRole="switch"
+              accessibilityLabel={t('employerPostJob.highlight.accessibilityLabel')}
+              accessibilityState={{ checked: isHighlighted }}
+            />
+          </View> : null}
           </EmployerAccordion>
 
           <TouchableOpacity
             style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
-            onPress={handleSubmit}
+            onPress={() => void handleSubmit()}
             disabled={submitting}
           >
             {submitting ? (
               <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text style={styles.submitButtonText}>{isEditing ? 'Update Job' : 'Post Job'}</Text>
+              <Text style={styles.submitButtonText}>{isEditing ? t('employerPostJob.submit.update') : t('employerPostJob.checkout.reviewButton')}</Text>
             )}
           </TouchableOpacity>
           </View>
@@ -983,6 +1062,34 @@ export default function EmployerPostJob({
               >
                 <Text style={styles.balanceModalPrimaryText}>Top up wallet</Text>
               </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showCheckout}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={() => setShowCheckout(false)}
+      >
+        <View style={styles.balanceModalBackdrop}>
+          <View style={styles.balanceModalCard} accessibilityRole="alert" accessibilityLabel={t('employerPostJob.checkout.accessibilityLabel')}>
+            <Text style={styles.balanceModalTitle}>{t('employerPostJob.checkout.title')}</Text>
+            <Text style={styles.checkoutJobTitle}>{formData.title || t('employerPostJob.checkout.defaultJobTitle')}</Text>
+            <Text style={styles.checkoutDescription} numberOfLines={4}>{formData.description}</Text>
+            {formData.jobType === 'Recruiting' && <DailyWorkSchedule dates={formData.workDates} rate={Number(formData.salary)} start={formData.workStartTime} end={formData.workEndTime} />}
+            <View style={styles.checkoutRows}>
+              <View style={styles.breakdownRow}><Text style={styles.breakdownLabel}>{t('employerPostJob.checkout.workerPay', { count: positionsNeeded || '1' })}</Text><Text style={styles.breakdownValue}>{`PHP ${workerPay.toFixed(2)}`}</Text></View>
+              <View style={styles.breakdownRow}><Text style={styles.breakdownLabel}>{t('employerPostJob.checkout.postingFee')}</Text><Text style={styles.breakdownValue}>PHP 20.00</Text></View>
+              <View style={styles.breakdownRow}><Text style={styles.breakdownLabel}>{t('employerPostJob.checkout.highlightFee')}</Text><Text style={styles.breakdownValue}>{`PHP ${checkoutHighlightFee.toFixed(2)}`}</Text></View>
+              <View style={styles.breakdownTotal}><Text style={styles.breakdownTotalLabel}>{t('employerPostJob.checkout.total')}</Text><Text style={styles.breakdownTotalValue}>{`PHP ${checkoutTotal.toFixed(2)}`}</Text></View>
+            </View>
+            <Text style={styles.checkoutNote}>{t('employerPostJob.checkout.nonRefundable')}</Text>
+            <View style={styles.balanceModalActions}>
+              <TouchableOpacity style={styles.balanceModalSecondaryButton} onPress={() => setShowCheckout(false)} accessibilityRole="button"><Text style={styles.balanceModalSecondaryText}>{t('employerPostJob.checkout.back')}</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.balanceModalPrimaryButton} onPress={() => { setShowCheckout(false); void handleSubmit(true); }} accessibilityRole="button" accessibilityLabel={t('employerPostJob.checkout.submitAccessibilityLabel')}><Text style={styles.balanceModalPrimaryText}>{t('employerPostJob.checkout.submit')}</Text></TouchableOpacity>
             </View>
           </View>
         </View>
@@ -1162,6 +1269,16 @@ const styles = StyleSheet.create({
   urgentCopy: { flex: 1, gap: 2 },
   urgentLabel: { fontSize: 14, color: tokens.colors.text, fontWeight: '700' },
   urgentHint: { fontSize: 12, color: tokens.colors.textMuted, lineHeight: 16 },
+  checkoutJobTitle: { marginTop: 8, color: tokens.colors.text, fontSize: 15, fontWeight: '800' },
+  checkoutDescription: { marginTop: 4, color: tokens.colors.textMuted, fontSize: 12, lineHeight: 17 },
+  checkoutRows: { marginTop: 14, gap: 8 },
+  checkoutNote: { marginTop: 12, color: tokens.colors.textMuted, fontSize: 12, lineHeight: 17 },
+  breakdownRow: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  breakdownLabel: { flex: 1, color: tokens.colors.textMuted, fontSize: 12 },
+  breakdownValue: { color: tokens.colors.text, fontSize: 12, fontWeight: '700' },
+  breakdownTotal: { width: '100%', marginTop: 3, paddingTop: 8, borderTopWidth: 1, borderTopColor: tokens.colors.border, flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  breakdownTotalLabel: { color: tokens.colors.text, fontSize: 14, fontWeight: '800' },
+  breakdownTotalValue: { color: tokens.colors.brandDark, fontSize: 14, fontWeight: '800' },
   submitButtonDisabled: { opacity: 0.6 },
   submitButtonText: { color: tokens.colors.surface, fontSize: 15, fontWeight: '700' },
   errorCard: {

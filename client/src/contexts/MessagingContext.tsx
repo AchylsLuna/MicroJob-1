@@ -2,6 +2,7 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, 
 /* eslint-disable react-refresh/only-export-components */
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
+import { getBearerAccessToken, usesBearerAuthTransport } from '../utils/authTransport';
 import {
   getArchivedConversations,
   getBlockedUsers,
@@ -18,9 +19,17 @@ import {
  * an object.
  */
 export interface ChatMessageAttachment {
-  type?: 'settlement_request' | 'job_offer';
-  jobOffer?: { _id: string; status: string; amount?: number; acceptedAt?: string; resolvedAt?: string } | string;
-  application?: string;
+  type?: 'settlement_request' | 'job_offer' | 'completion_evidence' | 'hire_checklist';
+  checklist?: string[];
+  jobOffer?: { _id: string; status: string; amount?: number; acceptedAt?: string; resolvedAt?: string; expiresAt?: string | null } | string;
+  application?: string | { _id: string; workStatus?: string; paymentStatus?: string; workSubmittedAt?: string; dailyPayments?: { workDate: string; submittedAt?: string; paidAt?: string; amount: number }[] };
+  workDate?: string;
+  dailyAmount?: number;
+  workDates?: string[];
+  workStartTime?: string;
+  workEndTime?: string;
+  submittedAt?: string;
+  images?: Array<{ fileUrl: string; fileName: string; contentType?: string }>;
   jobTitle?: string;
   offerAmount?: number;
   settlementRequest?: unknown;
@@ -275,7 +284,8 @@ export function MessagingProvider({ children }: { children: ReactNode }) {
     if (!currentUserId) return;
 
     const socket = io(resolveSocketUrl(), {
-      withCredentials: true,
+      withCredentials: !usesBearerAuthTransport(),
+      auth: usesBearerAuthTransport() ? { token: getBearerAccessToken() } : undefined,
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 8,

@@ -1,14 +1,17 @@
 import test, { after, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 
 import User from '../../models/User.js';
 import Category from '../../models/Category.js';
 import Job from '../../models/Job.js';
 import JobApplication from '../../models/JobApplication.js';
-import { createJob } from '../../controllers/JobController.js';
+import Transaction from '../../models/Transaction.js';
+import { requestCancellation } from '../../services/jobLifecycle.js';
+import { createJob, deleteJob } from '../../controllers/JobController.js';
 import { applyForJob } from '../../controllers/JobApplicationController.js';
+import { resolvePublicId } from '../../lib/publicId.js';
 
 let mongoServer;
 
@@ -42,7 +45,12 @@ const jobPayload = (category) => ({
 });
 
 before(async () => {
-  mongoServer = await MongoMemoryServer.create();
+  // createJob now funds escrow inside `session.withTransaction`, which a
+  // standalone in-memory server cannot run ("This MongoDB deployment does not
+  // support retryable writes"). A single-node replica set supports transactions
+  // and is the same arrangement server/lib/db.js uses for dev/e2e and
+  // applicationSettlement.test.js uses here.
+  mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   await mongoose.connect(mongoServer.getUri(), { dbName: 'profile-completeness-tests' });
 });
 
@@ -52,7 +60,7 @@ after(async () => {
 });
 
 beforeEach(async () => {
-  await Promise.all([User.deleteMany({}), Job.deleteMany({}), JobApplication.deleteMany({}), Category.deleteMany({})]);
+  await Promise.all([User.deleteMany({}), Job.deleteMany({}), JobApplication.deleteMany({}), Transaction.deleteMany({}), Category.deleteMany({})]);
 });
 
 test('createJob rejects an employer with no logo', async () => {
@@ -81,6 +89,80 @@ test('createJob proceeds past the gate for an employer with a logo but no compan
 
   assert.notEqual(res.statusCode, 409, 'a logo alone must be enough to pass the profile gate');
   assert.notEqual(res.payload?.code, 'EMPLOYER_PROFILE_INCOMPLETE');
+});
+
+test('posting and highlight fees are charged separately and are not returned when a listing is cancelled and archived', async () => {
+  const category = await Category.create({ name: 'Cleaning' });
+  const employer = await createUser({
+    role: 'hire',
+    avatarUrl: 'https://example.com/logo.png',
+    employerBalance: 1000,
+  });
+  const createRes = createResponse();
+  await createJob({
+    body: { ...jobPayload(category), highlighted: true },
+    user: { id: employer._id.toString(), role: 'hire' },
+  }, createRes);
+
+  assert.equal(createRes.statusCode, 201);
+  assert.equal(createRes.payload.job.salary, 500, 'the worker pay remains the advertised escrow amount');
+  assert.equal(createRes.payload.job.highlighted, true);
+  assert.equal(createRes.payload.job.postingFee, 20);
+  assert.equal(createRes.payload.job.highlightFee, 50);
+  const storedJobId = resolvePublicId(createRes.payload.job._id);
+  assert.ok(storedJobId);
+  assert.equal((await User.findById(employer._id)).employerBalance, 430);
+  assert.deepEqual(
+    (await Transaction.find({ jobReference: storedJobId }).sort({ amount: 1 })).map((tx) => [tx.type, tx.amount]),
+    [['POSTING_FEE', 20], ['POSTING_FEE', 50], ['ESCROW', 500]],
+  );
+  assert.deepEqual(
+    (await Transaction.find({ jobReference: storedJobId }).sort({ reference: 1 })).map((tx) => tx.reference),
+    [
+      `job-escrow:${storedJobId}`,
+      `job-highlight-fee:${storedJobId}`,
+      `job-posting-fee:${storedJobId}`,
+    ].sort(),
+    'every job-posting ledger entry has its own stable reference',
+  );
+
+  await requestCancellation({ jobId: resolvePublicId(createRes.payload.job._id), actor: employer._id, reason: 'No longer required', policyAcknowledged: true });
+  const deleteRes = createResponse();
+  await deleteJob({ params: { id: createRes.payload.job._id.toString() }, user: { id: employer._id.toString(), role: 'hire' } }, deleteRes);
+  assert.equal(deleteRes.statusCode, 200);
+  assert.equal((await User.findById(employer._id)).employerBalance, 930, 'only escrow is refunded');
+});
+
+test('an administrator can archive a cancelled job while retaining its refund record', async () => {
+  const category = await Category.create({ name: 'Cleaning' });
+  const employer = await createUser({
+    role: 'hire',
+    avatarUrl: 'https://example.com/logo.png',
+    employerBalance: 1000,
+  });
+  const admin = await createUser({ role: 'admin' });
+  const createRes = createResponse();
+  await createJob({
+    body: jobPayload(category),
+    user: { id: employer._id.toString(), role: 'hire' },
+  }, createRes);
+
+  await requestCancellation({ jobId: resolvePublicId(createRes.payload.job._id), actor: employer._id, reason: 'No longer required', policyAcknowledged: true });
+  const deleteRes = createResponse();
+  await deleteJob(
+    { params: { id: createRes.payload.job._id.toString() }, user: { id: admin._id.toString(), role: 'admin' } },
+    deleteRes,
+  );
+
+  assert.equal(deleteRes.statusCode, 200);
+  const storedJobId = resolvePublicId(createRes.payload.job._id);
+  assert.ok(storedJobId);
+  assert.ok((await Job.findById(storedJobId)).archivedAt);
+  assert.equal((await User.findById(employer._id)).employerBalance, 980);
+  const refunds = await Transaction.find({ jobReference: storedJobId, type: 'REFUND' });
+  assert.equal(refunds.length, 1);
+  assert.equal(refunds[0].amount, 500);
+  assert.match(refunds[0].reference, /^job-cancellation-refund:/);
 });
 
 test('applyForJob rejects a worker with no profile photo', async () => {

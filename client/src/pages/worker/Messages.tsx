@@ -1,3 +1,8 @@
+import { DailyOfferSchedule } from '../../components/messaging/DailyOfferSchedule';
+import { OfferResponseDeadline } from '../../components/OfferResponseDeadline';
+import { offerResponseStatus } from '../../lib/offerResponse';
+import { useOfferExpiry } from '../../hooks/useOfferExpiry';
+import { OfferCancellationDialog } from '../../components/OfferCancellationDialog';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
@@ -6,10 +11,12 @@ import {
   CheckCheck,
   ChevronLeft,
   Ellipsis,
+  Flag,
   MessagesSquare,
   MoreVertical,
   Search,
   Send,
+  SquarePen,
   Trash2,
 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
@@ -17,14 +24,22 @@ import { motionTokens, seconds } from "@/constants/motion";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
+import { LAYER_Z } from "../../components/ui/layers";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ROUTES } from "../../utils/routes";
 import { isStaffConversation } from "../../utils/staffConversation";
 import { isEmployer as checkIsEmployer } from "../../utils/dashboardRoutes";
 import { useAuth } from "../../contexts/AuthContext";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { useMessaging, conversationIdOf, type Contact, type ChatMessage as Message } from "../../contexts/MessagingContext";
+import { CompletionMessageCard } from '../../components/messaging/CompletionMessageCard';
+import { ChecklistTable, HireChecklistDialog } from '../../components/HireChecklist';
 import { formatCurrency, formatDate, getActiveDateLocale } from "../../lib/formatters";
 import { ConfirmDialog } from "../../components/ui/index";
+import { ConversationReportDialog } from "../../components/messaging/ConversationReportDialog";
+import { MessagingSafetyNotice } from "../../components/messaging/MessagingSafetyNotice";
+import { RecipientDirectoryDialog } from "../../components/messaging/RecipientDirectoryDialog";
+import { useAdminPermissions } from "../../hooks/useAdminPermissions";
 import {
   getConversationWithUser,
   sendMessage,
@@ -35,8 +50,8 @@ import {
   deleteConversation,
   markMessagesAsRead,
   respondToJobOffer,
-  cancelJobOffer,
   confirmOfferHire,
+  type MessageRecipient,
 } from "../../services/api";
 
 // Consecutive messages from the same sender inside this window collapse into
@@ -125,6 +140,11 @@ const getEntityId = (value: unknown): string => {
 
 export function Messages() {
   const { t } = useTranslation("worker");
+  const { t: tAdmin } = useTranslation("admin");
+  const { can } = useAdminPermissions();
+  const canBrowseRecipients = can('messages.recipients.view');
+  const { t: tc } = useTranslation("common");
+  const [cancelOfferId, setCancelOfferId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
   const {
@@ -145,6 +165,7 @@ export function Messages() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  useOfferExpiry(messages.map((message) => typeof message.attachment?.jobOffer === 'object' ? message.attachment.jobOffer : null));
   const [messageText, setMessageText] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
@@ -155,10 +176,14 @@ export function Messages() {
   const [sending, setSending] = useState(false);
   const [showListMenu, setShowListMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showRecipientDirectory, setShowRecipientDirectory] = useState(false);
+  const [reportTarget, setReportTarget] = useState<Contact | null>(null);
+  const reportTriggerRef = useRef<HTMLButtonElement>(null);
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
   const [offerActionBusyId, setOfferActionBusyId] = useState<string | null>(null);
+  const [hireOfferId, setHireOfferId] = useState<string | null>(null);
   const [offerConfirmAction, setOfferConfirmAction] = useState<{
     title: string;
     description: string;
@@ -177,6 +202,7 @@ export function Messages() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const startChatHandledRef = useRef(false);
+  const startChatTargetRef = useRef('');
   const prefilledDraftHandledRef = useRef(false);
   const selectedContactRef = useRef<Contact | null>(null);
   const selectionRequestRef = useRef(0);
@@ -451,6 +477,12 @@ export function Messages() {
     const contactId = searchParams.get("contact");
     const startUserId = searchParams.get("startUser");
     const startJobId = searchParams.get("jobId");
+    const startTarget = startUserId ? `${startUserId}::${startJobId || 'general'}` : '';
+    if (startTarget !== startChatTargetRef.current) {
+      startChatTargetRef.current = startTarget;
+      startChatHandledRef.current = false;
+      prefilledDraftHandledRef.current = false;
+    }
     const startName = searchParams.get("startName") || t("messages.employerFallback");
     const source = searchParams.get("source") || "";
     const draft = searchParams.get("draft") || "";
@@ -837,7 +869,7 @@ export function Messages() {
   const openAcceptOfferConfirm = (offerId: string, amount: number) => {
     setOfferConfirmAction({
       title: t("messages.offerCard.confirmAccept.title"),
-      description: t("messages.offerCard.confirmAccept.description", { amount: formatCurrency(amount) }),
+      description: `${t("messages.offerCard.confirmAccept.description", { amount: formatCurrency(amount) })} ${tc("lifecycle.terms")}`,
       confirmLabel: t("messages.offerCard.confirmAccept.confirm"),
       run: () => runOfferAction(offerId, () => respondToJobOffer(offerId, "accept"), t("messages.offerCard.toast.accepted")),
     });
@@ -853,23 +885,10 @@ export function Messages() {
     });
   };
 
-  const openCancelOfferConfirm = (offerId: string) => {
-    setOfferConfirmAction({
-      title: t("messages.offerCard.confirmCancel.title"),
-      description: t("messages.offerCard.confirmCancel.description"),
-      destructive: true,
-      confirmLabel: t("messages.offerCard.confirmCancel.confirm"),
-      run: () => runOfferAction(offerId, () => cancelJobOffer(offerId), t("messages.offerCard.toast.cancelled")),
-    });
-  };
+  const openCancelOfferConfirm = (offerId: string) => setCancelOfferId(offerId);
 
   const openConfirmHireConfirm = (offerId: string) => {
-    setOfferConfirmAction({
-      title: t("messages.offerCard.confirmHireDialog.title"),
-      description: t("messages.offerCard.confirmHireDialog.description"),
-      confirmLabel: t("messages.offerCard.confirmHireDialog.confirm"),
-      run: () => runOfferAction(offerId, () => confirmOfferHire(offerId), t("messages.offerCard.toast.hired")),
-    });
+    setHireOfferId(offerId);
   };
 
   const handleOfferConfirmDialogConfirm = () => {
@@ -1012,35 +1031,62 @@ export function Messages() {
   if (loading) {
     return (
       <div className="mx-auto h-[calc(100dvh-120px)] min-h-[28rem] max-w-[1341px] pt-1 lg:h-[calc(100dvh-160px)]">
-        <div className="flex h-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex h-full overflow-hidden rounded-card border border-slate-200 bg-white shadow-sm">
           <div className="flex w-full flex-col border-r border-slate-100 md:w-[34%] md:min-w-[320px] md:max-w-[460px]">
             <div className="space-y-3 border-b border-slate-100 p-4">
-              <div className="h-7 w-32 animate-pulse rounded bg-slate-100" />
-              <div className="h-11 w-full animate-pulse rounded-full bg-slate-100" />
+              <Skeleton className="h-7 w-32" />
+              <Skeleton className="h-11 w-full rounded-full" />
             </div>
             <div className="space-y-3 p-4">
               {[1, 2, 3, 4].map((i) => (
                 <div key={i} className="flex items-center gap-3">
-                  <div className="h-12 w-12 shrink-0 animate-pulse rounded-full bg-slate-100" />
+                  <Skeleton className="h-12 w-12 shrink-0 rounded-full" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-3.5 w-1/2 animate-pulse rounded bg-slate-100" />
-                    <div className="h-3 w-3/4 animate-pulse rounded bg-slate-100" />
+                    <Skeleton className="h-3.5 w-1/2" />
+                    <Skeleton className="h-3 w-3/4" />
                   </div>
                 </div>
               ))}
             </div>
           </div>
           <div className="hidden flex-1 items-center justify-center md:flex">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#1C4D8D] border-t-transparent" />
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand border-t-transparent" />
           </div>
         </div>
       </div>
     );
   }
 
+  const selectDirectoryRecipient = (recipient: MessageRecipient) => {
+    const conversationId = conversationIdOf(recipient.id);
+    const existing = namedContacts.find((contact) => contact.conversationId === conversationId);
+    const contact: Contact = existing ? { ...existing, otherUserName: recipient.name, otherUserIsStaff: recipient.isStaff } : {
+      conversationId,
+      otherUserId: recipient.id,
+      otherUserName: recipient.name,
+      otherUserIsStaff: recipient.isStaff,
+      jobId: null,
+      jobTitle: null,
+      lastMessage: "",
+      lastMessageAt: new Date().toISOString(),
+      unreadCount: 0,
+    };
+    startChatHandledRef.current = true;
+    setShowRecipientDirectory(false);
+    setConversationFilter("inbox");
+    setSearchQuery("");
+    setMessageText("");
+    setMessages([]);
+    setEditingMessageId(null);
+    setEditingText("");
+    setSearchParams({ contact: conversationId });
+    void handleSelectContact(contact);
+    requestAnimationFrame(() => composerRef.current?.focus());
+  };
+
   return (
     <div className="mx-auto h-[calc(100dvh-120px)] min-h-[28rem] max-w-[1341px] pt-1 lg:h-[calc(100dvh-160px)]">
-      <div className="flex h-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex h-full overflow-hidden rounded-card border border-slate-200 bg-white shadow-sm">
         <div className={`${selectedContact ? "hidden md:flex" : "flex"} w-full min-w-0 flex-col border-r border-slate-100 bg-white md:w-[34%] md:min-w-[320px] md:max-w-[460px]`}>
           <div className="border-b border-slate-100 px-4 py-4">
             <div className="flex items-center justify-between">
@@ -1058,7 +1104,7 @@ export function Messages() {
                   aria-label={realtimeStatus === "live" ? "Live updates connected" : "Live updates reconnecting"}
                 />
                 {unreadTotal > 0 ? (
-                  <span className="rounded-full bg-[#1C4D8D] px-2.5 py-0.5 text-[12px] font-semibold text-white">
+                  <span className="rounded-full bg-brand px-2.5 py-0.5 text-caption font-semibold text-white">
                     {unreadTotal}
                   </span>
                 ) : null}
@@ -1083,15 +1129,15 @@ export function Messages() {
                       transition={{ duration: prefersReducedMotion ? 0 : 0.15 }}
                       className="absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-slate-200 bg-white py-2 shadow-lg"
                     >
-                      <button type="button" onClick={() => void setConversationListFilter("inbox")} className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50">
+                      <button type="button" onClick={() => void setConversationListFilter("inbox")} className="flex w-full items-center gap-3 px-4 py-2 text-left text-body text-slate-700 hover:bg-slate-50">
                         <MessagesSquare className="h-4 w-4" />
                         Inbox
                       </button>
-                      <button type="button" onClick={() => void setConversationListFilter("archived")} className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50">
+                      <button type="button" onClick={() => void setConversationListFilter("archived")} className="flex w-full items-center gap-3 px-4 py-2 text-left text-body text-slate-700 hover:bg-slate-50">
                         <Archive className="h-4 w-4" />
                         {t("messages.viewArchived")}
                       </button>
-                      <button type="button" onClick={() => void setConversationListFilter("blocked")} className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50">
+                      <button type="button" onClick={() => void setConversationListFilter("blocked")} className="flex w-full items-center gap-3 px-4 py-2 text-left text-body text-slate-700 hover:bg-slate-50">
                         <Ban className="h-4 w-4" />
                         Blocked
                       </button>
@@ -1109,9 +1155,14 @@ export function Messages() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 aria-label={t("messages.searchAria")}
-                className="w-full rounded-full border border-slate-200 bg-white py-3 pl-11 pr-4 text-[14px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]/20"
+                className="w-full rounded-full border border-slate-200 bg-white py-3 pl-11 pr-4 text-body text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand focus:ring-2 focus:ring-brand/20"
               />
             </div>
+            {canBrowseRecipients ? (
+              <button type="button" onClick={() => setShowRecipientDirectory(true)} className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">
+                <SquarePen className="h-4 w-4" aria-hidden="true" />{tAdmin("messageDirectory.newMessage")}
+              </button>
+            ) : null}
           </div>
 
           <div className="flex-1 overflow-y-auto bg-white">
@@ -1147,8 +1198,8 @@ export function Messages() {
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      <span className={`mt-4 h-2 w-2 flex-shrink-0 rounded-full ${hasUnread ? "bg-[#1C4D8D]" : ""}`} />
-                      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-[#1C4D8D] text-[14px] font-bold text-white">
+                      <span className={`mt-4 h-2 w-2 flex-shrink-0 rounded-full ${hasUnread ? "bg-brand" : ""}`} />
+                      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-brand text-body font-bold text-white">
                         {getInitials(contact.otherUserName)}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -1156,14 +1207,14 @@ export function Messages() {
                           <p className={`truncate text-[15px] leading-tight text-slate-900 ${hasUnread ? "font-bold" : "font-semibold"}`}>
                             {contact.otherUserName}
                           </p>
-                          <span className="whitespace-nowrap text-[12px] text-slate-400">
+                          <span className="whitespace-nowrap text-caption text-slate-400">
                             {formatTime(t, contact.lastMessageAt)}
                           </span>
                         </div>
                         {contact.jobTitle ? (
-                          <p className="mt-0.5 truncate text-[12px] text-slate-400">{t("messages.reJob", { jobTitle: contact.jobTitle })}</p>
+                          <p className="mt-0.5 truncate text-caption text-slate-400">{t("messages.reJob", { jobTitle: contact.jobTitle })}</p>
                         ) : null}
-                        <p className={`mt-1 line-clamp-2 text-[13px] ${hasUnread ? "font-medium text-slate-700" : "text-slate-500"}`}>
+                        <p className={`mt-1 line-clamp-2 text-body-sm ${hasUnread ? "font-medium text-slate-700" : "text-slate-500"}`}>
                           {contact.lastMessage || t("messages.noMessagesPreview")}
                         </p>
                       </div>
@@ -1200,23 +1251,33 @@ export function Messages() {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1C4D8D] text-[14px] font-bold text-white">
-                    {getInitials(selectedContact.otherUserName)}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-[16px] font-semibold text-slate-900">{selectedContact.otherUserName}</p>
-                    {peerTyping ? (
-                      <p className="text-[13px] font-medium text-[#1C4D8D]">{t("messages.typing")}</p>
-                    ) : selectedContact.jobTitle ? (
-                      <p className="truncate text-[13px] text-slate-400">{t("messages.reJob", { jobTitle: selectedContact.jobTitle })}</p>
-                    ) : null}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleViewProfile}
+                    disabled={!canViewSelectedProfile}
+                    aria-label={t("messages.viewProfileAria", { name: selectedContact.otherUserName })}
+                    title={canViewSelectedProfile ? t("messages.viewProfile") : undefined}
+                    className="flex min-w-0 items-center gap-3 rounded-xl text-left transition enabled:hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-default"
+                  >
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand text-body font-bold text-white">
+                      {getInitials(selectedContact.otherUserName)}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[16px] font-semibold text-slate-900">{selectedContact.otherUserName}</span>
+                      {peerTyping ? (
+                        <span className="block text-body-sm font-medium text-brand">{t("messages.typing")}</span>
+                      ) : selectedContact.jobTitle ? (
+                        <span className="block truncate text-body-sm text-slate-400">{t("messages.reJob", { jobTitle: selectedContact.jobTitle })}</span>
+                      ) : null}
+                    </span>
+                  </button>
                 </div>
 
                 <div className="relative" ref={moreMenuRef}>
                   <button
                     type="button"
                     onClick={() => setShowMoreMenu((prev) => !prev)}
+                    ref={reportTriggerRef}
                     className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50"
                     title={t("messages.moreOptions")}
                     aria-label={t("messages.moreOptionsAria")}
@@ -1237,7 +1298,7 @@ export function Messages() {
                           <button
                             type="button"
                             onClick={handleUnblockUser}
-                            className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-[#047857] hover:bg-emerald-50"
+                            className="flex w-full items-center gap-3 px-4 py-2 text-left text-body text-[#047857] hover:bg-emerald-50"
                           >
                             <Check className="h-4 w-4" />
                             Unblock user
@@ -1246,7 +1307,7 @@ export function Messages() {
                           <button
                             type="button"
                             onClick={handleUnarchiveConversation}
-                            className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50"
+                            className="flex w-full items-center gap-3 px-4 py-2 text-left text-body text-slate-700 hover:bg-slate-50"
                           >
                             <Archive className="h-4 w-4" />
                             {t("messages.unarchive")}
@@ -1255,7 +1316,7 @@ export function Messages() {
                           <button
                             type="button"
                             onClick={handleArchiveConversation}
-                            className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50"
+                            className="flex w-full items-center gap-3 px-4 py-2 text-left text-body text-slate-700 hover:bg-slate-50"
                           >
                             <Archive className="h-4 w-4" />
                             {t("messages.archive")}
@@ -1265,16 +1326,24 @@ export function Messages() {
                           <button
                             type="button"
                             onClick={handleViewProfile}
-                            className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50"
+                            className="flex w-full items-center gap-3 px-4 py-2 text-left text-body text-slate-700 hover:bg-slate-50"
                           >
                             {t("messages.viewProfile")}
                           </button>
                         ) : null}
+                        <button
+                          type="button"
+                          onClick={() => { setReportTarget(selectedContact); setShowMoreMenu(false); }}
+                          className="flex w-full items-center gap-3 px-4 py-2 text-left text-body text-amber-800 hover:bg-amber-50"
+                        >
+                          <Flag className="h-4 w-4" aria-hidden="true" />
+                          {t("messages.report.action")}
+                        </button>
                         {!showBlocked ? (
                           <button
                             type="button"
                             onClick={handleBlockUser}
-                            className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-red-600 hover:bg-red-50"
+                            className="flex w-full items-center gap-3 px-4 py-2 text-left text-body text-red-600 hover:bg-red-50"
                           >
                             <Ban className="h-4 w-4" />
                             {t("messages.blockUser")}
@@ -1283,7 +1352,7 @@ export function Messages() {
                         <button
                           type="button"
                           onClick={openDeleteConfirmation}
-                          className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-red-600 hover:bg-red-50"
+                          className="flex w-full items-center gap-3 px-4 py-2 text-left text-body text-red-600 hover:bg-red-50"
                         >
                           <Trash2 className="h-4 w-4" />
                           {t("messages.deleteConversation")}
@@ -1294,13 +1363,14 @@ export function Messages() {
                 </div>
               </div>
 
+              <MessagingSafetyNotice />
               <div className="min-h-0 flex-1 overflow-y-auto bg-[#F8FAFD] px-5 py-5">
                 {orderedMessages.length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
                     <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm">
                       <MessagesSquare className="h-6 w-6 text-slate-400" />
                     </div>
-                    <p className="text-[14px] font-medium text-slate-500">{t("messages.noMessagesYet")}</p>
+                    <p className="text-body font-medium text-slate-500">{t("messages.noMessagesYet")}</p>
                   </div>
                 ) : (
                   <div className="space-y-1.5">
@@ -1308,7 +1378,7 @@ export function Messages() {
                       if (row.type === "divider") {
                         return (
                           <div key={`divider-${index}`} className="py-2">
-                            <div className="mx-auto w-full max-w-[420px] rounded-full border border-slate-200 bg-white px-3 py-1 text-center text-[12px] font-medium text-slate-500">
+                            <div className="mx-auto w-full max-w-[420px] rounded-full border border-slate-200 bg-white px-3 py-1 text-center text-caption font-medium text-slate-500">
                               {row.label}
                             </div>
                           </div>
@@ -1319,6 +1389,8 @@ export function Messages() {
                       const isOwn = Boolean(currentUserId && message.sender._id === currentUserId);
                       const isEditing = editingMessageId === message._id;
                       const isLastOwn = message._id === lastOwnMessageId;
+                      if (message.attachment?.type === 'hire_checklist') return <div key={message._id} className={`flex py-2 ${isOwn ? 'justify-end' : 'justify-start'}`}><div className="w-full max-w-sm rounded-card border border-slate-200 bg-white p-4 text-slate-900"><p className="mb-2 font-semibold">{message.attachment.jobTitle}</p><ChecklistTable items={message.attachment.checklist || []} /></div></div>;
+                      if (message.attachment?.type === 'completion_evidence') return <div key={message._id} className={`flex py-2 ${isOwn ? 'justify-end' : 'justify-start'}`}><CompletionMessageCard message={message} /></div>;
 
                       // A job offer arrives as a normal message with a
                       // structured `attachment` instead of freeform text --
@@ -1330,7 +1402,7 @@ export function Messages() {
                       if (isJobOfferMessage) {
                         const offerValue = message.attachment?.jobOffer;
                         const offerStatus = String(
-                          typeof offerValue === "object" ? offerValue?.status || "pending" : "pending",
+                          typeof offerValue === "object" ? offerResponseStatus(offerValue) || "pending" : "pending",
                         ).toLowerCase();
                         const offerAmount = message.attachment?.offerAmount ?? 0;
                         const offerBusy = offerActionBusyId === offerId;
@@ -1348,7 +1420,7 @@ export function Messages() {
                             {!isOwn ? (
                               <div className="w-10 shrink-0">
                                 {row.showMeta ? (
-                                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1C4D8D] text-[12px] font-bold text-white">
+                                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-caption font-bold text-white">
                                     {getInitials(selectedContact.otherUserName)}
                                   </div>
                                 ) : null}
@@ -1356,18 +1428,24 @@ export function Messages() {
                             ) : null}
                             <div className={`flex max-w-[78%] flex-col ${isOwn ? "items-end" : "items-start"}`}>
                               {row.showMeta ? (
-                                <div className="mb-1 flex items-center gap-2 text-[12px] text-slate-400">
+                                <div className="mb-1 flex items-center gap-2 text-caption text-slate-400">
                                   {!isOwn ? <span className="font-semibold text-slate-700">{selectedContact.otherUserName}</span> : null}
                                   <span>{formatMessageTime(message.createdAt)}</span>
                                 </div>
                               ) : null}
-                              <div className={`w-full min-w-[260px] rounded-2xl border p-4 ${isOwn ? "border-[#BFDBFE] bg-[#EAF2FC]" : "border-slate-200 bg-white"}`}>
+                              {/* The `min-w-[260px]` this replaces beat the
+                                  `max-w-[78%]` on the bubble column, so the
+                                  offer card pushed out of the thread on any
+                                  phone at or below 360px wide. The row inside
+                                  already has a `min-w-0` child and a truncating
+                                  title, so it degrades on its own. */}
+                              <div className={`w-full rounded-card border p-4 sm:min-w-[260px] ${isOwn ? "border-[#BFDBFE] bg-[#EAF2FC]" : "border-slate-200 bg-white"}`}>
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
-                                    <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#1C4D8D]">
+                                    <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-brand">
                                       {t("messages.offerCard.eyebrow")}
                                     </p>
-                                    <p className="mt-0.5 truncate text-[14px] font-semibold text-slate-900">
+                                    <p className="mt-0.5 truncate text-body font-semibold text-slate-900">
                                       {message.attachment?.jobTitle || t("messages.offerCard.fallbackTitle")}
                                     </p>
                                   </div>
@@ -1376,20 +1454,22 @@ export function Messages() {
                                       offerStatus === "pending" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
                                     }`}
                                   >
-                                    {t(OFFER_STATUS_LABEL_KEYS[offerStatus] || OFFER_STATUS_LABEL_KEYS.pending)}
+                                    {offerStatus === 'expired' ? t('offerResponse.expiredStatus', { ns: 'common' }) : t(OFFER_STATUS_LABEL_KEYS[offerStatus] || OFFER_STATUS_LABEL_KEYS.pending)}
                                   </span>
                                 </div>
                                 <div className="mt-3 border-t border-slate-200/70 pt-3">
                                   <p className="text-[18px] font-bold text-slate-900">{formatCurrency(offerAmount)}</p>
-                                  <p className="mt-0.5 text-[12px] text-slate-500">{t("messages.offerCard.escrowHint")}</p>
+                                  <DailyOfferSchedule message={message} />
+                                  <p className="mt-0.5 text-caption text-slate-500">{t("messages.offerCard.escrowHint")}</p>
                                 </div>
+                                <OfferResponseDeadline offer={typeof offerValue === 'object' ? offerValue : null} />
                                 {showWorkerActions ? (
                                   <div className="mt-3 flex gap-2">
                                     <button
                                       type="button"
                                       disabled={offerBusy}
                                       onClick={() => openDeclineOfferConfirm(offerId, offerAmount)}
-                                      className="inline-flex h-9 flex-1 items-center justify-center rounded-[10px] border border-red-200 px-3 text-[12px] font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                      className="inline-flex h-9 flex-1 items-center justify-center rounded-control border border-red-200 px-3 text-caption font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                       {t("messages.offerCard.decline")}
                                     </button>
@@ -1397,7 +1477,7 @@ export function Messages() {
                                       type="button"
                                       disabled={offerBusy}
                                       onClick={() => openAcceptOfferConfirm(offerId, offerAmount)}
-                                      className="inline-flex h-9 flex-1 items-center justify-center rounded-[10px] bg-[#1C4D8D] px-3 text-[12px] font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                                      className="inline-flex h-9 flex-1 items-center justify-center rounded-control bg-brand px-3 text-caption font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                       {t("messages.offerCard.accept")}
                                     </button>
@@ -1409,7 +1489,7 @@ export function Messages() {
                                       type="button"
                                       disabled={offerBusy}
                                       onClick={() => openCancelOfferConfirm(offerId)}
-                                      className="inline-flex h-9 flex-1 items-center justify-center rounded-[10px] border border-[#FECACA] px-3 text-[12px] font-semibold text-[#B91C1C] transition hover:bg-[#FEF2F2] disabled:cursor-not-allowed disabled:opacity-50"
+                                      className="inline-flex h-9 flex-1 items-center justify-center rounded-control border border-[#FECACA] px-3 text-caption font-semibold text-[#B91C1C] transition hover:bg-[#FEF2F2] disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                       {t("messages.offerCard.cancel")}
                                     </button>
@@ -1418,7 +1498,7 @@ export function Messages() {
                                         type="button"
                                         disabled={offerBusy}
                                         onClick={() => openConfirmHireConfirm(offerId)}
-                                        className="inline-flex h-9 flex-1 items-center justify-center rounded-[10px] bg-[#1C4D8D] px-3 text-[12px] font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                                        className="inline-flex h-9 flex-1 items-center justify-center rounded-control bg-brand px-3 text-caption font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                                       >
                                         {t("messages.offerCard.confirmHire")}
                                       </button>
@@ -1442,7 +1522,7 @@ export function Messages() {
                           {!isOwn ? (
                             <div className="w-10 shrink-0">
                               {row.showMeta ? (
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1C4D8D] text-[12px] font-bold text-white">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-caption font-bold text-white">
                                   {getInitials(selectedContact.otherUserName)}
                                 </div>
                               ) : null}
@@ -1450,7 +1530,7 @@ export function Messages() {
                           ) : null}
                           <div className={`flex max-w-[78%] flex-col ${isOwn ? "items-end" : "items-start"}`}>
                             {row.showMeta ? (
-                              <div className={`mb-1 flex items-center gap-2 text-[12px] text-slate-400 ${isOwn ? "" : ""}`}>
+                              <div className={`mb-1 flex items-center gap-2 text-caption text-slate-400 ${isOwn ? "" : ""}`}>
                                 {!isOwn ? <span className="font-semibold text-slate-700">{selectedContact.otherUserName}</span> : null}
                                 <span>{formatMessageTime(message.createdAt)}</span>
                               </div>
@@ -1459,11 +1539,11 @@ export function Messages() {
                               type="button"
                               disabled={!message.failed}
                               onClick={() => message.failed && retryFailedMessage(message)}
-                              className={`rounded-2xl px-4 py-3 text-left transition ${
+                              className={`rounded-card px-4 py-3 text-left transition ${
                                 isOwn
                                   ? message.failed
                                     ? "border border-red-300 bg-red-50 text-red-700"
-                                    : "bg-[#1C4D8D] text-white"
+                                    : "bg-brand text-white"
                                   : "border border-slate-200 bg-white text-slate-900"
                               } ${message.pending ? "opacity-60" : ""} ${message.failed ? "cursor-pointer" : "cursor-default"}`}
                             >
@@ -1476,14 +1556,14 @@ export function Messages() {
                                     type="text"
                                     value={editingText}
                                     onChange={(e) => setEditingText(e.target.value)}
-                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-[14px] text-slate-900"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-body text-slate-900"
                                     disabled={isEditingSaving}
                                   />
                                   <div className="flex justify-end gap-2">
                                     <button
                                       type="button"
                                       onClick={cancelEditMessage}
-                                      className="rounded bg-slate-200 px-2 py-1 text-[12px] text-slate-700"
+                                      className="rounded bg-slate-200 px-2 py-1 text-caption text-slate-700"
                                       disabled={isEditingSaving}
                                     >
                                       {t("messages.editing.cancel")}
@@ -1491,7 +1571,7 @@ export function Messages() {
                                     <button
                                       type="button"
                                       onClick={saveEditMessage}
-                                      className="rounded bg-[#1C4D8D] px-2 py-1 text-[12px] text-white"
+                                      className="rounded bg-brand px-2 py-1 text-caption text-white"
                                       disabled={isEditingSaving}
                                     >
                                       {t("messages.editing.save")}
@@ -1499,7 +1579,7 @@ export function Messages() {
                                   </div>
                                 </div>
                               ) : (
-                                <p className="text-[14px] leading-relaxed">{message.content}</p>
+                                <p className="text-body leading-relaxed">{message.content}</p>
                               )}
                             </button>
                             <div className={`mt-1 flex items-center gap-2 text-[11px] text-slate-400 ${isOwn ? "justify-end" : "justify-start"}`}>
@@ -1514,14 +1594,14 @@ export function Messages() {
                                     <button
                                       type="button"
                                       onClick={() => beginEditMessage(message)}
-                                      className="font-medium text-[#1C4D8D] hover:underline"
+                                      className="font-medium text-brand hover:underline"
                                     >
                                       {t("messages.edit")}
                                     </button>
                                   ) : null}
                                   {isOwn && isLastOwn ? (
                                     message.read ? (
-                                      <span className="flex items-center gap-0.5 text-[#1C4D8D]">
+                                      <span className="flex items-center gap-0.5 text-brand">
                                         <CheckCheck className="h-3.5 w-3.5" /> {t("messages.read")}
                                       </span>
                                     ) : (
@@ -1561,14 +1641,14 @@ export function Messages() {
                     maxLength={4000}
                     rows={1}
                     aria-label={t("messages.composerAria")}
-                    className="min-h-[44px] max-h-40 flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]/20 disabled:opacity-60"
+                    className="min-h-[44px] max-h-40 flex-1 resize-none rounded-card border border-slate-200 bg-slate-50 px-4 py-3 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:opacity-60"
                   />
                   <button
                     type="button"
                     onClick={handleSendMessage}
                     disabled={!messageText.trim() || sending}
                     aria-label={t("messages.sendAria")}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1C4D8D] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {sending ? (
                       <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -1585,7 +1665,7 @@ export function Messages() {
       <AnimatePresence>
         {deleteTarget ? (
           <motion.div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4"
+            className={`fixed inset-0 ${LAYER_Z.modal} flex items-center justify-center bg-slate-950/45 p-4`}
             initial={prefersReducedMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={prefersReducedMotion ? undefined : { opacity: 0 }}
@@ -1600,12 +1680,12 @@ export function Messages() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={prefersReducedMotion ? undefined : { opacity: 0, scale: 0.96, y: 8 }}
               onMouseDown={(event) => event.stopPropagation()}
-              className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+              className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-card bg-white p-6 shadow-2xl"
             >
               <div className="flex h-11 w-11 items-center justify-center rounded-full bg-red-50 text-red-600">
                 <Trash2 className="h-5 w-5" />
               </div>
-              <h2 id="delete-conversation-title" className="mt-4 text-lg font-semibold text-slate-900">
+              <h2 id="delete-conversation-title" className="mt-4 text-section font-semibold text-slate-900">
                 Permanently delete conversation?
               </h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -1633,6 +1713,12 @@ export function Messages() {
           </motion.div>
         ) : null}
       </AnimatePresence>
+      {canBrowseRecipients && showRecipientDirectory ? <RecipientDirectoryDialog onClose={() => setShowRecipientDirectory(false)} onSelect={selectDirectoryRecipient} /> : null}
+      {reportTarget ? <ConversationReportDialog contact={reportTarget} onClose={() => setReportTarget(null)} restoreFocusRef={reportTriggerRef} /> : null}
+      <OfferCancellationDialog offerId={cancelOfferId} onClose={() => setCancelOfferId(null)} onDone={() => void refreshOpenThreadMessages()} />
+      {hireOfferId && <HireChecklistDialog key={hireOfferId} title={t('messages.offerCard.confirmHireDialog.title')} description={t('messages.offerCard.confirmHireDialog.description')} warning={tc('hireChecklist.hireWarning')} onClose={() => setHireOfferId(null)} onConfirm={async (checklist) => {
+        await confirmOfferHire(hireOfferId, checklist); await refreshOpenThreadMessages(); toast.success(t('messages.offerCard.toast.hired'));
+      }} />}
       <ConfirmDialog
         open={Boolean(offerConfirmAction)}
         title={offerConfirmAction?.title || ""}

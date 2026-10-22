@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
+import Transaction from '../models/Transaction.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { getJwtSecret } from '../lib/jwtSecret.js';
 import {
@@ -24,6 +25,7 @@ import {
   normalizeUsername,
   normalizeDisplayName,
   isNativeAuthRequest,
+  isBearerAuthRequest,
 } from '../lib/authSession.js';
 import {
   createMfaChallengeToken,
@@ -36,13 +38,16 @@ import {
   MFA_METHOD,
   verifyMfaCodeForUser,
 } from '../lib/mfaHelpers.js';
-import { getOtpChallenge, verifyOtpChallenge } from '../lib/otpChallenges.js';
+import { getOtpChallenge, getTestOtpCode, verifyOtpChallenge } from '../lib/otpChallenges.js';
 import {
   issueTrustedDevice,
   consumeTrustedDevice,
+  consumeTrustedDeviceByToken,
   setTrustedDeviceCookie,
   getTrustedDeviceTokenFromRequest,
 } from '../lib/trustedDevice.js';
+import { isAdminRole } from '../lib/auth.js';
+import { hasVerifiedSecondaryEmail, matchesStaffLoginChallenge } from '../lib/staffSecurity.js';
 import { SELF_SERVICE_ROLES } from './SessionController.js';
 
 const googleClient = new OAuth2Client();
@@ -106,12 +111,12 @@ const registerUser = async (req, res) => {
     const existingUser = await User.findOne({ $or: duplicateQuery });
     if (existingUser) {
       if (existingUser.email === normalizedEmail) {
-        return sendError(res, 409, 'Email is already registered');
+        return sendError(res, 409, 'This email address already exists.', { code: 'EMAIL_ALREADY_EXISTS' });
       }
       if (normalizedPhone && existingUser.phoneNumber === normalizedPhone) {
-        return sendError(res, 409, 'Phone number is already registered');
+        return sendError(res, 409, 'This phone number already exists.', { code: 'PHONE_NUMBER_ALREADY_EXISTS' });
       }
-      return sendError(res, 409, 'Username is already taken');
+      return sendError(res, 409, 'This username is already taken.', { code: 'USERNAME_ALREADY_EXISTS' });
     }
 
     const user = new User({
@@ -143,15 +148,15 @@ const registerUser = async (req, res) => {
     if (error?.code === 11000) {
       const duplicateField = Object.keys(error?.keyPattern || {})[0] || '';
       if (duplicateField === 'email') {
-        return sendError(res, 409, 'Email is already registered');
+        return sendError(res, 409, 'This email address already exists.', { code: 'EMAIL_ALREADY_EXISTS' });
       }
       if (duplicateField === 'phoneNumber') {
-        return sendError(res, 409, 'Phone number is already registered');
+        return sendError(res, 409, 'This phone number already exists.', { code: 'PHONE_NUMBER_ALREADY_EXISTS' });
       }
       if (duplicateField === 'username') {
-        return sendError(res, 409, 'Username is already taken');
+        return sendError(res, 409, 'This username is already taken.', { code: 'USERNAME_ALREADY_EXISTS' });
       }
-      return sendError(res, 409, 'Account already exists');
+      return sendError(res, 409, 'An account with these details already exists.', { code: 'ACCOUNT_ALREADY_EXISTS' });
     }
     if (error?.name === 'ValidationError' && error?.errors) {
       const firstValidation = Object.values(error.errors)[0];
@@ -169,7 +174,7 @@ const ENUMERATION_TIMING_HASH = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad
 
 const loginUser = async (req, res) => {
   try {
-    const { emailOrUsername, password, phoneNumber, requireOtp } = req.body;
+    const { emailOrUsername, password, phoneNumber } = req.body;
     if (!password) {
       return sendError(res, 400, 'Password is required');
     }
@@ -183,7 +188,7 @@ const loginUser = async (req, res) => {
         return sendError(res, 400, PHONE_VALIDATION_MESSAGE);
       }
       includePhone = true;
-      user = await User.findOne({ phoneNumber: normalizedPhone }).select('+passwordHashed +failedLoginAttempts +loginLockCount +lockUntil');
+      user = await User.findOne({ phoneNumber: normalizedPhone }).select('+passwordHashed +failedLoginAttempts +loginLockCount +lockUntil +secondaryEmail +secondaryEmailVerifiedAt');
     } else {
       const loginInput = String(emailOrUsername || '').trim();
       if (!loginInput) {
@@ -194,7 +199,7 @@ const loginUser = async (req, res) => {
           { email: normalizeEmail(loginInput) },
           { username: normalizeUsername(loginInput) },
         ],
-      }).select('+passwordHashed +failedLoginAttempts +loginLockCount +lockUntil');
+      }).select('+passwordHashed +failedLoginAttempts +loginLockCount +lockUntil +secondaryEmail +secondaryEmailVerifiedAt');
     }
 
     // One generic message for both "no such account" and "wrong password".
@@ -220,11 +225,16 @@ const loginUser = async (req, res) => {
     // mistyped their password gets back in by waiting rather than by asking
     // support.
     if (user.isLoginLocked()) {
+      await bcrypt.compare(password, ENUMERATION_TIMING_HASH);
       return sendError(res, 401, invalidMessage);
     }
 
     if (!(await user.validatePassword(password))) {
       await user.registerFailedLogin();
+      return sendError(res, 401, invalidMessage);
+    }
+    const staff = isAdminRole(user.role);
+    if ((staff && (includePhone || normalizeEmail(emailOrUsername) !== user.email)) || (req.body?.staffOnly && !staff)) {
       return sendError(res, 401, invalidMessage);
     }
 
@@ -236,11 +246,18 @@ const loginUser = async (req, res) => {
     if (user.status === 'disabled') {
       return sendError(res, 401, 'Account is disabled. Contact an admin.');
     }
+    if (user.status === 'banned') {
+      return sendError(res, 401, 'Account is banned. Contact support.');
+    }
     if (user.status === 'deleted') {
       return sendError(res, 401, 'Account has been deleted.');
     }
 
-    if (user.mfaEnabled) {
+    // Staff sign in with their primary email; a verified secondary mailbox
+    // enables mandatory OTP. The server derives this from persisted fields.
+    const passwordOnlyAdminLogin = staff && !hasVerifiedSecondaryEmail(user);
+
+    if (user.mfaEnabled && !staff) {
       const selectionToken = createLoginMethodSelectionToken(String(user._id), includePhone);
       return sendSuccess(res, 200, 'Choose a verification method', {
         methodSelectionRequired: true,
@@ -249,22 +266,28 @@ const loginUser = async (req, res) => {
       });
     }
 
-    // A trusted device (see lib/trustedDevice.js) lets a login skip the OTP
-    // challenge below without weakening it: the client always sends
-    // requireOtp:true, so the skip decision is made here, server-side, based
-    // on a token the server itself issued after a prior OTP verification --
-    // never on anything the client merely claims.
-    let trustedDevice = null;
-    if (requireOtp) {
-      const deviceToken = getTrustedDeviceTokenFromRequest(req);
-      trustedDevice = await consumeTrustedDevice({ token: deviceToken, userId: user._id });
-    }
+    // The email OTP challenge is mandatory for marketplace accounts. A trusted device (see
+    // lib/trustedDevice.js) is the only thing that skips it, and that decision
+    // rests entirely on a token the server itself issued after a prior OTP
+    // verification -- never on anything the client claims. Privileged staff
+    // accounts with a verified secondary email must present OTP every sign-in.
+    //
+    // This used to be gated on `req.body.requireOtp`, with a comment asserting
+    // the skip was decided server-side. It was not: the flag came straight off
+    // the request body, so omitting it skipped the second factor altogether and
+    // anyone holding only a password logged in directly. Nothing but the
+    // client's own good manners was enforcing 2FA.
+    const deviceToken = getTrustedDeviceTokenFromRequest(req);
+    const trustedDevice = staff
+      ? null
+      : await consumeTrustedDevice({ token: deviceToken, userId: user._id });
 
-    if (requireOtp && !trustedDevice) {
+    if (!passwordOnlyAdminLogin && !trustedDevice) {
       const loginOtp = await issueLoginOtpChallenge(user, includePhone);
       return sendSuccess(res, 200, 'OTP verification required', {
         otpRequired: true,
         otpToken: loginOtp.otpToken,
+        ...(staff ? { deliveryEmail: user.secondaryEmail, staffLogin: true } : {}),
       });
     }
 
@@ -287,9 +310,9 @@ const loginUser = async (req, res) => {
     const userPayload = buildLoginPayload(user, includePhone);
     return sendSuccess(res, 200, 'Login successful', {
       ...buildAuthTokensPayload(req, authSession),
-      // Native has no persistent cookie jar across app restarts, so the
-      // rotated token travels in the body the same way refreshToken does.
-      ...(trustedDevice && isNativeAuthRequest(req)
+      // Native and cross-site bearer browsers cannot depend on cookies, so
+      // rotated device trust travels in the body alongside the session tokens.
+      ...(trustedDevice && (isNativeAuthRequest(req) || isBearerAuthRequest(req))
         ? { trustedDeviceToken: trustedDevice.token, trustedDeviceExpiresAt: trustedDevice.expiresAt }
         : {}),
       user: userPayload,
@@ -297,6 +320,44 @@ const loginUser = async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     return sendError(res, 500, 'Server error during login');
+  }
+};
+
+const loginTrustedDevice = async (req, res) => {
+  try {
+    const trustedDevice = await consumeTrustedDeviceByToken(getTrustedDeviceTokenFromRequest(req));
+    if (!trustedDevice) return sendError(res, 401, 'Trusted device expired. Please sign in again.');
+
+    const user = await User.findById(trustedDevice.device.user);
+    if (!user || user.status !== 'active') {
+      return sendError(res, 401, 'This trusted device is no longer valid.');
+    }
+    if (isAdminRole(user.role)) return sendError(res, 401, 'Staff must sign in with their primary email and password.');
+    if (user.mfaEnabled && !isAdminRole(user.role)) {
+      return sendError(res, 401, 'Sign in with your password to complete two-factor authentication.');
+    }
+
+    const authSession = await createSessionWithTokens(req, user);
+    const csrfToken = crypto.randomBytes(24).toString('hex');
+    setSessionCookies(res, {
+      refreshToken: authSession.refreshToken,
+      sessionId: authSession.sessionId,
+      accessToken: authSession.accessToken,
+      accessTokenExpiresAt: authSession.accessTokenExpiresAt,
+      expiresAt: authSession.expiresAt,
+      csrfToken,
+    });
+    setTrustedDeviceCookie(res, trustedDevice.token, trustedDevice.expiresAt);
+    return sendSuccess(res, 200, 'Trusted device login successful', {
+      ...buildAuthTokensPayload(req, authSession),
+      ...(isNativeAuthRequest(req) || isBearerAuthRequest(req)
+        ? { trustedDeviceToken: trustedDevice.token, trustedDeviceExpiresAt: trustedDevice.expiresAt }
+        : {}),
+      user: buildLoginPayload(user, false),
+    });
+  } catch (error) {
+    console.error('Trusted device login error:', error);
+    return sendError(res, 500, 'Unable to sign in with this trusted device.');
   }
 };
 
@@ -316,6 +377,7 @@ const selectLoginMethod = async (req, res) => {
       return sendError(res, 401, 'Invalid login verification selection.');
     }
     const user = await User.findById(decoded.userId).select('+mfaSecret +mfaBackupCodes');
+    if (user && isAdminRole(user.role)) return sendError(res, 401, 'Staff must sign in with their primary email and password.');
     if (!user || !user.mfaEnabled) return sendError(res, 401, 'Two-factor authentication is not enabled.');
     if (user.status !== 'active') return sendError(res, 401, 'This account cannot sign in.');
 
@@ -343,15 +405,19 @@ const googleLogin = async (req, res) => {
       return sendError(res, 400, 'Google credential is required.');
     }
 
-    const clientId = String(process.env.GOOGLE_CLIENT_ID || '').trim();
-    if (!clientId) {
+    const clientIds = [
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_ANDROID_CLIENT_ID,
+      process.env.GOOGLE_IOS_CLIENT_ID,
+    ].map((value) => String(value || '').trim()).filter(Boolean);
+    if (clientIds.length === 0) {
       console.error('Google login is not configured: GOOGLE_CLIENT_ID is missing.');
       return sendError(res, 503, 'Google sign-in is not configured.');
     }
 
     let ticket;
     try {
-      ticket = await googleClient.verifyIdToken({ idToken: credential, audience: clientId });
+      ticket = await googleClient.verifyIdToken({ idToken: credential, audience: clientIds });
     } catch {
       return sendError(res, 401, 'Google sign-in could not be verified. Please try again.');
     }
@@ -365,9 +431,13 @@ const googleLogin = async (req, res) => {
 
     const requestedRole = SELF_SERVICE_ROLES.has(req.body?.role) ? req.body.role : 'both';
     let user = await User.findOne({ $or: [{ googleId }, { email }] }).select('+googleId');
+    if (user && isAdminRole(user.role)) return sendError(res, 401, 'Staff must sign in with their primary email and password.');
 
     if (user?.status === 'disabled') {
       return sendError(res, 401, 'Account is disabled. Contact an admin.');
+    }
+    if (user?.status === 'banned') {
+      return sendError(res, 401, 'Account is banned. Contact support.');
     }
     if (user?.status === 'deleted') {
       return sendError(res, 401, 'Account has been deleted.');
@@ -446,6 +516,7 @@ const loginMfa = async (req, res) => {
     }
 
     const user = await User.findById(decoded.userId).select('+mfaSecret +mfaBackupCodes');
+    if (user && isAdminRole(user.role)) return sendError(res, 401, 'Staff must sign in with their primary email and password.');
     if (!user) {
       return sendError(res, 401, 'Account not found.');
     }
@@ -457,6 +528,9 @@ const loginMfa = async (req, res) => {
     }
     if (user.status === 'disabled') {
       return sendError(res, 401, 'Account is disabled. Contact an admin.');
+    }
+    if (user.status === 'banned') {
+      return sendError(res, 401, 'Account is banned. Contact support.');
     }
     if (user.status === 'deleted') {
       return sendError(res, 401, 'Account has been deleted.');
@@ -524,15 +598,21 @@ const loginOtpVerify = async (req, res) => {
     if (String(challenge.user || '') !== String(decoded.userId)) {
       return sendError(res, 401, 'Invalid OTP challenge token.');
     }
-    const user = await User.findById(challenge.user);
+    const user = await User.findById(challenge.user).select('+secondaryEmail +secondaryEmailVerifiedAt');
     if (!user) {
       return sendError(res, 404, 'User not found.');
+    }
+    if (!matchesStaffLoginChallenge(user, challenge)) {
+      return sendError(res, 401, 'Account security details changed. Please sign in again.');
     }
     if (user.status === 'pending') {
       return sendError(res, 401, 'Please verify your email before signing in.');
     }
     if (user.status === 'disabled') {
       return sendError(res, 401, 'Account is disabled. Contact an admin.');
+    }
+    if (user.status === 'banned') {
+      return sendError(res, 401, 'Account is banned. Contact support.');
     }
     if (user.status === 'deleted') {
       return sendError(res, 401, 'Account has been deleted.');
@@ -551,7 +631,7 @@ const loginOtpVerify = async (req, res) => {
     });
 
     let trustedDevice = null;
-    if (req.body?.rememberDevice) {
+    if (req.body?.rememberDevice && !isAdminRole(user.role)) {
       trustedDevice = await issueTrustedDevice(user, {
         ip: req.ip || req.headers['x-forwarded-for'] || '',
         label: req.get('User-Agent') || '',
@@ -562,7 +642,7 @@ const loginOtpVerify = async (req, res) => {
     const payload = buildLoginPayload(user, includePhone);
     return sendSuccess(res, 200, 'Login successful', {
       ...buildAuthTokensPayload(req, authSession),
-      ...(trustedDevice && isNativeAuthRequest(req)
+      ...(trustedDevice && (isNativeAuthRequest(req) || isBearerAuthRequest(req))
         ? { trustedDeviceToken: trustedDevice.token, trustedDeviceExpiresAt: trustedDevice.expiresAt }
         : {}),
       user: payload,
@@ -598,15 +678,19 @@ const loginOtpResend = async (req, res) => {
     if (String(challenge.user || '') !== String(decoded.userId)) {
       return sendError(res, 401, 'Invalid OTP challenge token.');
     }
-    const user = await User.findById(challenge.user);
+    const user = await User.findById(challenge.user).select('+secondaryEmail +secondaryEmailVerifiedAt');
     if (!user) {
       return sendError(res, 404, 'User not found.');
+    }
+    if (user.status !== 'active' || !matchesStaffLoginChallenge(user, challenge)) {
+      return sendError(res, 401, 'Account security details changed. Please sign in again.');
     }
 
     const renewed = await issueLoginOtpChallenge(user, Boolean(challenge.metadata?.includePhone));
     return sendSuccess(res, 200, 'OTP resent', {
       otpRequired: true,
       otpToken: renewed.otpToken,
+      ...(isAdminRole(user.role) ? { deliveryEmail: user.secondaryEmail, staffLogin: true } : {}),
     });
   } catch (e) {
     console.error('Login OTP resend error:', e);
@@ -631,15 +715,71 @@ const debugLoginOtp = async (req, res) => {
   return sendSuccess(res, 200, 'ok', { code });
 };
 
+// Test-only escape hatch for the signup / email-verification OTP, same shape
+// and same hard NODE_ENV === 'test' gate as debugLoginOtp above. That code used
+// to come back in the /auth/otp/send response body on any non-production
+// deploy, which made it an account-takeover primitive; the harness now reads it
+// here instead. A no-op 404 outside NODE_ENV === 'test'.
+const debugSignupOtp = async (req, res) => {
+  if (process.env.NODE_ENV !== 'test') {
+    return sendError(res, 404, 'Not found');
+  }
+  const email = String(req.query?.email || '').toLowerCase().trim();
+  const code = getTestOtpCode('email-verification', email);
+  if (!code) {
+    return sendError(res, 404, 'No signup OTP has been issued for this address.');
+  }
+  return sendSuccess(res, 200, 'ok', { code });
+};
+
+// Test-only escape hatch, same shape and same hard gate as debugLoginOtp
+// above. Funding an employer wallet normally requires a real PayMongo
+// checkout round trip, which the isolated e2e sandbox cannot perform -- so
+// without this the entire offer -> hire -> submit -> settle path is
+// unreachable from an automated test, which is exactly the part of the
+// product most worth covering. Credits the balance directly and records the
+// matching TOP_UP row so the wallet history stays coherent.
+// A no-op 404 outside NODE_ENV === 'test'.
+const debugCreditWallet = async (req, res) => {
+  if (process.env.NODE_ENV !== 'test') {
+    return sendError(res, 404, 'Not found');
+  }
+  const email = String(req.body?.email || '').toLowerCase().trim();
+  const amount = Number(req.body?.amount);
+  if (!email || !Number.isFinite(amount) || amount <= 0) {
+    return sendError(res, 400, 'email and a positive amount are required.');
+  }
+  const user = await User.findOne({ email });
+  if (!user) {
+    return sendError(res, 404, 'No account exists for this address.');
+  }
+  user.employerBalance = (user.employerBalance || 0) + amount;
+  await user.save();
+  await Transaction.create({
+    sender: null,
+    receiver: user._id,
+    amount,
+    type: 'TOP_UP',
+    status: 'COMPLETED',
+    balanceTarget: 'EMPLOYER',
+    label: 'Test harness wallet credit',
+    actor: user._id,
+  });
+  return sendSuccess(res, 200, 'ok', { employerBalance: user.employerBalance });
+};
+
 export {
   registerUser,
   loginUser,
+  loginTrustedDevice,
   selectLoginMethod,
   googleLogin,
   loginMfa,
   loginOtpVerify,
   loginOtpResend,
   debugLoginOtp,
+  debugSignupOtp,
+  debugCreditWallet,
 };
 export default {
   registerUser,
@@ -650,4 +790,5 @@ export default {
   loginOtpVerify,
   loginOtpResend,
   debugLoginOtp,
+  debugCreditWallet,
 };

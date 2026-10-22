@@ -43,6 +43,10 @@ export async function listNotifications(req, res) {
     if (!mode) return;
     const { unread, type, limit, entityType, cursor } = req.query;
     const filter = modeFilter(userId, mode);
+    // Completion and payment share one canonical job-paid alert. Hide the
+    // redundant payment-received entries created by the previous version.
+    const visibleFilter = mode === 'worker' ? { deliveryKey: { $not: /^payment-received:[a-f0-9]{24}$/i } } : {};
+    Object.assign(filter, visibleFilter);
 
     if (unread === 'true') {
       filter.readAt = null;
@@ -70,7 +74,7 @@ export async function listNotifications(req, res) {
       .lean();
     const hasMore = notifications.length > safeLimit;
     const items = hasMore ? notifications.slice(0, safeLimit) : notifications;
-    const unreadCount = await Notification.countDocuments({ ...modeFilter(userId, mode), readAt: null });
+    const unreadCount = await Notification.countDocuments({ ...modeFilter(userId, mode), ...visibleFilter, readAt: null });
     return res.status(200).json({
       notifications: items,
       unreadCount,

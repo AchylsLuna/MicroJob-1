@@ -1,3 +1,5 @@
+import { WorkTimeSummary } from '../../components/WorkTimeSummary';
+import { formatMinimumPay } from '../../lib/jobCompensation';
 import { useMemo, useState } from "react";
 import {
   Bookmark,
@@ -5,7 +7,6 @@ import {
   Building2,
   Calendar,
   Clock,
-  DollarSign,
   ExternalLink,
   MapPin,
   Trash2,
@@ -21,6 +22,9 @@ import type { SavedJobRecord } from "../../services/api";
 import { formatCurrency, formatDate } from "../../lib/formatters";
 
 type SavedJobView = {
+  dailyRate?: number;
+  workStartTime?: string | null;
+  workEndTime?: string | null;
   id: string;
   title: string;
   company: string;
@@ -69,11 +73,21 @@ const getWorkMode = (job: any): SavedJobView["workMode"] => {
   return "On-site";
 };
 
+const stripCurrencySymbol = (value: string) =>
+  value
+    .replace(/\b(?:USD|PHP)\b/gi, "")
+    .replace(/[$₱]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
 const formatSalary = (t: TFunction, value?: string | number) => {
-  if (typeof value === "number") return formatCurrency(value, { maximumFractionDigits: 0 });
+  if (typeof value === "number") {
+    return `₱${stripCurrencySymbol(formatCurrency(value, { maximumFractionDigits: 0 }))}`;
+  }
+
   const raw = String(value || "").trim();
   if (!raw) return t("savedJobs.card.salaryFallback");
-  return raw.replace(/\$/g, "PHP ").replace(/\bUSD\b/gi, "PHP");
+  return `₱${stripCurrencySymbol(raw)}`;
 };
 
 const formatDeadline = (t: TFunction, value?: string) => {
@@ -107,12 +121,14 @@ const mapSavedJob = (t: TFunction, record: SavedJobRecord): SavedJobView | null 
     id: String(job._id),
     title: String(job.title || t("savedJobs.card.untitledJob")),
     company,
-    salary: formatSalary(t, job.salary),
+    salary: job.paymentMode === 'daily' ? formatMinimumPay(job.salary, undefined, job.paymentMode) : formatSalary(t, job.salary),
+    dailyRate: job.paymentMode === 'daily' ? Number(job.salary) : undefined,
+    workStartTime: job.workStartTime, workEndTime: job.workEndTime,
     description: String(job.description || t("savedJobs.card.noDescription")),
     location: String(job.location || t("savedJobs.card.remoteLocation")),
     workMode: getWorkMode(job),
     postedLabel: formatPostedLabel(t, job.createdAt || record.savedAt || record.createdAt),
-    applicants: Array.isArray(job.applicants) ? job.applicants.length : 0,
+    applicants: job.applicantCount || 0,
     logo: company.charAt(0).toUpperCase() || "M",
     deadline: formatDeadline(t, job.deadline),
     requirements,
@@ -162,10 +178,10 @@ export function SavedJobs() {
     <div className="max-w-[1341px] mx-auto space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-[14px] text-[#6B7280]">
+          <p className="text-body text-[#6B7280]">
             {t("savedJobs.summary", { count: jobs.length })}
           </p>
-          <h1 className="text-[28px] font-semibold text-[#111827] mt-1">{t("savedJobs.title")}</h1>
+          <h1 className="text-[22px] sm:text-[28px] font-semibold text-[#111827] mt-1">{t("savedJobs.title")}</h1>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -175,9 +191,9 @@ export function SavedJobs() {
               type="button"
               onClick={() => setFilter(item)}
               aria-pressed={filter === item}
-              className={`px-4 py-2 rounded-[10px] text-[14px] font-medium transition-all ${
+              className={`px-4 py-2 rounded-control text-body font-medium transition-all ${
                 filter === item
-                  ? "bg-[#1C4D8D] text-white shadow-md"
+                  ? "bg-brand text-white shadow-md"
                   : "bg-white text-[#6B7280] border border-[#E5E7EB] hover:bg-[#F9FAFB]"
               }`}
             >
@@ -188,29 +204,29 @@ export function SavedJobs() {
       </div>
 
       {isLoading && jobs.length === 0 ? (
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-10 text-center text-[#6B7280]">
+        <div className="bg-white rounded-card border border-[#E5E7EB] p-10 text-center text-[#6B7280]">
           {t("savedJobs.loading")}
         </div>
       ) : null}
 
       {error ? (
-        <div className="bg-[#FEF2F2] rounded-[16px] border border-[#FECACA] p-4 text-[14px] text-[#B91C1C]">
+        <div className="bg-[#FEF2F2] rounded-card border border-[#FECACA] p-4 text-body text-[#B91C1C]">
           {error}
         </div>
       ) : null}
 
       {!isLoading && filteredJobs.length === 0 ? (
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-12 text-center">
+        <div className="bg-white rounded-card border border-[#E5E7EB] p-6 text-center sm:p-12">
           <Bookmark className="w-16 h-16 text-[#D1D5DB] mx-auto mb-4" />
-          <h3 className="text-[18px] font-semibold text-[#111827] mb-2">{t("savedJobs.emptyState.title")}</h3>
-          <p className="text-[14px] text-[#6B7280] mb-6">
+          <h3 className="text-section font-semibold text-[#111827] mb-2">{t("savedJobs.emptyState.title")}</h3>
+          <p className="text-body text-[#6B7280] mb-6">
             {jobs.length === 0
               ? t("savedJobs.emptyState.descriptionNoJobs")
               : t("savedJobs.emptyState.descriptionNoMatch")}
           </p>
           <button
             onClick={() => navigate(ROUTES.worker.findJobs)}
-            className="inline-flex items-center gap-2 bg-[#1C4D8D] text-white px-5 py-3 rounded-[12px] font-semibold hover:opacity-90 transition-colors"
+            className="inline-flex items-center gap-2 bg-brand text-white px-5 py-3 rounded-xl font-semibold hover:opacity-90 transition-colors"
           >
             <Briefcase className="w-4 h-4" />
             {t("savedJobs.emptyState.browseJobs")}
@@ -223,18 +239,18 @@ export function SavedJobs() {
           {filteredJobs.map((job) => (
             <div
               key={job.id}
-              className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-lg hover:border-[#1C4D8D] transition-all duration-300 group"
+              className="bg-white rounded-card border border-[#E5E7EB] p-6 hover:shadow-lg hover:border-brand transition-all duration-300 group"
             >
               <div className="flex items-start justify-between mb-4 gap-4">
                 <div className="flex items-start gap-4 flex-1 min-w-0">
-                  <div className="w-14 h-14 rounded-[14px] bg-[#1C4D8D] flex items-center justify-center text-white font-bold text-[16px] shadow-md flex-shrink-0">
+                  <div className="w-14 h-14 rounded-card bg-brand flex items-center justify-center text-white font-bold text-[16px] shadow-md flex-shrink-0">
                     {job.logo}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-[18px] font-bold text-[#111827] mb-1 group-hover:opacity-80 transition-colors line-clamp-1">
+                    <h3 className="text-section font-bold text-[#111827] mb-1 group-hover:opacity-80 transition-colors line-clamp-1">
                       {job.title}
                     </h3>
-                    <p className="text-[13px] text-[#6B7280] flex items-center gap-1 mb-2 line-clamp-1">
+                    <p className="text-body-sm text-[#6B7280] flex items-center gap-1 mb-2 line-clamp-1">
                       <Building2 className="w-3.5 h-3.5" />
                       {job.company}
                     </p>
@@ -242,7 +258,7 @@ export function SavedJobs() {
                       <span
                         className={`px-3 py-1.5 rounded-[8px] text-[11px] font-semibold ${
                           job.workMode === "Remote"
-                            ? "bg-[#1C4D8D]/10 text-[#1C4D8D]"
+                            ? "bg-brand/10 text-brand"
                             : job.workMode === "Hybrid"
                               ? "bg-[#FEF3C7] text-[#92400E]"
                               : "bg-[#D1FAE5] text-[#065F46]"
@@ -250,7 +266,7 @@ export function SavedJobs() {
                       >
                         {workModeLabels[job.workMode]}
                       </span>
-                      <div className="flex items-center gap-1 text-[12px] text-[#6B7280]">
+                      <div className="flex items-center gap-1 text-caption text-[#6B7280]">
                         <MapPin className="w-3.5 h-3.5" />
                         {job.location}
                       </div>
@@ -268,12 +284,12 @@ export function SavedJobs() {
                 </button>
               </div>
 
-              <div className="flex items-center gap-2 mb-3">
-                <DollarSign className="w-4 h-4 text-[#10B981]" />
+              <div className="mb-3">
                 <p className="text-[16px] font-bold text-[#10B981]">{job.salary}</p>
+                <WorkTimeSummary start={job.workStartTime} end={job.workEndTime} rate={job.dailyRate} />
               </div>
 
-              <p className="text-[13px] text-[#6B7280] leading-relaxed mb-4 line-clamp-2">{job.description}</p>
+              <p className="text-body-sm text-[#6B7280] leading-relaxed mb-4 line-clamp-2">{job.description}</p>
 
               <div className="mb-4 flex flex-wrap gap-2">
                 {(job.requirements.length ? job.requirements : [t("savedJobs.card.generalRequirement")])
@@ -288,7 +304,7 @@ export function SavedJobs() {
                   ))}
               </div>
 
-              <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-[#E5E7EB] text-[12px] text-[#6B7280]">
+              <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-[#E5E7EB] text-caption text-[#6B7280]">
                 <div className="flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5" />
                   {job.postedLabel}
@@ -306,14 +322,14 @@ export function SavedJobs() {
               <div className="flex items-center gap-2 mt-4">
                 <button
                   onClick={() => handleOpenDetails(job.id)}
-                  className="brand-primary-interactive flex flex-1 items-center justify-center gap-2 rounded-[10px] px-4 py-3 font-semibold hover:shadow-lg"
+                  className="brand-primary-interactive flex flex-1 items-center justify-center gap-2 rounded-control px-4 py-3 font-semibold hover:shadow-lg"
                 >
                   <Briefcase className="w-4 h-4" />
                   {t("savedJobs.card.viewJob")}
                 </button>
                 <button
                   onClick={() => handleOpenDetails(job.id)}
-                  className="px-4 py-3 border border-[#E5E7EB] text-[#6B7280] font-semibold rounded-[10px] hover:bg-[#F9FAFB] transition-colors"
+                  className="px-4 py-3 border border-[#E5E7EB] text-[#6B7280] font-semibold rounded-control hover:bg-[#F9FAFB] transition-colors"
                   title={t("savedJobs.card.viewDetailsTitle")}
                 >
                   <ExternalLink className="w-4 h-4" />

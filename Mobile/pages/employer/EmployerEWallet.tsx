@@ -1,3 +1,6 @@
+import { getTransactionDescription } from '../../lib/transactionDescription';
+import { getWalletTransactionStatus } from '../../lib/transactionStatus';
+import WithdrawalPanel from '../../components/wallet/WithdrawalPanel';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AppState,
@@ -36,14 +39,13 @@ type EmployerEWalletProps = {
 };
 
 const PENDING_TOPUP_KEY = PENDING_TOPUP_STORAGE_KEY;
-const TOPUP_FEE_PERCENT = 2.5;
 
 type WalletTransaction = {
   id: string;
   title: string;
   date: string;
   amount: number;
-  status: 'Completed' | 'Pending' | 'Cancelled' | 'Failed';
+  status: string;
   direction: 'credit' | 'debit' | 'neutral';
   fee?: number;
   subtitle?: string;
@@ -67,6 +69,7 @@ export default function EmployerEWallet({
   const [hasLoadedWallet, setHasLoadedWallet] = useState(false);
   const [walletError, setWalletError] = useState('');
   const [isTopupExpanded, setIsTopupExpanded] = useState(false);
+  const [isWithdrawalExpanded, setIsWithdrawalExpanded] = useState(false);
   const [isScannerVisible, setIsScannerVisible] = useState(false);
   const [pendingInvoiceId, setPendingInvoiceId] = useState<string | null>(initialInvoiceRequestId);
   const [isBalanceHidden, setIsBalanceHidden] = useState(false);
@@ -87,8 +90,7 @@ export default function EmployerEWallet({
 
   const parsedTopupAmount = Number(String(topupAmount || '').replace(/[^0-9.]/g, ''));
   const canCreatePayment = !isCreatingPayment && Number.isFinite(parsedTopupAmount) && parsedTopupAmount >= 100;
-  const topupFee = Number((parsedTopupAmount * TOPUP_FEE_PERCENT / 100).toFixed(2));
-  const topupTotal = Number((parsedTopupAmount + topupFee).toFixed(2));
+  const topupTotal = parsedTopupAmount;
 
   const formatDate = useCallback((value?: string) => {
     if (!value) return '—';
@@ -106,19 +108,13 @@ export default function EmployerEWallet({
     const typeLabels: Record<string, string> = {
       TOP_UP: t('employerEWallet.transactions.topUp'),
       ESCROW: t('employerEWallet.transactions.escrow'),
-      PAYOUT: t('employerEWallet.transactions.payout'),
+      PAYOUT: t(tx?.jobReference ? 'wallet.jobPayment' : 'wallet.withdraw', { ns: 'common' }),
       REFUND: t('employerEWallet.transactions.refund'),
     };
+    const description = getTransactionDescription(tx);
     const defaultTitle = typeLabels[type] || t('employerEWallet.transactions.defaultTitle');
-    const rawStatus = String(tx?.status || 'PENDING').toUpperCase();
-    const status: WalletTransaction['status'] = rawStatus === 'COMPLETED'
-      ? 'Completed'
-      : rawStatus === 'CANCELLED'
-      ? 'Cancelled'
-      : rawStatus === 'FAILED'
-      ? 'Failed'
-      : 'Pending';
-    const direction: WalletTransaction['direction'] = status !== 'Completed'
+    const status = getWalletTransactionStatus(tx);
+    const direction: WalletTransaction['direction'] = tx?.status !== 'COMPLETED'
       ? 'neutral'
       : ['credit', 'debit', 'neutral'].includes(String(tx?.walletDirection))
       ? tx.walletDirection
@@ -129,8 +125,8 @@ export default function EmployerEWallet({
       : 'neutral';
     return {
       id: String(tx?._id || tx?.id || `${Date.now()}-${Math.random()}`),
-      title: String(tx?.label || defaultTitle),
-      subtitle: Number(tx?.meta?.processingFee || 0) > 0 ? `Processing fee: ${php(Number(tx.meta.processingFee))}` : undefined,
+      title: [description.key ? t(`wallet.transactionLabel.${description.key}`, { ns: 'common' }) : description.label || defaultTitle, description.jobTitle].filter(Boolean).join(' \u2014 '),
+      subtitle: Number(tx?.meta?.processingFee || 0) > 0 ? t('wallet.transactionFee', { ns: 'common', amount: php(Number(tx.meta.processingFee)) }) : undefined,
       date: formatDate(tx?.createdAt),
       amount: Number(tx?.amount || 0),
       fee: Number(tx?.meta?.processingFee || 0),
@@ -217,7 +213,6 @@ export default function EmployerEWallet({
           preview: item?.preview || item,
         })));
       }
-
       if (showFeedback && hasBalanceResult) {
         if (refreshedBalance <= 0) {
           toast.info(t('employerEWallet.toast.noBalance'));
@@ -376,6 +371,7 @@ export default function EmployerEWallet({
     }
   };
 
+
   return (
     <View style={styles.container}>
       <AppHeader
@@ -427,7 +423,6 @@ export default function EmployerEWallet({
           <Text style={styles.cardSubtitle}>{t('employerEWallet.topup.cardSubtitle')}</Text>
           <View style={styles.breakdown}>
             <View style={styles.breakdownRow}><Text style={styles.breakdownLabel}>{t('employerEWallet.topup.depositAmount')}</Text><Text style={styles.breakdownValue}>{php(parsedTopupAmount)}</Text></View>
-            <View style={styles.breakdownRow}><Text style={styles.breakdownLabel}>{t('employerEWallet.topup.processingFee')}</Text><Text style={styles.breakdownValue}>{php(topupFee)}</Text></View>
             <View style={styles.breakdownTotal}><Text style={styles.breakdownTotalLabel}>{t('employerEWallet.topup.totalAmountCharged')}</Text><Text style={styles.breakdownTotalValue}>{php(topupTotal)}</Text></View>
           </View>
 
@@ -459,6 +454,10 @@ export default function EmployerEWallet({
             )}
           </TouchableOpacity>
           </View>
+        </EmployerAccordion>
+
+        <EmployerAccordion title={t('employerEWallet.withdrawal.accordionTitle')} subtitle={t('employerEWallet.withdrawal.accordionSubtitle', { amount: php(liveBalance) })} expanded={isWithdrawalExpanded} onToggle={() => setIsWithdrawalExpanded((expanded) => !expanded)}>
+          <WithdrawalPanel sourceWallet="EMPLOYER" balance={liveBalance} onChanged={() => void refreshWalletData(false)} />
         </EmployerAccordion>
 
         <WalletSection title={t('employerEWallet.invoices.sectionTitle')} subtitle={t('employerEWallet.invoices.sectionSubtitle')} collapsible collapsed={areInvoicesCollapsed} onToggle={() => setAreInvoicesCollapsed((collapsed) => !collapsed)}>

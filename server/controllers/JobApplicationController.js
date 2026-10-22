@@ -1,6 +1,10 @@
+import mongoose from 'mongoose';
+import { refundJobFunds } from '../services/jobFunds.js';
+import { syncCapacity } from '../services/jobLifecycle.js';
+import { queueNotification, deliverQueuedNotification } from '../services/notificationOutbox.js';
+import { httpError, availableJobFilter } from '../lib/lifecyclePolicy.js';
 import JobApplication from '../models/JobApplication.js';
 import Job from '../models/Job.js';
-import Transaction from '../models/Transaction.js';
 import User from '../models/User.js';
 import { createNotification } from '../lib/notificationService.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
@@ -8,6 +12,8 @@ import { scoreJobForWorker } from '../lib/jobMatching.js';
 import { getWorkerProfileRequirementError } from '../lib/profileCompleteness.js';
 import { getReviewSummaries } from '../lib/reviewSummary.js';
 import JobOffer from '../models/JobOffer.js';
+import { encodePublicId, resolvePublicId } from '../lib/publicId.js';
+import { serializePublicJob } from '../lib/jobDiscovery.js';
 import {
   APPLICATION_STATUSES,
   getApplicationTimelineLabel,
@@ -20,11 +26,6 @@ import {
 // from the statuses an employer may set directly here.
 import {
   EMPLOYER_MUTABLE_STATUSES,
-  canUnhireApplication,
-  computeUnhireRefund,
-  isUnhireTransition,
-  nextHiredCount,
-  resolveJobAvailability,
 } from '../lib/hiringState.js';
 
 const getUserId = (req) => req.user?.id || req.user?.userId || null;
@@ -66,6 +67,7 @@ const serializeApplication = (application) => {
   if (!obj) return null;
   return {
     ...obj,
+    job: obj.job?.title !== undefined ? serializePublicJob(obj.job) : encodePublicId(obj.job),
     nextInterview: getNextInterview(obj),
   };
 };
@@ -83,7 +85,7 @@ const populateEmployerApplicationQuery = (query) =>
   query
     .populate({
       path: 'job',
-      select: 'title description company location jobType salary status deadline category skills requirements jobPoster positionsNeeded hiredCount createdAt',
+      select: 'title description company location jobType salary paymentMode workDates workStartTime workEndTime status deadline category skills requirements interviewRequired cancellationPending jobPoster positionsNeeded hiredCount createdAt',
       populate: { path: 'category', select: 'name' },
     })
     .populate(
@@ -99,150 +101,6 @@ const ensureEmployerAccess = async (applicationId, requesterId) => {
   }
   return { application };
 };
-
-async function syncJobHiringState(application, previousStatus, nextStatus) {
-  const jobDoc = await Job.findById(application.job?._id || application.job);
-  if (!jobDoc) return;
-
-  jobDoc.hiredCount = nextHiredCount({
-    previousStatus,
-    nextStatus,
-    hiredCount: jobDoc.hiredCount,
-  });
-
-  // Availability follows committed positions (hires + pending offer holds) and
-  // never reopens a post the employer closed by hand.
-  jobDoc.status = resolveJobAvailability({
-    status: jobDoc.status,
-    hiredCount: jobDoc.hiredCount,
-    reservedOfferCount: jobDoc.reservedOfferCount,
-    positionsNeeded: jobDoc.positionsNeeded,
-    closedManually: jobDoc.closedManually,
-  });
-
-  await jobDoc.save();
-}
-
-/**
- * Undo a hire: free the position and return the negotiated escrow that was
- * debited for this specific worker.
- *
- * The base salary escrow stays held for the now-vacant position and is settled
- * when the job completes; only the above-base amount is refunded here, mirroring
- * the refund path for a rejected/cancelled offer. Idempotent via the reference
- * key, so a retried un-hire cannot double-refund.
- */
-async function refundUnhireEscrow(application, actorId) {
-  const jobId = application.job?._id || application.job;
-  const [jobDoc, offer] = await Promise.all([
-    Job.findById(jobId).select('salary jobPoster'),
-    JobOffer.findOne({
-      application: application._id,
-      status: { $in: ['accepted', 'hired'] },
-    }).sort({ createdAt: -1 }),
-  ]);
-
-  const refund = computeUnhireRefund({
-    offerAmount: offer?.amount ?? application.agreedAmount,
-    additionalEscrow: offer?.additionalEscrow,
-    jobSalary: jobDoc?.salary,
-  });
-  if (refund <= 0) return;
-
-  const employerId = application.job?.jobPoster || jobDoc?.jobPoster || actorId;
-  const reference = `unhire-refund:${application._id}`;
-  if (await Transaction.exists({ reference })) return;
-
-  await User.updateOne({ _id: employerId }, { $inc: { employerBalance: refund } });
-  await Transaction.create({
-    sender: null,
-    receiver: employerId,
-    amount: refund,
-    type: 'REFUND',
-    status: 'COMPLETED',
-    balanceTarget: 'EMPLOYER',
-    jobReference: jobId,
-    reference,
-    label: 'Hire reverted escrow refund',
-    relatedEntityType: 'application',
-    relatedEntityId: String(application._id),
-    actor: actorId || employerId,
-  });
-}
-
-/**
- * Release a hired application back into the pipeline: validate that the payment
- * state still allows it, refund negotiated escrow, and clear the hire lifecycle
- * fields so a stale 'Secured' payment cannot strand the money.
- *
- * Returns an error object when the un-hire must be refused.
- */
-async function revertHire(application, nextStatus, actorId) {
-  const permission = canUnhireApplication({ paymentStatus: application.paymentStatus });
-  if (!permission.allowed) {
-    return { error: permission.reason, status: 409 };
-  }
-
-  await refundUnhireEscrow(application, actorId);
-
-  application.agreedAmount = null;
-  application.workStatus = 'In Progress';
-  application.paymentStatus = 'Secured';
-  application.paymentAuthorizedAt = null;
-  application.workSubmittedAt = null;
-  application.changesRequestedAt = null;
-  application.completedAt = null;
-
-  await JobOffer.updateMany(
-    { application: application._id, status: { $in: ['pending', 'accepted', 'hired'] } },
-    { $set: { status: 'cancelled', resolvedAt: new Date() } }
-  );
-
-  appendTimeline(application, {
-    type: 'hire_reverted',
-    status: nextStatus,
-    note: 'Hire reverted; reserved escrow returned to the employer.',
-    actor: actorId,
-    meta: { previousStatus: 'Hired' },
-  });
-
-  return { error: null };
-}
-
-async function notifyEmployerOfNewApplication({ application, job, userId }) {
-  const jobPosterId = job.jobPoster?.toString();
-  if (!jobPosterId) return;
-
-  let applicantName = 'Applicant';
-  try {
-    const applicant = await User.findById(userId).select('firstName lastName');
-    if (applicant) applicantName = [applicant.firstName, applicant.lastName].filter(Boolean).join(' ');
-  } catch {
-    // ignore name enrichment failures
-  }
-
-  await createNotification({
-    userId: jobPosterId,
-    audience: 'employer',
-    type: 'application',
-    title: 'New application',
-    message: `${applicantName} applied for ${job.title}.`,
-    entityType: 'application',
-    entityId: application._id,
-    actor: userId,
-    link: '',
-    socketEvent: 'new_application',
-    socketPayload: {
-      id: application._id,
-      applicantId: userId,
-      applicantName,
-      jobId: job._id,
-      jobTitle: job.title,
-      createdAt: application.createdAt,
-    },
-    push: false,
-  });
-}
 
 async function notifyApplicantStatusChange(application, actorId, title, message) {
   const applicant = application.applicant;
@@ -274,67 +132,37 @@ async function notifyApplicantStatusChange(application, actorId, title, message)
 }
 
 export const applyForJob = async (req, res) => {
+  const userId = getUserId(req);
+  if (!userId) return sendError(res, 401, 'Authentication required');
+  const applicantProfile = await User.findById(userId).select('avatarUrl');
+  const profileError = getWorkerProfileRequirementError(applicantProfile);
+  if (profileError) return sendError(res, profileError.status, profileError.message, { code: profileError.code, missing: profileError.missing });
+  const session = await mongoose.startSession(); let application;
   try {
-    const { jobId } = req.params;
-    const { resume, coverLetter } = req.body || {};
-    const userId = getUserId(req);
-    if (!userId) return sendError(res, 401, 'Authentication required');
-
-    const job = await Job.findById(jobId);
-    if (!job) {
-      return sendError(res, 404, 'Job not found');
-    }
-    if (String(job.jobPoster) === String(userId)) {
-      return sendError(res, 400, 'You cannot apply to your own job');
-    }
-
-    const applicantProfile = await User.findById(userId).select('avatarUrl');
-    const profileError = getWorkerProfileRequirementError(applicantProfile);
-    if (profileError) {
-      return sendError(res, profileError.status, profileError.message, {
-        code: profileError.code,
-        missing: profileError.missing,
-      });
-    }
-
-    const existingApplication = await JobApplication.findOne({ job: jobId, applicant: userId });
-    if (existingApplication) {
-      if (existingApplication.status === 'Rejected') {
-        return sendError(res, 400, 'Application rejected. You cannot apply for this job again.');
-      }
-      return sendError(res, 400, 'You have already applied for this job');
-    }
-
-    const application = new JobApplication({
-      job: jobId,
-      applicant: userId,
-      resume: resume || null,
-      coverLetter: coverLetter || null,
-      status: 'Applied',
+    await session.withTransaction(async () => {
+      const job = await Job.findOne({ _id: resolvePublicId(req.params.jobId), ...availableJobFilter() }).session(session);
+      if (!job) throw httpError(409, 'This posting is no longer accepting applications.');
+      if (String(job.jobPoster) === String(userId)) throw httpError(400, 'You cannot apply to your own job.');
+      if (await JobApplication.exists({ job: job._id, applicant: userId }).session(session)) throw httpError(400, 'You have already applied for this posting.');
+      [application] = await JobApplication.create([{ job: job._id, applicant: userId, resume: req.body?.resume || null, coverLetter: req.body?.coverLetter || null, status: 'Applied', timeline: [{ type: 'status_changed', status: 'Applied', actor: userId, note: 'Application submitted.', meta: { source: 'apply' } }] }], { session });
+      if (!job.applicants.some((id) => String(id) === String(userId))) job.applicants.push(userId);
+      job.fundsVersion = Number(job.fundsVersion || 0) + 1; await job.save({ session });
+      await queueNotification(`application-received:${application._id}`, {
+        userId: String(job.jobPoster),
+        audience: 'employer',
+        type: 'application',
+        title: `New application for ${job.title}`,
+        message: `A worker applied for your job posting "${job.title}". Review their application in Applications.`,
+        entityType: 'application',
+        entityId: String(application._id),
+        actor: userId,
+        metadata: { jobId: String(job._id), jobTitle: job.title },
+      }, session);
     });
-    appendTimeline(application, {
-      type: 'status_changed',
-      status: 'Applied',
-      note: 'Application submitted.',
-      actor: userId,
-      meta: { source: 'apply' },
-    });
-    await application.save();
-
-    if (!job.applicants.map((id) => String(id)).includes(String(userId))) {
-      job.applicants.push(userId);
-      await job.save();
-    }
-
-    await notifyEmployerOfNewApplication({ application, job, userId });
-
-    return sendSuccess(res, 201, 'Application submitted successfully', serializeApplication(application), {
-      application: serializeApplication(application),
-    });
-  } catch (error) {
-    console.error('Apply for job error:', error);
-    return sendError(res, 500, 'Server error', { error: error.message });
-  }
+    await deliverQueuedNotification(`application-received:${application._id}`);
+    return sendSuccess(res, 201, 'Application submitted successfully', serializeApplication(application), { application: serializeApplication(application) });
+  } catch (error) { return sendError(res, error.code === 11000 ? 409 : error.status || 500, error.status ? error.message : 'Unable to submit this application.'); }
+  finally { await session.endSession(); }
 };
 
 export const getUserApplications = async (req, res) => {
@@ -375,6 +203,7 @@ export const getUserApplications = async (req, res) => {
           status: latestOffer.status,
           createdAt: latestOffer.createdAt,
           acceptedAt: latestOffer.acceptedAt,
+          expiresAt: latestOffer.expiresAt,
         } : null,
       };
     }));
@@ -416,72 +245,29 @@ export const getApplicationById = async (req, res) => {
 };
 
 export const withdrawApplication = async (req, res) => {
+  const session = await mongoose.startSession(); let application;
   try {
-    const { applicationId } = req.params;
-    const userId = getUserId(req);
-
-    const application = await JobApplication.findOne({ _id: applicationId, applicant: userId }).populate('job');
-    if (!application) {
-      return sendError(res, 404, 'Application not found');
-    }
-    if (application.status === 'Withdrawn') {
-      return sendError(res, 400, 'Application is already withdrawn');
-    }
-    if (application.status === 'Hired') {
-      return sendError(res, 400, 'Hired applications cannot be withdrawn');
-    }
-
-    const previousStatus = application.status;
-    application.status = 'Withdrawn';
-    application.withdrawnAt = new Date();
-    application.applicantReadAt = new Date();
-    application.employerReadAt = null;
-    application.employerHidden = true;
-    application.employerHiddenAt = new Date();
-    appendTimeline(application, {
-      type: 'status_changed',
-      status: 'Withdrawn',
-      note: 'Application withdrawn by applicant.',
-      actor: userId,
-      meta: { previousStatus },
+    await session.withTransaction(async () => {
+      const userId = getUserId(req);
+      application = await JobApplication.findOne({ _id: req.params.applicationId, applicant: userId }).session(session);
+      if (!application) throw httpError(404, 'Application not found.');
+      if (['Hired', 'Accepted', 'Cancelled', 'Position filled', 'Rejected', 'Withdrawn', 'Offer Sent'].includes(application.status)) throw httpError(409, 'This application cannot be withdrawn; use assignment cancellation after hiring.');
+      const job = await Job.findById(application.job).session(session);
+      const offers = await JobOffer.find({ application: application._id, status: { $in: ['pending', 'accepted'] } }).session(session);
+      for (const offer of offers) {
+        await refundJobFunds({ job, amount: Number(offer.additionalEscrow || 0), reference: `offer-extra-refund:${offer._id}`, preferredWallet: 'EMPLOYER', actor: userId, session });
+        offer.status = 'cancelled'; offer.cancellationReason = 'Application withdrawn by worker.'; offer.resolvedAt = new Date(); await offer.save({ session });
+      }
+      application.status = 'Withdrawn'; application.withdrawnAt = new Date(); application.employerHidden = true; application.employerHiddenAt = new Date();
+      appendTimeline(application, { type: 'withdrawn', status: 'Withdrawn', actor: userId, note: 'Application withdrawn by worker.' }); await application.save({ session });
+      // The application remains a durable historical record.
+      job.applicants = job.applicants.filter((value) => String(value) !== String(userId));
+      await syncCapacity(job, session);
+      await queueNotification(`application-withdrawn:${application._id}:${application.withdrawnAt.getTime()}`, { userId: String(job.jobPoster), audience: 'employer', type: 'application', title: 'Application withdrawn', message: `A worker withdrew their application for ${job.title}.`, entityType: 'application', entityId: String(application._id) }, session);
     });
-    await application.save();
-
-    await Job.findByIdAndUpdate(application.job?._id || application.job, {
-      $pull: { applicants: userId },
-    });
-
-    if (String(application.job?.jobPoster || '')) {
-      await createNotification({
-        userId: application.job.jobPoster,
-        audience: 'employer',
-        type: 'application',
-        title: 'Application withdrawn',
-        message: `An applicant withdrew from ${application.job?.title || 'your job'}.`,
-        entityType: 'application',
-        entityId: application._id,
-        actor: userId,
-        socketEvent: 'notification_created',
-        socketPayload: {
-          notification: {
-            applicationId: application._id,
-            status: application.status,
-            jobId: application.job?._id,
-            jobTitle: application.job?.title,
-            updatedAt: application.updatedAt,
-          },
-        },
-        push: false,
-      });
-    }
-
-    return sendSuccess(res, 200, 'Application withdrawn successfully', serializeApplication(application), {
-      application: serializeApplication(application),
-    });
-  } catch (error) {
-    console.error('Withdraw application error:', error);
-    return sendError(res, 500, 'Server error', { error: error.message });
-  }
+    return sendSuccess(res, 200, 'Application withdrawn successfully', serializeApplication(application), { application: serializeApplication(application) });
+  } catch (error) { return sendError(res, error.status || 500, error.status ? error.message : 'Unable to withdraw application.'); }
+  finally { await session.endSession(); }
 };
 
 export const updateApplicationStatus = async (req, res) => {
@@ -505,14 +291,9 @@ export const updateApplicationStatus = async (req, res) => {
 
     const previousStatus = application.status;
 
-    // Moving off a hired state frees the position and returns the escrow that
-    // was reserved for this worker; refuse when payment is already in flight.
-    if (isUnhireTransition({ previousStatus, nextStatus: canonicalStatus })) {
-      const reverted = await revertHire(application, canonicalStatus, getUserId(req));
-      if (reverted.error) {
-        return sendError(res, reverted.status, reverted.error);
-      }
-    }
+    if (['Hired', 'Accepted', 'Cancelled', 'Position filled'].includes(previousStatus)) return sendError(res, 409, 'Use the cancellation workflow for hired or closed applications.');
+    if (await JobOffer.exists({ application: application._id, status: { $in: ['pending', 'accepted'] } })) return sendError(res, 409, 'Cancel the formal offer with a reason before changing this application.');
+    if (canonicalStatus === 'Offer Sent') return sendError(res, 409, 'Send a formal offer instead of changing this status.');
 
     application.status = canonicalStatus;
     application.applicantReadAt = null;
@@ -523,9 +304,8 @@ export const updateApplicationStatus = async (req, res) => {
       actor: getUserId(req),
       meta: { previousStatus },
     });
-    await application.save();
-
-    await syncJobHiringState(application, previousStatus, canonicalStatus);
+    const changed = await JobApplication.updateOne({ _id: application._id, status: previousStatus }, { $set: { status: canonicalStatus, applicantReadAt: null }, $push: { timeline: application.timeline.at(-1).toObject() } });
+    if (!changed.modifiedCount) return sendError(res, 409, 'The application changed. Refresh before trying again.');
     const populated = await populateEmployerApplicationQuery(JobApplication.findById(application._id));
     if (!populated) return sendError(res, 404, 'Application not found after save');
 
@@ -565,7 +345,12 @@ export const getEmployerApplications = async (req, res) => {
       filter.status = canonicalStatus;
     }
     if (jobId && jobId !== 'All') {
-      filter.job = jobId;
+      const resolvedJobId = resolvePublicId(jobId);
+      if (!resolvedJobId) return sendError(res, 400, 'A valid job id is required.');
+      if (!jobIds.some((id) => String(id) === resolvedJobId)) {
+        return sendError(res, 403, 'Not authorized to view applicants for this job.');
+      }
+      filter.job = resolvedJobId;
     }
 
     let applications = await populateEmployerApplicationQuery(
@@ -611,6 +396,7 @@ export const getEmployerApplications = async (req, res) => {
           status: latestOfferByApplication.get(String(application._id)).status,
           createdAt: latestOfferByApplication.get(String(application._id)).createdAt,
           acceptedAt: latestOfferByApplication.get(String(application._id)).acceptedAt,
+          expiresAt: latestOfferByApplication.get(String(application._id)).expiresAt,
         } : null,
         applicant: value?.applicant ? {
           ...value.applicant,
@@ -690,23 +476,11 @@ export const deleteEmployerApplication = async (req, res) => {
     if (result.error) return sendError(res, result.status, result.error);
 
     const application = result.application;
-    // Deleting a hired application destroys the record, so the escrow reserved
-    // for that worker has to be returned before it becomes unreachable.
-    if (isUnhireTransition({ previousStatus: application.status, nextStatus: 'Rejected' })) {
-      const reverted = await revertHire(application, 'Rejected', getUserId(req));
-      if (reverted.error) {
-        return sendError(res, reverted.status, reverted.error);
-      }
-      await syncJobHiringState(application, 'Hired', 'Rejected');
-    }
+    application.employerHidden = true;
+    application.employerHiddenAt = new Date();
+    await application.save();
 
-    await Job.findByIdAndUpdate(application.job?._id || application.job, {
-      $pull: { applicants: application.applicant },
-    });
-
-    await JobApplication.deleteOne({ _id: applicationId });
-
-    return sendSuccess(res, 200, 'Application deleted', { applicationId }, { applicationId });
+    return sendSuccess(res, 200, 'Application archived; history preserved', { applicationId }, { applicationId });
   } catch (error) {
     console.error('Delete employer application error:', error);
     return sendError(res, 500, 'Server error', { error: error.message });
@@ -748,6 +522,9 @@ export const scheduleInterview = async (req, res) => {
     if (result.error) return sendError(res, result.status, result.error);
 
     const application = result.application;
+    const priorStatus = application.status;
+    const priorUpdatedAt = application.updatedAt;
+    if (['Hired', 'Accepted', 'Cancelled', 'Position filled', 'Rejected', 'Withdrawn', 'Offer Sent'].includes(application.status)) return sendError(res, 409, 'This application is no longer in the interview stage.');
     application.interviews.push({
       scheduledAt: parsedDate,
       location: location ? String(location).trim() : null,
@@ -769,7 +546,11 @@ export const scheduleInterview = async (req, res) => {
         mode: mode ? String(mode).trim() : 'other',
       },
     });
-    await application.save();
+    const changed = await JobApplication.updateOne({ _id: application._id, status: priorStatus, updatedAt: priorUpdatedAt }, {
+      $set: { interviews: application.interviews.map((item) => item.toObject()), status: application.status, applicantReadAt: null },
+      $push: { timeline: application.timeline[application.timeline.length - 1].toObject() },
+    });
+    if (!changed.modifiedCount) return sendError(res, 409, 'The application changed. Refresh before editing the interview.');
 
     const populated = await populateEmployerApplicationQuery(JobApplication.findById(application._id));
     if (!populated) return sendError(res, 404, 'Application not found after save');
@@ -792,14 +573,24 @@ export const scheduleInterview = async (req, res) => {
 export const updateInterview = async (req, res) => {
   try {
     const { applicationId, interviewId } = req.params;
-    const { scheduledAt, location, mode, notes } = req.body || {};
+    const { scheduledAt, location, mode, notes, status } = req.body || {};
 
     const result = await ensureEmployerAccess(applicationId, getUserId(req));
     if (result.error) return sendError(res, result.status, result.error);
     const application = result.application;
+    const priorStatus = application.status;
+    const priorUpdatedAt = application.updatedAt;
+    if (['Hired', 'Accepted', 'Cancelled', 'Position filled', 'Rejected', 'Withdrawn', 'Offer Sent'].includes(application.status)) return sendError(res, 409, 'This application is no longer in the interview stage.');
 
     const interview = application.interviews.id(interviewId);
     if (!interview) return sendError(res, 404, 'Interview not found');
+
+    // Same reason as scheduleInterview above: this also reassigns
+    // `status = 'Interview Scheduled'`, so on a Hired application it would
+    // bypass the un-hire path and strand the escrow.
+    if (application.status === 'Hired') {
+      return sendError(res, 409, 'This worker is already hired. Release the hire first if you need to return them to interviewing.');
+    }
 
     const previousScheduledAt = interview.scheduledAt;
     if (scheduledAt !== undefined) {
@@ -810,8 +601,13 @@ export const updateInterview = async (req, res) => {
     if (location !== undefined) interview.location = location ? String(location).trim() : null;
     if (mode !== undefined) interview.mode = mode ? String(mode).trim() : 'other';
     if (notes !== undefined) interview.notes = notes ? String(notes).trim() : null;
+    if (status !== undefined) {
+      if (!['scheduled', 'completed', 'cancelled'].includes(status)) return sendError(res, 400, 'Invalid interview outcome.');
+      if (status === 'completed' && new Date(interview.scheduledAt).getTime() > Date.now()) return sendError(res, 409, 'A future interview cannot be completed.');
+      interview.status = status; interview.completedAt = status === 'completed' ? new Date() : null;
+    }
     interview.updatedAt = new Date();
-    application.status = 'Interview Scheduled';
+    application.status = status === 'completed' ? 'Interviewed' : 'Interview Scheduled';
     application.applicantReadAt = null;
 
     const timelineType = scheduledAt !== undefined ? 'interview_rescheduled' : 'interview_updated';
@@ -829,7 +625,11 @@ export const updateInterview = async (req, res) => {
         mode: interview.mode || 'other',
       },
     });
-    await application.save();
+    const changed = await JobApplication.updateOne({ _id: application._id, status: priorStatus, updatedAt: priorUpdatedAt }, {
+      $set: { interviews: application.interviews.map((item) => item.toObject()), status: application.status, applicantReadAt: null },
+      $push: { timeline: application.timeline[application.timeline.length - 1].toObject() },
+    });
+    if (!changed.modifiedCount) return sendError(res, 409, 'The application changed. Refresh before editing the interview.');
 
     const populated = await populateEmployerApplicationQuery(JobApplication.findById(application._id));
     await notifyApplicantStatusChange(

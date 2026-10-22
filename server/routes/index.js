@@ -1,3 +1,4 @@
+import MaintenanceRoute from './MaintenanceRoute.js';
 import CategoryRoute from './CategoryRoute.js';
 import JobRoute from './JobRoute.js';
 import UserRoute from './UserRoute.js';
@@ -13,7 +14,8 @@ import SupportRoute from './SupportRoute.js';
 import ProfileRoute from './ProfileRoute.js';
 import ReviewRoute from './ReviewRoute.js';
 import IdAnalyzerRoute from './IdAnalyzerRoute.js';
-import PhoneRoute from './PhoneRoute.js';
+import CronRoute from './CronRoute.js';
+import FinancialDisputeRoute from './FinancialDisputeRoute.js';
 
 export const registerRoutes = (app) => {
     app.get('/', (req, res) => {
@@ -29,6 +31,7 @@ export const registerRoutes = (app) => {
     app.use('/api/auth', ProfileRoute);
 
     // Other routes
+    app.use('/api/maintenance', MaintenanceRoute);
     app.use('/api/categories', CategoryRoute);
     app.use('/api/jobs', JobRoute);
     app.use('/api/users', UserRoute);
@@ -42,5 +45,6 @@ export const registerRoutes = (app) => {
     app.use('/api/support', SupportRoute);
     app.use('/api/reviews', ReviewRoute);
     app.use('/api/verify-id', IdAnalyzerRoute);
-    app.use('/api/verify-phone', PhoneRoute);
+    app.use('/api/cron', CronRoute);
+    app.use('/api/financial-disputes', FinancialDisputeRoute);
 };

@@ -6,5 +6,7 @@ export function generateOtp(length = 6) {
 }
 
 export function verifyOtp(otp, expectedOtp) {
-  return String(otp) === String(expectedOtp);
+  const actual = Buffer.from(String(otp));
+  const expected = Buffer.from(String(expectedOtp));
+  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
 }

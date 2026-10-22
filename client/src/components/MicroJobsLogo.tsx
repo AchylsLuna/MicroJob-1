@@ -18,14 +18,14 @@ export function MicroJobsLogo({ className = "", variant = "dark", onClick, markO
     <>
       <div
         aria-hidden="true"
-        className={`microjobs-logo-mark ${isSpinning ? "microjobs-logo-mark--spin" : ""} flex shrink-0 rotate-[30deg] items-center justify-center ${markOnly ? "h-8 w-8 rounded-[5px]" : "h-[42px] w-[42px] rounded-[6px]"} ${isLight ? "bg-white" : "bg-[#1C4D8D]"}`}
+        className={`microjobs-logo-mark ${isSpinning ? "microjobs-logo-mark--spin" : ""} flex shrink-0 rotate-[30deg] items-center justify-center ${markOnly ? "h-8 w-8 rounded-[5px]" : "h-[42px] w-[42px] rounded-[6px]"} ${isLight ? "bg-white" : "bg-brand"}`}
         onAnimationEnd={() => setIsSpinning(false)}
       >
-        <span className={`-rotate-[30deg] font-black leading-none ${markOnly ? "text-base" : "text-[21px]"} ${isLight ? "text-[#1C4D8D]" : "text-white"}`}>
+        <span className={`-rotate-[30deg] font-black leading-none ${markOnly ? "text-base" : "text-[21px]"} ${isLight ? "text-brand" : "text-white"}`}>
           M
         </span>
       </div>
-      {!markOnly ? <span className={`microjobs-logo-wordmark shrink text-[24px] font-extrabold leading-none tracking-[-0.6px] ${isLight ? "text-white" : "text-[#1C4D8D]"}`}>
+      {!markOnly ? <span className={`microjobs-logo-wordmark shrink text-[24px] font-extrabold leading-none tracking-[-0.6px] ${isLight ? "text-white" : "text-brand"}`}>
         <span className={isLight ? "text-white" : "text-[#0F2954]"}>Micro</span>Jobs
       </span> : null}
     </>

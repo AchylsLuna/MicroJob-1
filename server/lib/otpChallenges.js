@@ -12,8 +12,42 @@ const safeEqual = (left, right) => {
   return a.length === b.length && a.length > 0 && crypto.timingSafeEqual(a, b);
 };
 
-export async function issueOtpChallenge({ purpose, subject, user = null, metadata = {}, ttlMs = OTP_TTL_MS, maxAttempts = OTP_MAX_ATTEMPTS }) {
+// Test-only: the isolated e2e/test harness runs with no SMTP credentials and
+// has no mailbox to read from, so it needs a programmatic way to retrieve a
+// code it can never see over the wire. Same mechanism and same hard
+// NODE_ENV === 'test' gate as mfaHelpers' login-OTP equivalent, generalised by
+// purpose so the signup, password-reset and password-change flows can all stop
+// echoing their code back in the HTTP response -- an OTP that travels back in
+// the same response it authorises is not a second factor.
+//
+// Populated only when NODE_ENV === 'test'; an unread Map in every other
+// environment, and never read from outside that same guard.
+const testOtpCodes = new Map();
+const testOtpKey = (purpose, subject) => `${purpose}:${String(subject || '').trim().toLowerCase()}`;
+export const rememberTestOtpCode = (purpose, subject, code) => {
+  if (process.env.NODE_ENV === 'test') testOtpCodes.set(testOtpKey(purpose, subject), code);
+};
+export const getTestOtpCode = (purpose, subject) =>
+  process.env.NODE_ENV === 'test' ? testOtpCodes.get(testOtpKey(purpose, subject)) : undefined;
+
+/**
+ * `carryAttempts` keeps the failed-attempt count from the challenge this one
+ * replaces.
+ *
+ * Without it, re-issuing simply reset `attempts` to 0, so the `maxAttempts`
+ * ceiling was resettable at will: a caller holding a password could guess five
+ * login codes, resend, and guess five more, indefinitely. Carrying the count
+ * makes the ceiling apply to the whole login episode rather than to each
+ * individual code.
+ */
+export async function issueOtpChallenge({ purpose, subject, user = null, metadata = {}, ttlMs = OTP_TTL_MS, maxAttempts = OTP_MAX_ATTEMPTS, carryAttempts = false }) {
   const normalizedSubject = String(subject || '').trim().toLowerCase();
+  const inheritedAttempts = carryAttempts
+    ? (await OtpChallenge.findOne({ purpose, subject: normalizedSubject, active: true })
+        .sort({ createdAt: -1 })
+        .select('attempts')
+        .lean())?.attempts || 0
+    : 0;
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const challengeId = crypto.randomBytes(18).toString('hex');
     const code = createOtpCode();
@@ -25,7 +59,7 @@ export async function issueOtpChallenge({ purpose, subject, user = null, metadat
     try {
       const challenge = await OtpChallenge.create({
         purpose, subject: normalizedSubject, user, challengeId,
-        codeHash: hashCode(challengeId, code), maxAttempts,
+        codeHash: hashCode(challengeId, code), maxAttempts, attempts: inheritedAttempts,
         expiresAt: new Date(Date.now() + ttlMs), metadata, active: true,
       });
       return { challenge, code };
@@ -80,3 +114,4 @@ export const consumeVerifiedOtpChallenge = ({ purpose, subject, code }) =>
   verifyOtpChallenge({ purpose, subject, code, consume: true });
 
 export const clearOtpChallenges = (subject) => OtpChallenge.deleteMany({ subject: String(subject || '').trim().toLowerCase() });
+export const clearUserOtpChallenges = (user) => OtpChallenge.deleteMany({ user });

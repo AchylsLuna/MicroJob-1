@@ -1,0 +1,24 @@
+name: Lifecycle maintenance
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: lifecycle-maintenance
+  cancel-in-progress: false
+jobs:
+  maintain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Deliver notifications and reconcile lifecycle events
+        env:
+          API_ORIGIN: ${{ secrets.MICROJOBS_API_ORIGIN }}
+          MAINTENANCE_SECRET: ${{ secrets.MAINTENANCE_SECRET }}
+        run: |
+          test -n "$API_ORIGIN" && test -n "$MAINTENANCE_SECRET"
+          curl --fail-with-body --silent --show-error --max-time 65 \
+            -X POST -H "Authorization: Bearer $MAINTENANCE_SECRET" \
+            "$API_ORIGIN/api/maintenance"

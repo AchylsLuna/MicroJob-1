@@ -1,4 +1,5 @@
 import { handleInvalidSession, isInvalidTokenError } from "../utils/authSession";
+import { getBearerAccessToken, getBearerRefreshToken, getBearerTrustedDeviceToken, storeBearerTokens, usesBearerAuthTransport } from '../utils/authTransport';
 
 const trimTrailingSlash = (value: string) => value.replace(/\/$/, '');
 
@@ -83,6 +84,8 @@ export type LoginOtpChallengeResponse = {
   otpRequired: true;
   otpToken: string;
   message?: string;
+  deliveryEmail?: string;
+  staffLogin?: boolean;
 };
 export type LoginMethodSelectionResponse = {
   methodSelectionRequired: true;
@@ -149,7 +152,7 @@ export type PaymentTransaction = {
   sender?: { _id?: string; firstName?: string; lastName?: string; email?: string } | null;
   receiver?: { _id?: string; firstName?: string; lastName?: string; email?: string } | null;
   amount: number;
-  type: 'TOP_UP' | 'ESCROW' | 'PAYOUT' | 'REFUND';
+  type: 'TOP_UP' | 'ESCROW' | 'PAYOUT' | 'REFUND' | 'POSTING_FEE';
   status?: 'PENDING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
   balanceTarget?: 'EMPLOYER' | 'WORKER' | 'ESCROW' | 'SYSTEM';
   reference?: string | null;
@@ -191,7 +194,9 @@ export type ApplicationStatus =
   | 'Offer Sent'
   | 'Hired'
   | 'Rejected'
-  | 'Withdrawn';
+  | 'Withdrawn'
+  | 'Cancelled'
+  | 'Position filled';
 export type SavedJobRecord = {
   _id: string;
   job: any;
@@ -233,7 +238,16 @@ export type SupportAgent = {
 export type PayoutRequest = {
   _id: string;
   amount: number;
-  status: 'requested' | 'approved' | 'rejected' | 'paid' | 'cancelled';
+  balanceTarget?: 'EMPLOYER' | 'WORKER';
+  status: 'requested' | 'approved' | 'processing' | 'failed' | 'rejected' | 'paid' | 'cancelled';
+  sourceWallet?: 'EMPLOYER' | 'WORKER';
+  processingMode?: 'manual' | 'automatic';
+  reviewReason?: string | null;
+  providerTransferId?: string;
+  providerRailReference?: string;
+  providerFee?: number;
+  failureReason?: string;
+  transferReference?: string;
   destinationSnapshot: {
     methodType: string;
     institutionName: string;
@@ -301,7 +315,7 @@ async function performRequest(
       candidateTimedOut = true;
       requestTimedOut = true;
       controller.abort();
-    }, REQUEST_TIMEOUT_MS);
+    }, path.endsWith('/work/submit') ? 120000 : REQUEST_TIMEOUT_MS);
     const abortFromExternalSignal = () => controller.abort();
     if (externalSignal) {
       if (externalSignal.aborted) controller.abort();
@@ -311,7 +325,7 @@ async function performRequest(
       res = await fetch(url, {
         method,
         headers,
-        credentials: 'include',
+        credentials: usesBearerAuthTransport() ? 'omit' : 'include',
         body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
         signal: controller.signal,
       });
@@ -338,8 +352,49 @@ throw new Error(import.meta.env.DEV
   : 'Unable to reach the MicroJobs service. Please try again.');
   }
 
-  const data = (await res.json().catch(() => ({}))) as any;
+  const data = (await parseResponseBody(res)) as any;
   return { res, data };
+}
+
+/**
+ * Parses a response body, raising rather than inventing one.
+ *
+ * This used to be `res.json().catch(() => ({}))`, which turned any successful
+ * response that was not JSON into an empty object. Nothing downstream could
+ * tell that apart from a real empty payload: a misrouted `/api/*` call served
+ * the SPA's `index.html` with a 200, became `{}` here, and rendered on the
+ * landing page as "no jobs are available" -- an outage reported to the user as
+ * an empty marketplace.
+ *
+ * A body that genuinely has nothing in it is still fine and still yields `{}`:
+ * 204/205 carry no content by definition, and a zero `content-length` says so
+ * outright. An error response is also allowed to be unparseable, because the
+ * caller reports it by status and we must not mask a 500 with a parse error.
+ * What is no longer tolerated is a 2xx that claimed to have a body and then
+ * could not be read as JSON.
+ */
+async function parseResponseBody(res: Response) {
+  if (res.status === 204 || res.status === 205 || res.headers.get('content-length') === '0') {
+    return {};
+  }
+
+  const text = await res.text().catch(() => null);
+  if (text === null) {
+    if (!res.ok) return {};
+    throw new Error(`The server returned an unreadable ${res.status} response.`);
+  }
+  if (text.trim() === '') return {};
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    if (!res.ok) return {};
+    const contentType = res.headers.get('content-type') || 'an unknown content type';
+    throw new Error(
+      `The server returned ${contentType} instead of JSON (status ${res.status}). ` +
+        'This usually means the API request did not reach the backend.',
+    );
+  }
 }
 
 // The refresh endpoint rotates the refresh token and rejects reuse of the old
@@ -355,20 +410,24 @@ async function tryRefreshSession() {
 
   refreshInFlight = (async () => {
     const csrfToken = getCsrfToken();
-    if (!csrfToken) return false;
+    if (!usesBearerAuthTransport() && !csrfToken) return false;
 
     const refreshCandidates = buildApiCandidates('/auth/refresh');
     for (const url of refreshCandidates) {
       try {
         const response = await fetch(url, {
           method: 'POST',
-          credentials: 'include',
+          credentials: usesBearerAuthTransport() ? 'omit' : 'include',
           headers: {
             'Content-Type': 'application/json',
-            'x-csrf-token': csrfToken,
+            ...(usesBearerAuthTransport() ? { 'x-microjobs-auth-transport': 'bearer' } : { 'x-csrf-token': csrfToken }),
           },
+          ...(usesBearerAuthTransport() ? { body: JSON.stringify({ refreshToken: getBearerRefreshToken() }) } : {}),
         });
-        if (response.ok) return true;
+        if (response.ok) {
+          storeBearerTokens(await response.json().catch(() => ({})));
+          return true;
+        }
       } catch {
         // Try the next refresh candidate on network failure.
       }
@@ -408,6 +467,11 @@ async function request<T>(
   const body = options.body;
   const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
   const headers = new Headers(options.headers || undefined);
+  if (usesBearerAuthTransport()) {
+    headers.set('x-microjobs-auth-transport', 'bearer');
+    const token = getBearerAccessToken();
+    if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`);
+  }
   if (!isFormData && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
@@ -463,8 +527,9 @@ export function registerUser(payload: { username?: string; firstName?: string; l
   return request<AuthResponse>('/auth/register', { method: 'POST', body: payload });
 }
 
-export function loginUser(payload: { emailOrUsername: string; password: string; requireOtp?: boolean }) {
-  return request<LoginResponse>('/auth/login', { method: 'POST', body: payload });
+export function loginUser(payload: { emailOrUsername: string; password: string; requireOtp?: boolean; staffOnly?: boolean }) {
+  const trustedDeviceToken = getBearerTrustedDeviceToken();
+  return request<LoginResponse>('/auth/login', { method: 'POST', body: { ...payload, ...(trustedDeviceToken ? { trustedDeviceToken } : {}) } });
 }
 
 export function selectLoginMethod(payload: { selectionToken: string; method: "mfa" | "gmail_otp" }) {
@@ -505,7 +570,8 @@ export function verifyOtp(payload: { email: string; code: string }) {
 }
 
 export function logoutUser() {
-  return request('/auth/logout', { method: 'POST' });
+  const trustedDeviceToken = getBearerTrustedDeviceToken();
+  return request('/auth/logout', { method: 'POST', ...(trustedDeviceToken ? { body: { trustedDeviceToken } } : {}) });
 }
 
 export function requestPasswordResetOtp(payload: { email: string }) {
@@ -522,6 +588,20 @@ export function resetPasswordWithOtp(payload: { email: string; code: string; new
 
 export function requestPasswordChangeOtp(payload: { currentPassword: string }) {
   return request<{ message: string; code?: string }>('/auth/password-change/request', { method: 'POST', body: payload });
+}
+
+export type StaffSecondaryEmailStatus = { email: string; verified: boolean };
+
+export function getStaffSecondaryEmail() {
+  return request<StaffSecondaryEmailStatus>('/auth/secondary-email', { method: 'GET' });
+}
+
+export function requestStaffSecondaryEmailOtp(payload: { email: string; currentPassword: string }) {
+  return request<{ message: string }>('/auth/secondary-email/request', { method: 'POST', body: payload });
+}
+
+export function confirmStaffSecondaryEmailOtp(payload: { email: string; code: string }) {
+  return request<StaffSecondaryEmailStatus>('/auth/secondary-email/confirm', { method: 'POST', body: payload });
 }
 
 export function confirmPasswordChangeWithOtp(payload: { currentPassword: string; code: string; newPassword: string }) {
@@ -575,7 +655,7 @@ export function applyForJob(jobId: string, payload?: { resume?: string; coverLet
 }
 
 export function changeJobStatus(jobId: string, status: string) {
-  return request(`/jobs/${jobId}/status`, { method: 'PATCH', body: { status } });
+  return request(`/jobs/${jobId}/status`, { method: 'PATCH', body: { status, ...(status === 'Completed' ? { confirmed: true } : {}) } });
 }
 
 export function reopenJob(jobId: string) {
@@ -584,6 +664,26 @@ export function reopenJob(jobId: string) {
 
 export function getMyJobs() {
   return request<any[]>('/jobs/mine', { method: 'GET' });
+}
+
+export type EmployerJobHistoryItem = {
+  _id: string;
+  title: string;
+  status: string;
+  description?: string;
+  location?: string;
+  salary?: number;
+  jobType?: string;
+  deadline?: string;
+  skills?: string[];
+  requirements?: string[];
+  responsibilities?: string[];
+  amountHeld: number;
+  amountPaid: number;
+};
+
+export function getEmployerJobHistory() {
+  return request<EmployerJobHistoryItem[]>('/jobs/history', { method: 'GET' });
 }
 
 // Application APIs
@@ -729,9 +829,10 @@ export function restoreEmployerApplication(applicationId: string) {
 }
 
 // Job offer APIs
-export type JobOfferStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'hired';
+export type JobOfferStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'hired' | 'expired';
 
 export type JobOffer = {
+  expiresAt?: string | null;
   id: string;
   applicationId: string;
   jobId: string;
@@ -753,25 +854,34 @@ export function createJobOffer(applicationId: string, amount: number) {
 export function respondToJobOffer(offerId: string, action: 'accept' | 'reject') {
   return request<{ offer: JobOffer }>(`/job-offers/${offerId}/respond`, {
     method: 'POST',
-    body: { action },
+    body: { action, policyAcknowledged: action === 'accept' },
   });
 }
 
-export function cancelJobOffer(offerId: string) {
-  return request<{ offer: JobOffer }>(`/job-offers/${offerId}/cancel`, { method: 'POST' });
+export function cancelJobOffer(offerId: string, reason: string) {
+  return request<{ offer: JobOffer }>(`/job-offers/${offerId}/cancel`, { method: 'POST', body: { reason, policyAcknowledged: true } });
 }
 
-export function confirmOfferHire(offerId: string) {
-  return request<{ offer: JobOffer; application: any }>(`/job-offers/${offerId}/confirm-hire`, { method: 'POST' });
+export function confirmOfferHire(offerId: string, checklist: string[] = []) {
+  return request<{ offer: JobOffer; application: any }>(`/job-offers/${offerId}/confirm-hire`, { method: 'POST', body: { checklist } });
+}
+
+export type HireChecklistItem = { _id: string; description: string; completed: boolean };
+export function updateHireChecklistItem(applicationId: string, itemId: string, completed: boolean) {
+  return request<{ checklist: HireChecklistItem[] }>(`/applications/${applicationId}/checklist/${itemId}`, { method: 'PATCH', body: { completed } });
 }
 
 // Hire work & payment APIs
 export function authorizePayment(applicationId: string) {
-  return request<{ application: any }>(`/applications/${applicationId}/payment/authorize`, { method: 'POST' });
+  return request<{ application: any }>(`/applications/${applicationId}/payment/authorize`, { method: 'POST', body: { confirmed: true } });
 }
 
-export function submitWork(applicationId: string) {
-  return request<{ application: any }>(`/applications/${applicationId}/work/submit`, { method: 'POST' });
+export function submitWork(applicationId: string, evidence: { statement: string; files: File[]; workDate?: string }) {
+  const body = new FormData();
+  body.append('statement', evidence?.statement || '');
+  if (evidence.workDate) body.append('workDate', evidence.workDate);
+  for (const file of evidence.files) body.append('evidence', file);
+  return request<{ application: any }>(`/applications/${applicationId}/work/submit`, { method: 'POST', body });
 }
 
 export function requestChanges(applicationId: string, reason: string) {
@@ -781,9 +891,79 @@ export function requestChanges(applicationId: string, reason: string) {
   });
 }
 
-export function settlePayment(applicationId: string) {
-  return request<{ message: string; application: any; job: any }>(`/applications/${applicationId}/payment/settle`, {
+export function openPaymentDispute(applicationId: string, reason: string, disputedAmount?: number) {
+  return request<{ message: string; dispute: any }>(`/applications/${applicationId}/payment/disputes`, {
     method: 'POST',
+    body: { reason, ...(disputedAmount === undefined ? {} : { disputedAmount }) },
+  });
+}
+
+export type FinancialDispute = {
+  displayStatus?: string;
+  id: string;
+  _id?: string;
+  ticketId: string;
+  subject: string;
+  investigationStatus: string;
+  settlementStatus: string;
+  paymentStatus: string;
+  fundStatus: 'FUNDS_HELD' | 'OUTSTANDING_PAYMENT' | 'PARTIALLY_HELD';
+  agreedJobAmount: number;
+  alreadyPaidAmount: number;
+  disputedAmount: number;
+  fundsHeldAmount: number;
+  outstandingAmount: number;
+  workerClaim: string;
+  employerResponse?: string;
+  worker?: any;
+  employer?: any;
+  job?: any;
+  application?: any;
+  assignedSupportUserId?: any;
+  assignedFinanceUserId?: any;
+  evidence?: any[];
+  messages?: any[];
+  investigationReport?: any;
+  investigationReportHistory?: any[];
+  financeSettlement?: any;
+  settlementHistory?: any[];
+  auditLogs?: any[];
+  raisedAt?: string;
+  resolvedAt?: string | null;
+  appealSubmittedAt?: string | null;
+};
+
+export function getFinancialDisputes() {
+  return request<{ disputes: FinancialDispute[] }>('/financial-disputes', { method: 'GET' });
+}
+
+export function getFinancialDispute(disputeId: string) {
+  return request<{ dispute: FinancialDispute }>(`/financial-disputes/${disputeId}`, { method: 'GET' });
+}
+
+export function uploadFinancialDisputeEvidence(disputeId: string, payload: { file?: File | null; evidenceType: string; description: string }) {
+  const formData = new FormData();
+  if (payload.file) formData.append('evidence', payload.file);
+  formData.append('evidenceType', payload.evidenceType);
+  formData.append('description', payload.description);
+  return request<{ message: string; dispute: FinancialDispute }>(`/financial-disputes/${disputeId}/evidence`, { method: 'POST', body: formData });
+}
+
+export function addFinancialDisputeMessage(disputeId: string, message: string, visibleToParties = true) {
+  return request<{ message: string; dispute: FinancialDispute }>(`/financial-disputes/${disputeId}/messages`, { method: 'POST', body: { message, visibleToParties } });
+}
+
+export function submitFinancialDisputeEmployerResponse(disputeId: string, response: string) {
+  return request<{ message: string; dispute: FinancialDispute }>(`/financial-disputes/${disputeId}/employer-response`, { method: 'POST', body: { response } });
+}
+
+export function submitFinancialDisputeAppeal(disputeId: string, reason: string) {
+  return request<{ message: string; dispute: FinancialDispute }>(`/financial-disputes/${disputeId}/appeal`, { method: 'POST', body: { reason } });
+}
+
+export function settlePayment(applicationId: string, submittedAt?: string, workDate?: string) {
+  return request<{ message: string; application: any; job: any }>(`/applications/${applicationId}/payment/settle`, {
+    method: 'POST', body: { confirmed: true, ...(submittedAt ? { submittedAt } : {}), ...(workDate ? { workDate } : {}) },
   });
 }
 
@@ -792,7 +972,7 @@ export function updateUserStatus(userId: string, status: 'active' | 'pending' | 
   return request(`/users/${userId}/status`, { method: 'PATCH', body: { status } });
 }
 
-export function updateUserByAdmin(userId: string, payload: { firstName: string; lastName: string; role: string; status: 'active' | 'pending' | 'disabled' }) {
+export function updateUserByAdmin(userId: string, payload: { firstName: string; lastName: string; role: string; status: 'active' | 'pending' | 'disabled' | 'banned' }) {
   return request<{ message: string; user: any }>(`/users/${userId}`, { method: 'PATCH', body: payload });
 }
 
@@ -1135,12 +1315,13 @@ export function getPaymentTransactions() {
   return request<{ transactions: PaymentTransaction[] }>('/payment/transactions', { method: 'GET' });
 }
 
-export function getPayoutRequests() {
-  return request<{ payoutRequests: PayoutRequest[] }>('/payment/payout-requests', { method: 'GET' });
+export function getPayoutRequests(balanceTarget?: 'EMPLOYER' | 'WORKER') {
+  return request<{ payoutRequests: PayoutRequest[] }>(`/payment/payout-requests${buildQuery(balanceTarget ? { balanceTarget } : undefined)}`, { method: 'GET' });
 }
 
 export function createPayoutRequest(payload: {
   amount: number;
+  balanceTarget?: 'EMPLOYER' | 'WORKER';
   idempotencyKey?: string;
   destinationSnapshot: {
     methodType: string;
@@ -1203,6 +1384,12 @@ export function removeSavedJob(jobId: string) {
 }
 
 // Message APIs
+export type MessageReportCategory = 'abuse' | 'scam' | 'threats' | 'other';
+
+export function reportConversation(payload: { otherUserId: string; jobId?: string | null; category: MessageReportCategory; details: string }) {
+  return request<{ reportId: string; status: 'pending'; alreadyPending: boolean }>('/messages/report', { method: 'POST', body: payload });
+}
+
 export function sendMessage(payload: { receiverId: string; content: string; jobId?: string; clientMessageId?: string }) {
   return request<any>('/messages', { method: 'POST', body: payload });
 }
@@ -1231,6 +1418,14 @@ export function startJobInquiry(
 
 export function getConversations() {
   return request<any[]>('/messages/conversations', { method: 'GET' });
+}
+
+export type MessageRecipient = { id: string; name: string; email: string; role: string; isStaff: boolean };
+export type MessageRecipientDirectory = { recipients: MessageRecipient[]; total: number; page: number; pageCount: number; pageSize: number };
+
+export async function getMessageRecipients(query: { search: string; audience: 'all' | 'admins' | 'users'; page: number }, signal?: AbortSignal) {
+  const response = await request<MessageRecipientDirectory | { data: MessageRecipientDirectory }>(`/messages/recipients${buildQuery(query)}`, { method: 'GET', signal });
+  return 'data' in response ? response.data : response;
 }
 
 
@@ -1298,8 +1493,60 @@ export function getAdminStats() {
   return request<any>('/admin/stats', { method: 'GET' });
 }
 
+export function getAdminAnalyticsData() {
+  return request<{ stats: any; users: any[]; jobs: any[]; transactions: PaymentTransaction[] }>('/admin/analytics-data', { method: 'GET' });
+}
+
 export function getAdminUsers() {
   return request<any[]>('/admin/users', { method: 'GET' });
+}
+
+export function requestAdminUserPasswordReset(userId: string) {
+  return request<{ message: string }>(`/admin/users/${userId}/password-reset`, { method: 'POST' });
+}
+
+export function unlockAdminUser(userId: string) {
+  return request<{ message: string; userId: string; loginLocked: false }>(`/admin/users/${userId}/unlock`, { method: 'PATCH' });
+}
+
+export function updateAdminUserSuspiciousFlag(userId: string, payload: { flagged: boolean; reason?: string }) {
+  return request<{
+    message: string;
+    user: {
+      _id: string;
+      suspiciousFlagged: boolean;
+      suspiciousFlagReason: string | null;
+      suspiciousFlaggedAt: string | null;
+      suspiciousFlaggedBy: string | null;
+    };
+  }>(`/admin/users/${userId}/suspicious-flag`, { method: 'PATCH', body: payload });
+}
+
+export function banAdminUser(userId: string, reason: string) {
+  return request<{ message: string; user: { _id: string; status: 'banned'; banReason: string } }>(`/admin/users/${userId}/ban`, {
+    method: 'PATCH',
+    body: { reason },
+  });
+}
+
+export interface GovernmentIdVerificationRecord {
+  _id: string;
+  user: { _id: string; role: string };
+  userName: string;
+  govIdName: string;
+  documentType: string;
+  date: string;
+  verified: boolean;
+}
+
+export function getGovernmentIdVerifications() {
+  return request<GovernmentIdVerificationRecord[]>('/admin/government-id-verifications', { method: 'GET' });
+}
+
+export function revokeGovernmentIdVerification(verificationId: string) {
+  return request<{ message: string; verificationId: string; verified: false }>(
+    `/admin/government-id-verifications/${verificationId}/revoke`, { method: 'PATCH', body: {} },
+  );
 }
 
 export function updateAdminVerification(
@@ -1342,7 +1589,7 @@ export function getAdminPayoutRequests(params?: QueryParams) {
 
 export function updateAdminPayoutRequest(
   payoutRequestId: string,
-  payload: { status: 'approved' | 'rejected' | 'paid'; reviewNotes?: string }
+  payload: { status: 'approved' | 'rejected' | 'paid'; reviewNotes?: string; transferReference?: string }
 ) {
   return request<{ payoutRequest: PayoutRequest }>(`/admin/payout-requests/${payoutRequestId}`, {
     method: 'PATCH',
@@ -1400,12 +1647,43 @@ export function updateAdminModerationReport(reportId: string, payload: { status:
 }
 
 export function getAdminFinancialDisputes() {
-  return request<any[]>('/admin/finance/disputes', { method: 'GET' });
+  return request<FinancialDispute[]>('/admin/finance/disputes', { method: 'GET' });
 }
 
 export function updateAdminFinancialDispute(
   disputeId: string,
-  payload: { status: 'open' | 'investigating' | 'resolved' | 'rejected'; resolutionNotes?: string },
+  payload: { status: 'open' | 'investigating' | 'resolved' | 'rejected'; resolutionNotes?: string; workerPayoutAmount?: number; workerPayment?: number },
 ) {
   return request<{ message: string; dispute: any }>(`/admin/finance/disputes/${disputeId}`, { method: 'PATCH', body: payload });
 }
+
+export function assignFinancialDisputeSupport(disputeId: string, assignedSupportUserId?: string) {
+  return request<{ message: string; dispute: FinancialDispute }>(`/admin/finance/disputes/${disputeId}/assign-support`, { method: 'POST', body: { assignedSupportUserId } });
+}
+
+export function requestFinancialDisputeEvidence(disputeId: string, target: 'worker' | 'employer', message: string) {
+  return request<{ message: string; dispute: FinancialDispute }>(`/admin/finance/disputes/${disputeId}/evidence-request`, { method: 'POST', body: { target, message } });
+}
+
+export function completeFinancialDisputeInvestigation(disputeId: string, report: Record<string, string>) {
+  return request<{ message: string; dispute: FinancialDispute }>(`/admin/finance/disputes/${disputeId}/investigation-report`, { method: 'POST', body: report });
+}
+
+export function proposeFinancialDisputeSettlement(disputeId: string, payload: { settlementType: 'FULL_REFUND' | 'COMPLETE_PAYMENT' | 'PARTIAL_PAYMENT'; workerAmount?: number; employerRefund?: number; decisionReason: string }) {
+  return request<{ message: string; dispute: FinancialDispute }>(`/admin/finance/disputes/${disputeId}/settlement`, { method: 'POST', body: payload });
+}
+
+export function approveFinancialDisputeSettlement(disputeId: string) {
+  return request<{ message: string; dispute: FinancialDispute }>(`/admin/finance/disputes/${disputeId}/settlement/approve`, { method: 'POST' });
+}
+
+export type WithdrawalPreview = {
+  reviewReason?: string | null; requiresReview?: boolean; minimum: number; maximum: number | null; reviewThreshold: number;
+  previewToken: string; sourceWallet: 'EMPLOYER' | 'WORKER'; amount: number; fee: number; totalDebit: number; remainingBalance: number;
+  destination: { institutionName: string; accountName: string; accountNumberMasked: string };
+};
+export const getWithdrawalPolicy = (sourceWallet: string) => request<{ minimum: number; maximum: number | null; reviewThreshold: number }>(`/payment/withdrawals/policy?sourceWallet=${sourceWallet}`, { method: 'GET' });
+export const getWithdrawalInstitutions = () => request<{ institutions: Array<{ bic: string; name: string }> }>('/payment/withdrawals/institutions', { method: 'GET' });
+export const previewWithdrawal = (body: { sourceWallet: string; amount: number; destinationSnapshot: Record<string, string> }) => request<WithdrawalPreview>('/payment/withdrawals/preview', { method: 'POST', body });
+export const confirmWithdrawal = (previewToken: string) => request<{ payoutRequest: PayoutRequest }>('/payment/withdrawals/confirm', { method: 'POST', body: { previewToken, detailsConfirmed: true } });
+export const lifecycleRequest = (path: string, body?: any, method = body ? 'POST' : 'GET') => request<any>(path, { method, ...(body ? { body } : {}) });

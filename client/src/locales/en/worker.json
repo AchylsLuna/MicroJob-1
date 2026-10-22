@@ -13,7 +13,9 @@
       "offerSent": "Offer Sent",
       "hired": "Hired",
       "rejected": "Rejected",
-      "withdrawn": "Withdrawn"
+      "withdrawn": "Withdrawn",
+      "cancelled": "Cancelled",
+      "positionFilled": "Position filled"
     },
     "summary": {
       "loading": "Loading applications...",
@@ -45,6 +47,19 @@
     },
     "submitWork": {
       "button": "Submit finished work"
+    },
+    "paymentDispute": {
+      "openButton": "Open payment dispute",
+      "onHold": "Payment is on hold while this dispute is reviewed by the finance team.",
+      "viewExisting": "View existing ticket",
+      "title": "Open payment dispute",
+      "description": "Explain the payment issue for {{subject}}. The payment will be held for finance review.",
+      "reasonLabel": "Reason",
+      "reasonRequired": "A reason is required.",
+      "holdNotice": "The payment remains secured until a finance admin reviews the case.",
+      "opened": "Payment dispute opened.",
+      "cancel": "Cancel",
+      "submit": "Submit dispute"
     },
     "card": {
       "unavailableJob": "Unavailable job",
@@ -150,14 +165,37 @@
     "hero": {
       "eyebrow": "Job search",
       "title": "Find your next opportunity",
-      "subtitle": "Search local jobs, compare guaranteed pay, and save the opportunities you like.",
+      "subtitle": "Search jobs across the Philippines, compare guaranteed pay, and save the opportunities you like.",
+      "locationSearchAria": "Job search location",
+      "locationPlaceholder": "Location",
+      "nationwide": "Nationwide",
+      "searchNationwide": "Search nationwide",
+      "locationHelp": "Choose a city or province, or leave the location blank for nationwide jobs. Click Search to see results.",
+      "clearLocation": "Clear location for nationwide search",
+      "submit": "Search",
+      "savedJobs": "Saved jobs",
       "searchAria": "Search jobs",
-      "searchPlaceholder": "Job title, company, or category",
+      "searchPlaceholder": "Search job titles or keywords",
       "categoryFilterAria": "Filter by category",
       "allCategories": "All categories",
       "cityButtonAriaSet": "Jobs in: {{location}}",
       "cityButtonAriaUnset": "Set job search city: {{location}}",
       "setCityLabel": "Set your city"
+    },
+    "recommended": {
+      "title": "Recommended for you",
+      "subtitle": "Matched to your skills, preferred categories and experience.",
+      "showAll": "Show all {{count}} recommendations",
+      "showLess": "Show fewer",
+      "emptyProfileBody": "Add your skills and preferred categories and we'll match jobs to your profile.",
+      "emptyProfileAction": "Complete your profile",
+      "percentage": "{{percentage}}% match",
+      "level": {
+        "excellent": "Excellent match",
+        "strong": "Strong match",
+        "good": "Good match",
+        "potential": "Potential match"
+      }
     },
     "locationBanner": {
       "title": "Add your city to see nearby jobs first",
@@ -175,6 +213,8 @@
       "save": "Save preferences"
     },
     "results": {
+      "inLocation": "Showing jobs in {{location}}.",
+      "nationwide": "Showing jobs across the Philippines.",
       "countLabel_one": "{{count}} job found",
       "countLabel_other": "{{count}} jobs found",
       "sortedBy": "Opportunities are sorted by {{sort}}.",
@@ -201,7 +241,7 @@
       "empty": {
         "searchTitle": "No jobs match your search",
         "defaultTitle": "No jobs are available",
-        "searchDescription": "Try a different title, company, or category.",
+        "searchDescription": "Try a different title, company, category, or location.",
         "defaultDescription": "Please check again later for new opportunities."
       }
     },
@@ -224,6 +264,9 @@
       "categoryFallback": "General",
       "locationFallback": "Location not specified",
       "salaryMinimum": "{{salary}} minimum",
+      "highlightedByEmployer": "Highlighted by the employer",
+      "verifiedEmployer": "Fully verified employer",
+      "verifiedEmployerTooltip": "This person has completed all identity verification checks.",
       "alreadyApplied": "Already Applied",
       "applicationRejected": "Application Rejected"
     },
@@ -236,7 +279,7 @@
       "activeCount_one": "{{count}} filter",
       "activeCount_other": "{{count}} filters",
       "datePosted": {
-        "label": "Date posted",
+        "label": "Listing time",
         "past24Hours": "Past 24 hours",
         "pastWeek": "Past week",
         "pastMonth": "Past month"
@@ -245,11 +288,14 @@
         "label": "Job type"
       },
       "minimumPay": {
-        "label": "Minimum pay",
+        "label": "Pay",
         "option": "{{amount}}+ minimum"
       },
       "fewApplicants": {
-        "label": "Under 10 applicants"
+        "label": "Few applicants (<10)"
+      },
+      "category": {
+        "label": "Category"
       }
     }
   },
@@ -260,9 +306,12 @@
     "notAvailable": "Job details are not available.",
     "locationFallback": "Remote",
     "employerFallback": "Employer",
+    "verifiedEmployer": "Fully verified employer",
+    "verifiedEmployerTooltip": "This person has completed all identity verification checks.",
     "messageDraft": "Hi {{employerName}}, I'm interested in the {{jobTitle}} position. I would like to discuss this opportunity further.",
     "adminReadOnly": "Read-only admin view. Use Admin Job Monitoring to delete this job.",
     "applicationSubmitted": "Application Submitted",
+    "jobFinished": "Job Finished",
     "applyNow": "Apply Now",
     "viewJob": "View Job",
     "applicationRejected": "Application Rejected",
@@ -352,8 +401,8 @@
     },
     "txLabel": {
       "topUp": "Top-up",
-      "escrow": "Escrow",
-      "payout": "Payout",
+      "escrow": "Payment on Hold",
+      "payout": "Payment",
       "refund": "Refund",
       "transaction": "Transaction"
     },
@@ -378,8 +427,8 @@
       "loadFailed": "Failed to load wallet data.",
       "invalidAmount": "Please enter a valid amount.",
       "topUpInitFailed": "Failed to initialize top-up.",
-      "invalidPayoutAmount": "Enter a valid payout amount.",
-      "payoutExceedsBalance": "Payout amount cannot exceed your worker balance.",
+      "invalidPayoutAmount": "Enter a valid payment amount.",
+      "payoutExceedsBalance": "Payment amount cannot exceed your worker balance.",
       "incompleteDestination": "Complete the destination details before submitting your withdrawal.",
       "withdrawalSubmitted": "Withdrawal submitted.",
       "withdrawalSubmitFailed": "Failed to submit withdrawal.",
@@ -391,8 +440,8 @@
       "currentBalance": "Current Balance ({{role}})",
       "loading": "Loading...",
       "descriptionBoth": "Your combined employer and worker balance. Top up your wallet to fund jobs, and withdraw your earned balance.",
-      "descriptionEmployer": "Employers add funds here to pay into escrow and cover worker earnings.",
-      "descriptionWorker": "Workers can only withdraw completed earnings here once payouts are available.",
+      "descriptionEmployer": "Employers add funds here to pay into reserved funds and cover worker earnings.",
+      "descriptionWorker": "Workers can only withdraw completed earnings here once payments are available.",
       "employerBalance": "Employer Balance",
       "workerBalance": "Worker Balance",
       "pendingWithdrawals": "Pending Withdrawals",
@@ -403,10 +452,16 @@
     },
     "stats": {
       "moneyIn": "Money In",
-      "moneyInHelper": "Completed top-ups, payouts, and refunds received",
+      "moneyInHelper": "Completed top-ups, payments, and refunds received",
       "moneyOut": "Money Out",
-      "moneyOutHelper": "Completed job escrow and wallet withdrawals",
-      "withdrawals": "Withdrawals"
+      "moneyOutHelper": "Completed job reserved funds and wallet withdrawals",
+      "withdrawals": "Withdrawals",
+      "withdrawalsHelper": "Requested, approved, and paid withdrawal requests"
+    },
+    "pager": {
+      "ariaLabel": "Wallet sections",
+      "previous": "Previous section",
+      "next": "Next section"
     },
     "history": {
       "title": "Withdrawal History",
@@ -414,6 +469,7 @@
       "workerOnly": "Worker wallet only",
       "loading": "Loading withdrawals...",
       "empty": "No withdrawals yet.",
+      "emptyDescription": "Withdrawals you request will appear here with their review status.",
       "requested": "Requested",
       "reviewed": "Reviewed",
       "paid": "Paid",
@@ -442,7 +498,7 @@
     "transactions": {
       "titlePayment": "Payment History",
       "titleRecent": "Recent Transactions",
-      "helper": "Linked transaction status and payout references included",
+      "helper": "Linked transaction status and payment references included",
       "loading": "Loading transactions...",
       "empty": "No transactions yet.",
       "columns": {
@@ -460,14 +516,39 @@
       "amountLabel": "Amount (PHP)",
       "description": "Employer funding is the only top-up flow here. Worker accounts withdraw from earned balance instead.",
       "depositAmount": "Deposit Amount",
-      "processingFee": "Processing Fee (2.5%)",
-      "totalAmountCharged": "Total Amount Charged",
+      "processingFee": "No processing fee",
+      "totalAmountCharged": "Amount Charged",
       "cancel": "Cancel",
       "proceed": "Proceed to Checkout",
       "redirecting": "Redirecting..."
     }
   },
   "messages": {
+    "safety": {
+      "title": "Stay safe.",
+        "description": "Keep chats respectful. Never share passwords or verification codes. Keep payments in MicroJobs and report abuse, threats, or suspected scams."
+      },
+      "report": {
+        "action": "Report user",
+        "title": "Report {{name}}",
+        "description": "Tell admins about abusive language, harassment, or a suspected scam in this conversation.",
+        "reason": "Reason for reporting",
+        "chooseReason": "Choose a reason",
+        "reasons": {
+          "abuse": "Swearing, abusive language, or harassment",
+          "scam": "Scam or fraud",
+          "threats": "Threats or unsafe behavior",
+          "other": "Other concern"
+        },
+        "details": "Additional details (optional)",
+        "evidenceNotice": "The latest 20 messages from this conversation will be shared with admins for review. Reporting does not automatically block or penalize this person.",
+        "cancel": "Cancel",
+        "submit": "Submit report",
+        "submitting": "Submitting…",
+        "success": "Report submitted. Admins will review the conversation.",
+        "alreadyPending": "This conversation already has a report awaiting admin review.",
+        "failed": "Unable to submit your report. Please try again."
+      },
     "title": "Messages",
     "listOptionsLabel": "List options",
     "backToInbox": "Back To Inbox",
@@ -486,6 +567,7 @@
     "unarchive": "Unarchive",
     "archive": "Archive",
     "viewProfile": "View profile",
+    "viewProfileAria": "View {{name}}'s profile",
     "blockUser": "Block user",
     "deleteConversation": "Delete conversation",
     "noMessagesYet": "No messages yet. Start the conversation!",
@@ -540,7 +622,7 @@
     "offerCard": {
       "eyebrow": "Job offer",
       "fallbackTitle": "Job offer",
-      "escrowHint": "Backed by escrow until the job is confirmed done.",
+      "escrowHint": "Backed by reserved funds until the job is confirmed done.",
       "accept": "Accept",
       "decline": "Decline",
       "cancel": "Cancel offer",
@@ -564,7 +646,7 @@
       },
       "confirmCancel": {
         "title": "Cancel offer",
-        "description": "Cancel this job offer? The worker will be notified and the escrowed amount will be refunded.",
+        "description": "Cancel this job offer? The worker will be notified and the held for jobs amount will be refunded.",
         "confirm": "Cancel offer"
       },
       "confirmHireDialog": {
@@ -629,6 +711,15 @@
       "incomplete": "Add the missing details to help employers evaluate you faster.",
       "refreshingAria": "Refreshing profile",
       "ariaLabel": "Profile completeness"
+    },
+    "identityVerification": {
+      "title": "Identity verification",
+      "description": "Complete all four checks to earn your Verified badge.",
+      "verifiedDescription": "All four checks are complete. Your Verified badge is active.",
+      "refreshingAria": "Refreshing identity verification",
+      "ariaLabel": "Identity verification progress",
+      "progressText": "{{completed}} of {{total}} identity verification requirements complete",
+      "requirementsTitle": "Complete these requirements to verify your identity"
     },
     "overviewTab": {
       "aboutMe": "About Me",
@@ -705,8 +796,8 @@
         "answer": "Go to settings and complete your identity details. Verification items remain visible until they are reviewed."
       },
       "payoutTime": {
-        "question": "How long do payouts take?",
-        "answer": "Payout requests are reviewed manually. Once approved, you can track each request in your wallet history."
+        "question": "How long do payments take?",
+        "answer": "Withdrawal requests are reviewed manually. Once approved, you can track each request in your wallet history."
       },
       "applicationStatus": {
         "question": "Why did my application stage change?",
@@ -765,7 +856,7 @@
       },
       "securityEscalation": {
         "title": "Security Escalation",
-        "description": "Account compromise, payout disputes, and identity concerns.",
+        "description": "Account compromise, payment disputes, and identity concerns.",
         "escalate": "Escalate Issue",
         "subjectDefault": "Security escalation"
       }
@@ -782,7 +873,7 @@
     },
     "ticketForm": {
       "title": "Submit a Support Ticket",
-      "subtitle": "Create a ticket for payout issues, account access, application disputes, or platform bugs.",
+      "subtitle": "Create a ticket for payment issues, account access, application disputes, or platform bugs.",
       "subjectLabel": "Subject",
       "subjectPlaceholder": "Brief description of the issue",
       "categoryLabel": "Category",
@@ -836,6 +927,12 @@
       "business": "Business Information",
       "experience": "Experience",
       "resume": "CV/Resume"
+    },
+    "privacyTabs": {
+      "aria": "Security and privacy sections",
+      "security": "Security",
+      "verification": "Verification",
+      "privacy": "Privacy"
     },
     "personal": {
       "businessHeading": "Business Information",
@@ -1126,7 +1223,7 @@
     },
     "mfa": {
       "title": "Two-factor authentication",
-      "description": "Add a second step at sign-in so a stolen password alone is not enough to reach your account.",
+      "description": "Add an authenticator or backup-code verification step at sign-in. Trusted devices skip the usual email code, but this setting still requires verification.",
       "statusDisabled": "Off",
       "statusEnabled": "On",
       "statusLoading": "Checking...",
@@ -1171,12 +1268,14 @@
       "typeDeleteLabel": "Type DELETE to confirm",
       "confirmWarning": "This permanently deletes your account and everything in it. There is no way to recover it.",
       "deleteButton": "Delete account",
+      "superadminDisabled": "Superadmin accounts cannot be deleted to protect platform ownership and access.",
       "deletingButton": "Deleting...",
       "confirmButton": "Delete my account",
       "cancelButton": "Cancel",
       "toast": {
         "enterPassword": "Enter your current password.",
         "typeDeleteConfirm": "Type DELETE to confirm.",
+        "superadminProtected": "Superadmin accounts cannot be deleted.",
         "deleteSuccess": "Your account has been deleted.",
         "deleteFailed": "Could not delete your account."
       }

@@ -40,4 +40,10 @@ test('recommendations exclude unavailable and expired jobs', () => {
   assert.equal(isRecommendableJob({ status: 'Available', deadline: '2026-08-12T00:00:00.000Z' }, now), true);
   assert.equal(isRecommendableJob({ status: 'Completed', deadline: '2026-08-12T00:00:00.000Z' }, now), false);
   assert.equal(isRecommendableJob({ status: 'Available', deadline: '2026-08-10T00:00:00.000Z' }, now), false);
+  const inProgress = { status: 'In Progress', deadline: '2026-08-12T00:00:00.000Z', hiredCount: 1, positionsNeeded: 3 };
+  assert.equal(isRecommendableJob(inProgress, now), true);
+  assert.equal(isRecommendableJob({ ...inProgress, reservedOfferCount: 2 }, now), false);
+  assert.equal(isRecommendableJob({ ...inProgress, closedManually: true }, now), false);
+  assert.equal(isRecommendableJob({ ...inProgress, cancellationPending: true }, now), false);
+  assert.equal(isRecommendableJob({ ...inProgress, archivedAt: now }, now), false);
 });

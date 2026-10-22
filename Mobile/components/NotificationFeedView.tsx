@@ -2,7 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { formatNotificationTime, type NotificationListItem } from '../lib/notifications';
+import { formatNotificationTime, getNotificationAssignmentId, type NotificationListItem } from '../lib/notifications';
+import { useTranslation } from 'react-i18next';
 import { tokens } from '../theme/tokens';
 
 type FeedTab = 'general' | 'applications';
@@ -37,6 +38,7 @@ const groupForDate = (value: string) => {
 };
 
 export default function NotificationFeedView(props: Props) {
+  const { t } = useTranslation('common');
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<FeedTab>('general');
   const filtered = useMemo(() => props.notifications.filter((item) => tab === 'applications' ? isApplication(item) : !isApplication(item)), [props.notifications, tab]);
@@ -88,7 +90,7 @@ export default function NotificationFeedView(props: Props) {
         const busy = props.processingId === item.id;
         return <TouchableOpacity key={item.id} style={[styles.row, !item.readAt && styles.rowUnread, busy && styles.rowBusy]} onPress={() => { if (!item.readAt) props.onSetRead(item, true); props.onOpenNotification(item); }} onLongPress={() => showItemMenu(item)} delayLongPress={350} disabled={busy} accessibilityRole="button" accessibilityLabel={`${item.title}. ${item.message}. ${item.readAt ? 'Read' : 'Unread'}`} accessibilityHint="Opens this update. Long press for more actions.">
           <View style={[styles.icon, { backgroundColor: item.accentBackground }]}><Ionicons name={item.icon} size={20} color={item.accentColor} /></View>
-          <View style={styles.body}><View style={styles.titleRow}><Text style={styles.title} numberOfLines={1}>{item.title}</Text>{!item.readAt ? <View style={styles.unreadDot} /> : null}</View><Text style={styles.time}>{formatNotificationTime(item.createdAt)}</Text><Text style={styles.message} numberOfLines={2}>{item.message}</Text>{item.actorName ? <Text style={styles.actor} numberOfLines={1}>{item.actorName}</Text> : null}</View>
+          <View style={styles.body}><View style={styles.titleRow}><Text style={styles.title} numberOfLines={1}>{item.title}</Text>{!item.readAt ? <View style={styles.unreadDot} /> : null}</View><Text style={styles.time}>{formatNotificationTime(item.createdAt)}</Text><Text style={styles.message} numberOfLines={2}>{item.message}</Text>{item.actorName ? <Text style={styles.actor} numberOfLines={1}>{item.actorName}</Text> : null}{getNotificationAssignmentId(item) && <Text style={styles.assignmentAction}>{t('lifecycle.openAssignment')}</Text>}</View>
           <Ionicons name="chevron-forward" size={16} color={tokens.colors.textSubtle} />
         </TouchableOpacity>;
       })}</View>)}
@@ -98,6 +100,7 @@ export default function NotificationFeedView(props: Props) {
 }
 
 const styles = StyleSheet.create({
+  assignmentAction: { color: tokens.colors.brand, fontWeight: '700', paddingVertical: 8 },
   container: { flex: 1, backgroundColor: tokens.colors.background },
   header: { minHeight: 64, paddingHorizontal: 16, paddingBottom: 8, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: tokens.colors.border, backgroundColor: tokens.colors.surface },
   headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },

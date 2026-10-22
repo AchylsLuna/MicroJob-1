@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { Ionicons } from '@expo/vector-icons';
+import type { Ionicons } from '@expo/vector-icons';
 
 export type NotificationListItem = {
   id: string;
@@ -18,16 +18,33 @@ export type NotificationListItem = {
   entityId: string;
 };
 
-export type NotificationDestination = 'applications' | 'messages' | 'wallet' | 'support' | 'settings' | 'feed';
+export type NotificationDestination = 'applications' | 'messages' | 'wallet' | 'support' | 'settings' | 'disputes' | 'feed';
+
+export const getNotificationAssignmentId = (item: { entityType?: string; entityId?: string; link?: string }): string | undefined => {
+  const match = /^\/(?:worker\/applied-jobs|employer\/applications)\?applicationId=([a-f0-9]{24})(?:&jobId=[a-f0-9]{24})?$/i.exec(item.link || '');
+  if (!match || item.entityType !== 'application' || match[1] !== item.entityId) return undefined;
+  return match[1];
+};
+
+export const getNotificationConversationTarget = (item: { link?: string; actorId?: string; actorName?: string }) => {
+  const match = /^\/(?:worker|employer)\/messages\?startUser=([a-f0-9]{24})&jobId=([a-f0-9]{24})$/i.exec(item.link || '');
+  if (match) return { id: match[1], jobId: match[2], name: item.actorName || undefined };
+  return item.actorId ? { id: item.actorId, name: item.actorName || undefined } : null;
+};
+
+export const getNotificationDisputeId = (item: { entityType?: string; entityId?: string }) =>
+  item.entityType === 'financial_dispute' && /^[a-f0-9]{24}$/i.test(item.entityId || '') ? item.entityId : undefined;
 
 export const resolveNotificationDestination = (item: any): NotificationDestination => {
   const type = String(item?.type || item?.entityType || '').toLowerCase();
   const entityType = String(item?.entityType || '').toLowerCase();
   // Offers are actioned from the offer card in the participant chat.
-  if (entityType === 'job_offer') return 'messages';
+  if (entityType === 'job_offer' || entityType === 'hire_checklist') return 'messages';
+  if (entityType === 'financial_dispute') return 'disputes';
   if (type.includes('message')) return 'messages';
   if (type.includes('application') || type.includes('interview') || type.includes('offer')) return 'applications';
   if (type.includes('payment') || type.includes('payout') || type.includes('invoice') || type.includes('settlement') || entityType === 'payment_request') return 'wallet';
+  if (type.includes('dispute') || entityType === 'financial_dispute') return 'disputes';
   if (type.includes('support')) return 'support';
   if (type.includes('account') || type.includes('security')) return 'settings';
   return 'feed';

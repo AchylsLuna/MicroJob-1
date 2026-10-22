@@ -11,6 +11,13 @@ const run = (gate, user) => {
 
 const staff = (staffRole) => ({ role: 'admin', staffRole });
 
+test('Government ID record listing/revocation and address review share the verification authority', () => {
+  const gate = requirePermission('verification.review');
+  assert.equal(run(gate, staff('moderator')).passed, true);
+  for (const role of ['admin_team', 'support_staff', 'finance_team', 'analytics_team']) assert.equal(run(gate, staff(role)).status, 403);
+  assert.equal(run(gate, { role: 'superadmin' }).passed, true);
+});
+
 /**
  * Regression guard: routes in UserRoute/CategoryRoute/PaymentRoute used to sit
  * behind `requireAdmin` alone, so any staff role — including analytics_team,
@@ -23,9 +30,31 @@ test('analytics_team cannot write to marketplace users', () => {
   assert.equal(run(gate, staff('analytics_team')).status, 403);
 });
 
-test('support_staff is read-only on users despite reaching the admin panel', () => {
+test('support_staff has only its scoped account-recovery actions on users', () => {
   assert.equal(run(requirePermission('users.view'), staff('support_staff')).passed, true);
   assert.equal(run(requirePermission('users.suspend'), staff('support_staff')).passed, false);
+  assert.equal(run(requirePermission('users.resetPassword'), staff('support_staff')).passed, true);
+  assert.equal(run(requirePermission('users.unlock'), staff('support_staff')).passed, true);
+  assert.equal(run(requirePermission('users.ban'), staff('support_staff')).passed, false);
+  assert.equal(run(requirePermission('users.flag'), staff('support_staff')).passed, true);
+  assert.equal(run(requirePermission('users.flags.view'), staff('support_staff')).passed, false);
+});
+
+test('only job managers can change jobs they do not own', () => {
+  const gate = requirePermission('jobs.manage');
+  assert.equal(run(gate, staff('admin_team')).passed, true);
+  assert.equal(run(gate, staff('moderator')).passed, true);
+  assert.equal(run(gate, staff('support_staff')).passed, false);
+  assert.equal(run(gate, staff('analytics_team')).passed, false);
+  assert.equal(run(gate, staff('finance_team')).passed, false);
+});
+
+test('browser-only backup prototype is not allocated to staff roles', () => {
+  const gate = requirePermission('backups.manage');
+  assert.equal(run(gate, { role: 'superadmin' }).passed, true);
+  for (const role of ['admin_team', 'moderator', 'finance_team', 'analytics_team', 'support_staff']) {
+    assert.equal(run(gate, staff(role)).passed, false, `${role} must not pass`);
+  }
 });
 
 test('roles that own user moderation keep write access', () => {
@@ -35,12 +64,20 @@ test('roles that own user moderation keep write access', () => {
   assert.equal(run(gate, { role: 'superadmin' }).passed, true);
 });
 
-test('only admin_team and superadmin may list privileged accounts', () => {
-  const gate = requirePermission('staff.view');
+test('admin_team, moderators, and superadmin may view the Admins tab', () => {
+  const gate = requirePermission('users.staff.view');
   assert.equal(run(gate, staff('admin_team')).passed, true);
   assert.equal(run(gate, { role: 'superadmin' }).passed, true);
-  assert.equal(run(gate, staff('moderator')).passed, false);
+  assert.equal(run(gate, staff('moderator')).passed, true);
   assert.equal(run(gate, staff('finance_team')).passed, false);
+  assert.equal(run(gate, staff('support_staff')).passed, false);
+});
+
+test('finance can review and flag suspicious users without seeing staff accounts', () => {
+  assert.equal(run(requirePermission('users.view'), staff('finance_team')).passed, true);
+  assert.equal(run(requirePermission('users.flags.view'), staff('finance_team')).passed, true);
+  assert.equal(run(requirePermission('users.flag'), staff('finance_team')).passed, true);
+  assert.equal(run(requirePermission('users.staff.view'), staff('finance_team')).passed, false);
 });
 
 test('platform config routes are superadmin-only', () => {
@@ -78,4 +115,11 @@ test('category taxonomy is gated like other job metadata', () => {
   assert.equal(run(gate, staff('support_staff')).passed, true);
   assert.equal(run(gate, staff('finance_team')).passed, false);
   assert.equal(run(gate, staff('analytics_team')).passed, false);
+});
+
+test('legacy transaction audit and cross-account sessions use scoped permissions', () => {
+  assert.equal(run(requirePermission('finance.transactions.view'), staff('finance_team')).passed, true);
+  assert.equal(run(requirePermission('finance.transactions.view'), staff('support_staff')).passed, false);
+  assert.equal(run(requirePermission('audit.view'), staff('admin_team')).passed, true);
+  assert.equal(run(requirePermission('audit.view'), staff('moderator')).passed, false);
 });

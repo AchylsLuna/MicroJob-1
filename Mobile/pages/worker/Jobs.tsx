@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Animated, Platform, ScrollView, View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Modal } from 'react-native';
+import { Animated, Platform, RefreshControl, ScrollView, View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
 import { useAppSession } from '../../contexts/AppSessionContext';
@@ -13,6 +13,7 @@ import CalendarSheet from '../../components/ui/CalendarSheet';
 import { isDateDisabled, type DateRange } from '../../lib/calendarModel';
 import useHideOnScroll from '../../hooks/useHideOnScroll';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Category = { _id: string; name: string };
 export type Job = {
@@ -23,15 +24,27 @@ export type Job = {
   salary: string;
   jobType: string;
   urgent?: boolean;
+  highlighted?: boolean;
+  discoveryPriority?: number;
   skills?: string[];
   createdAt?: string;
   deadline?: string;
   category?: { _id: string; name: string } | string;
   jobPoster?: { _id?: string; id?: string; firstName?: string; lastName?: string; email?: string };
   applicationStatus?: string | null;
+  isOwnJob?: boolean;
+  /**
+   * Only present on results from /jobs/recommended. The ordinary jobs list
+   * leaves this undefined, which is what keeps the match pill off those cards.
+   */
+  match?: { percentage?: number; level?: string; reasons?: string[] };
 };
 
 type DateFilterPreset = 'all' | '7' | '30' | 'custom';
+
+// The server clamps this to 50 and defaults to 12. Kept modest because the rail
+// scrolls horizontally rather than paginating.
+const RECOMMENDED_FETCH_LIMIT = 8;
 
 type JobsProps = {
   onViewDetails?: (job: Job) => void;
@@ -64,9 +77,11 @@ export default function Jobs(props: JobsProps) {
     initialCategory,
   } = props;
   const { t } = useTranslation('worker');
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [recommendedJobs, setRecommendedJobs] = useState<Job[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedJobType, setSelectedJobType] = useState<string>('All');
   const [dateFilter, setDateFilter] = useState<DateFilterPreset>('all');
@@ -82,8 +97,10 @@ export default function Jobs(props: JobsProps) {
   const [showMatchingPreferences, setShowMatchingPreferences] = useState(false);
   const [savingPreferences, setSavingPreferences] = useState(false);
   const [showFilterSheet, setShowFilterSheet] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const session = useAppSession();
+  const { registerActivity } = session;
   const firstName = String(session.user?.firstName || '').trim() || t('jobs.home.fallbackName');
   const { onScroll, onHeaderLayout, headerStyle, headerHeight } = useHideOnScroll();
 
@@ -164,6 +181,11 @@ export default function Jobs(props: JobsProps) {
     });
   }, [jobs, searchQuery, deadlineRange]);
 
+  const hasNoRealMatches = useMemo(
+    () => recommendedJobs.length > 0 && recommendedJobs.every((job) => !job.match?.percentage),
+    [recommendedJobs],
+  );
+
   const nearestJobs = useMemo(
     () =>
       [...filteredJobs]
@@ -208,6 +230,29 @@ export default function Jobs(props: JobsProps) {
     }
   }, [t]);
 
+  // Deliberately independent of fetchJobs. That one refuses to run without a
+  // city, but recommendations rank nationally and need no location at all, so
+  // keeping them on their own state means a worker who has not set a city yet
+  // still gets something usable instead of only an error.
+  const fetchRecommendedJobs = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) return;
+      const result = await apiRequest<Job[]>(
+        `${API_URL}/jobs/recommended?limit=${RECOMMENDED_FETCH_LIMIT}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+        t('jobs.apiFallback.loadRecommendedFailed'),
+      );
+      // Supplementary content: on failure the section simply does not render,
+      // rather than pushing an error above the job list.
+      if (result.ok) setRecommendedJobs(asList<Job>(result.raw, ['jobs']));
+      else setRecommendedJobs([]);
+    } catch (error) {
+      console.error('Failed to load recommended jobs:', error);
+      setRecommendedJobs([]);
+    }
+  }, [t]);
+
   const fetchJobs = useCallback(async () => {
     if (!locationLoaded) return;
     if (!workerLocation.city.trim()) {
@@ -248,9 +293,20 @@ export default function Jobs(props: JobsProps) {
     }
   }, [locationLoaded, searchQuery, selectedCategory, selectedJobType, workerLocation.city, t]);
 
+  const refreshJobs = useCallback(async () => {
+    registerActivity();
+    setIsRefreshing(true);
+    try {
+      await Promise.all([fetchJobs(), fetchRecommendedJobs()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [fetchJobs, fetchRecommendedJobs, registerActivity]);
+
   useEffect(() => {
     fetchCategories();
     fetchAppliedJobs();
+    fetchRecommendedJobs();
     // Load current user ID to prevent messaging self
     const loadCurrentUserId = async () => {
       try {
@@ -264,7 +320,7 @@ export default function Jobs(props: JobsProps) {
       }
     };
     loadCurrentUserId();
-  }, [fetchCategories, fetchAppliedJobs]);
+  }, [fetchCategories, fetchAppliedJobs, fetchRecommendedJobs]);
 
   useEffect(() => {
     const loadWorkerLocation = async () => {
@@ -381,7 +437,10 @@ export default function Jobs(props: JobsProps) {
 
   return (
     <View style={styles.container}>
-      <Animated.View style={[styles.headerWrap, headerStyle]} onLayout={onHeaderLayout}>
+      <Animated.View
+        style={[styles.headerWrap, { paddingTop: insets.top }, headerStyle]}
+        onLayout={onHeaderLayout}
+      >
         <View style={styles.header}>
           <View style={styles.headerCopy}>
             <Text style={styles.greeting} numberOfLines={1}>{t('jobs.home.greeting', { name: firstName })}</Text>
@@ -404,14 +463,34 @@ export default function Jobs(props: JobsProps) {
       </Animated.View>
 
       <Animated.ScrollView
-        contentContainerStyle={[styles.scroll, { paddingTop: headerHeight + 8 }]}
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scroll, {
+          paddingTop: headerHeight + 8,
+          paddingBottom: Math.max(tokens.layout.tabBarClearance, 84 + insets.bottom),
+        }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         removeClippedSubviews={Platform.OS === 'android'}
         onScroll={onScroll}
         scrollEventThrottle={16}
+        decelerationRate="fast"
+        refreshControl={(
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => void refreshJobs()}
+            tintColor={tokens.colors.brand}
+            colors={[tokens.colors.brand]}
+            progressViewOffset={headerHeight + 8}
+          />
+        )}
       >
+        {isRefreshing ? (
+          <View style={styles.refreshStatus} accessibilityLiveRegion="polite">
+            <ActivityIndicator color={tokens.colors.brand} />
+            <Text style={styles.refreshStatusText}>{t('jobs.toolbar.refreshLabel')}</Text>
+          </View>
+        ) : null}
         <View style={styles.searchRow}>
         <View style={styles.searchContainer}>
           <Ionicons name="search-outline" size={18} color={tokens.colors.textSubtle} />
@@ -463,6 +542,37 @@ export default function Jobs(props: JobsProps) {
           <Text style={styles.sectionCount}>{t('jobs.jobsAvailable', { count: filteredJobs.length })}</Text>
         </View>
 
+        {/* A worker with an empty profile still gets results here -- the server
+            scores everything at zero and falls back to recency -- so an
+            all-zero response is shown as a prompt rather than passed off as
+            personalised matches. */}
+        {recommendedJobs.length > 0 ? (
+          <View style={styles.recommendedCard}>
+            <Text style={styles.recommendedTitle}>{t('jobs.recommended.title')}</Text>
+            {hasNoRealMatches ? (
+              <Text style={styles.recommendedEmpty}>{t('jobs.recommended.emptyProfileBody')}</Text>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.recommendedRail}
+              >
+                {recommendedJobs.map((job) => (
+                  <JobCard
+                    key={`recommended-${job._id}`}
+                    job={toJobCardData(job)}
+                    variant="carousel"
+                    showMatch
+                    saved={savedJobIds.includes(job._id)}
+                    onPress={() => onViewDetails?.(job)}
+                    onToggleSave={() => onToggleSave?.(job)}
+                  />
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        ) : null}
+
         {nearestJobs.length > 0 ? (
           <View style={styles.nearestCard}>
             <Text style={styles.nearestTitle}>{t('jobs.nearest.title')}</Text>
@@ -498,10 +608,7 @@ export default function Jobs(props: JobsProps) {
             const canMessageEmployer = Boolean(
               job.jobPoster &&
                 currentUserId &&
-                !(
-                  (typeof job.jobPoster === 'string' && job.jobPoster === currentUserId) ||
-                  (typeof job.jobPoster === 'object' && (job.jobPoster._id === currentUserId || job.jobPoster.id === currentUserId))
-                ),
+                !job.isOwnJob,
             );
             return (
               <JobCard
@@ -731,7 +838,16 @@ export default function Jobs(props: JobsProps) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.colors.background },
-  scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: tokens.layout.tabBarClearance, gap: 14 },
+  scrollView: { flex: 1 },
+  scroll: { flexGrow: 1, paddingHorizontal: 16, paddingTop: 8, paddingBottom: tokens.layout.tabBarClearance, gap: 14 },
+  refreshStatus: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  refreshStatusText: { fontSize: 12, fontWeight: '700', color: tokens.colors.brand },
   headerWrap: {
     position: 'absolute',
     top: 0,
@@ -787,13 +903,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.colors.border,
     paddingHorizontal: 14,
-    height: 52,
+    minHeight: 52,
     gap: 10,
   },
   searchInput: { flex: 1, fontSize: 14, color: tokens.colors.text },
   filterButton: {
     width: 52,
-    height: 52,
+    minHeight: 52,
     borderRadius: tokens.radius.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -945,6 +1061,31 @@ const styles = StyleSheet.create({
   },
   filterChipTextActive: {
     color: tokens.colors.onBrand,
+  },
+  // Colours come from theme tokens rather than literals: checkTheme.cjs counts
+  // hardcoded colour values against a budget that currently has no headroom.
+  recommendedCard: {
+    marginTop: 4,
+    backgroundColor: tokens.colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+    padding: 10,
+    gap: 8,
+  },
+  recommendedTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: tokens.colors.sectionText,
+  },
+  recommendedEmpty: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: tokens.colors.textMuted,
+  },
+  recommendedRail: {
+    gap: 10,
+    paddingRight: 4,
   },
   nearestCard: {
     marginTop: 4,

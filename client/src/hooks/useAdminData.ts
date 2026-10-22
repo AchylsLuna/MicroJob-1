@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "../lib/toast";
 import {
   getAdminStats,
+  getAdminAnalyticsData,
   getAdminUsers,
   getAdminJobs,
   getAdminCategories,
@@ -24,8 +25,17 @@ export type AdminUser = {
   email: string;
   createdAt?: string;
   phoneNumber?: string | null;
+  staffRole?: "admin_team" | "moderator" | "finance_team" | "analytics_team" | "support_staff" | null;
   role?: "user" | "employer" | "admin" | "doctor" | "hire" | "work" | "both" | "superadmin";
-  status?: "active" | "pending" | "disabled" | "deleted";
+  status?: "active" | "pending" | "disabled" | "banned" | "deleted";
+  loginLocked?: boolean;
+  otpEnabled?: boolean;
+  bannedAt?: string | null;
+  banReason?: string | null;
+  suspiciousFlagged?: boolean;
+  suspiciousFlagReason?: string | null;
+  suspiciousFlaggedAt?: string | null;
+  suspiciousFlaggedBy?: string | null;
   deletedAt?: string | null;
   redactedAt?: string | null;
   verification?: {
@@ -49,6 +59,13 @@ export type AdminUser = {
 export type AdminJob = {
   _id: string;
   title: string;
+  description?: string;
+  jobType?: string;
+  deadline?: string;
+  skills?: string[];
+  requirements?: string[];
+  responsibilities?: string[];
+  positionsNeeded?: number;
   status?: "Available" | "In Progress" | "Completed" | "Cancelled";
   salary?: string | number;
   location?: string;
@@ -77,6 +94,7 @@ type AdminStats = {
   totalJobs: number;
   availableJobs: number;
   completedJobs: number;
+  uniqueApplicants: number;
   totalTransactions: number;
   completedPayoutVolume: number;
   totalCategories: number;
@@ -101,6 +119,7 @@ const DEFAULT_ADMIN_STATS: AdminStats = {
   totalJobs: 0,
   availableJobs: 0,
   completedJobs: 0,
+  uniqueApplicants: 0,
   totalTransactions: 0,
   completedPayoutVolume: 0,
   totalCategories: 0,
@@ -142,8 +161,9 @@ export function useAdminData() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const [statResult, userList, jobList, categoryList, walletResult, payoutsResult, txResult] =
+        const [analyticsResult, statResult, userList, jobList, categoryList, walletResult, payoutsResult, txResult] =
           await Promise.allSettled([
+            getAdminAnalyticsData(),
             getAdminStats(),
             getAdminUsers(),
             getAdminJobs(),
@@ -161,21 +181,24 @@ export function useAdminData() {
             unexpectedErrors.push((result.reason as any)?.message || "Failed to load admin data.");
           }
         };
-        [statResult, userList, jobList, categoryList, walletResult, payoutsResult, txResult].forEach(collect);
+        [analyticsResult, statResult, userList, jobList, categoryList, walletResult, payoutsResult, txResult].forEach(collect);
+
+        const analyticsData = analyticsResult.status === "fulfilled" ? analyticsResult.value : null;
 
         setStats({
           ...DEFAULT_ADMIN_STATS,
+          ...(analyticsData?.stats || {}),
           ...(statResult.status === "fulfilled" && typeof statResult.value === "object" ? statResult.value : {}),
         });
-        setUsers(userList.status === "fulfilled" && Array.isArray(userList.value) ? userList.value : []);
-        setJobs(jobList.status === "fulfilled" && Array.isArray(jobList.value) ? jobList.value : []);
+        setUsers(userList.status === "fulfilled" && Array.isArray(userList.value) ? userList.value : analyticsData?.users || []);
+        setJobs(jobList.status === "fulfilled" && Array.isArray(jobList.value) ? jobList.value : analyticsData?.jobs || []);
         setCategories(categoryList.status === "fulfilled" && Array.isArray(categoryList.value) ? categoryList.value : []);
         setWalletStats({
           ...DEFAULT_ADMIN_WALLET_STATS,
           ...(walletResult.status === "fulfilled" && typeof walletResult.value === "object" ? walletResult.value : {}),
         });
         setRecentPayouts(payoutsResult.status === "fulfilled" && Array.isArray(payoutsResult.value) ? payoutsResult.value : []);
-        setTransactions(txResult.status === "fulfilled" && Array.isArray(txResult.value) ? txResult.value : []);
+        setTransactions(txResult.status === "fulfilled" && Array.isArray(txResult.value) ? txResult.value : analyticsData?.transactions || []);
 
         if (unexpectedErrors.length) {
           const message = unexpectedErrors[0];
@@ -301,6 +324,7 @@ export function useAdminData() {
       case "active":
         return "bg-[#D1FAE5] text-[#065F46]";
       case "disabled":
+      case "banned":
         return "bg-[#FEE2E2] text-[#991B1B]";
       case "deleted":
         return "bg-[#E5E7EB] text-[#374151]";
@@ -319,7 +343,7 @@ export function useAdminData() {
       case "employer":
       case "doctor":
       case "hire":
-        return "bg-[#1C4D8D]/10 text-[#1C4D8D]";
+        return "bg-brand/10 text-brand";
       case "user":
       case "both":
         return "bg-[#FDE68A] text-[#92400E]";
@@ -333,7 +357,7 @@ export function useAdminData() {
       case "Available":
         return "bg-[#D1FAE5] text-[#065F46]";
       case "In Progress":
-        return "bg-[#1C4D8D]/10 text-[#1C4D8D]";
+        return "bg-brand/10 text-brand";
       case "Completed":
         return "bg-[#E9D5FF] text-[#6B21A8]";
       case "Cancelled":
@@ -363,7 +387,7 @@ export function useAdminData() {
   };
 
   const handleToggleUserStatus = async (u: AdminUser) => {
-    const nextStatus = u.status === "disabled" ? "active" : "disabled";
+    const nextStatus = u.status === "disabled" || u.status === "banned" ? "active" : "disabled";
     try {
       await updateUserStatus(u._id, nextStatus);
       setUsers((prev) => prev.map((item) => (item._id === u._id ? { ...item, status: nextStatus } : item)));
@@ -373,7 +397,7 @@ export function useAdminData() {
     }
   };
 
-  const handleEditUser = async (userId: string, payload: { firstName: string; lastName: string; role: string; status: 'active' | 'pending' | 'disabled' }) => {
+  const handleEditUser = async (userId: string, payload: { firstName: string; lastName: string; role: string; status: 'active' | 'pending' | 'disabled' | 'banned' }) => {
     const result = await updateUserByAdmin(userId, payload);
     setUsers((current) => current.map((item) => item._id === userId ? result.user : item));
     return result.user as AdminUser;

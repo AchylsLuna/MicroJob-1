@@ -1,13 +1,19 @@
+import { WorkTimeSummary } from '../../components/WorkTimeSummary';
+import { WorkSubmission } from '../../components/WorkSubmission';
+import { AssignmentPanel } from '../../components/AssignmentPanel';
+import { OfferResponseDeadline } from '../../components/OfferResponseDeadline';
+import { offerResponseStatus } from '../../lib/offerResponse';
+import { useOfferExpiry } from '../../hooks/useOfferExpiry';
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { BriefcaseBusiness, CalendarDays, MapPin, Star } from "lucide-react";
 import { jobsAPI } from "../../services/jobs";
-import { getEligibleReviews, type ApplicationStatus, type JobOffer, type ReviewEligibilityItem } from "../../services/api";
+import { getEligibleReviews, openPaymentDispute, type ApplicationStatus, type JobOffer, type ReviewEligibilityItem } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
 import { RatingDialog, type RatingTarget } from "../../components/reviews/RatingDialog";
-import { ConfirmDialog } from "../../components/ui/index";
+import { ConfirmDialog, Dialog } from "../../components/ui/index";
 import { toast } from "../../lib/toast";
 import { formatCurrency, formatDate } from "../../lib/formatters";
 
@@ -17,6 +23,9 @@ interface JobData {
   location: string;
   salary: string;
   jobType: string;
+  paymentMode?: string;
+  workStartTime?: string | null;
+  workEndTime?: string | null;
   description: string;
   deadline?: string;
   status?: string;
@@ -32,6 +41,7 @@ interface Application {
   offer?: JobOffer | null;
   workStatus?: string;
   paymentStatus?: string;
+  agreedAmount?: number;
 }
 
 const FILTER_OPTIONS: Array<"All" | ApplicationStatus> = [
@@ -56,32 +66,41 @@ const STATUS_LABEL_KEYS: Record<"All" | ApplicationStatus, string> = {
   Hired: "hired",
   Rejected: "rejected",
   Withdrawn: "withdrawn",
+  Cancelled: "cancelled",
+  "Position filled": "positionFilled",
 };
 
 const getStatusLabel = (t: TFunction, status: "All" | ApplicationStatus) =>
   t(`appliedJobs.statusLabels.${STATUS_LABEL_KEYS[status]}`);
 
-const formatMinimumPay = (t: TFunction, value?: string) => {
+const formatMinimumPay = (t: TFunction, value?: string, paymentMode?: string) => {
   const amount = Number(String(value || "").replace(/[^0-9.]/g, ""));
   if (!Number.isFinite(amount) || amount <= 0) return value || t("appliedJobs.card.payFallback");
+  if (paymentMode === 'daily') return t('lifecycle.dailyRate', { ns: 'common', amount: amount.toLocaleString('en-PH') });
   return t("appliedJobs.card.minimumPay", { amount: formatCurrency(amount, { maximumFractionDigits: 0 }) });
 };
 
 const AppliedJobs: React.FC = () => {
   const { t } = useTranslation("worker");
+  const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const requestedApplicationId = searchParams.get('applicationId');
   const requestedStatus = searchParams.get("status") || "All";
   const initialFilter = FILTER_OPTIONS.includes(requestedStatus as "All" | ApplicationStatus)
     ? requestedStatus as "All" | ApplicationStatus
     : "All";
   const [selectedFilter, setSelectedFilter] = useState<"All" | ApplicationStatus>(initialFilter);
   const [applications, setApplications] = useState<Application[]>([]);
+  useOfferExpiry(applications.map((application) => application.offer));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reviewEligibility, setReviewEligibility] = useState<Record<string, ReviewEligibilityItem>>({});
   const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
+  const [disputeTarget, setDisputeTarget] = useState<Application | null>(null);
+  const [disputeReason, setDisputeReason] = useState("");
+  const [disputeError, setDisputeError] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     title: string;
     description: string;
@@ -150,7 +169,7 @@ const AppliedJobs: React.FC = () => {
     const offer = application.offer;
     setConfirmAction({
       title: t("appliedJobs.confirmAcceptOffer.title"),
-      description: t("appliedJobs.confirmAcceptOffer.description", { amount: formatCurrency(offer.amount) }),
+      description: `${t("appliedJobs.confirmAcceptOffer.description", { amount: formatCurrency(offer.amount) })} ${tc("lifecycle.terms")}`,
       confirmLabel: t("appliedJobs.confirmAcceptOffer.confirm"),
       run: () => runOfferAction(application._id, () => jobsAPI.respondToJobOffer(offer.id, "accept"), t("appliedJobs.toast.offerAccepted")),
     });
@@ -175,17 +194,36 @@ const AppliedJobs: React.FC = () => {
     void action.run();
   };
 
-  const handleSubmitWork = (application: Application) => {
-    void runOfferAction(application._id, () => jobsAPI.submitWork(application._id), t("appliedJobs.toast.workSubmitted"));
+
+  const handleOpenDispute = (application: Application) => {
+    setDisputeTarget(application);
+    setDisputeReason("");
+    setDisputeError(null);
+  };
+
+  const handleSubmitDispute = async () => {
+    if (!disputeTarget) return;
+    const reason = disputeReason.trim();
+    if (!reason) {
+      setDisputeError(t("appliedJobs.paymentDispute.reasonRequired"));
+      return;
+    }
+    const target = disputeTarget;
+    setDisputeTarget(null);
+    await runOfferAction(
+      target._id,
+      () => openPaymentDispute(target._id, reason),
+      t("appliedJobs.paymentDispute.opened"),
+    );
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Applied": return "bg-slate-100 text-slate-700";
-      case "Shortlisted": return "bg-blue-100 text-blue-700";
+      case "Shortlisted": return "bg-brand-100 text-brand-700";
       case "Interview Scheduled": return "bg-cyan-100 text-cyan-700";
       case "Interviewed": return "bg-sky-100 text-sky-700";
-      case "Offer Sent": return "bg-[#EAF2FC] text-[#1C4D8D]";
+      case "Offer Sent": return "bg-[#EAF2FC] text-brand";
       case "Hired": return "bg-green-100 text-green-700";
       case "Rejected": return "bg-red-100 text-red-700";
       case "Withdrawn": return "bg-gray-100 text-gray-600";
@@ -208,24 +246,25 @@ const AppliedJobs: React.FC = () => {
       : t("appliedJobs.emptyState.descriptionFiltered", { stage: getStatusLabel(t, selectedFilter) });
 
   return (
-    <div className="ui-page px-4 pb-16 md:px-0">
+    <div className="ui-page pb-16">
+      {requestedApplicationId && <AssignmentPanel key={requestedApplicationId} applicationId={requestedApplicationId} defaultOpen hideTrigger onChanged={() => void fetchApplications()} onClose={() => { const next = new URLSearchParams(searchParams); next.delete('applicationId'); setSearchParams(next, { replace: true }); }} />}
       <div className="ui-page-header">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1C4D8D]">{t("appliedJobs.eyebrow")}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">{t("appliedJobs.eyebrow")}</p>
           <h1 className="ui-page-title mt-1">{t("appliedJobs.title")}</h1>
           <p className="ui-page-subtitle">{t("appliedJobs.subtitle")}</p>
         </div>
         <button
           type="button"
           onClick={() => navigate(ROUTES.worker.findJobs)}
-          className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#1C4D8D] px-5 text-sm font-semibold text-white transition hover:bg-[#163F75]"
+          className="inline-flex h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white transition hover:opacity-90"
         >
           <BriefcaseBusiness className="h-4 w-4" />
           {t("appliedJobs.findJobsButton")}
         </button>
       </div>
 
-      <div className="ui-card flex flex-col gap-3 rounded-2xl border-slate-200 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <div className="ui-card flex flex-col gap-3 rounded-card border-slate-200 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-base font-bold text-slate-900">
             {loading ? t("appliedJobs.summary.loading") : t("appliedJobs.summary.count", { count: applications.length })}
@@ -237,7 +276,7 @@ const AppliedJobs: React.FC = () => {
           <select
             value={selectedFilter}
             onChange={(event) => updateFilter(event.target.value as "All" | ApplicationStatus)}
-            className="h-11 min-w-48 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#1C4D8D] focus:ring-2 focus:ring-blue-100"
+            className="h-11 min-w-48 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-brand focus:ring-2 focus:ring-brand-100"
           >
             {FILTER_OPTIONS.map((filter) => <option key={filter} value={filter}>{getStatusLabel(t, filter)}</option>)}
           </select>
@@ -247,13 +286,13 @@ const AppliedJobs: React.FC = () => {
       <div>
           {/* Job Cards */}
           {loading && (
-            <div className="bg-white rounded-2xl p-8 shadow-sm text-center text-gray-600">
+            <div className="bg-white rounded-card p-8 shadow-sm text-center text-gray-600">
               {t("appliedJobs.summary.loading")}
             </div>
           )}
 
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-red-700 mb-6">
+            <div className="bg-red-50 border border-red-200 rounded-card p-6 text-red-700 mb-6">
               {error}
             </div>
           )}
@@ -262,17 +301,17 @@ const AppliedJobs: React.FC = () => {
             {filteredApplications.map((application) => (
               <article
                 key={application._id}
-                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#B8CBE5] hover:shadow-md"
+                className="rounded-card border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#B8CBE5] hover:shadow-md"
               >
                 <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#1C4D8D] text-lg font-bold text-white">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand text-lg font-bold text-white">
                     {application.job?.title?.charAt(0) || "J"}
                   </div>
 
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
-                        <h2 className="truncate text-lg font-bold text-slate-900">{application.job?.title || t("appliedJobs.card.unavailableJob")}</h2>
+                        <h2 className="truncate text-section font-bold text-slate-900">{application.job?.title || t("appliedJobs.card.unavailableJob")}</h2>
                         <p className="mt-1 text-sm text-slate-500">
                           {application.job?.jobPoster?.companyName ||
                             `${application.job?.jobPoster?.firstName || ""} ${application.job?.jobPoster?.lastName || ""}`.trim() ||
@@ -285,12 +324,13 @@ const AppliedJobs: React.FC = () => {
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-[#EAF2FC] px-3 py-1 text-xs font-semibold text-[#1C4D8D]">
+                      <span className="rounded-full bg-[#EAF2FC] px-3 py-1 text-xs font-semibold text-brand">
                         {application.job?.jobType || t("appliedJobs.card.jobTypeFallback")}
                       </span>
                       <span className="text-sm font-bold text-emerald-700">
-                        {formatMinimumPay(t, application.job?.salary)}
+                        {formatMinimumPay(t, application.job?.salary, application.job?.paymentMode)}
                       </span>
+                      {application.job?.paymentMode === 'daily' && <WorkTimeSummary start={application.job.workStartTime} end={application.job.workEndTime} rate={application.job.salary} />}
                     </div>
 
                     <p className="mt-3 flex items-start gap-1.5 text-sm text-slate-500">
@@ -302,9 +342,10 @@ const AppliedJobs: React.FC = () => {
                       {application.job?.description || t("appliedJobs.card.descriptionFallback")}
                     </p>
 
-                    {application.status === "Offer Sent" && application.offer?.status === "pending" ? (
+                    {application.offer && <OfferResponseDeadline offer={application.offer} />}
+                    {application.status === "Offer Sent" && application.offer && offerResponseStatus(application.offer) === "pending" ? (
                       <div className="mt-4 rounded-xl border border-[#B8CBE5] bg-[#EAF2FC] p-3">
-                        <p className="text-sm font-semibold text-[#1C4D8D]">
+                        <p className="text-sm font-semibold text-brand">
                           {t("appliedJobs.offerPanel.title", { amount: formatCurrency(application.offer.amount) })}
                         </p>
                         <div className="mt-2 flex flex-wrap gap-2">
@@ -312,7 +353,7 @@ const AppliedJobs: React.FC = () => {
                             type="button"
                             disabled={actionBusyId === application._id}
                             onClick={() => handleAcceptOffer(application)}
-                            className="inline-flex h-10 items-center justify-center rounded-xl bg-[#1C4D8D] px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="inline-flex h-10 items-center justify-center rounded-xl bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {t("appliedJobs.offerPanel.accept", { amount: formatCurrency(application.offer.amount) })}
                           </button>
@@ -328,20 +369,22 @@ const AppliedJobs: React.FC = () => {
                       </div>
                     ) : null}
 
-                    {application.status === "Hired" && ["In Progress", "Changes Requested"].includes(application.workStatus || "In Progress") ? (
-                      <div className="mt-4">
+                    {application.status === "Hired" && application.workStatus === "Submitted" && application.paymentStatus === "Disputed" ? (
+                      <div className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+                        <p>{t("appliedJobs.paymentDispute.onHold")}</p>
                         <button
                           type="button"
-                          disabled={actionBusyId === application._id}
-                          onClick={() => handleSubmitWork(application)}
-                          className="inline-flex h-10 items-center justify-center rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          onClick={() => navigate(ROUTES.worker.financialDisputes)}
+                          className="mt-2 font-semibold text-amber-950 underline underline-offset-2"
                         >
-                          {t("appliedJobs.submitWork.button")}
+                          {t("appliedJobs.paymentDispute.viewExisting")}
                         </button>
                       </div>
                     ) : null}
 
-                    <div className="mt-5 flex flex-col gap-4 border-t border-slate-100 pt-4">
+                  </div>
+                </div>
+                    <div className="mt-5 flex min-w-0 flex-col gap-4 border-t border-slate-100 pt-4">
                       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
                         <span className="inline-flex items-center gap-1.5">
                           <CalendarDays className="h-3.5 w-3.5" />
@@ -354,7 +397,8 @@ const AppliedJobs: React.FC = () => {
                           </span>
                         ) : null}
                       </div>
-                      <div className="flex flex-wrap justify-end gap-2">
+                      <div className="overflow-x-auto">
+                      <div className="flex w-max min-w-full items-center justify-end gap-2 py-1">
                       {reviewEligibility[application._id]?.canReview ? (
                         <button
                           type="button"
@@ -376,6 +420,9 @@ const AppliedJobs: React.FC = () => {
                           <Star className="h-4 w-4 fill-emerald-600" /> {t("appliedJobs.card.reviewSubmitted")}
                         </span>
                       ) : null}
+                      {['Hired', 'Cancelled', 'Position filled'].includes(application.status) && <AssignmentPanel applicationId={application._id} onChanged={() => void fetchApplications()} />}
+                      {application.status === 'Hired' && !['Paid', 'Processing', 'Disputed', 'Refunded'].includes(application.paymentStatus || '') && ['In Progress', 'Changes Requested', 'Submitted'].includes(application.workStatus || 'In Progress') && <WorkSubmission applicationId={application._id} resubmission={application.workStatus === 'Submitted' || application.workStatus === 'Changes Requested'} onChanged={() => void fetchApplications()} />}
+                      {application.status === 'Hired' && application.workStatus === 'Submitted' && !['Paid', 'Disputed'].includes(application.paymentStatus || '') && <button type="button" disabled={actionBusyId === application._id} onClick={() => handleOpenDispute(application)} className="inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-red-200 px-4 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50">{t('appliedJobs.paymentDispute.openButton')}</button>}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -383,27 +430,26 @@ const AppliedJobs: React.FC = () => {
                             state: { isApplied: true, status: application.status }
                           });
                         }}
-                        className="h-10 rounded-xl bg-[#1C4D8D] px-5 text-sm font-semibold text-white transition hover:bg-[#163F75]"
+                        className="min-h-11 shrink-0 whitespace-nowrap rounded-xl bg-brand px-5 text-sm font-semibold text-white transition hover:opacity-90"
                       >
                         {t("appliedJobs.card.viewDetails")}
                       </button>
                       </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
               </article>
             ))}
           </div>
 
           {/* Empty State */}
           {!loading && filteredApplications.length === 0 && (
-            <div className="rounded-[20px] border border-[#E5E7EB] bg-white px-8 py-12 text-center shadow-sm sm:px-12">
+            <div className="rounded-[20px] border border-[#E5E7EB] bg-white px-5 py-8 text-center shadow-sm sm:px-12 sm:py-12">
               <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
-                <div className="mb-4 inline-flex items-center rounded-full bg-[#F8FAFC] px-3 py-1 text-[12px] font-medium text-[#64748B]">
+                <div className="mb-4 inline-flex items-center rounded-full bg-[#F8FAFC] px-3 py-1 text-caption font-medium text-slate-500">
                   {emptyStateLabel}
                 </div>
 
-                <h3 className="max-w-xl text-[28px] font-bold tracking-[-0.02em] text-[#111827] sm:text-[32px]">
+                <h3 className="max-w-xl text-section sm:text-[28px] font-bold tracking-[-0.02em] text-[#111827] sm:text-[32px]">
                   {emptyStateTitle}
                 </h3>
 
@@ -414,7 +460,7 @@ const AppliedJobs: React.FC = () => {
                 <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
                   <button
                     onClick={() => navigate(ROUTES.worker.findJobs)}
-                    className="inline-flex items-center justify-center rounded-[14px] bg-[#1C4D8D] px-5 py-3 text-[15px] font-semibold text-white transition hover:opacity-90"
+                    className="inline-flex items-center justify-center rounded-card bg-brand px-5 py-3 text-[15px] font-semibold text-white transition hover:opacity-90"
                   >
                     {t("appliedJobs.emptyState.browseJobs")}
                   </button>
@@ -422,7 +468,7 @@ const AppliedJobs: React.FC = () => {
                   {selectedFilter !== "All" ? (
                     <button
                       onClick={() => updateFilter("All")}
-                      className="inline-flex items-center gap-2 rounded-[14px] border border-[#E5E7EB] bg-white px-5 py-3 text-[15px] font-semibold text-[#334155] transition hover:bg-[#F8FAFC]"
+                      className="inline-flex items-center gap-2 rounded-card border border-[#E5E7EB] bg-white px-5 py-3 text-[15px] font-semibold text-[#334155] transition hover:bg-[#F8FAFC]"
                     >
                       {t("appliedJobs.emptyState.showAll")}
                     </button>
@@ -435,6 +481,35 @@ const AppliedJobs: React.FC = () => {
       {ratingTarget ? (
         <RatingDialog target={ratingTarget} onClose={() => setRatingTarget(null)} onSubmitted={loadReviewEligibility} />
       ) : null}
+      <Dialog
+        open={Boolean(disputeTarget)}
+        title={t("appliedJobs.paymentDispute.title")}
+        description={t("appliedJobs.paymentDispute.description", { subject: disputeTarget?.job.title || "" })}
+        onClose={() => setDisputeTarget(null)}
+      >
+        <div className="space-y-4">
+          <label className="block text-sm font-semibold text-slate-700">
+            {t("appliedJobs.paymentDispute.reasonLabel")}
+            <textarea
+              rows={4}
+              maxLength={2000}
+              value={disputeReason}
+              onChange={(event) => { setDisputeReason(event.target.value); setDisputeError(null); }}
+              className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm font-normal"
+            />
+            {disputeError ? <span className="mt-1 block text-xs text-red-700">{disputeError}</span> : null}
+          </label>
+          <p className="text-xs text-amber-800">{t("appliedJobs.paymentDispute.holdNotice")}</p>
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setDisputeTarget(null)} className="min-h-11 rounded-xl border border-slate-300 px-4 text-sm font-semibold">
+              {t("appliedJobs.paymentDispute.cancel")}
+            </button>
+            <button type="button" disabled={!disputeReason.trim()} onClick={() => void handleSubmitDispute()} className="min-h-11 rounded-xl bg-red-700 px-4 text-sm font-semibold text-white disabled:opacity-60">
+              {t("appliedJobs.paymentDispute.submit")}
+            </button>
+          </div>
+        </div>
+      </Dialog>
       <ConfirmDialog
         open={Boolean(confirmAction)}
         title={confirmAction?.title || ""}

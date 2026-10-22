@@ -205,6 +205,19 @@
       "submitWork": "Isumite ang Trabaho",
       "message": "Mensahe"
     },
+    "paymentDispute": {
+      "openButton": "Magbukas ng dispute sa bayad",
+      "onHold": "Naka-hold ang bayad habang sinusuri ng finance team ang dispute na ito.",
+      "title": "Magbukas ng dispute sa bayad",
+      "description": "Ipaliwanag ang isyu sa bayad para sa {{title}}.",
+      "reasonPlaceholder": "Ilarawan ang isyu sa bayad",
+      "reasonRequired": "Kinakailangan ang dahilan.",
+      "submitFailed": "Hindi mabuksan ang dispute sa bayad.",
+      "holdNotice": "Mananatiling naka-secure ang bayad hanggang masuri ng finance admin ang kaso.",
+      "opened": "Nabuksan ang dispute sa bayad.",
+      "cancel": "Kanselahin",
+      "submit": "Isumite ang dispute"
+    },
     "withdrawButton": {
       "label": "Bawiin"
     },
@@ -643,6 +656,7 @@
       "appliedLabel": "Naisumite na",
       "applyAccessibility": "Mag-apply para sa trabahong ito",
       "appliedAccessibility": "Naisumite na ang aplikasyon",
+      "jobFinished": "Tapos na ang Trabaho",
       "messageLabel": "Mensahihan ang Employer",
       "messageAccessibility": "Mensahihan ang employer"
     },
@@ -749,12 +763,19 @@
     },
     "jobsAvailable_one": "{{count}} Trabahong Available",
     "jobsAvailable_other": "{{count}} Trabahong Available",
+    "recommended": {
+      "title": "Inirerekomenda para sa iyo",
+      "emptyProfileBody": "Idagdag ang iyong mga kasanayan at piniling kategorya para matugma namin ang mga trabaho sa iyong profile."
+    },
     "nearest": {
       "title": "Iminumungkahi Malapit Sa Iyo",
       "viewAccessibility": "Tingnan ang {{title}} malapit sa {{location}}"
     },
     "jobCard": {
-      "messageEmployerButton": "Mensahihan ang Employer"
+      "messageEmployerButton": "Mensahihan ang Employer",
+      "highlightedByEmployer": "I-highlight ng employer",
+      "highlightedLabel": "Naka-highlight",
+      "viewJob": "Tingnan ang {{title}}"
     },
     "common": {
       "employerFallback": "Employer"
@@ -766,6 +787,8 @@
       "loadCategoriesFailed": "Hindi na-load ang mga kategorya.",
       "loadApplicationsFailed": "Hindi na-load ang mga aplikasyon.",
       "loadJobsFailed": "Hindi na-load ang mga trabaho.",
+      "loadRecommendedFailed": "Hindi na-load ang mga inirerekomendang trabaho.",
+      "realtimeUnavailable": "Pansamantalang hindi available ang live updates. Mare-refresh ang iyong data kapag binuksan o ni-refresh mo muli ang page.",
       "loadProfileLocationFailed": "Hindi na-load ang lokasyon ng profile.",
       "openConversationFailed": "Hindi mabuksan ang usapan sa employer na ito.",
       "saveJobPreferencesFailed": "Hindi na-save ang mga kagustuhan sa trabaho."

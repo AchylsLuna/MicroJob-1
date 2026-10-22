@@ -19,6 +19,16 @@ import {
   removePaymentMethod,
   setDefaultPaymentMethod,
 } from '../../controllers/PaymentMethodController.js';
+import { getTestOtpCode } from '../../lib/otpChallenges.js';
+
+// The password-change OTP is deliberately no longer returned in the
+// requestPasswordChangeOtp response body -- an OTP that travels back in the
+// response that requests it is not a second factor. It is only recoverable
+// through the NODE_ENV === 'test' recorder in lib/otpChallenges.js (the stored
+// copy is HMAC-hashed, so it cannot be read back out of Mongo), and the server
+// `test` script cannot export NODE_ENV portably without a shell prefix that
+// breaks on Windows -- so it is set here, where the dependency is visible.
+process.env.NODE_ENV = 'test';
 
 let mongoServer;
 const userId = new mongoose.Types.ObjectId();
@@ -192,6 +202,8 @@ test('public employer profiles expose verified reviews but not hidden hiring tot
   assert.equal(response.payload.rating.totalReviews, 0);
   assert.equal(response.payload.stats.employer.hires, null);
   assert.equal(response.payload.stats.employer.hiresHidden, true);
+  assert.equal(response.payload.profile.isFullyVerified, false);
+  assert.equal(response.payload.profile.verification, undefined);
   assert.equal(response.payload.profile.address, undefined);
   assert.equal(response.payload.profile.barangay, undefined);
 
@@ -356,6 +368,12 @@ test('public worker profiles include professional work history without private c
     barangay: 'Private Barangay',
     jobPosition: 'Math Tutor',
     website: 'https://portfolio.example.com/',
+    verification: {
+      emailVerified: true,
+      phoneVerified: true,
+      identityDocument: { status: 'complete' },
+      addressDocument: { status: 'complete' },
+    },
     workExperience: [
       {
         title: 'Math Tutor',
@@ -382,6 +400,8 @@ test('public worker profiles include professional work history without private c
   assert.equal(response.payload.profile.website, 'https://portfolio.example.com/');
   assert.equal(response.payload.profile.workExperience.length, 1);
   assert.equal(response.payload.profile.workExperience[0].company, 'Self-employed');
+  assert.equal(response.payload.profile.isFullyVerified, true);
+  assert.equal(response.payload.profile.verification, undefined);
   assert.equal(response.payload.profile.email, undefined);
   assert.equal(response.payload.profile.phoneNumber, undefined);
   assert.equal(response.payload.profile.address, undefined);
@@ -413,7 +433,9 @@ test('password changes revoke other sessions but preserve the current session', 
     otpResponse
   );
   assert.equal(otpResponse.statusCode, 200);
-  assert.match(String(otpResponse.payload.code), /^\d{6}$/);
+  assert.equal(otpResponse.payload.code, undefined, 'the OTP must not be echoed in the response body');
+  const changeOtp = getTestOtpCode('password-change', 'password-owner@example.com');
+  assert.match(String(changeOtp), /^\d{6}$/);
 
   const changeResponse = createResponse();
   await changePasswordWithOtp(
@@ -421,7 +443,7 @@ test('password changes revoke other sessions but preserve the current session', 
       user: { id: worker._id, sessionId: currentSession._id },
       body: {
         currentPassword: 'CurrentPass1!',
-        code: otpResponse.payload.code,
+        code: changeOtp,
         newPassword: 'UpdatedPass2!',
       },
     },

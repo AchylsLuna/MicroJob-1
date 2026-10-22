@@ -8,9 +8,11 @@ import JobView from './models/JobView.js';
 import { validateProductionRuntime } from './lib/runtimeConfig.js';
 import { ensureRuntimeData } from './lib/runtimeData.js';
 import { initSocket } from './lib/socket.js';
+import { startDailyPaymentChecks } from './services/dailyPayments.js';
 
 const server = http.createServer(app);
 let shuttingDown = false;
+let stopDailyChecks;
 
 export const startServer = async () => {
   try {
@@ -32,6 +34,7 @@ export const startServer = async () => {
     await ensureRuntimeData();
 
     initSocket(server, { allowedOrigins });
+    stopDailyChecks = startDailyPaymentChecks();
 
     server.once('error', (error) => {
       if (error?.code === 'EADDRINUSE') {
@@ -66,6 +69,7 @@ export const startServer = async () => {
 export const shutdown = async () => {
   if (shuttingDown) return;
   shuttingDown = true;
+  stopDailyChecks?.();
 
   try {
     if (server.listening) {

@@ -38,13 +38,13 @@ export function AuthShell({
   const navigate = useNavigate();
 
   return (
-    <main className="min-h-screen bg-white px-5 py-8 sm:py-12">
+    <main className="min-h-dvh bg-white px-5 py-8 sm:py-12">
       <div className={`mx-auto flex w-full flex-col ${width === "wide" ? "max-w-[680px]" : "max-w-[440px]"}`}>
         {backTo ? (
           <button
             type="button"
             onClick={() => navigate(backTo)}
-            className="-ml-2 mb-2 inline-flex min-h-11 w-fit items-center gap-2 rounded-[10px] px-2 text-[14px] font-medium text-slate-600 transition-colors hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+            className="-ml-2 mb-2 inline-flex min-h-11 w-fit items-center gap-2 rounded-control px-2 text-body font-medium text-slate-600 transition-colors hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             {backLabel}
@@ -69,7 +69,7 @@ export function AuthShell({
 
         <div className="mt-8">{children}</div>
 
-        {footer ? <div className="mt-8 text-center text-[14px] text-slate-600">{footer}</div> : null}
+        {footer ? <div className="mt-8 text-center text-body text-slate-600">{footer}</div> : null}
       </div>
     </main>
   );
@@ -81,7 +81,7 @@ export function AuthShell({
  * uncontrolled via a ref, one is numeric-only, one carries a toggle button.
  */
 export const authFieldClass =
-  "min-h-[52px] w-full rounded-[10px] border border-slate-300 bg-white px-4 text-[15px] text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]/25 disabled:bg-slate-50 disabled:text-slate-500";
+  "min-h-[52px] w-full rounded-control border border-slate-300 bg-white px-4 text-[15px] text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-brand focus:ring-2 focus:ring-brand/25 disabled:bg-slate-50 disabled:text-slate-500";
 
 // `!` forces these to win over authFieldClass's own border/ring colors
 // regardless of which utility Tailwind happens to emit later in the
@@ -91,17 +91,17 @@ export const authFieldClass =
 export const authFieldErrorClass =
   "!border-red-400 focus:!border-red-500 focus:!ring-red-500/25";
 
-export const authLabelClass = "mb-2 block text-[14px] font-semibold text-slate-900";
+export const authLabelClass = "mb-2 block text-body font-semibold text-slate-900";
 
 export const authPrimaryButtonClass =
-  "brand-primary-interactive min-h-[52px] w-full rounded-[10px] px-5 text-[15px] font-semibold";
+  "brand-primary-interactive min-h-[52px] w-full rounded-control px-5 text-[15px] font-semibold";
 
 /** Labelled rule between the social button and the email form. */
 export function AuthDivider({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-4">
       <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
-      <span className="text-[13px] font-medium text-slate-500">{label}</span>
+      <span className="text-body-sm font-medium text-slate-500">{label}</span>
       <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
     </div>
   );

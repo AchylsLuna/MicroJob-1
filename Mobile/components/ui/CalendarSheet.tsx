@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tokens } from '../../theme/tokens';
 import { motion } from '../../theme/motion';
 import useReducedMotion from '../../hooks/useReducedMotion';
@@ -8,6 +9,7 @@ import AnimatedPressable from './AnimatedPressable';
 import {
   buildMonths,
   dayState,
+  isSameDay,
   getWeekdayLabels,
   nextRangeSelection,
   type DateRange,
@@ -38,7 +40,15 @@ type RangeProps = {
   onChange: (next: DateRange) => void;
 };
 
-type Props = (SingleProps | RangeProps) & {
+type MultipleProps = {
+  mode: 'multiple';
+  value?: undefined;
+  range?: undefined;
+  dates: Date[];
+  onChange: (next: Date[]) => void;
+};
+
+type Props = (SingleProps | RangeProps | MultipleProps) & {
   open: boolean;
   onClose: () => void;
   minDate?: Date;
@@ -57,6 +67,10 @@ function formatFullDate(date: Date, locale: string): string {
 
 export default function CalendarSheet(props: Props) {
   const { open, onClose, minDate, maxDate, monthsToRender = 12, title, footer } = props;
+  // This sheet is drawn by hand inside a statusBarTranslucent Modal, so nothing
+  // reserves the home-indicator strip for it. Without this the primary action
+  // in the footer sits in the gesture bar on notched devices.
+  const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion() === true;
   const translateY = useRef(new Animated.Value(1)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -89,7 +103,10 @@ export default function CalendarSheet(props: Props) {
   if (!mounted) return null;
 
   const handleDayPress = (date: Date) => {
-    if (props.mode === 'range') {
+    if (props.mode === 'multiple') {
+      const selected = props.dates.some((item) => isSameDay(item, date));
+      props.onChange(selected ? props.dates.filter((item) => !isSameDay(item, date)) : [...props.dates, date]);
+    } else if (props.mode === 'range') {
       const next = nextRangeSelection(props.range || { start: null, end: null }, date);
       props.onChange(next);
     } else {
@@ -106,11 +123,12 @@ export default function CalendarSheet(props: Props) {
             {week.map((date, dayIndex) => {
               if (!date) return <View key={dayIndex} style={styles.cell} />;
 
-              const state =
+              const baseState =
                 props.mode === 'range'
                   ? dayState(date, { mode: 'range', range: props.range || { start: null, end: null } }, { minDate, maxDate })
                   : dayState(date, { mode: 'single', value: props.value ?? null }, { minDate, maxDate });
 
+              const state = props.mode === 'multiple' && baseState !== 'disabled' && props.dates.some((item) => isSameDay(item, date)) ? 'selected' : baseState;
               const disabled = state === 'disabled';
               const selected = state === 'selected' || state === 'range-start' || state === 'range-end';
               const inRange = state === 'in-range';
@@ -188,6 +206,7 @@ export default function CalendarSheet(props: Props) {
 
           <FlatList
             data={months}
+            extraData={props.mode === 'multiple' ? props.dates : props.mode === 'range' ? props.range : props.value}
             keyExtractor={(item) => `${item.year}-${item.month}`}
             renderItem={renderMonth}
             showsVerticalScrollIndicator={false}
@@ -198,7 +217,7 @@ export default function CalendarSheet(props: Props) {
           />
 
           {footer ? (
-            <View style={styles.footer}>
+            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, tokens.spacing.md) }]}>
               {footer.onClear ? (
                 <AnimatedPressable containerStyle={styles.clearBtn} onPress={footer.onClear} accessibilityRole="button" accessibilityLabel={footer.clearLabel || 'Clear'}>
                   <Text style={styles.clearText}>{footer.clearLabel || 'Clear'}</Text>

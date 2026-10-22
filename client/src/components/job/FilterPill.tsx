@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 export type FilterOption = { value: string; label: string };
 
-type CommonProps = { label: string; className?: string };
+type CommonProps = { label: string; className?: string; variant?: "default" | "inverse" };
 
 type RadioProps = CommonProps & { mode: "radio"; options: FilterOption[]; value: string; onApply: (value: string) => void };
 type CheckboxProps = CommonProps & { mode: "checkbox"; options: FilterOption[]; value: string[]; onApply: (value: string[]) => void };
@@ -12,9 +12,11 @@ type ToggleProps = CommonProps & { mode: "toggle"; value: boolean; onApply: (val
 
 type Props = RadioProps | CheckboxProps | ToggleProps;
 
-const pillClass = (isActive: boolean, className?: string) =>
-  `inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition ${
-    isActive ? "border-[#1C4D8D] bg-[#EAF2FC] text-[#1C4D8D]" : "border-slate-300 text-slate-700 hover:border-slate-400"
+const pillClass = (isActive: boolean, className?: string, variant = "default") =>
+  `inline-flex max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+    variant === "inverse"
+      ? `min-h-11 text-body focus-visible:ring-white focus-visible:ring-offset-brand ${isActive ? "border-white bg-white text-brand" : "border-white/50 text-white hover:border-white hover:bg-white/10"}`
+      : `min-h-9 text-body-sm focus-visible:ring-brand ${isActive ? "border-brand bg-[#EAF2FC] text-brand" : "border-slate-300 text-slate-700 hover:border-slate-400"}`
   } ${className || ""}`;
 
 /**
@@ -26,13 +28,13 @@ const pillClass = (isActive: boolean, className?: string) =>
  */
 export function FilterPill(props: Props) {
   if (props.mode === "toggle") {
-    const { label, value, onApply, className } = props;
+    const { label, value, onApply, className, variant } = props;
     return (
       <button
         type="button"
         onClick={() => onApply(!value)}
         aria-pressed={value}
-        className={pillClass(value, className)}
+        className={pillClass(value, className, variant)}
       >
         {label}
       </button>
@@ -44,7 +46,7 @@ export function FilterPill(props: Props) {
 
 function PopoverFilterPill(props: RadioProps | CheckboxProps) {
   const { t } = useTranslation("worker");
-  const { label, options, value, onApply, className } = props;
+  const { label, options, value, onApply, className, variant } = props;
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<string | string[]>(value);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -97,25 +99,32 @@ function PopoverFilterPill(props: RadioProps | CheckboxProps) {
     setOpen(false);
   };
 
+  // Inverse pills anchor menus to the search filter row at every width so a
+  // menu opened near the right edge stays within the available content width.
   return (
-    <div className="relative" ref={containerRef}>
+    <div className={variant === "inverse" ? undefined : "sm:relative"} ref={containerRef}>
       <button
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className={pillClass(isActive, className)}
+        className={pillClass(isActive, className, variant)}
       >
         {label}
         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
 
+      {/* Was `fixed … top-[auto]`, which pinned the menu to the viewport: it
+          stayed put while the page scrolled, drifting away from its pill
+          (measured at 250px of drift after a 250px scroll). `absolute` keeps it
+          anchored. Spanning the row on mobile rather than the pill avoids the
+          right-edge overflow a pill-width menu would cause. */}
       {open ? (
         <div
           role="menu"
           aria-label={label}
-          className="fixed left-4 right-4 top-[auto] z-50 mt-2 w-auto overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_18px_48px_rgba(15,23,42,0.16)] sm:absolute sm:left-0 sm:right-auto sm:top-full sm:w-72"
+          className={`absolute left-0 right-0 top-full z-50 mt-2 w-auto overflow-hidden rounded-card border border-slate-200 bg-white text-slate-700 shadow-[0_18px_48px_rgba(15,23,42,0.16)] sm:right-auto sm:w-72 ${variant === "inverse" ? "sm:max-w-full" : ""}`}
         >
           <div className="max-h-72 overflow-y-auto p-2">
             {options.map((option) => {
@@ -127,12 +136,12 @@ function PopoverFilterPill(props: RadioProps | CheckboxProps) {
                   onClick={() => toggleDraftOption(option.value)}
                   role={props.mode === "radio" ? "menuitemradio" : "menuitemcheckbox"}
                   aria-checked={checked}
-                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] text-slate-700 transition hover:bg-slate-50"
+                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-body text-slate-700 transition hover:bg-slate-50"
                 >
                   <span
                     className={`flex h-4 w-4 shrink-0 items-center justify-center border ${
                       props.mode === "radio" ? "rounded-full" : "rounded"
-                    } ${checked ? "border-[#1C4D8D] bg-[#1C4D8D]" : "border-slate-300"}`}
+                    } ${checked ? "border-brand bg-brand" : "border-slate-300"}`}
                     aria-hidden="true"
                   >
                     {checked ? (
@@ -149,14 +158,14 @@ function PopoverFilterPill(props: RadioProps | CheckboxProps) {
               type="button"
               onClick={handleReset}
               disabled={draftIsEmpty}
-              className="min-h-9 rounded-lg px-3 text-[13px] font-semibold text-slate-500 transition hover:bg-slate-50 disabled:opacity-40"
+              className="min-h-9 rounded-lg px-3 text-body-sm font-semibold text-slate-500 transition hover:bg-slate-50 disabled:opacity-40"
             >
               {t("findJobs.filters.reset")}
             </button>
             <button
               type="button"
               onClick={handleShowResults}
-              className="min-h-9 rounded-full bg-[#1C4D8D] px-4 text-[13px] font-bold text-white transition hover:bg-[#163F75]"
+              className="min-h-9 rounded-full bg-brand px-4 text-body-sm font-bold text-white transition hover:opacity-90"
             >
               {t("findJobs.filters.showResults")}
             </button>

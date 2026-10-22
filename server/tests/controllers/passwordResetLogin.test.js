@@ -50,6 +50,23 @@ beforeEach(async () => {
   await user.save();
 });
 
+test('a reset code cannot change a password before the user explicitly verifies it', async () => {
+  const { code } = await issueOtpChallenge({ purpose: 'password-reset', subject: EMAIL });
+
+  const resetRes = response();
+  await resetPasswordWithOtp(
+    { body: { email: EMAIL, code, newPassword: NEW_PASSWORD }, ip: '127.0.0.1', get: () => 'test' },
+    resetRes,
+  );
+
+  assert.equal(resetRes.statusCode, 400);
+  assert.equal(resetRes.payload.message, 'Reset code not verified, invalid, or expired.');
+
+  const user = await User.findOne({ email: EMAIL }).select('+passwordHashed');
+  assert.equal(await user.validatePassword(OLD_PASSWORD), true);
+  assert.equal(await user.validatePassword(NEW_PASSWORD), false);
+});
+
 test('a verified reset replaces the password and permits immediate login', async () => {
   const { code } = await issueOtpChallenge({ purpose: 'password-reset', subject: EMAIL });
 
@@ -71,7 +88,9 @@ test('a verified reset replaces the password and permits immediate login', async
   assert.equal(user.verification.emailVerified, true);
 
   const loginRes = response();
-  await loginUser({ body: { emailOrUsername: EMAIL, password: NEW_PASSWORD, requireOtp: true }, ip: '127.0.0.1', get: () => 'test', headers: {} }, loginRes);
+  // No `requireOtp` flag: the challenge is unconditional now, so the body no
+  // longer carries one (it used to be how a caller could opt out of 2FA).
+  await loginUser({ body: { emailOrUsername: EMAIL, password: NEW_PASSWORD }, ip: '127.0.0.1', get: () => 'test', headers: {} }, loginRes);
   assert.equal(loginRes.statusCode, 200);
   assert.equal(loginRes.payload.data.otpRequired, true);
 });

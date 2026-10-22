@@ -1,6 +1,36 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ChevronDown, X } from "lucide-react";
+import { SidebarAccountMenu } from "./SidebarAccountMenu";
+import {
+  ArchiveRestore,
+  PhilippinePeso,
+  BarChart3,
+  Bell,
+  Bookmark,
+  BriefcaseBusiness,
+  ChartNoAxesCombined,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  CirclePlus,
+  CircleDot,
+  FileCheck2,
+  FileText,
+  Gavel,
+  LayoutDashboard,
+  LifeBuoy,
+  LockKeyhole,
+  MessageSquare,
+  Scale,
+  ScrollText,
+  Settings,
+  ShieldCheck,
+  UserCog,
+  Users,
+  WalletCards,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useAdminPermissions } from "../hooks/useAdminPermissions";
 import { useNotifications } from "../contexts/NotificationContext";
@@ -14,6 +44,10 @@ interface SidebarProps {
   userName?: string;
   userRole?: "user" | "employer" | "admin" | "doctor";
   mobile?: boolean;
+  isActive?: boolean;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
+  toggleButtonRef?: React.Ref<HTMLButtonElement>;
   onClose?: () => void;
 }
 
@@ -41,15 +75,48 @@ type EmployerMenuGroup = {
   children: MenuItem[];
 };
 
+const menuIcons: Record<string, LucideIcon> = {
+  "find-jobs": BriefcaseBusiness,
+  "applied-jobs": FileText,
+  "saved-jobs": Bookmark,
+  messages: MessageSquare,
+  "e-wallet": WalletCards,
+  notifications: Bell,
+  settings: Settings,
+  support: LifeBuoy,
+  "post-job": CirclePlus,
+  "jobs-management": BriefcaseBusiness,
+  applications: FileCheck2,
+  "user-management": Users,
+  "jobs-monitoring": BriefcaseBusiness,
+  verification: ShieldCheck,
+  moderation: Gavel,
+  payouts: PhilippinePeso,
+  disputes: Scale,
+  "staff-management": UserCog,
+  "audit-logs": ScrollText,
+  security: LockKeyhole,
+  backups: ArchiveRestore,
+  analytics: ChartNoAxesCombined,
+  reports: BarChart3,
+};
+
 const Sidebar: React.FC<SidebarProps> = ({
   userName = "User",
   userRole = "user",
   mobile = false,
+  isActive = true,
+  collapsed = false,
+  onToggleCollapsed,
+  toggleButtonRef,
   onClose,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const isCollapsed = false;
+  // Mobile navigation is always expanded; its close button already provides
+  // the appropriate drawer toggle. Desktop state comes from DashboardLayout
+  // so it is shared by worker, employer, and admin views.
+  const isCollapsed = !mobile && collapsed;
   const [, setAuthUpdateTrigger] = useState(0); // Force re-render on auth updates
   const { user: authUser } = useAuth();
   const { can } = useAdminPermissions();
@@ -99,6 +166,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     children: [
         { icon: "jobs-management", label: "Jobs Management", path: ROUTES.employer.jobs },
       { icon: "applications", label: "Applications", path: ROUTES.employer.applications },
+      { icon: "jobs-management", label: "Job History", path: ROUTES.employer.jobHistory },
     ],
   };
 
@@ -107,6 +175,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       ? [
           { icon: "messages", label: "Messages", path: ROUTES.employer.messages, notification: true },
           { icon: "e-wallet", label: "E-Wallet", path: ROUTES.employer.eWallet },
+          { icon: "disputes", label: "Financial Disputes", path: ROUTES.employer.financialDisputes },
         ]
       : [
           { icon: "messages", label: "Messages", path: ROUTES.worker.messages, notification: true },
@@ -141,7 +210,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { icon: "e-wallet", label: "E-Wallet", path: ROUTES.admin.eWallet, permission: "finance.transactions.view" },
         { icon: "payouts", label: "Payout Requests", path: ROUTES.admin.payouts, permission: "finance.payouts.review" },
-        { icon: "disputes", label: "Financial Disputes", path: ROUTES.admin.disputes, permission: "finance.disputes.handle" },
+        { icon: "disputes", label: "Financial Disputes", path: ROUTES.admin.disputes, permission: "finance.disputes.view" },
       ],
     },
     {
@@ -150,7 +219,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         { icon: "staff-management", label: "Staff Management", path: ROUTES.admin.staffManagement, permission: "staff.view" },
         { icon: "audit-logs", label: "Audit Logs", path: ROUTES.admin.auditLogs, permission: "audit.view" },
         { icon: "security", label: "Security", path: ROUTES.admin.security, permission: "audit.view" },
-        { icon: "backups", label: "Backups & Recovery", path: ROUTES.admin.backups, permission: "audit.view" },
+        { icon: "backups", label: "Backups & Recovery", path: ROUTES.admin.backups, permission: "backups.manage" },
       ],
     },
     {
@@ -258,14 +327,19 @@ const Sidebar: React.FC<SidebarProps> = ({
       : "Worker";
 
   const getNavButtonClass = (active: boolean) =>
-    `${webUi.sidebar.navButton} ${isCollapsed ? "px-2" : "px-4"} ${
+    `${webUi.sidebar.navButton} ${isCollapsed ? "!px-2 justify-center" : "px-4"} ${
       active ? webUi.sidebar.navButtonActive : webUi.sidebar.navButtonIdle
     }`;
 
   const getChildNavButtonClass = (active: boolean) =>
-    `flex min-h-11 w-full items-center rounded-xl py-2.5 pl-12 pr-4 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] ${
-      active ? "bg-blue-50 font-semibold text-[#1C4D8D]" : "font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+    `flex min-h-11 w-full items-center rounded-xl py-2.5 pl-12 pr-4 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+      active ? "bg-brand-50 font-semibold text-brand" : "font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900"
     }`;
+
+  const CollapsedMenuIcon = ({ icon }: { icon: string }) => {
+    const Icon = menuIcons[icon] || CircleDot;
+    return <Icon aria-hidden="true" className="h-5 w-5" />;
+  };
 
   const renderMenuButton = (item: MenuItem) => (
     <button
@@ -273,8 +347,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       onClick={() => navigate(item.path)}
       className={getNavButtonClass(isPathActive(item.path))}
       title={isCollapsed ? item.label : ""}
+      aria-label={isCollapsed ? item.label : undefined}
     >
-      {(mobile || !isCollapsed) && <span>{item.label}</span>}
+      {isCollapsed ? <span className="mx-auto"><CollapsedMenuIcon icon={item.icon} /></span> : <span>{item.label}</span>}
       {item.notification && item.icon === "notifications" && notifCount > 0 && (
         <span
           className={`ml-auto inline-flex items-center justify-center text-xs font-semibold text-white bg-red-500 rounded-full px-2 py-0.5 ${
@@ -303,33 +378,53 @@ const Sidebar: React.FC<SidebarProps> = ({
     <aside
       id={mobile ? "mobile-dashboard-navigation" : undefined}
       aria-label="Primary navigation"
-      className={`${webUi.sidebar.root} w-full p-4 sm:p-5 [@media(max-height:700px)]:p-2`}
+      // The mobile drawer stops short of the cookie banner, so on a short phone
+      // there may not be room for the nav list *and* the pinned footer. The
+      // desktop rail keeps `overflow-hidden` (it always has the full column
+      // height), but in the drawer the panel itself has to be able to scroll --
+      // otherwise the footer's Settings entry and account card are clipped away
+      // with no way to reach them.
+      className={`${webUi.sidebar.root} w-full p-4 [--sidebar-padding-y:1rem] transition-[padding] duration-200 sm:p-5 sm:[--sidebar-padding-y:1.25rem] [@media(max-height:700px)]:p-2 [@media(max-height:700px)]:[--sidebar-padding-y:0.5rem] ${mobile ? "!overflow-y-auto overscroll-contain" : ""} ${isCollapsed ? "px-3 sm:px-3" : ""}`}
     >
-      <div className="dashboard-sidebar-header mb-6 flex shrink-0 items-center justify-between [@media(max-height:700px)]:mb-0">
-        <MicroJobsLogo onClick={() => navigate(ROUTES.home)} className="min-h-11 min-w-0 cursor-pointer" />
+      <div className={`dashboard-sidebar-header -mt-[var(--sidebar-padding-y)] mb-4 flex w-full shrink-0 items-center ${isCollapsed ? "flex-col gap-1 py-2" : "h-[var(--navbar-height,4rem)] justify-between gap-2 lg:px-2"} [@media(max-height:700px)]:mb-0`}>
+        <MicroJobsLogo onClick={() => navigate(ROUTES.home)} markOnly={isCollapsed} className={`min-h-11 min-w-0 cursor-pointer ${mobile ? "[&_.microjobs-logo-wordmark]:text-xl" : ""}`} />
         {mobile ? (
           <button
             ref={closeButtonRef}
             type="button"
             onClick={onClose}
             data-mobile-nav-close="true"
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             aria-label="Close navigation menu"
           >
             <X className="h-5 w-5" />
           </button>
-        ) : null}
+        ) : (
+          <button
+            ref={toggleButtonRef}
+            type="button"
+            onClick={onToggleCollapsed}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-brand transition hover:border-brand-200 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            aria-label={isCollapsed ? "Show sidebar" : "Hide sidebar"}
+            aria-controls="desktop-dashboard-navigation"
+            aria-expanded={!isCollapsed}
+            title={isCollapsed ? "Show sidebar" : "Hide sidebar"}
+          >
+            {isCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
+          </button>
+        )}
       </div>
 
-      <nav className="dashboard-sidebar-nav min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 [@media(max-height:700px)]:space-y-0" aria-label={`${roleLabel} menu`}>
+      <nav className="dashboard-sidebar-nav min-h-0 w-full flex-1 space-y-3 overflow-y-auto overscroll-contain [@media(max-height:700px)]:space-y-0" aria-label={`${roleLabel} menu`}>
         <div className="space-y-1.5 pb-3 [@media(max-height:700px)]:space-y-0 [@media(max-height:700px)]:pb-0">
           {effectiveRole !== "user" && (
             <button
               onClick={() => navigate(dashboardPath)}
               className={getNavButtonClass(isPathActive(dashboardPath))}
               title={isCollapsed ? "Dashboard" : ""}
+              aria-label={isCollapsed ? "Dashboard" : undefined}
             >
-              {(mobile || !isCollapsed) && <span>Dashboard</span>}
+              {isCollapsed ? <LayoutDashboard aria-hidden="true" className="mx-auto h-5 w-5" /> : <span>Dashboard</span>}
             </button>
           )}
 
@@ -342,8 +437,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                   onClick={() => navigate(employerMenuGroup.path)}
                   className={`${getNavButtonClass(isEmployerParentActive)} ${!isCollapsed ? "pr-10" : ""}`}
                   title={isCollapsed ? employerMenuGroup.label : ""}
+                  aria-label={isCollapsed ? employerMenuGroup.label : undefined}
                 >
-                  {!isCollapsed && <span>{employerMenuGroup.label}</span>}
+                  {isCollapsed ? <CirclePlus aria-hidden="true" className="mx-auto h-5 w-5" /> : <span>{employerMenuGroup.label}</span>}
                 </button>
 
                 {(mobile || !isCollapsed) && (
@@ -353,7 +449,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       event.stopPropagation();
                       setIsEmployerGroupOpen((prev) => !prev);
                     }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                    className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-gray-500 transition-colors hover:text-gray-700"
                     aria-label={isEmployerGroupOpen ? "Collapse Post a Job menu" : "Expand Post a Job menu"}
                   >
                     <ChevronDown
@@ -391,9 +487,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       : `space-y-1.5 border-t py-4 ${webUi.sidebar.sectionDivider}`
                   }
                 >
-                  <p className="px-4 pb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                    {group.label}
-                  </p>
+                  {!isCollapsed && <p className="px-4 pb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">{group.label}</p>}
                   {group.items.map((item) => renderMenuButton(item))}
                 </div>
               ))
@@ -402,44 +496,24 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         {workspaceMenuItems.length > 0 && (
           <div className={`space-y-1.5 border-t py-4 ${webUi.sidebar.sectionDivider}`}>
-            <p className="px-4 pb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Workspace</p>
+            {!isCollapsed && <p className="px-4 pb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Workspace</p>}
             {workspaceMenuItems.map((item) => renderMenuButton(item))}
           </div>
         )}
       </nav>
 
-      <div className="dashboard-sidebar-footer mt-3 shrink-0 space-y-2 border-t border-slate-200 pt-3 [@media(max-height:700px)]:mt-0 [@media(max-height:700px)]:space-y-0 [@media(max-height:700px)]:pt-0">
+      <div className="dashboard-sidebar-footer mt-3 w-full shrink-0 space-y-2 border-t border-slate-200 pt-3 [@media(max-height:700px)]:mt-0 [@media(max-height:700px)]:space-y-0 [@media(max-height:700px)]:pt-0">
         {pinnedSettingsItem && (
           <button
             type="button"
             onClick={() => navigate(pinnedSettingsItem.path)}
             className={getNavButtonClass(isPathActive(pinnedSettingsItem.path))}
+            aria-label={isCollapsed ? pinnedSettingsItem.label : undefined}
           >
-            <span>{pinnedSettingsItem.label}</span>
+            {isCollapsed ? <Settings aria-hidden="true" className="mx-auto h-5 w-5" /> : <span>{pinnedSettingsItem.label}</span>}
           </button>
         )}
-        <button onClick={() => navigate(effectiveRole === "user" ? ROUTES.worker.profile : dashboardPath)} className="flex min-h-16 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-slate-900 transition hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] [@media(max-height:700px)]:min-h-11 [@media(max-height:700px)]:p-1">
-          <div className="flex items-center gap-3">
-            {authUser?.avatarUrl ? (
-              <img
-                src={authUser.avatarUrl}
-                alt="Profile"
-                className="h-10 w-10 flex-shrink-0 rounded-full object-cover [@media(max-height:700px)]:h-8 [@media(max-height:700px)]:w-8"
-              />
-            ) : (
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-700 text-sm font-bold text-white [@media(max-height:700px)]:h-8 [@media(max-height:700px)]:w-8">
-                {displayUserName.slice(0, 2).toUpperCase()}
-              </div>
-            )}
-            {(mobile || !isCollapsed) && (
-              <div className="text-left">
-                <p className="text-xs text-slate-500">Welcome back</p>
-                <p className="max-w-[150px] truncate text-sm font-bold text-slate-900">{displayUserName}</p>
-              </div>
-            )}
-          </div>
-          {(mobile || !isCollapsed) && <span className="text-slate-400">›</span>}
-        </button>
+        <SidebarAccountMenu displayName={displayUserName} isActive={isActive} compact={isCollapsed} onNavigate={mobile ? onClose : undefined} />
       </div>
     </aside>
   );
