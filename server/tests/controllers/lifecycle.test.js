@@ -374,6 +374,12 @@ test('real evidence endpoints require completion images, preserve dispute docume
   try {
     const completionPath = `/api/applications/${f.application._id}/work/submit`;
     assert.equal((await upload(completionPath, workerToken)).status, 400, 'completion rejects documents');
+    for (const [name, type, bytes] of [['proof.gif', 'image/gif', Buffer.from('GIF89a')], ['proof.webp', 'image/webp', Buffer.from('RIFF0000WEBP')]]) {
+      const rejectedForm = new FormData(); rejectedForm.append('evidence', new Blob([bytes], { type }), name);
+      const rejected = await fetch(`${origin}${completionPath}`, { method: 'POST', headers: { Authorization: `Bearer ${workerToken}` }, body: rejectedForm });
+      assert.equal(rejected.status, 400, `completion rejects ${type}`);
+      assert.match((await rejected.json()).message, /JPG or PNG/);
+    }
     const form = new FormData(); form.append('evidence', new Blob([png], { type: 'image/png' }), 'proof.png'); form.append('evidence', new Blob([png], { type: 'image/png' }), 'proof.png');
     const completion = await fetch(`${origin}${completionPath}`, { method: 'POST', headers: { Authorization: `Bearer ${workerToken}` }, body: form }); assert.equal(completion.status, 200);
     const body = await completion.json(); const url = body.application.completionEvidence[0].fileUrl;
