@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import { refundJobFunds } from '../services/jobFunds.js';
 import { syncCapacity } from '../services/jobLifecycle.js';
-import { queueNotification } from '../services/notificationOutbox.js';
+import { queueNotification, deliverQueuedNotification } from '../services/notificationOutbox.js';
 import { httpError, availableJobFilter } from '../lib/lifecyclePolicy.js';
 import JobApplication from '../models/JobApplication.js';
 import Job from '../models/Job.js';
@@ -147,8 +147,19 @@ export const applyForJob = async (req, res) => {
       [application] = await JobApplication.create([{ job: job._id, applicant: userId, resume: req.body?.resume || null, coverLetter: req.body?.coverLetter || null, status: 'Applied', timeline: [{ type: 'status_changed', status: 'Applied', actor: userId, note: 'Application submitted.', meta: { source: 'apply' } }] }], { session });
       if (!job.applicants.some((id) => String(id) === String(userId))) job.applicants.push(userId);
       job.fundsVersion = Number(job.fundsVersion || 0) + 1; await job.save({ session });
-      await queueNotification(`application-received:${application._id}`, { userId: String(job.jobPoster), audience: 'employer', type: 'application', title: 'New application', message: `A worker applied for ${job.title}.`, entityType: 'application', entityId: String(application._id) }, session);
+      await queueNotification(`application-received:${application._id}`, {
+        userId: String(job.jobPoster),
+        audience: 'employer',
+        type: 'application',
+        title: `New application for ${job.title}`,
+        message: `A worker applied for your job posting "${job.title}". Review their application in Applications.`,
+        entityType: 'application',
+        entityId: String(application._id),
+        actor: userId,
+        metadata: { jobId: String(job._id), jobTitle: job.title },
+      }, session);
     });
+    await deliverQueuedNotification(`application-received:${application._id}`);
     return sendSuccess(res, 201, 'Application submitted successfully', serializeApplication(application), { application: serializeApplication(application) });
   } catch (error) { return sendError(res, error.code === 11000 ? 409 : error.status || 500, error.status ? error.message : 'Unable to submit this application.'); }
   finally { await session.endSession(); }

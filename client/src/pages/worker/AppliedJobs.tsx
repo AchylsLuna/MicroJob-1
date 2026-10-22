@@ -421,7 +421,7 @@ const AppliedJobs: React.FC = () => {
                         </span>
                       ) : null}
                       {['Hired', 'Cancelled', 'Position filled'].includes(application.status) && <AssignmentPanel applicationId={application._id} onChanged={() => void fetchApplications()} />}
-                      {application.status === 'Hired' && application.paymentStatus !== 'Paid' && ['In Progress', 'Changes Requested'].includes(application.workStatus || 'In Progress') && <WorkSubmission applicationId={application._id} onChanged={() => void fetchApplications()} />}
+                      {application.status === 'Hired' && !['Paid', 'Processing', 'Disputed', 'Refunded'].includes(application.paymentStatus || '') && ['In Progress', 'Changes Requested', 'Submitted'].includes(application.workStatus || 'In Progress') && <WorkSubmission applicationId={application._id} resubmission={application.workStatus === 'Submitted' || application.workStatus === 'Changes Requested'} onChanged={() => void fetchApplications()} />}
                       {application.status === 'Hired' && application.workStatus === 'Submitted' && !['Paid', 'Disputed'].includes(application.paymentStatus || '') && <button type="button" disabled={actionBusyId === application._id} onClick={() => handleOpenDispute(application)} className="inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-red-200 px-4 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50">{t('appliedJobs.paymentDispute.openButton')}</button>}
                       <button
                         onClick={(e) => {

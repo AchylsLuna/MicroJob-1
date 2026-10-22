@@ -656,6 +656,7 @@
       "appliedLabel": "Already submitted",
       "applyAccessibility": "Apply for this job",
       "appliedAccessibility": "Application already submitted",
+      "jobFinished": "Job Finished",
       "messageLabel": "Message Employer",
       "messageAccessibility": "Message employer"
     },

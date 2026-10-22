@@ -4,7 +4,7 @@ import { Button, Dialog, Input, Select, Textarea } from './ui';
 import { submitWork, lifecycleRequest } from '../services/api';
 import { getManilaDate } from '../lib/jobCompensation';
 
-export function WorkSubmission({ applicationId, onChanged }: { applicationId: string; onChanged: () => void }) {
+export function WorkSubmission({ applicationId, onChanged, resubmission = false }: { applicationId: string; onChanged: () => void; resubmission?: boolean }) {
   const { t } = useTranslation('common');
   const [open, setOpen] = useState(false);
   const [statement, setStatement] = useState('');
@@ -26,8 +26,8 @@ export function WorkSubmission({ applicationId, onChanged }: { applicationId: st
         setReady(true); setDaily(data.job.paymentMode === 'daily'); setDates(available); setWorkDate(available.includes(getManilaDate()) ? getManilaDate() : available[0] || ''); setOpen(true);
       } catch (caught: any) { setError(caught.message); setOpen(true); }
       finally { setBusy(false); }
-    }}>{t('lifecycle.submitWork')}</Button>
-    <Dialog open={open} title={t('lifecycle.submitWork')} onClose={() => { if (!busy) setOpen(false); }} closeDisabled={busy}>
+    }}>{t(resubmission ? 'lifecycle.resubmitWork' : 'lifecycle.submitWork')}</Button>
+    <Dialog open={open} title={t(resubmission ? 'lifecycle.resubmitWork' : 'lifecycle.submitWork')} onClose={() => { if (!busy) setOpen(false); }} closeDisabled={busy}>
       <div className="space-y-4">
         {daily && <><Select label={t('lifecycle.selectWorkDate')} value={workDate} onChange={(event) => setWorkDate(event.target.value)} disabled={busy}><option value="">{t('lifecycle.selectWorkDate')}</option>{dates.map((date) => <option key={date} value={date}>{date}</option>)}</Select><p className="text-sm text-slate-600">{t(dates.length ? 'lifecycle.dailyProofHint' : 'lifecycle.noWorkDates')}</p></>}
         <Textarea label={t('lifecycle.completionStatement')} value={statement} maxLength={4000} onChange={(event) => setStatement(event.target.value)} />
@@ -39,13 +39,13 @@ export function WorkSubmission({ applicationId, onChanged }: { applicationId: st
           if (lock.current) return;
           lock.current = true; setBusy(true); setError('');
           try {
-            if (!files.length || files.length > 10 || files.some((file) => !['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type))) throw new Error(t('lifecycle.completionImagesHint'));
+            if (!files.length || files.length > 5 || files.some((file) => !['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type))) throw new Error(t('lifecycle.completionImagesHint'));
             if (files.some((file) => file.size > 5 * 1024 * 1024)) throw new Error(t('lifecycle.evidenceTooLarge'));
             await submitWork(applicationId, { statement: statement.trim(), files, ...(daily ? { workDate } : {}) });
             setOpen(false); setStatement(''); setFiles([]); onChanged();
           } catch (caught: any) { setError(caught.message); }
           finally { lock.current = false; setBusy(false); }
-        }}>{t('lifecycle.submitWork')}</Button>
+        }}>{t(resubmission ? 'lifecycle.resubmitWork' : 'lifecycle.submitWork')}</Button>
       </div>
     </Dialog>
   </>;

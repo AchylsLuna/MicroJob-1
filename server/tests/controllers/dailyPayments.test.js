@@ -139,11 +139,14 @@ test('daily proofs go to the same chat with exact work/submission dates; future 
   const future = await submit(f, shiftDate(1)); assert.equal(future.statusCode, 400);
   const unknown = await submit(f, shiftDate(-2)); assert.equal(unknown.statusCode, 400); assert.equal(blobs.size, 0);
   for (const date of f.workDates) assert.equal((await submit(f, date)).statusCode, 200);
-  const notices = await Notification.find({ user: f.employer._id, title: 'Work finished — ready for review' }).sort({ createdAt: 1 });
+  const notices = await Notification.find({ user: f.employer._id, title: `Proof pictures received for ${f.job.title}` }).sort({ createdAt: 1 });
   assert.equal(notices.length, 2, 'each finished work date immediately notifies the employer');
   for (let i = 0; i < f.workDates.length; i += 1) {
     assert.ok(notices[i].message.includes(f.workDates[i]));
     assert.equal(notices[i].audience, 'employer');
+    assert.equal(notices[i].metadata.pictureCount, 2);
+    assert.equal(notices[i].metadata.workDate, f.workDates[i]);
+    assert.equal(notices[i].link, `/employer/applications?applicationId=${f.application._id}&jobId=${f.job._id}`);
   }
   const messages = await Message.find({ job: f.job._id }).sort({ createdAt: 1 }); assert.equal(messages.length, 2);
   assert.deepEqual(messages.map((message) => message.attachment.workDate), f.workDates);

@@ -311,6 +311,7 @@
     "messageDraft": "Kumusta {{employerName}}, interesado ako sa posisyong {{jobTitle}}. Gusto ko sanang pag-usapan pa ang oportunidad na ito.",
     "adminReadOnly": "Read-only admin view. Gamitin ang Admin Job Monitoring para tanggalin ang trabahong ito.",
     "applicationSubmitted": "Naisumite ang Aplikasyon",
+    "jobFinished": "Tapos na ang Trabaho",
     "applyNow": "Mag-apply Ngayon",
     "viewJob": "Tingnan ang Trabaho",
     "applicationRejected": "Tinanggihan ang Aplikasyon",

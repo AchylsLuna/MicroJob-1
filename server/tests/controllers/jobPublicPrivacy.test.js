@@ -62,6 +62,26 @@ before(async () => {
 beforeEach(async () => mongoose.connection.db.dropDatabase());
 after(async () => { await mongoose.disconnect(); await mongoServer.stop(); });
 
+test('job details show the requesting worker completion state while other hires and guests cannot see it', async () => {
+  const { worker, otherEmployer, job, publicId } = await fixture();
+  await JobApplication.create({ job: job._id, applicant: worker._id, status: 'Hired', workStatus: 'Completed', paymentStatus: 'Paid' });
+  const own = response();
+  await getJobDetails(request(worker, { params: { id: publicId } }), own);
+  assert.equal(own.statusCode, 200);
+  assert.equal(own.payload.applicationStatus, 'Hired');
+  assert.equal(own.payload.applicationWorkStatus, 'Completed');
+  for (const viewer of [otherEmployer, null]) {
+    const res = response();
+    await getJobDetails(request(viewer, { params: { id: publicId } }), res);
+    assert.equal(res.statusCode, 200);
+    assert.ok(!res.payload.applicationWorkStatus);
+  }
+  await JobApplication.updateOne({ job: job._id, applicant: worker._id }, { $set: { workStatus: 'Submitted' } });
+  const pending = response();
+  await getJobDetails(request(worker, { params: { id: publicId } }), pending);
+  assert.equal(pending.payload.applicationWorkStatus, 'Submitted');
+});
+
 test('anonymous discovery and details expose only public fields and opaque identifiers', async () => {
   const { category, job, publicId } = await fixture();
   for (const [handler, req] of [

@@ -6,11 +6,30 @@ import { tokens } from '../../theme/tokens';
 import ScrollView from '../ui/SmoothScrollView';
 import { formatCurrency } from '../../lib/formatters';
 import { formatWithdrawalAmount } from '../../lib/withdrawalAmount';
+import { useFocusEffect } from '@react-navigation/native';
+import { asObject } from '../../lib/api';
 
+const institutions = ['BPI Online', 'UnionBank Online', 'BDO Online (via Brankas)', 'Landbank Online (via Brankas)', 'Metrobank Online (via Brankas)', 'MariBank', 'GCash'];
 
 export default function WithdrawalPanel({ sourceWallet, balance, onChanged }: { sourceWallet: 'EMPLOYER' | 'WORKER'; balance: number; onChanged: () => void }) {
   const { t } = useTranslation('common');
   const [form, setForm] = useState({ amount: '', institutionName: '', accountName: '', accountNumber: '', bic: '' });
+  const [institutionOpen, setInstitutionOpen] = useState(false);
+  const savedAccount = useRef({ accountName: '', accountNumber: '' });
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    void walletRequest('/auth/me').then((data) => {
+      if (!active) return;
+      const profile = asObject<any>(data, ['user', 'profile']) || {};
+      const accountName = [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim();
+      const accountNumber = profile.phoneNumber || '';
+      if (accountName === savedAccount.current.accountName && accountNumber === savedAccount.current.accountNumber) return;
+      savedAccount.current = { accountName, accountNumber };
+      setForm((current) => ({ ...current, accountName, accountNumber }));
+      setPreview(null); setStep(null); setChecked(false);
+    }).catch((error) => { if (active) setError(error.message); });
+    return () => { active = false; };
+  }, []));
   const [requests, setRequests] = useState<any[]>([]);
   const [policy, setPolicy] = useState<any>(null);
   const [preview, setPreview] = useState<any>(null);
@@ -44,9 +63,13 @@ export default function WithdrawalPanel({ sourceWallet, balance, onChanged }: { 
     {policy && <Text style={styles.text}>{t('wallet.limits', { minimum: formatCurrency(policy.minimum), maximum: policy.maximum === null ? t('wallet.noMaximum') : formatCurrency(policy.maximum) })}</Text>}
     {error ? <Text accessibilityRole="alert" style={styles.text}>{error}</Text> : null}
     <Text style={styles.text}>{t('wallet.amount')}</Text><TextInput accessibilityLabel={t('wallet.amount')} style={styles.input} keyboardType="decimal-pad" value={form.amount} onChangeText={(value) => edit('amount', value)} />
-    <Text style={styles.text}>{t('wallet.institution')}</Text><TextInput accessibilityLabel={t('wallet.institution')} style={styles.input} value={form.institutionName} onChangeText={(value) => edit('institutionName', value)} />
+    <Text style={styles.text}>{t('wallet.institution')}</Text>
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('wallet.institution')} accessibilityState={{ expanded: institutionOpen, disabled: busy }} disabled={busy} style={styles.input} onPress={() => setInstitutionOpen((current) => !current)}>
+      <Text style={styles.text}>{form.institutionName || t('wallet.chooseInstitution')} {institutionOpen ? '▴' : '▾'}</Text>
+    </TouchableOpacity>
+    {institutionOpen && <View accessibilityRole="radiogroup">{institutions.map((name) => <TouchableOpacity key={name} accessibilityRole="radio" accessibilityState={{ checked: form.institutionName === name, disabled: busy }} disabled={busy} style={styles.option} onPress={() => { edit('institutionName', name); setInstitutionOpen(false); }}><Text style={styles.text}>{name}</Text></TouchableOpacity>)}</View>}
     {(['accountName', 'accountNumber'] as const).map((key) => <View key={key}><Text style={styles.text}>{t(`wallet.${key}`)}</Text><TextInput accessibilityLabel={t(`wallet.${key}`)} style={styles.input} value={form[key]} onChangeText={(value) => edit(key, value)} /></View>)}
-    {button(t('wallet.withdraw'), () => void run(async () => { const data = await walletRequest('/payment/withdrawals/preview', { sourceWallet, amount: Number(form.amount.replace(/,/g, '')), destinationSnapshot: { ...form, methodType: 'bank_transfer' } }); setPreview(data); setChecked(false); setStep('sure'); }), busy)}
+    {button(t('wallet.withdraw'), () => void run(async () => { const data = await walletRequest('/payment/withdrawals/preview', { sourceWallet, amount: Number(form.amount.replace(/,/g, '')), destinationSnapshot: { ...form, methodType: form.institutionName === 'GCash' ? 'gcash' : 'bank_transfer' } }); setPreview(data); setChecked(false); setStep('sure'); }), busy)}
     {result && <Text accessibilityRole="text" accessibilityLiveRegion="polite" style={styles.text}>{t(`wallet.status.${result.status}`)} · {result.providerTransferId || result._id}</Text>}
     <Text style={styles.title}>{t('wallet.history')}</Text>{requests.map((item) => <View key={item._id} style={styles.option}><Text style={styles.text}>{formatCurrency(item.amount)} · {t(`wallet.status.${item.status}`)}</Text><Text style={styles.text}>{item.destinationSnapshot?.institutionName} · {item.destinationSnapshot?.accountNumberMasked}</Text><Text selectable style={styles.text}>{item.providerTransferId || item._id}</Text>{item.reviewReason ? <Text style={styles.text}>{item.reviewReason}</Text> : null}{item.reviewNotes ? <Text style={styles.text}>{item.reviewNotes}</Text> : null}{item.failureReason ? <Text style={styles.text}>{item.failureReason}</Text> : null}{item.status === 'requested' && item.processingMode !== 'automatic' && button(t('wallet.cancelWithdrawal'), () => setCancel(item), busy)}</View>)}
     <Modal visible={step !== null || Boolean(cancel)} transparent animationType="fade" onRequestClose={() => { if (!busy) { close(); setCancel(null); } }}>
@@ -54,7 +77,7 @@ export default function WithdrawalPanel({ sourceWallet, balance, onChanged }: { 
         <Text accessibilityRole="header" style={styles.title}>{t(cancel ? 'wallet.cancelWithdrawal' : step === 'sure' ? 'wallet.areYouSure' : 'wallet.verify')}</Text>
         {cancel ? <><Text style={styles.text}>{t('wallet.cancelDescription', { amount: formatCurrency(cancel.amount) })}</Text>{button(t('wallet.cancelWithdrawal'), () => void run(async () => { await walletRequest(`/payment/payout-requests/${cancel._id}/cancel`, {}); setCancel(null); await load(); onChanged(); }), busy)}</> : step === 'sure' ? <><Text style={styles.text}>{t('wallet.confirmDescription', { amount: formatCurrency(preview?.amount || 0) })}</Text>{button(t('wallet.continue'), () => setStep('verify'))}</> : preview ? <>
           <Text style={styles.text}>{t(`wallet.${sourceWallet.toLowerCase()}`)} · {formatCurrency(preview.amount)}</Text><Text style={styles.text}>{preview.destination?.institutionName} · {preview.destination?.accountName} · {preview.destination?.accountNumberMasked}</Text><Text style={styles.text}>{t('wallet.fee')}: {formatCurrency(preview.fee)}</Text><Text style={styles.text}>{t('wallet.remaining')}: {formatCurrency(preview.remainingBalance)}</Text><Text style={styles.text}>{t('wallet.detailsNotice')}</Text>{preview.reviewReason ? <Text style={styles.text}>{preview.reviewReason}</Text> : null}<View style={styles.check}><Switch accessibilityLabel={t('wallet.correct')} value={checked} onValueChange={setChecked} disabled={busy} /><Text style={styles.text}>{t('wallet.correct')}</Text></View>
-          {button(busy ? t('wallet.processing') : t('wallet.confirm'), () => void run(async () => { const response = await walletRequest('/payment/withdrawals/confirm', { previewToken: preview.previewToken, detailsConfirmed: true }); setResult(response.payoutRequest); setStep(null); setPreview(null); setForm({ amount: '', institutionName: '', accountName: '', accountNumber: '', bic: '' }); await load(); onChanged(); }), busy || !checked)}
+          {button(busy ? t('wallet.processing') : t('wallet.confirm'), () => void run(async () => { const response = await walletRequest('/payment/withdrawals/confirm', { previewToken: preview.previewToken, detailsConfirmed: true }); setResult(response.payoutRequest); setStep(null); setPreview(null); setForm({ amount: '', institutionName: '', ...savedAccount.current, bic: '' }); await load(); onChanged(); }), busy || !checked)}
         </> : null}
         {error ? <Text accessibilityRole="alert" style={styles.text}>{error}</Text> : null}{busy && <ActivityIndicator />}{button(t('wallet.back'), () => { if (step === 'verify') { setStep('sure'); setChecked(false); } else { close(); setCancel(null); } }, busy)}
       </ScrollView></View></View>

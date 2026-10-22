@@ -31,7 +31,11 @@ export async function deliverOutbox(limit = 100, deadline = Date.now() + 40000, 
           }
           if (workers.length === 100) { await NotificationOutbox.updateOne({ _id: item._id }, { $set: { 'payload.cursor': String(workers.at(-1)._id), status: 'pending', availableAt: new Date() } }); continue; }
         }
-      } else await createNotification({ ...item.payload, deliveryKey: item.key, retryPush: true });
+      } else if (!/^payment-received:[a-f0-9]{24}$/i.test(item.key)) {
+        // Retired duplicate of job-paid; acknowledge pending entries without
+        // sending another feed, socket, or push alert.
+        await createNotification({ ...item.payload, deliveryKey: item.key, retryPush: true });
+      }
       await NotificationOutbox.updateOne({ _id: item._id, attempts: item.attempts }, { $set: { status: 'delivered', deliveredAt: new Date() }, $unset: { lastError: 1 } });
       delivered += 1;
     } catch (error) {

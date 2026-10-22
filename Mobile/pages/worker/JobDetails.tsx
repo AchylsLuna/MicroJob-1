@@ -537,11 +537,11 @@ export default function JobDetails({
           onPress={handleApply}
           disabled={isLoading || hasApplied || applicationStatus === 'Rejected'}
           accessibilityRole="button"
-          accessibilityLabel={applicationStatus === 'Rejected' ? 'Application Rejected' : hasApplied ? t('jobDetails.actions.appliedAccessibility') : t('jobDetails.actions.applyAccessibility')}
+          accessibilityLabel={jobDetails?.applicationWorkStatus === 'Completed' ? t('jobDetails.actions.jobFinished') : applicationStatus === 'Rejected' ? 'Application Rejected' : hasApplied ? t('jobDetails.actions.appliedAccessibility') : t('jobDetails.actions.applyAccessibility')}
           accessibilityState={{ disabled: isLoading || hasApplied || applicationStatus === 'Rejected' }}
         >
           <Text style={styles.bottomApplyText}>
-            {applicationStatus === 'Rejected' ? 'Application Rejected' : hasApplied ? t('jobDetails.actions.appliedLabel') : isLoading ? t('jobDetails.actions.applyingLabel') : t('jobDetails.actions.applyLabel')}
+            {jobDetails?.applicationWorkStatus === 'Completed' ? t('jobDetails.actions.jobFinished') : applicationStatus === 'Rejected' ? 'Application Rejected' : hasApplied ? t('jobDetails.actions.appliedLabel') : isLoading ? t('jobDetails.actions.applyingLabel') : t('jobDetails.actions.applyLabel')}
           </Text>
         </TouchableOpacity>
       </View>

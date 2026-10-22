@@ -1,4 +1,4 @@
-import { disputeLink } from '../lib/jobNotificationLinks.js';
+import { assignmentLink, disputeLink } from '../lib/jobNotificationLinks.js';
 import FinancialDispute from '../models/FinancialDispute.js';
 import SupportTicket from '../models/SupportTicket.js';
 import User from '../models/User.js';
@@ -55,7 +55,7 @@ async function transition(req, kind) {
       const workerAction = kind === 'submit';
       if (String(workerAction ? application.applicant : job?.jobPoster) !== id(req)) throw httpError(403, 'You cannot update this assignment.');
       if (isDailyJob(job) && kind !== 'submit') throw httpError(409, 'Use daily proof and Confirm and Pay in the job chat.');
-      if (application.cancellationPending || job.cancellationPending || ['Cancelled', 'Completed'].includes(job.status) || await activeDispute(application._id, session) || ['Paid', 'Processing'].includes(application.paymentStatus)) throw httpError(409, 'This assignment is held or already paid.');
+      if (application.cancellationPending || job.cancellationPending || ['Cancelled', 'Completed'].includes(job.status) || await activeDispute(application._id, session) || ['Paid', 'Processing', 'Disputed', 'Refunded'].includes(application.paymentStatus)) throw httpError(409, 'This assignment is held or already paid.');
       job.fundsVersion = Number(job.fundsVersion || 0) + 1; await job.save({ session });
       let title; let message;
       if (kind === 'authorize') {
@@ -63,7 +63,7 @@ async function transition(req, kind) {
         application.paymentStatus = 'Authorized'; application.paymentAuthorizedAt ||= new Date();
         title = 'Payment authorized'; message = `Your employer has authorized payment for ${job.title}. Funds remain secured until the employer approves your submitted work.`;
       } else if (kind === 'submit') {
-        if (!['In Progress', 'Changes Requested'].includes(application.workStatus)) throw httpError(409, 'Start work before submitting it.');
+        if (!['In Progress', 'Changes Requested', 'Submitted'].includes(application.workStatus)) throw httpError(409, 'Start work before submitting it.');
         const statement = String(req.body?.statement || '').trim();
         if (!req.completionImages?.length || statement.length > 4000) throw httpError(400, 'Attach at least one completion image and use up to 4000 characters for the description.');
         const submittedAt = new Date();
@@ -78,9 +78,9 @@ async function transition(req, kind) {
         await User.updateOne({ _id: job.jobPoster }, { $pull: { archivedConversations: buildConversationKey(id(req), String(job._id)) } }, { session });
         await User.updateOne({ _id: id(req) }, { $pull: { archivedConversations: buildConversationKey(String(job.jobPoster), String(job._id)) } }, { session });
         if (!daily && !application.reminderStages.includes(48)) application.nextPaymentReminderAt = new Date(application.firstSubmittedAt.getTime() + (application.reminderStages.includes(24) ? 48 : 24) * HOUR);
-        title = 'Work finished — ready for review'; message = daily
-          ? `The worker has finished work for ${job.title} on ${day.workDate} and submitted proof. Review the proof before confirming payment for this date.`
-          : `The worker has finished work on ${job.title} and submitted proof. Review the proof before approving payment.`;
+        title = `Proof pictures received for ${job.title}`;
+        const pictureCount = req.completionImages.length;
+        message = `The worker submitted proof with ${pictureCount} picture${pictureCount === 1 ? '' : 's'} for ${job.title}${day ? ` on ${day.workDate}` : ''}. Open the assignment to review the pictures before approving payment.`;
       } else {
         if (application.workStatus !== 'Submitted') throw httpError(409, 'Only submitted work can receive change requests.');
         const reason = requireReason(req.body?.reason);
@@ -90,7 +90,17 @@ async function transition(req, kind) {
         title = 'Changes requested'; message = reason;
       }
       await application.save({ session });
-      await queueNotification(`${kind}:${application._id}:${kind === 'submit' ? application.workSubmittedAt.getTime() : kind === 'changes' ? application.changesRequestedAt.getTime() : 'authorized'}`, { userId: String(workerAction ? job.jobPoster : application.applicant), audience: workerAction ? 'employer' : 'worker', type: kind === 'authorize' ? 'payment' : 'application', title, message, entityType: 'application', entityId: String(application._id) }, session);
+      await queueNotification(`${kind}:${application._id}:${kind === 'submit' ? application.workSubmittedAt.getTime() : kind === 'changes' ? application.changesRequestedAt.getTime() : 'authorized'}`, {
+        userId: String(workerAction ? job.jobPoster : application.applicant),
+        audience: workerAction ? 'employer' : 'worker',
+        type: kind === 'authorize' ? 'payment' : 'application',
+        title, message, entityType: 'application', entityId: String(application._id),
+        ...(workerAction ? {
+          actor: id(req),
+          link: assignmentLink('employer', application._id, job._id),
+          metadata: { jobId: String(job._id), jobTitle: job.title, pictureCount: req.completionImages.length, submittedAt: application.workSubmittedAt, ...(req.body?.workDate ? { workDate: req.body.workDate } : {}) },
+        } : {}),
+      }, session);
     });
     return application;
   } finally { await session.endSession(); }
@@ -107,11 +117,11 @@ export const submitWork = handle(async (req, res) => {
     const assignment = await JobApplication.findById(req.params.applicationId);
     if (!assignment) throw httpError(404, 'Hired assignment not found.');
     if (String(assignment.applicant) !== id(req)) throw httpError(403, 'You cannot update this assignment.');
-    if (!['Hired', 'Accepted'].includes(assignment.status) || !['In Progress', 'Changes Requested'].includes(assignment.workStatus)) throw httpError(409, 'Start work before submitting it, or wait for a change request before resubmitting.');
+    if (!['Hired', 'Accepted'].includes(assignment.status) || !['In Progress', 'Changes Requested', 'Submitted'].includes(assignment.workStatus)) throw httpError(409, 'Start work before submitting it.');
     const job = await Job.findById(assignment.job);
     if (isDailyJob(job)) requireDailySubmission(assignment, req.body?.workDate);
     const files = req.files || [];
-    if (!files.length || files.length > 10) throw httpError(400, 'Attach between 1 and 10 completion images.');
+    if (!files.length || files.length > 5) throw httpError(400, 'Attach between 1 and 5 completion images.');
     if (String(req.body?.statement || '').trim().length > 4000) throw httpError(400, 'The description must be 4000 characters or fewer.');
     for (const file of files) {
       if (file.buffer.length > 5 * 1024 * 1024) throw httpError(413, 'Each image must be 5 MB or smaller.');

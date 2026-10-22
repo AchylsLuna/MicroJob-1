@@ -311,6 +311,7 @@
     "messageDraft": "Hi {{employerName}}, I'm interested in the {{jobTitle}} position. I would like to discuss this opportunity further.",
     "adminReadOnly": "Read-only admin view. Use Admin Job Monitoring to delete this job.",
     "applicationSubmitted": "Application Submitted",
+    "jobFinished": "Job Finished",
     "applyNow": "Apply Now",
     "viewJob": "View Job",
     "applicationRejected": "Application Rejected",

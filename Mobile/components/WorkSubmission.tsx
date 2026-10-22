@@ -11,7 +11,7 @@ import ScrollView from './ui/SmoothScrollView';
 import { walletRequest } from '../lib/lifecycleApi';
 import { getManilaDate } from '../lib/jobCompensation';
 
-export default function WorkSubmission({ applicationId, onChanged }: { applicationId: string; onChanged: () => void }) {
+export default function WorkSubmission({ applicationId, onChanged, resubmission = false }: { applicationId: string; onChanged: () => void; resubmission?: boolean }) {
   const { t } = useTranslation('common');
   const [open, setOpen] = useState(false);
   const [statement, setStatement] = useState('');
@@ -27,7 +27,7 @@ export default function WorkSubmission({ applicationId, onChanged }: { applicati
     if (lock.current) return;
     lock.current = true; setBusy(true); setError('');
     try {
-      if (!files.length || files.length > 10 || files.some((file) => !['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.mimeType || ''))) throw new Error(t('lifecycle.completionImagesHint'));
+      if (!files.length || files.length > 5 || files.some((file) => !['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.mimeType || ''))) throw new Error(t('lifecycle.completionImagesHint'));
       if (files.length) {
         if (files.some((file) => (file.size ?? new File(file.uri).size) > 5 * 1024 * 1024)) throw new Error(t('lifecycle.evidenceTooLarge'));
         const token = await AsyncStorage.getItem('auth_token');
@@ -52,10 +52,10 @@ export default function WorkSubmission({ applicationId, onChanged }: { applicati
         setReady(true); setDaily(data.job.paymentMode === 'daily'); setDates(available); setWorkDate(available.includes(getManilaDate()) ? getManilaDate() : available[0] || ''); setOpen(true);
       } catch (caught: any) { setError(caught.message); setOpen(true); }
       finally { setBusy(false); }
-    }}><Text style={styles.buttonText}>{t('lifecycle.submitWork')}</Text></TouchableOpacity>
+    }}><Text style={styles.buttonText}>{t(resubmission ? 'lifecycle.resubmitWork' : 'lifecycle.submitWork')}</Text></TouchableOpacity>
     <Modal visible={open} transparent onRequestClose={() => { if (!busy) setOpen(false); }}>
       <View style={styles.overlay}><View accessibilityViewIsModal style={styles.dialog}><ScrollView>
-        <Text accessibilityRole="header" style={styles.title}>{t('lifecycle.submitWork')}</Text>
+        <Text accessibilityRole="header" style={styles.title}>{t(resubmission ? 'lifecycle.resubmitWork' : 'lifecycle.submitWork')}</Text>
         {daily && <><Text style={styles.text}>{t('lifecycle.selectWorkDate')}</Text><View style={styles.dates}>{dates.map((date) => <TouchableOpacity key={date} accessibilityRole="radio" accessibilityState={{ checked: workDate === date }} disabled={busy} style={[styles.date, workDate === date && styles.proofButton]} onPress={() => setWorkDate(date)}><Text style={workDate === date ? styles.buttonText : styles.text}>{date}</Text></TouchableOpacity>)}</View><Text style={styles.text}>{t(dates.length ? 'lifecycle.dailyProofHint' : 'lifecycle.noWorkDates')}</Text></>}
         <Text style={styles.text}>{t('lifecycle.completionStatement')}</Text>
         <TextInput accessibilityLabel={t('lifecycle.completionStatement')} style={styles.input} multiline maxLength={4000} value={statement} onChangeText={setStatement} />
@@ -64,7 +64,7 @@ export default function WorkSubmission({ applicationId, onChanged }: { applicati
         {files.map((file, index) => <Text key={`${file.uri}-${index}`} style={styles.text}>{file.name}{file.size !== undefined ? ` (${(file.size / 1024 / 1024).toFixed(2)} MB)` : ''}</Text>)}
         {files.length > 0 && <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={() => setFiles([])}><Text style={styles.text}>{t('lifecycle.removeFile')}</Text></TouchableOpacity>}
         {error ? <Text accessibilityRole="alert" style={styles.text}>{error}</Text> : null}
-        <TouchableOpacity accessibilityRole="button" disabled={busy || !ready || !files.length || (daily && !workDate)} style={[styles.button, styles.proofButton, (busy || !ready || !files.length || (daily && !workDate)) && { opacity: 0.5 }]} onPress={() => void submit()}><Text style={styles.buttonText}>{t('lifecycle.submitWork')}</Text></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" disabled={busy || !ready || !files.length || (daily && !workDate)} style={[styles.button, styles.proofButton, (busy || !ready || !files.length || (daily && !workDate)) && { opacity: 0.5 }]} onPress={() => void submit()}><Text style={styles.buttonText}>{t(resubmission ? 'lifecycle.resubmitWork' : 'lifecycle.submitWork')}</Text></TouchableOpacity>
         <TouchableOpacity accessibilityRole="button" disabled={busy} onPress={() => setOpen(false)}><Text style={styles.text}>{t('wallet.back')}</Text></TouchableOpacity>
       </ScrollView></View></View>
     </Modal>

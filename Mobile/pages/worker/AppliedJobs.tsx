@@ -359,8 +359,8 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                 ) : null}
                 <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.assignmentActions}>
                   {['Hired', 'Cancelled', 'Position filled'].includes(job.status) && <AssignmentPanel applicationId={job.id} onChanged={() => void fetchApplications()} />}
-                  {job.status === 'Hired' && job.paymentStatus !== 'Paid' && ['In Progress', 'Changes Requested'].includes(job.workStatus || 'In Progress') ? (
-                    <WorkSubmission applicationId={job.id} onChanged={() => void fetchApplications()} />
+                  {job.status === 'Hired' && !['Paid', 'Processing', 'Disputed', 'Refunded'].includes(job.paymentStatus || '') && ['In Progress', 'Changes Requested', 'Submitted'].includes(job.workStatus || 'In Progress') ? (
+                    <WorkSubmission applicationId={job.id} resubmission={job.workStatus === 'Submitted' || job.workStatus === 'Changes Requested'} onChanged={() => void fetchApplications()} />
                   ) : null}
                   {job.status === 'Hired' && job.workStatus === 'Submitted' && !['Paid', 'Disputed'].includes(job.paymentStatus || '') ? (
                     <TouchableOpacity

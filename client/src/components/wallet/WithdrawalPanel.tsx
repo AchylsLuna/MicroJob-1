@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, ConfirmDialog, Dialog, Input } from '../ui';
+import { Button, ConfirmDialog, Dialog, Input, Select } from '../ui';
 import { confirmWithdrawal, getWithdrawalPolicy, getPayoutRequests, previewWithdrawal, type PayoutRequest, type WithdrawalPreview } from '../../services/api';
 import { formatCurrency } from '../../lib/formatters';
 import { formatWithdrawalAmount } from '../../lib/withdrawalAmount';
+import { useAuth } from '../../contexts/AuthContext';
+
+const institutions = ['BPI Online', 'UnionBank Online', 'BDO Online', 'Landbank Online', 'Metrobank Online', 'MariBank', 'GCash'];
 
 export function WithdrawalPanel({ sourceWallet, balance, onChanged }: { sourceWallet: 'EMPLOYER' | 'WORKER'; balance: number; onChanged: () => void }) {
   const { t } = useTranslation('common');
+  const { user } = useAuth();
+  const accountName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim();
+  const accountNumber = user?.phoneNumber || '';
   const [form, setForm] = useState({ amount: '', institutionName: '', accountName: '', accountNumber: '', bic: '' });
   const [policy, setPolicy] = useState<{ minimum: number; maximum: number | null; reviewThreshold: number } | null>(null);
   const [preview, setPreview] = useState<WithdrawalPreview | null>(null);
@@ -16,6 +22,10 @@ export function WithdrawalPanel({ sourceWallet, balance, onChanged }: { sourceWa
   const submitting = useRef(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<PayoutRequest | null>(null);
+  useEffect(() => {
+    setForm((current) => ({ ...current, accountName, accountNumber }));
+    setPreview(null); setStep(null); setChecked(false);
+  }, [user?.id, accountName, accountNumber]);
   const load = useCallback(async () => {
     const data = await getPayoutRequests(); const next = data.payoutRequests.filter((item) => (item.sourceWallet || 'WORKER') === sourceWallet); setResult((current) => current ? next.find((item) => item._id === current._id) || current : null);
   }, [sourceWallet]);
@@ -36,7 +46,7 @@ export function WithdrawalPanel({ sourceWallet, balance, onChanged }: { sourceWa
     if (submitting.current) return;
     submitting.current = true; setBusy(true); setError('');
     try {
-      const next = await previewWithdrawal({ sourceWallet, amount: Number(form.amount.replace(/,/g, '')), destinationSnapshot: { ...form, methodType: 'bank_transfer' } });
+      const next = await previewWithdrawal({ sourceWallet, amount: Number(form.amount.replace(/,/g, '')), destinationSnapshot: { ...form, methodType: form.institutionName === 'GCash' ? 'gcash' : 'bank_transfer' } });
       setPreview(next); setChecked(false); setStep('confirm');
     } catch (e: any) { setError(e.message); }
     finally { submitting.current = false; setBusy(false); }
@@ -46,7 +56,7 @@ export function WithdrawalPanel({ sourceWallet, balance, onChanged }: { sourceWa
     submitting.current = true; setBusy(true); setError('');
     try {
       const data = await confirmWithdrawal(preview.previewToken); setResult(data.payoutRequest); setStep(null); setPreview(null);
-      setForm({ amount: '', institutionName: '', accountName: '', accountNumber: '', bic: '' }); await load(); onChanged();
+      setForm({ amount: '', institutionName: '', accountName, accountNumber, bic: '' }); await load(); onChanged();
     } catch (e: any) { setError(e.message); }
     finally { submitting.current = false; setBusy(false); }
   };
@@ -72,7 +82,10 @@ export function WithdrawalPanel({ sourceWallet, balance, onChanged }: { sourceWa
           queueMicrotask(() => input.setSelectionRange(position, position));
         }
       }} />
-      <Input label={t('wallet.institution')} value={form.institutionName} onChange={(e) => edit('institutionName', e.target.value)} />
+      <Select label={t('wallet.institution')} value={form.institutionName} disabled={busy} required onChange={(e) => edit('institutionName', e.target.value)}>
+        <option value="" disabled>{t('wallet.chooseInstitution')}</option>
+        {institutions.map((name) => <option key={name} value={name}>{name}</option>)}
+      </Select>
       <Input label={t('wallet.accountName')} value={form.accountName} onChange={(e) => edit('accountName', e.target.value)} />
       <Input label={t('wallet.accountNumber')} value={form.accountNumber} onChange={(e) => edit('accountNumber', e.target.value)} />
     </div>

@@ -192,8 +192,9 @@ export async function getJobDetails(req, res){
             const application = await JobApplication.findOne({
                 job: job._id,
                 applicant: getRequesterId(req),
-            }).select('status').lean();
+            }).select('status workStatus').lean();
             serializedJob.applicationStatus = application?.status || null;
+            serializedJob.applicationWorkStatus = application?.workStatus || null;
         }
         // Fire and forget: a view is analytics, and must never delay or fail the
         // job detail response. recordJobView swallows its own errors.

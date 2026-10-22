@@ -64,7 +64,13 @@ export async function settleApplicationPayment({ applicationId, employerId, expe
       application.paymentStatus = 'Paid'; application.workStatus = 'Completed'; application.paidAmount = payment.alreadyPaidAmount + amount; application.paymentReminderClaimedAt = null; application.paymentReminderClaimedStage = null; application.paidAt = new Date(); application.completedAt = new Date();
       await application.save({ session });
       await finalizeSettledJob(job, employerId, session);
-      await queueNotification(`job-paid:${application._id}`, { userId: String(application.applicant), audience: 'worker', type: 'payment', title: 'Job payment completed', message: `Your employer paid PHP ${amount.toFixed(2)} for ${job.title}. The amount was added to your worker balance.`, entityType: 'application', entityId: String(application._id) }, session);
+      await queueNotification(`job-paid:${application._id}`, {
+        userId: String(application.applicant), audience: 'worker', type: 'payment',
+        title: `Job marked as done: ${job.title}`,
+        message: `Your employer marked ${job.title} as done and paid PHP ${amount.toFixed(2)}. The amount was added to your worker balance.`,
+        entityType: 'application', entityId: String(application._id), actor: employerId,
+        metadata: { jobId: String(job._id), jobTitle: job.title, amount, workStatus: 'Completed', paymentStatus: 'Paid' },
+      }, session);
       await queueNotification(`job-paid-employer:${application._id}`, { userId: String(employerId), audience: 'employer', type: 'payment', title: 'Payment sent', message: `PHP ${amount.toFixed(2)} was released to the worker for ${job.title}.`, entityType: 'application', entityId: String(application._id) }, session);
       await queueJobPaymentReceipts(transaction, employerId, application.applicant, session);
       result = { application, job, transaction, deduplicated: false };

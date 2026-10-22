@@ -41,6 +41,7 @@ type ApiJob = {
   skills?: string[];
   applicantCount?: number;
   applicationStatus?: string | null;
+  applicationWorkStatus?: string | null;
   employerVerified?: boolean;
   jobPoster?: { _id?: string; firstName?: string; lastName?: string; email?: string };
 };
@@ -434,7 +435,7 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
                         className="col-span-2 flex min-h-14 w-full flex-1 items-center justify-center gap-2 rounded-card bg-[#D1FAE5] px-6 py-4 font-semibold text-[#065F46] sm:min-w-[240px]"
                       >
                         <CheckCircle2 className="w-5 h-5" />
-                        {t("jobDetails.applicationSubmitted")}
+                        {t(job?.applicationWorkStatus === 'Completed' ? "jobDetails.jobFinished" : "jobDetails.applicationSubmitted")}
                       </button>
                     ) : (
                       <button
